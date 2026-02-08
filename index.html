@@ -828,31 +828,45 @@ function drawBody(b) {
       break;
     }
     case 'bomb': {
-      ctx.beginPath();
-      ctx.arc(0, 0, 18, 0, Math.PI*2);
-      ctx.fillStyle = '#1a0000';
-      ctx.fill();
+      // Dynamite stick body
+      const stickW = 14, stickH = 36;
+      ctx.fillStyle = '#cc2200';
+      ctx.fillRect(-stickW/2, -stickH/2, stickW, stickH);
       ctx.strokeStyle = '#ff3333';
       ctx.lineWidth = 2;
-      ctx.stroke();
-      // Fuse
+      ctx.strokeRect(-stickW/2, -stickH/2, stickW, stickH);
+      // Darker end caps
+      ctx.fillStyle = '#991100';
+      ctx.fillRect(-stickW/2, -stickH/2, stickW, 5);
+      ctx.fillRect(-stickW/2, stickH/2 - 5, stickW, 5);
+      // TNT label
+      ctx.save();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 11px VT323';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('T', 0, -6);
+      ctx.fillText('N', 0, 3);
+      ctx.fillText('T', 0, 12);
+      ctx.restore();
+      // Fuse coming out the top
       ctx.beginPath();
-      ctx.moveTo(0, -18);
-      ctx.quadraticCurveTo(8, -28, 4, -32);
-      ctx.strokeStyle = '#ff6600';
+      ctx.moveTo(0, -stickH/2);
+      ctx.quadraticCurveTo(8, -stickH/2 - 10, 5, -stickH/2 - 16);
+      ctx.strokeStyle = '#888';
       ctx.lineWidth = 2;
       ctx.stroke();
-      // Spark on fuse
+      // Spark on fuse tip
       const sparkSize = 2 + Math.random()*3;
       ctx.fillStyle = '#ffaa00';
       ctx.beginPath();
-      ctx.arc(4, -32, sparkSize, 0, Math.PI*2);
+      ctx.arc(5, -stickH/2 - 16, sparkSize, 0, Math.PI*2);
       ctx.fill();
-      // Skull
-      ctx.fillStyle = '#ff3333';
-      ctx.font = '16px VT323';
-      ctx.textAlign = 'center';
-      ctx.fillText('☠', 0, 5);
+      // Extra spark glow
+      ctx.fillStyle = `rgba(255,200,0,${0.3 + Math.random()*0.3})`;
+      ctx.beginPath();
+      ctx.arc(5, -stickH/2 - 16, sparkSize + 3, 0, Math.PI*2);
+      ctx.fill();
       break;
     }
     case 'drawn': {
