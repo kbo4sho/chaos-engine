@@ -1,0 +1,62 @@
+{
+  "project": "chaos-engine",
+  "description": "Nightly fun upgrade tracker",
+  "upgrades": [
+    {
+      "date": "2026-02-08",
+      "ideas": [
+        "New object: Bouncy star shape with high restitution",
+        "New chaos button: Black hole — sucks everything toward center",
+        "Visual: Confetti burst when objects collide hard"
+      ],
+      "summary": "Added bouncy star tool (⭐) with 0.95 restitution in random colors, Black Hole chaos button that sucks all objects to center for 5 seconds then flings them outward with a purple accretion disk visual, and confetti burst system that showers colorful tumbling confetti on hard impacts with screen shake."
+    }
+  ],
+  "ideaPool": [
+    "New object: Balloon that floats upward with anti-gravity",
+    "New object: Chain links that connect to nearby objects",
+    "New object: Magnet that attracts/repels nearby metal objects",
+    "New object: Ragdoll stick figure",
+    "New object: Wrecking ball on a chain constraint",
+    "New object: Bowling pin that tips over satisfyingly",
+    "New object: Domino tile for chain reactions",
+    "New chaos button: Vortex — spins all objects around a center point",
+    "New chaos button: Anti-gravity pulse — everything floats up briefly",
+    "New chaos button: Time warp — slow-motion toggle for 5 seconds",
+    "New chaos button: Rain — spawn 20 random small objects from the top",
+    "New chaos button: Shuffle — randomize all object positions",
+    "New chaos button: Mega bounce — temporarily max out all restitution",
+    "Visual: Object trails/afterimages that fade",
+    "Visual: Screen flash and chromatic aberration on big impacts",
+    "Visual: Glow effect on fast-moving objects",
+    "Visual: Matrix-style falling characters in background",
+    "Sound: Material-based impact sounds (metal clang, rubber boing, wood thud)",
+    "Sound: Background ambient hum that reacts to chaos level",
+    "Sound: Victory fanfare when destruction threshold reached",
+    "Gravity: Underwater mode with buoyancy and drag",
+    "Gravity: Black hole mode — gravity pulls to center of screen",
+    "Gravity: Sideways gravity option",
+    "Game mode: Target practice — spawn bullseyes worth points",
+    "Game mode: Stacking challenge — build tallest tower",
+    "Game mode: Bowling — pins at one end, ball at other",
+    "Interactive: Portals — two linked circles that teleport objects",
+    "Interactive: Conveyor belt surface that moves objects along it",
+    "Interactive: Trampoline platform with extra bounce",
+    "Interactive: Pinball bumpers that light up on hit",
+    "Interactive: Fan/blower that pushes objects with airflow",
+    "Interactive: Pendulum wrecking ball you can release",
+    "UX: Object size slider for current tool",
+    "UX: Color picker for spawned objects",
+    "UX: Replay/undo last spawn",
+    "UX: Screenshot button that saves the canvas",
+    "Easter egg: Spawn 100 tiny balls at once (confetti cannon)",
+    "Easter egg: Konami code activates ultra-chaos mode",
+    "Easter egg: Shake device to trigger earthquake (mobile)",
+    "New object: Rubber duck that squeaks on impact",
+    "New object: Ice cube that's super slippery (low friction)",
+    "New chaos button: Freeze — all objects stop instantly then resume",
+    "Visual: Lightning bolt between close fast-moving objects",
+    "Interactive: Seesaw/teeter-totter you can place",
+    "Game mode: Destruction meter — counts total energy released"
+  ]
+}
