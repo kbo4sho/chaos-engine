@@ -184,6 +184,7 @@ canvas#game {
     <button class="tool-btn" data-tool="dino"><span class="icon">🦕</span>Dino</button>
     <button class="tool-btn" data-tool="bomb"><span class="icon">💣</span>Bomb</button>
     <button class="tool-btn" data-tool="star"><span class="icon">⭐</span>Star</button>
+    <button class="tool-btn" data-tool="balloon"><span class="icon">🎈</span>Balloon</button>
     <button class="tool-btn draw-btn" data-tool="draw"><span class="icon">✏️</span>Draw</button>
   </div>
 
@@ -193,6 +194,7 @@ canvas#game {
     <button class="chaos-btn" id="btn-quake"><span class="icon">🌋</span>QUAKE</button>
     <button class="chaos-btn" id="btn-wind"><span class="icon">🌪️</span>WIND</button>
     <button class="chaos-btn" id="btn-blackhole"><span class="icon">🕳️</span>B.HOLE</button>
+    <button class="chaos-btn" id="btn-antigrav"><span class="icon">🫧</span>FLOAT</button>
     <button class="chaos-btn safe" id="btn-clear"><span class="icon">🗑️</span>CLEAR</button>
     <button class="chaos-btn safe" id="btn-pause"><span class="icon">⏸️</span>PAUSE</button>
   </div>
@@ -237,6 +239,9 @@ let blackHoleActive = false;
 let blackHoleTimer = 0;
 let blackHolePos = { x: 0, y: 0 };
 let blackHoleAlpha = 0;
+let antiGravActive = false;
+let antiGravTimer = 0;
+let trails = []; // object afterimage trails
 
 // ── AUDIO ──
 let audioCtx = null;
@@ -372,6 +377,20 @@ function spawnObject(x, y, vx=0, vy=0) {
         render: { type:'bomb', color:'#ff3333' }
       });
       body.isBomb = true;
+      break;
+    }
+    case 'balloon': {
+      const bR = 18 + Math.random()*10;
+      const balloonColors = ['#ff3399','#ff6600','#00ff41','#0abdc6','#ffdd00','#cc00ff','#ff3333'];
+      const bColor = balloonColors[Math.floor(Math.random()*balloonColors.length)];
+      body = Bodies.circle(x, y, bR, {
+        restitution: 0.6,
+        friction: 0.1,
+        frictionAir: 0.04,
+        density: 0.0002, // very light
+        render: { type:'balloon', color: bColor, radius: bR }
+      });
+      body.isBalloon = true;
       break;
     }
     case 'star': {
@@ -569,6 +588,32 @@ document.getElementById('btn-blackhole').addEventListener('click', () => {
   playSound(60, 1.5, 'sine', 0.15);
   playSound(90, 1.5, 'sawtooth', 0.06);
   shakeIntensity = 8;
+});
+
+document.getElementById('btn-antigrav').addEventListener('click', () => {
+  antiGravActive = true;
+  antiGravTimer = 240; // 4 seconds at 60fps
+  // Initial upward kick
+  const allBodies = Composite.allBodies(world);
+  allBodies.forEach(b => {
+    if (b.isStatic) return;
+    Body.applyForce(b, b.position, { x: 0, y: -0.03 });
+  });
+  shakeIntensity = 8;
+  playSound(1200, 0.3, 'sine', 0.1);
+  playSound(1600, 0.4, 'sine', 0.06);
+  // Upward burst particles
+  for (let i = 0; i < 30; i++) {
+    particles.push({
+      x: Math.random() * canvas.width,
+      y: canvas.height,
+      vx: (Math.random()-0.5)*2,
+      vy: -(3 + Math.random()*5),
+      life: 1 + Math.random()*1,
+      color: ['#0abdc6','#00ff41','#cc00ff','#ffffff'][Math.floor(Math.random()*4)],
+      size: 2 + Math.random()*3
+    });
+  }
 });
 
 document.getElementById('btn-clear').addEventListener('click', () => {
@@ -930,6 +975,39 @@ function drawBody(b) {
       ctx.fill();
       break;
     }
+    case 'balloon': {
+      const bRadius = r.radius || 20;
+      // Balloon body (oval)
+      ctx.beginPath();
+      ctx.ellipse(0, 0, bRadius, bRadius * 1.2, 0, 0, Math.PI * 2);
+      ctx.fillStyle = color + '88';
+      ctx.fill();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      // Shine highlight
+      ctx.beginPath();
+      ctx.ellipse(-bRadius*0.3, -bRadius*0.4, bRadius*0.2, bRadius*0.35, -0.3, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(255,255,255,0.25)';
+      ctx.fill();
+      // Knot at bottom
+      ctx.beginPath();
+      ctx.moveTo(-3, bRadius * 1.2);
+      ctx.lineTo(0, bRadius * 1.2 + 6);
+      ctx.lineTo(3, bRadius * 1.2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      // String
+      ctx.beginPath();
+      ctx.moveTo(0, bRadius * 1.2 + 6);
+      const time = performance.now();
+      const sway = Math.sin(time / 300 + b.position.x) * 4;
+      ctx.quadraticCurveTo(sway, bRadius * 1.2 + 20, -sway, bRadius * 1.2 + 35);
+      ctx.strokeStyle = color + 'aa';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      break;
+    }
     case 'star': {
       // Draw star shape
       const outerR = r.outerR || 25;
@@ -1211,9 +1289,11 @@ function loop(timestamp) {
   const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
   lastTime = timestamp;
 
-  // Smooth gravity transition
-  const currentG = engine.gravity.y;
-  engine.gravity.y += (gravityTarget - currentG) * 0.05;
+  // Smooth gravity transition (skip during anti-grav pulse)
+  if (!antiGravActive) {
+    const currentG = engine.gravity.y;
+    engine.gravity.y += (gravityTarget - currentG) * 0.05;
+  }
 
   // Wind
   if (windTimer > 0) {
@@ -1222,6 +1302,44 @@ function loop(timestamp) {
     allBodies.forEach(b => {
       if (!b.isStatic) Body.applyForce(b, b.position, {x: windForce, y: 0});
     });
+  }
+
+  // Balloon buoyancy — float upward
+  const allBalloons = Composite.allBodies(world);
+  allBalloons.forEach(b => {
+    if (b.isBalloon && !b.isStatic) {
+      // Upward force (anti-gravity + extra lift)
+      const lift = -0.0008 - engine.gravity.y * b.mass * 0.0012;
+      Body.applyForce(b, b.position, { x: 0, y: lift });
+      // Gentle sideways drift
+      const drift = Math.sin(timestamp / 800 + b.position.x * 0.01) * 0.00005;
+      Body.applyForce(b, b.position, { x: drift, y: 0 });
+    }
+  });
+
+  // Anti-gravity pulse
+  if (antiGravActive && antiGravTimer > 0) {
+    antiGravTimer--;
+    engine.gravity.y = -0.5; // reversed gravity
+    // Floating sparkle particles
+    if (antiGravTimer % 8 === 0) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: canvas.height * 0.6 + Math.random() * canvas.height * 0.4,
+        vx: (Math.random()-0.5)*1.5,
+        vy: -(1 + Math.random()*3),
+        life: 0.6 + Math.random()*0.6,
+        color: ['#0abdc6','#cc00ff','#00ff41'][Math.floor(Math.random()*3)],
+        size: 1 + Math.random()*2
+      });
+    }
+    if (antiGravTimer <= 0) {
+      antiGravActive = false;
+      // Snap gravity back — the "drop" is the fun part
+      engine.gravity.y = gravityTarget;
+      shakeIntensity = 12;
+      playBoom();
+    }
   }
 
   // Black hole
@@ -1315,6 +1433,33 @@ function loop(timestamp) {
   const dynamicCount = allBodies.filter(b => !b.isStatic).length;
   document.getElementById('obj-count').textContent = dynamicCount;
 
+  // Record trails for fast-moving objects
+  allBodies.forEach(b => {
+    if (b.isStatic) return;
+    const speed = Math.sqrt(b.velocity.x * b.velocity.x + b.velocity.y * b.velocity.y);
+    if (speed > 5) {
+      const r = b.render || {};
+      const trailColor = r.color || '#00ff41';
+      const trailSize = r.radius || r.size || r.outerR || 15;
+      trails.push({
+        x: b.position.x,
+        y: b.position.y,
+        size: trailSize * 0.6,
+        color: trailColor,
+        alpha: Math.min(speed / 20, 0.7),
+        life: 0.3
+      });
+    }
+  });
+  // Decay trails
+  for (let i = trails.length - 1; i >= 0; i--) {
+    trails[i].life -= dt;
+    trails[i].alpha *= 0.92;
+    if (trails[i].life <= 0 || trails[i].alpha < 0.02) {
+      trails.splice(i, 1);
+    }
+  }
+
   // ── RENDER ──
   ctx.save();
   ctx.translate(shakeOffset.x, shakeOffset.y);
@@ -1325,6 +1470,21 @@ function loop(timestamp) {
 
   // Grid
   drawGrid();
+
+  // Trails (afterimages)
+  trails.forEach(t => {
+    ctx.globalAlpha = t.alpha;
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, t.size, 0, Math.PI * 2);
+    ctx.fillStyle = t.color;
+    ctx.fill();
+    // Glow ring
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, t.size * 1.4, 0, Math.PI * 2);
+    ctx.fillStyle = t.color + '22';
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
 
   // Walls
   drawWalls();
@@ -1397,6 +1557,24 @@ function loop(timestamp) {
   }
 
   drawWindIndicator();
+
+  // Anti-gravity indicator
+  if (antiGravActive) {
+    ctx.fillStyle = '#cc00ff';
+    ctx.font = '28px VT323';
+    ctx.textAlign = 'center';
+    ctx.fillText('🫧 ZERO-G ACTIVE 🫧', canvas.width/2, 70);
+    // Timer bar
+    const barW = 200, barH = 6;
+    const barX = canvas.width/2 - barW/2;
+    const barY = 80;
+    const pct = antiGravTimer / 240;
+    ctx.fillStyle = '#cc00ff33';
+    ctx.fillRect(barX, barY, barW, barH);
+    ctx.fillStyle = '#cc00ff';
+    ctx.fillRect(barX, barY, barW * pct, barH);
+    ctx.textAlign = 'left';
+  }
 
   // Draw mode indicator
   if (drawMode) {
