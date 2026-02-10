@@ -19,6 +19,15 @@
         "Visual: Object trails/afterimages that fade"
       ],
       "summary": "Added Balloon tool (🎈) that floats upward with buoyancy physics and gentle drift, with colorful oval rendering and swaying string. Anti-Gravity Pulse (FLOAT) chaos button reverses gravity for 4 seconds with sparkle particles and a satisfying drop when it ends. Speed trails system that renders glowing afterimages behind fast-moving objects for a slick motion-blur feel."
+    },
+    {
+      "date": "2026-02-10",
+      "ideas": [
+        "Interactive: Portals — two linked circles that teleport objects",
+        "New chaos button: Time warp — slow-motion toggle for 5 seconds",
+        "New chaos button: Rain — spawn 20 random small objects from the top"
+      ],
+      "summary": "Added Portal tool (🌀) — tap twice to place a linked portal pair, objects entering one teleport out the other with exit particles and sound. Time Warp (SLO-MO) chaos button slows physics to 20% speed for 5 seconds with purple vortex overlay, vignette, and pulsing label. Rain chaos button (🌧️) drops 20 random objects from the sky in a staggered cascade for instant chaos."
     }
   ],
   "ideaPool": [
@@ -29,8 +38,6 @@
     "New object: Bowling pin that tips over satisfyingly",
     "New object: Domino tile for chain reactions",
     "New chaos button: Vortex — spins all objects around a center point",
-    "New chaos button: Time warp — slow-motion toggle for 5 seconds",
-    "New chaos button: Rain — spawn 20 random small objects from the top",
     "New chaos button: Shuffle — randomize all object positions",
     "New chaos button: Mega bounce — temporarily max out all restitution",
     "Visual: Screen flash and chromatic aberration on big impacts",
@@ -44,7 +51,6 @@
     "Game mode: Target practice — spawn bullseyes worth points",
     "Game mode: Stacking challenge — build tallest tower",
     "Game mode: Bowling — pins at one end, ball at other",
-    "Interactive: Portals — two linked circles that teleport objects",
     "Interactive: Conveyor belt surface that moves objects along it",
     "Interactive: Trampoline platform with extra bounce",
     "Interactive: Pinball bumpers that light up on hit",

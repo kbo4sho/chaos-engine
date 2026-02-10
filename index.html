@@ -185,6 +185,7 @@ canvas#game {
     <button class="tool-btn" data-tool="bomb"><span class="icon">💣</span>Bomb</button>
     <button class="tool-btn" data-tool="star"><span class="icon">⭐</span>Star</button>
     <button class="tool-btn" data-tool="balloon"><span class="icon">🎈</span>Balloon</button>
+    <button class="tool-btn" data-tool="portal" style="color:#cc00ff;"><span class="icon">🌀</span>Portal</button>
     <button class="tool-btn draw-btn" data-tool="draw"><span class="icon">✏️</span>Draw</button>
   </div>
 
@@ -195,6 +196,8 @@ canvas#game {
     <button class="chaos-btn" id="btn-wind"><span class="icon">🌪️</span>WIND</button>
     <button class="chaos-btn" id="btn-blackhole"><span class="icon">🕳️</span>B.HOLE</button>
     <button class="chaos-btn" id="btn-antigrav"><span class="icon">🫧</span>FLOAT</button>
+    <button class="chaos-btn" id="btn-timewarp" style="border-color:#cc00ff;color:#cc00ff;background:#1a0a2a;"><span class="icon">⏳</span>SLO-MO</button>
+    <button class="chaos-btn" id="btn-rain" style="border-color:#00ccff;color:#00ccff;background:#0a0a1a;"><span class="icon">🌧️</span>RAIN</button>
     <button class="chaos-btn safe" id="btn-clear"><span class="icon">🗑️</span>CLEAR</button>
     <button class="chaos-btn safe" id="btn-pause"><span class="icon">⏸️</span>PAUSE</button>
   </div>
@@ -242,6 +245,10 @@ let blackHoleAlpha = 0;
 let antiGravActive = false;
 let antiGravTimer = 0;
 let trails = []; // object afterimage trails
+let timeWarpActive = false;
+let timeWarpTimer = 0;
+let portals = []; // array of {x, y, color, partner} — max 2, linked pair
+let portalCooldowns = new Map(); // body.id -> cooldown frames to prevent re-teleport
 
 // ── AUDIO ──
 let audioCtx = null;
@@ -517,6 +524,37 @@ function explodeBomb(bomb) {
   playBoom();
 }
 
+// ── PORTALS ──
+function placePortal(x, y) {
+  const portalColors = ['#cc00ff', '#00ffcc'];
+  if (portals.length >= 2) {
+    // Replace oldest pair — start fresh
+    portals = [];
+  }
+  const idx = portals.length;
+  const portal = { x, y, color: portalColors[idx], radius: 30, spawnTime: performance.now() };
+  portals.push(portal);
+  // Link partners
+  if (portals.length === 2) {
+    portals[0].partner = 1;
+    portals[1].partner = 0;
+  }
+  playSound(600 + idx * 400, 0.2, 'sine', 0.1);
+  playSound(900 + idx * 300, 0.15, 'square', 0.05);
+  // Spawn burst
+  for (let i = 0; i < 15; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 2 + Math.random() * 4;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed,
+      life: 0.5 + Math.random()*0.5,
+      color: portalColors[idx],
+      size: 2 + Math.random()*3
+    });
+  }
+}
+
 // ── RANDOM EXPLOSION (CHAOS BUTTON) ──
 function randomExplosion() {
   const x = 100 + Math.random() * (canvas.width - 200);
@@ -616,6 +654,47 @@ document.getElementById('btn-antigrav').addEventListener('click', () => {
   }
 });
 
+document.getElementById('btn-timewarp').addEventListener('click', () => {
+  if (timeWarpActive) return; // don't stack
+  timeWarpActive = true;
+  timeWarpTimer = 300; // 5 seconds at 60fps
+  playSound(200, 0.6, 'sine', 0.1);
+  playSound(100, 0.8, 'sine', 0.06);
+  shakeIntensity = 5;
+  // Dramatic entry particles
+  for (let i = 0; i < 20; i++) {
+    particles.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      vx: (Math.random()-0.5)*2,
+      vy: (Math.random()-0.5)*2,
+      life: 1.5 + Math.random(),
+      color: ['#cc00ff','#9900ff','#6600cc','#ff00ff'][Math.floor(Math.random()*4)],
+      size: 1 + Math.random()*3
+    });
+  }
+});
+
+document.getElementById('btn-rain').addEventListener('click', () => {
+  const objectTypes = ['ball','block','star','bomb','balloon'];
+  const savedTool = currentTool;
+  for (let i = 0; i < 20; i++) {
+    setTimeout(() => {
+      const randType = objectTypes[Math.floor(Math.random() * objectTypes.length)];
+      const oldTool = currentTool;
+      currentTool = randType;
+      const x = 30 + Math.random() * (canvas.width - 60);
+      const y = -10 - Math.random() * 80;
+      spawnObject(x, y, (Math.random()-0.5)*3, 1 + Math.random()*3);
+      currentTool = oldTool;
+    }, i * 80); // staggered for visual drama
+  }
+  currentTool = savedTool;
+  playSound(1200, 0.2, 'sine', 0.08);
+  playSound(800, 0.3, 'square', 0.04);
+  shakeIntensity = 6;
+});
+
 document.getElementById('btn-clear').addEventListener('click', () => {
   const allBodies = Composite.allBodies(world);
   allBodies.forEach(b => {
@@ -631,6 +710,8 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   rocketBodies = [];
   particles = [];
   explosions = [];
+  portals = [];
+  portalCooldowns.clear();
   playSound(400, 0.2, 'sine', 0.1);
 });
 
@@ -672,6 +753,13 @@ function onDown(e) {
 
   if (drawMode) {
     drawPoints = [pos];
+    return;
+  }
+
+  // Portal placement
+  if (currentTool === 'portal') {
+    placePortal(pos.x, pos.y);
+    pointerDown = false;
     return;
   }
 
@@ -1412,6 +1500,62 @@ function loop(timestamp) {
     return true;
   });
 
+  // Time warp (slow-motion)
+  if (timeWarpActive && timeWarpTimer > 0) {
+    timeWarpTimer--;
+    if (timeWarpTimer <= 0) {
+      timeWarpActive = false;
+      // Speed resume burst
+      shakeIntensity = 10;
+      playSound(800, 0.15, 'sine', 0.1);
+      playSound(1200, 0.2, 'square', 0.06);
+    }
+  }
+
+  // Portal teleportation
+  if (portals.length === 2) {
+    // Decay cooldowns
+    portalCooldowns.forEach((val, key) => {
+      if (val <= 0) portalCooldowns.delete(key);
+      else portalCooldowns.set(key, val - 1);
+    });
+
+    const allPortalBodies = Composite.allBodies(world);
+    allPortalBodies.forEach(b => {
+      if (b.isStatic) return;
+      if (portalCooldowns.has(b.id)) return;
+      for (let pi = 0; pi < 2; pi++) {
+        const portal = portals[pi];
+        const other = portals[portal.partner];
+        const dx = b.position.x - portal.x;
+        const dy = b.position.y - portal.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < portal.radius) {
+          // Teleport!
+          Body.setPosition(b, { x: other.x, y: other.y });
+          // Preserve velocity direction but add a small outward push
+          const speed = Math.sqrt(b.velocity.x*b.velocity.x + b.velocity.y*b.velocity.y);
+          Body.setVelocity(b, { x: b.velocity.x * 1.1, y: b.velocity.y * 1.1 });
+          portalCooldowns.set(b.id, 30); // cooldown to prevent ping-pong
+          // Teleport particles at exit
+          for (let i = 0; i < 10; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const spd = 1 + Math.random() * 3;
+            particles.push({
+              x: other.x, y: other.y,
+              vx: Math.cos(angle)*spd, vy: Math.sin(angle)*spd,
+              life: 0.3 + Math.random()*0.3,
+              color: other.color,
+              size: 2 + Math.random()*2
+            });
+          }
+          playSound(1000 + Math.random()*500, 0.1, 'sine', 0.06);
+          break; // only teleport through one portal per frame
+        }
+      }
+    });
+  }
+
   // Shake
   if (shakeIntensity > 0) {
     shakeOffset.x = (Math.random()-0.5) * shakeIntensity;
@@ -1425,7 +1569,8 @@ function loop(timestamp) {
 
   // Physics step
   if (!paused) {
-    Engine.update(engine, 1000/60);
+    const timeScale = timeWarpActive ? 0.2 : 1;
+    Engine.update(engine, (1000/60) * timeScale);
   }
 
   // Update object count
@@ -1556,6 +1701,72 @@ function loop(timestamp) {
     }
   }
 
+  // Portal rendering
+  portals.forEach((portal, idx) => {
+    const time = timestamp;
+    const r = portal.radius;
+
+    // Outer swirl rings
+    for (let ring = 0; ring < 3; ring++) {
+      const ringR = r + ring * 8 + Math.sin(time/200 + ring * 2) * 3;
+      ctx.beginPath();
+      ctx.arc(portal.x, portal.y, ringR, 0, Math.PI * 2);
+      ctx.strokeStyle = portal.color + (ring === 0 ? 'aa' : '44');
+      ctx.lineWidth = 3 - ring;
+      ctx.stroke();
+    }
+
+    // Swirling inner vortex
+    const segments = 8;
+    for (let i = 0; i < segments; i++) {
+      const angle = (time / 400) + (Math.PI * 2 * i / segments);
+      const innerDist = r * 0.3;
+      const outerDist = r * 0.9;
+      ctx.beginPath();
+      ctx.moveTo(
+        portal.x + Math.cos(angle) * innerDist,
+        portal.y + Math.sin(angle) * innerDist
+      );
+      ctx.lineTo(
+        portal.x + Math.cos(angle + 0.4) * outerDist,
+        portal.y + Math.sin(angle + 0.4) * outerDist
+      );
+      ctx.strokeStyle = portal.color + '66';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    // Center glow
+    const grd = ctx.createRadialGradient(portal.x, portal.y, 0, portal.x, portal.y, r);
+    grd.addColorStop(0, portal.color + '88');
+    grd.addColorStop(0.5, portal.color + '33');
+    grd.addColorStop(1, portal.color + '00');
+    ctx.beginPath();
+    ctx.arc(portal.x, portal.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = grd;
+    ctx.fill();
+
+    // Label
+    const label = portals.length === 2 ? (idx === 0 ? 'A' : 'B') : '?';
+    ctx.fillStyle = portal.color;
+    ctx.font = '18px VT323';
+    ctx.textAlign = 'center';
+    ctx.fillText('🌀 ' + label, portal.x, portal.y - r - 8);
+    ctx.textAlign = 'left';
+
+    // Connection line between linked portals
+    if (portals.length === 2 && idx === 0) {
+      ctx.beginPath();
+      ctx.setLineDash([4, 8]);
+      ctx.moveTo(portals[0].x, portals[0].y);
+      ctx.lineTo(portals[1].x, portals[1].y);
+      ctx.strokeStyle = '#cc00ff33';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  });
+
   drawWindIndicator();
 
   // Anti-gravity indicator
@@ -1574,6 +1785,52 @@ function loop(timestamp) {
     ctx.fillStyle = '#cc00ff';
     ctx.fillRect(barX, barY, barW * pct, barH);
     ctx.textAlign = 'left';
+  }
+
+  // Time warp indicator
+  if (timeWarpActive) {
+    // Purple tint overlay
+    ctx.fillStyle = 'rgba(100,0,180,0.08)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Vignette edges
+    const vigGrd = ctx.createRadialGradient(
+      canvas.width/2, canvas.height/2, canvas.height * 0.3,
+      canvas.width/2, canvas.height/2, canvas.height * 0.8
+    );
+    vigGrd.addColorStop(0, 'rgba(100,0,180,0)');
+    vigGrd.addColorStop(1, 'rgba(100,0,180,0.15)');
+    ctx.fillStyle = vigGrd;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Label
+    ctx.fillStyle = '#cc00ff';
+    ctx.font = '32px VT323';
+    ctx.textAlign = 'center';
+    const pulse = 0.7 + Math.sin(timestamp / 300) * 0.3;
+    ctx.globalAlpha = pulse;
+    ctx.fillText('⏳ S L O W   M O T I O N ⏳', canvas.width/2, 50);
+    ctx.globalAlpha = 1;
+    // Timer bar
+    const barW = 200, barH = 6;
+    const barX = canvas.width/2 - barW/2;
+    const barY = 62;
+    const pct = timeWarpTimer / 300;
+    ctx.fillStyle = '#cc00ff33';
+    ctx.fillRect(barX, barY, barW, barH);
+    ctx.fillStyle = '#cc00ff';
+    ctx.fillRect(barX, barY, barW * pct, barH);
+    ctx.textAlign = 'left';
+    // Floating clock particles
+    if (timeWarpTimer % 12 === 0) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        vx: (Math.random()-0.5)*0.5,
+        vy: (Math.random()-0.5)*0.5,
+        life: 1.5,
+        color: '#cc00ff',
+        size: 1 + Math.random()*2
+      });
+    }
   }
 
   // Draw mode indicator
