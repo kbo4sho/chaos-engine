@@ -186,6 +186,8 @@ canvas#game {
     <button class="tool-btn" data-tool="star"><span class="icon">⭐</span>Star</button>
     <button class="tool-btn" data-tool="balloon"><span class="icon">🎈</span>Balloon</button>
     <button class="tool-btn" data-tool="portal" style="color:#cc00ff;"><span class="icon">🌀</span>Portal</button>
+    <button class="tool-btn" data-tool="bumper" style="color:#ff3399;"><span class="icon">🔴</span>Bumper</button>
+    <button class="tool-btn" data-tool="beachball" style="color:#00ccff;"><span class="icon">🏖️</span>Beach</button>
     <button class="tool-btn draw-btn" data-tool="draw"><span class="icon">✏️</span>Draw</button>
   </div>
 
@@ -198,6 +200,7 @@ canvas#game {
     <button class="chaos-btn" id="btn-antigrav"><span class="icon">🫧</span>FLOAT</button>
     <button class="chaos-btn" id="btn-timewarp" style="border-color:#cc00ff;color:#cc00ff;background:#1a0a2a;"><span class="icon">⏳</span>SLO-MO</button>
     <button class="chaos-btn" id="btn-rain" style="border-color:#00ccff;color:#00ccff;background:#0a0a1a;"><span class="icon">🌧️</span>RAIN</button>
+    <button class="chaos-btn" id="btn-gravflip" style="border-color:#ffdd00;color:#ffdd00;background:#1a1a0a;"><span class="icon">🔄</span>G-FLIP</button>
     <button class="chaos-btn safe" id="btn-clear"><span class="icon">🗑️</span>CLEAR</button>
     <button class="chaos-btn safe" id="btn-pause"><span class="icon">⏸️</span>PAUSE</button>
   </div>
@@ -249,6 +252,8 @@ let timeWarpActive = false;
 let timeWarpTimer = 0;
 let portals = []; // array of {x, y, color, partner} — max 2, linked pair
 let portalCooldowns = new Map(); // body.id -> cooldown frames to prevent re-teleport
+let bumpers = []; // placed pinball bumpers {body, hitFlash}
+let gravityAngle = 0; // 0=down, 1=right, 2=up, 3=left
 
 // ── AUDIO ──
 let audioCtx = null;
@@ -418,6 +423,34 @@ function spawnObject(x, y, vx=0, vy=0) {
         frictionAir: 0.001,
         render: { type:'star', color: starColor, outerR }
       });
+      break;
+    }
+    case 'beachball': {
+      const r = 35 + Math.random()*15;
+      const stripeColors = ['#ff3333','#ffdd00','#00ccff','#ff6600','#00ff41','#cc00ff'];
+      const c1 = stripeColors[Math.floor(Math.random()*stripeColors.length)];
+      let c2 = stripeColors[Math.floor(Math.random()*stripeColors.length)];
+      while (c2 === c1) c2 = stripeColors[Math.floor(Math.random()*stripeColors.length)];
+      body = Bodies.circle(x, y, r, {
+        restitution: 0.92,
+        friction: 0.05,
+        frictionAir: 0.008,
+        density: 0.0003,
+        render: { type:'beachball', color: c1, color2: c2, radius: r }
+      });
+      break;
+    }
+    case 'bumper': {
+      const r = 22;
+      body = Bodies.circle(x, y, r, {
+        isStatic: true,
+        restitution: 1.5,
+        label: 'bumper',
+        render: { type:'bumper', color:'#ff3399', radius: r }
+      });
+      body.isBumper = true;
+      body.hitFlash = 0;
+      bumpers.push(body);
       break;
     }
   }
@@ -695,6 +728,32 @@ document.getElementById('btn-rain').addEventListener('click', () => {
   shakeIntensity = 6;
 });
 
+document.getElementById('btn-gravflip').addEventListener('click', () => {
+  gravityAngle = (gravityAngle + 1) % 4;
+  const dirs = [
+    { x: 0, y: 1, name: '⬇️ DOWN' },
+    { x: 1, y: 0, name: '➡️ RIGHT' },
+    { x: 0, y: -1, name: '⬆️ UP' },
+    { x: -1, y: 0, name: '⬅️ LEFT' }
+  ];
+  const d = dirs[gravityAngle];
+  gravityTarget = 1; // magnitude stays at 1 (Earth-equivalent)
+  engine.gravity.x = d.x * gravityTarget;
+  engine.gravity.y = d.y * gravityTarget;
+  // Give everything a nudge in the new direction
+  const allBodies = Composite.allBodies(world);
+  allBodies.forEach(b => {
+    if (b.isStatic) return;
+    Body.applyForce(b, b.position, { x: d.x * 0.01, y: d.y * 0.01 });
+  });
+  shakeIntensity = 15;
+  playSound(400, 0.2, 'sine', 0.1);
+  playSound(200, 0.3, 'square', 0.06);
+  // Flash direction label
+  window._gravFlipLabel = d.name;
+  window._gravFlipTimer = 120;
+});
+
 document.getElementById('btn-clear').addEventListener('click', () => {
   const allBodies = Composite.allBodies(world);
   allBodies.forEach(b => {
@@ -708,10 +767,14 @@ document.getElementById('btn-clear').addEventListener('click', () => {
     if (b.isStatic && b.label === 'drawn') Composite.remove(world, b);
   });
   rocketBodies = [];
+  bumpers = [];
   particles = [];
   explosions = [];
   portals = [];
   portalCooldowns.clear();
+  gravityAngle = 0;
+  engine.gravity.x = 0;
+  engine.gravity.y = gravityTarget;
   playSound(400, 0.2, 'sine', 0.1);
 });
 
@@ -871,6 +934,33 @@ canvas.addEventListener('touchend', onUp, {passive:false});
 // ── COLLISION EVENTS ──
 Events.on(engine, 'collisionStart', (e) => {
   e.pairs.forEach(pair => {
+    // Bumper hit detection
+    const bumperBody = pair.bodyA.isBumper ? pair.bodyA : (pair.bodyB.isBumper ? pair.bodyB : null);
+    const otherBody = bumperBody === pair.bodyA ? pair.bodyB : pair.bodyA;
+    if (bumperBody && otherBody && !otherBody.isStatic) {
+      bumperBody.hitFlash = 1;
+      const dx = otherBody.position.x - bumperBody.position.x;
+      const dy = otherBody.position.y - bumperBody.position.y;
+      const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+      Body.setVelocity(otherBody, {
+        x: (dx/dist) * 18,
+        y: (dy/dist) * 18
+      });
+      playSound(800 + Math.random()*400, 0.12, 'sine', 0.12);
+      for (let i = 0; i < 12; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 2 + Math.random() * 5;
+        particles.push({
+          x: bumperBody.position.x, y: bumperBody.position.y,
+          vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed,
+          life: 0.3 + Math.random()*0.3,
+          color: ['#ff3399','#ffdd00','#ffffff'][Math.floor(Math.random()*3)],
+          size: 2 + Math.random()*3
+        });
+      }
+      shakeIntensity = Math.max(shakeIntensity, 5);
+    }
+
     const velA = pair.bodyA.velocity || {x:0,y:0};
     const velB = pair.bodyB.velocity || {x:0,y:0};
     const relVel = Math.sqrt(
@@ -1120,6 +1210,76 @@ function drawBody(b) {
       ctx.beginPath();
       ctx.arc(0, 0, innerR * 0.6, 0, Math.PI * 2);
       ctx.fillStyle = color + '44';
+      ctx.fill();
+      break;
+    }
+    case 'beachball': {
+      const bbR = r.radius || 40;
+      // Main circle fill
+      ctx.beginPath();
+      ctx.arc(0, 0, bbR, 0, Math.PI*2);
+      ctx.fillStyle = color + '44';
+      ctx.fill();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      // Alternating stripes (6 panels)
+      const panelCount = 6;
+      const c2 = r.color2 || '#ffdd00';
+      for (let i = 0; i < panelCount; i++) {
+        const startAngle = (Math.PI * 2 * i) / panelCount;
+        const endAngle = (Math.PI * 2 * (i + 0.5)) / panelCount;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(0, 0, bbR - 1, startAngle, endAngle);
+        ctx.closePath();
+        ctx.fillStyle = (i % 2 === 0 ? color : c2) + '66';
+        ctx.fill();
+      }
+      // Shine
+      ctx.beginPath();
+      ctx.ellipse(-bbR*0.3, -bbR*0.3, bbR*0.15, bbR*0.25, -0.5, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.fill();
+      // Outline again on top
+      ctx.beginPath();
+      ctx.arc(0, 0, bbR, 0, Math.PI*2);
+      ctx.strokeStyle = '#ffffff44';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      break;
+    }
+    case 'bumper': {
+      const bR = r.radius || 22;
+      const flash = b.hitFlash || 0;
+      const baseColor = flash > 0 ? '#ffffff' : color;
+      const glowAlpha = flash > 0 ? 0.8 : 0.3;
+      // Outer glow
+      const grd = ctx.createRadialGradient(0, 0, bR*0.5, 0, 0, bR*1.8);
+      grd.addColorStop(0, baseColor + Math.round(glowAlpha*255).toString(16).padStart(2,'0'));
+      grd.addColorStop(1, baseColor + '00');
+      ctx.beginPath();
+      ctx.arc(0, 0, bR*1.8, 0, Math.PI*2);
+      ctx.fillStyle = grd;
+      ctx.fill();
+      // Main circle
+      ctx.beginPath();
+      ctx.arc(0, 0, bR, 0, Math.PI*2);
+      ctx.fillStyle = (flash > 0 ? '#ffffff' : color) + '88';
+      ctx.fill();
+      ctx.strokeStyle = flash > 0 ? '#ffffff' : color;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      // Inner ring
+      ctx.beginPath();
+      ctx.arc(0, 0, bR*0.55, 0, Math.PI*2);
+      ctx.strokeStyle = (flash > 0 ? '#ffffff' : '#ffdd00');
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      // Center dot
+      ctx.beginPath();
+      ctx.arc(0, 0, 4, 0, Math.PI*2);
+      ctx.fillStyle = flash > 0 ? '#ffffff' : '#ffdd00';
       ctx.fill();
       break;
     }
@@ -1377,8 +1537,8 @@ function loop(timestamp) {
   const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
   lastTime = timestamp;
 
-  // Smooth gravity transition (skip during anti-grav pulse)
-  if (!antiGravActive) {
+  // Smooth gravity transition (skip during anti-grav pulse and gravity flip)
+  if (!antiGravActive && gravityAngle === 0) {
     const currentG = engine.gravity.y;
     engine.gravity.y += (gravityTarget - currentG) * 0.05;
   }
@@ -1555,6 +1715,16 @@ function loop(timestamp) {
       }
     });
   }
+
+  // Bumper flash decay
+  bumpers = bumpers.filter(bmp => Composite.get(world, bmp.id, 'body'));
+  bumpers.forEach(bmp => {
+    if (bmp.hitFlash > 0) bmp.hitFlash -= dt * 5;
+    if (bmp.hitFlash < 0) bmp.hitFlash = 0;
+  });
+
+  // Gravity flip label timer
+  if (window._gravFlipTimer > 0) window._gravFlipTimer--;
 
   // Shake
   if (shakeIntensity > 0) {
@@ -1768,6 +1938,18 @@ function loop(timestamp) {
   });
 
   drawWindIndicator();
+
+  // Gravity flip direction label
+  if (window._gravFlipTimer > 0) {
+    const alpha = Math.min(1, window._gravFlipTimer / 30);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#ffdd00';
+    ctx.font = '28px VT323';
+    ctx.textAlign = 'center';
+    ctx.fillText('GRAVITY: ' + (window._gravFlipLabel || ''), canvas.width/2, canvas.height/2 - 20);
+    ctx.textAlign = 'left';
+    ctx.globalAlpha = 1;
+  }
 
   // Anti-gravity indicator
   if (antiGravActive) {

@@ -28,6 +28,15 @@
         "New chaos button: Rain — spawn 20 random small objects from the top"
       ],
       "summary": "Added Portal tool (🌀) — tap twice to place a linked portal pair, objects entering one teleport out the other with exit particles and sound. Time Warp (SLO-MO) chaos button slows physics to 20% speed for 5 seconds with purple vortex overlay, vignette, and pulsing label. Rain chaos button (🌧️) drops 20 random objects from the sky in a staggered cascade for instant chaos."
+    },
+    {
+      "date": "2026-02-10",
+      "ideas": [
+        "Interactive: Pinball bumpers that light up on hit",
+        "New object: Beach ball — huge, light, super bouncy",
+        "New chaos button: Gravity flip — gravity rotates 90° each press"
+      ],
+      "summary": "Added Pinball Bumpers (🔴) — place static bumpers that flash white and blast objects away on contact with particle bursts and satisfying pings. Beach Ball (🏖️) tool spawns huge, lightweight, super-bouncy balls with colorful striped panels and a glossy shine. Gravity Flip (G-FLIP) chaos button rotates gravity 90° each press (down→right→up→left) with a directional label flash and screen shake."
     }
   ],
   "ideaPool": [
@@ -53,7 +62,6 @@
     "Game mode: Bowling — pins at one end, ball at other",
     "Interactive: Conveyor belt surface that moves objects along it",
     "Interactive: Trampoline platform with extra bounce",
-    "Interactive: Pinball bumpers that light up on hit",
     "Interactive: Fan/blower that pushes objects with airflow",
     "Interactive: Pendulum wrecking ball you can release",
     "UX: Object size slider for current tool",
@@ -69,8 +77,6 @@
     "Visual: Lightning bolt between close fast-moving objects",
     "Interactive: Seesaw/teeter-totter you can place",
     "Game mode: Destruction meter — counts total energy released",
-    "New object: Beach ball — huge, light, super bouncy",
-    "New chaos button: Gravity flip — gravity rotates 90° each press",
     "Interactive: Springboard launcher — place it and objects bounce off",
     "Visual: Object glow pulse on spawn (birth flash)",
     "Sound: Whoosh sound on slingshot launch scaled to power",
