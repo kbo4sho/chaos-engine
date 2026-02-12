@@ -188,6 +188,7 @@ canvas#game {
     <button class="tool-btn" data-tool="portal" style="color:#cc00ff;"><span class="icon">🌀</span>Portal</button>
     <button class="tool-btn" data-tool="bumper" style="color:#ff3399;"><span class="icon">🔴</span>Bumper</button>
     <button class="tool-btn" data-tool="beachball" style="color:#00ccff;"><span class="icon">🏖️</span>Beach</button>
+    <button class="tool-btn" data-tool="duck" style="color:#ffdd00;"><span class="icon">🦆</span>Duck</button>
     <button class="tool-btn draw-btn" data-tool="draw"><span class="icon">✏️</span>Draw</button>
   </div>
 
@@ -201,6 +202,7 @@ canvas#game {
     <button class="chaos-btn" id="btn-timewarp" style="border-color:#cc00ff;color:#cc00ff;background:#1a0a2a;"><span class="icon">⏳</span>SLO-MO</button>
     <button class="chaos-btn" id="btn-rain" style="border-color:#00ccff;color:#00ccff;background:#0a0a1a;"><span class="icon">🌧️</span>RAIN</button>
     <button class="chaos-btn" id="btn-gravflip" style="border-color:#ffdd00;color:#ffdd00;background:#1a1a0a;"><span class="icon">🔄</span>G-FLIP</button>
+    <button class="chaos-btn" id="btn-megabounce" style="border-color:#00ff41;color:#00ff41;background:#0a1a0a;"><span class="icon">🏀</span>BOUNCE</button>
     <button class="chaos-btn safe" id="btn-clear"><span class="icon">🗑️</span>CLEAR</button>
     <button class="chaos-btn safe" id="btn-pause"><span class="icon">⏸️</span>PAUSE</button>
   </div>
@@ -254,6 +256,13 @@ let portals = []; // array of {x, y, color, partner} — max 2, linked pair
 let portalCooldowns = new Map(); // body.id -> cooldown frames to prevent re-teleport
 let bumpers = []; // placed pinball bumpers {body, hitFlash}
 let gravityAngle = 0; // 0=down, 1=right, 2=up, 3=left
+let megaBounceActive = false;
+let megaBounceTimer = 0;
+let megaBounceOriginal = new Map(); // body.id -> original restitution
+let konamiBuffer = [];
+const konamiCode = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+let ultraChaosActive = false;
+let ultraChaosTimer = 0;
 
 // ── AUDIO ──
 let audioCtx = null;
@@ -292,6 +301,10 @@ function playBoom() {
   } catch(e) {}
 }
 function playBounce() { playSound(200 + Math.random()*300, 0.08, 'sine', 0.08); }
+function playSqueak() {
+  playSound(900 + Math.random()*400, 0.15, 'sine', 0.15);
+  setTimeout(() => playSound(1100 + Math.random()*300, 0.1, 'sine', 0.1), 50);
+}
 function playSpawn() { playSound(800, 0.1, 'square', 0.06); }
 
 // ── WALLS ──
@@ -438,6 +451,17 @@ function spawnObject(x, y, vx=0, vy=0) {
         density: 0.0003,
         render: { type:'beachball', color: c1, color2: c2, radius: r }
       });
+      break;
+    }
+    case 'duck': {
+      const duckR = 18;
+      body = Bodies.circle(x, y, duckR, {
+        restitution: 0.6,
+        friction: 0.4,
+        density: 0.002,
+        render: { type:'duck', color:'#ffdd00', radius: duckR }
+      });
+      body.isDuck = true;
       break;
     }
     case 'bumper': {
@@ -754,6 +778,35 @@ document.getElementById('btn-gravflip').addEventListener('click', () => {
   window._gravFlipTimer = 120;
 });
 
+document.getElementById('btn-megabounce').addEventListener('click', () => {
+  if (megaBounceActive) return;
+  megaBounceActive = true;
+  megaBounceTimer = 300; // 5 seconds
+  megaBounceOriginal.clear();
+  const allBodies = Composite.allBodies(world);
+  allBodies.forEach(b => {
+    if (b.isStatic) return;
+    megaBounceOriginal.set(b.id, b.restitution);
+    b.restitution = 1.2; // super bouncy
+  });
+  // Also max out wall restitution
+  walls.forEach(w => { w.restitution = 1.2; });
+  shakeIntensity = 10;
+  playSound(500, 0.2, 'sine', 0.12);
+  playSound(700, 0.15, 'square', 0.06);
+  // Green burst particles
+  for (let i = 0; i < 25; i++) {
+    particles.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      vx: (Math.random()-0.5)*4, vy: -(2 + Math.random()*4),
+      life: 0.8 + Math.random()*0.5,
+      color: ['#00ff41','#33ff77','#00ccaa'][Math.floor(Math.random()*3)],
+      size: 2 + Math.random()*3
+    });
+  }
+});
+
 document.getElementById('btn-clear').addEventListener('click', () => {
   const allBodies = Composite.allBodies(world);
   allBodies.forEach(b => {
@@ -959,6 +1012,25 @@ Events.on(engine, 'collisionStart', (e) => {
         });
       }
       shakeIntensity = Math.max(shakeIntensity, 5);
+    }
+
+    // Duck squeak on any collision
+    if ((pair.bodyA.isDuck || pair.bodyB.isDuck)) {
+      const duckBody = pair.bodyA.isDuck ? pair.bodyA : pair.bodyB;
+      const dv = duckBody.velocity;
+      const dSpeed = Math.sqrt(dv.x*dv.x + dv.y*dv.y);
+      if (dSpeed > 1.5) {
+        playSqueak();
+        // Yellow particles
+        for (let i = 0; i < 6; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          particles.push({
+            x: duckBody.position.x, y: duckBody.position.y,
+            vx: Math.cos(angle)*2, vy: Math.sin(angle)*2 - 1,
+            life: 0.4, color: '#ffdd00', size: 2 + Math.random()*2
+          });
+        }
+      }
     }
 
     const velA = pair.bodyA.velocity || {x:0,y:0};
@@ -1245,6 +1317,52 @@ function drawBody(b) {
       ctx.beginPath();
       ctx.arc(0, 0, bbR, 0, Math.PI*2);
       ctx.strokeStyle = '#ffffff44';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      break;
+    }
+    case 'duck': {
+      const dR = r.radius || 18;
+      // Body (round yellow)
+      ctx.beginPath();
+      ctx.arc(0, 0, dR, 0, Math.PI*2);
+      ctx.fillStyle = '#ffdd00cc';
+      ctx.fill();
+      ctx.strokeStyle = '#ffaa00';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      // Head bump
+      ctx.beginPath();
+      ctx.arc(dR*0.4, -dR*0.7, dR*0.55, 0, Math.PI*2);
+      ctx.fillStyle = '#ffdd00cc';
+      ctx.fill();
+      ctx.strokeStyle = '#ffaa00';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      // Eye
+      ctx.beginPath();
+      ctx.arc(dR*0.55, -dR*0.85, 3, 0, Math.PI*2);
+      ctx.fillStyle = '#000';
+      ctx.fill();
+      // Eye shine
+      ctx.beginPath();
+      ctx.arc(dR*0.6, -dR*0.9, 1.2, 0, Math.PI*2);
+      ctx.fillStyle = '#fff';
+      ctx.fill();
+      // Beak
+      ctx.beginPath();
+      ctx.moveTo(dR*0.85, -dR*0.65);
+      ctx.lineTo(dR*1.2, -dR*0.7);
+      ctx.lineTo(dR*0.85, -dR*0.5);
+      ctx.closePath();
+      ctx.fillStyle = '#ff6600';
+      ctx.fill();
+      // Wing
+      ctx.beginPath();
+      ctx.ellipse(-dR*0.15, dR*0.1, dR*0.5, dR*0.3, -0.3, 0, Math.PI*2);
+      ctx.fillStyle = '#eebb0088';
+      ctx.fill();
+      ctx.strokeStyle = '#ffaa0066';
       ctx.lineWidth = 1;
       ctx.stroke();
       break;
@@ -1723,6 +1841,76 @@ function loop(timestamp) {
     if (bmp.hitFlash < 0) bmp.hitFlash = 0;
   });
 
+  // Mega bounce timer
+  if (megaBounceActive && megaBounceTimer > 0) {
+    megaBounceTimer--;
+    // Apply to newly spawned objects too
+    const allMB = Composite.allBodies(world);
+    allMB.forEach(b => {
+      if (!b.isStatic && !megaBounceOriginal.has(b.id)) {
+        megaBounceOriginal.set(b.id, b.restitution);
+        b.restitution = 1.2;
+      }
+    });
+    if (megaBounceTimer <= 0) {
+      megaBounceActive = false;
+      // Restore original restitution
+      const allRestore = Composite.allBodies(world);
+      allRestore.forEach(b => {
+        if (megaBounceOriginal.has(b.id)) {
+          b.restitution = megaBounceOriginal.get(b.id);
+        }
+      });
+      walls.forEach(w => { w.restitution = 0.3; });
+      megaBounceOriginal.clear();
+      playSound(300, 0.2, 'sine', 0.08);
+    }
+  }
+
+  // Ultra chaos mode (Konami code)
+  if (ultraChaosActive && ultraChaosTimer > 0) {
+    ultraChaosTimer--;
+    // Every 20 frames, trigger a random chaos event
+    if (ultraChaosTimer % 20 === 0) {
+      const actions = [
+        () => { // mini explosion
+          const ex = 50 + Math.random() * (canvas.width-100);
+          const ey = 50 + Math.random() * (canvas.height-100);
+          explosions.push({ x:ex, y:ey, r:0, maxR:100, alpha:0.8 });
+          const ab = Composite.allBodies(world);
+          ab.forEach(b => {
+            if (b.isStatic) return;
+            const ddx = b.position.x - ex, ddy = b.position.y - ey;
+            const dd = Math.sqrt(ddx*ddx + ddy*ddy);
+            if (dd < 100 && dd > 0) Body.applyForce(b, b.position, {x:(ddx/dd)*0.04, y:(ddy/dd)*0.04});
+          });
+        },
+        () => { // spawn random object
+          const types = ['ball','star','duck','bomb','balloon'];
+          const old = currentTool;
+          currentTool = types[Math.floor(Math.random()*types.length)];
+          spawnObject(Math.random()*canvas.width, -20, (Math.random()-0.5)*5, 3+Math.random()*5);
+          currentTool = old;
+        },
+        () => { // random gravity nudge
+          const ab = Composite.allBodies(world);
+          ab.forEach(b => { if (!b.isStatic) Body.applyForce(b, b.position, {x:(Math.random()-0.5)*0.03, y:(Math.random()-0.5)*0.03}); });
+        }
+      ];
+      actions[Math.floor(Math.random()*actions.length)]();
+    }
+    // Flashing background tint
+    if (ultraChaosTimer % 10 < 5) {
+      const hue = (timestamp / 5) % 360;
+      // stored for render phase
+      window._ultraChaosHue = hue;
+    }
+    if (ultraChaosTimer <= 0) {
+      ultraChaosActive = false;
+      window._ultraChaosHue = null;
+    }
+  }
+
   // Gravity flip label timer
   if (window._gravFlipTimer > 0) window._gravFlipTimer--;
 
@@ -2015,6 +2203,41 @@ function loop(timestamp) {
     }
   }
 
+  // Mega bounce indicator
+  if (megaBounceActive) {
+    ctx.fillStyle = '#00ff41';
+    ctx.font = '28px VT323';
+    ctx.textAlign = 'center';
+    const pulse = 0.7 + Math.sin(timestamp / 150) * 0.3;
+    ctx.globalAlpha = pulse;
+    ctx.fillText('🏀 M E G A   B O U N C E 🏀', canvas.width/2, antiGravActive ? 110 : 50);
+    ctx.globalAlpha = 1;
+    const barW = 200, barH = 6;
+    const barX = canvas.width/2 - barW/2;
+    const barY = (antiGravActive ? 120 : 62);
+    const pct = megaBounceTimer / 300;
+    ctx.fillStyle = '#00ff4133';
+    ctx.fillRect(barX, barY, barW, barH);
+    ctx.fillStyle = '#00ff41';
+    ctx.fillRect(barX, barY, barW * pct, barH);
+    ctx.textAlign = 'left';
+  }
+
+  // Ultra chaos mode visuals
+  if (ultraChaosActive && window._ultraChaosHue != null) {
+    const hue = window._ultraChaosHue;
+    ctx.fillStyle = `hsla(${hue}, 100%, 50%, 0.06)`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#ff3333';
+    ctx.font = '36px VT323';
+    ctx.textAlign = 'center';
+    const pulse = 0.6 + Math.sin(timestamp / 100) * 0.4;
+    ctx.globalAlpha = pulse;
+    ctx.fillText('☠️ U L T R A   C H A O S ☠️', canvas.width/2, canvas.height/2);
+    ctx.globalAlpha = 1;
+    ctx.textAlign = 'left';
+  }
+
   // Draw mode indicator
   if (drawMode) {
     ctx.fillStyle = '#ff6600';
@@ -2037,6 +2260,35 @@ function loop(timestamp) {
 }
 
 requestAnimationFrame(loop);
+
+// Konami code listener
+document.addEventListener('keydown', (e) => {
+  konamiBuffer.push(e.key);
+  if (konamiBuffer.length > konamiCode.length) konamiBuffer.shift();
+  if (konamiBuffer.length === konamiCode.length &&
+      konamiBuffer.every((k, i) => k === konamiCode[i])) {
+    // ULTRA CHAOS!
+    ultraChaosActive = true;
+    ultraChaosTimer = 600; // 10 seconds of mayhem
+    konamiBuffer = [];
+    shakeIntensity = 25;
+    playBoom();
+    playSound(1200, 0.3, 'square', 0.15);
+    playSound(800, 0.4, 'sawtooth', 0.1);
+    // Massive particle burst
+    for (let i = 0; i < 60; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 3 + Math.random() * 8;
+      particles.push({
+        x: canvas.width/2, y: canvas.height/2,
+        vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed,
+        life: 1 + Math.random()*1.5,
+        color: ['#ff3333','#ffdd00','#00ff41','#0abdc6','#cc00ff','#ff6600'][Math.floor(Math.random()*6)],
+        size: 3 + Math.random()*5
+      });
+    }
+  }
+});
 
 console.log('⚡ CHAOS ENGINE initialized');
 </script>

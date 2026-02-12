@@ -6,37 +6,46 @@
       "date": "2026-02-08",
       "ideas": [
         "New object: Bouncy star shape with high restitution",
-        "New chaos button: Black hole — sucks everything toward center",
+        "New chaos button: Black hole \u2014 sucks everything toward center",
         "Visual: Confetti burst when objects collide hard"
       ],
-      "summary": "Added bouncy star tool (⭐) with 0.95 restitution in random colors, Black Hole chaos button that sucks all objects to center for 5 seconds then flings them outward with a purple accretion disk visual, and confetti burst system that showers colorful tumbling confetti on hard impacts with screen shake."
+      "summary": "Added bouncy star tool (\u2b50) with 0.95 restitution in random colors, Black Hole chaos button that sucks all objects to center for 5 seconds then flings them outward with a purple accretion disk visual, and confetti burst system that showers colorful tumbling confetti on hard impacts with screen shake."
     },
     {
       "date": "2026-02-09",
       "ideas": [
         "New object: Balloon that floats upward with anti-gravity",
-        "New chaos button: Anti-gravity pulse — everything floats up briefly",
+        "New chaos button: Anti-gravity pulse \u2014 everything floats up briefly",
         "Visual: Object trails/afterimages that fade"
       ],
-      "summary": "Added Balloon tool (🎈) that floats upward with buoyancy physics and gentle drift, with colorful oval rendering and swaying string. Anti-Gravity Pulse (FLOAT) chaos button reverses gravity for 4 seconds with sparkle particles and a satisfying drop when it ends. Speed trails system that renders glowing afterimages behind fast-moving objects for a slick motion-blur feel."
+      "summary": "Added Balloon tool (\ud83c\udf88) that floats upward with buoyancy physics and gentle drift, with colorful oval rendering and swaying string. Anti-Gravity Pulse (FLOAT) chaos button reverses gravity for 4 seconds with sparkle particles and a satisfying drop when it ends. Speed trails system that renders glowing afterimages behind fast-moving objects for a slick motion-blur feel."
     },
     {
       "date": "2026-02-10",
       "ideas": [
-        "Interactive: Portals — two linked circles that teleport objects",
-        "New chaos button: Time warp — slow-motion toggle for 5 seconds",
-        "New chaos button: Rain — spawn 20 random small objects from the top"
+        "Interactive: Portals \u2014 two linked circles that teleport objects",
+        "New chaos button: Time warp \u2014 slow-motion toggle for 5 seconds",
+        "New chaos button: Rain \u2014 spawn 20 random small objects from the top"
       ],
-      "summary": "Added Portal tool (🌀) — tap twice to place a linked portal pair, objects entering one teleport out the other with exit particles and sound. Time Warp (SLO-MO) chaos button slows physics to 20% speed for 5 seconds with purple vortex overlay, vignette, and pulsing label. Rain chaos button (🌧️) drops 20 random objects from the sky in a staggered cascade for instant chaos."
+      "summary": "Added Portal tool (\ud83c\udf00) \u2014 tap twice to place a linked portal pair, objects entering one teleport out the other with exit particles and sound. Time Warp (SLO-MO) chaos button slows physics to 20% speed for 5 seconds with purple vortex overlay, vignette, and pulsing label. Rain chaos button (\ud83c\udf27\ufe0f) drops 20 random objects from the sky in a staggered cascade for instant chaos."
     },
     {
       "date": "2026-02-10",
       "ideas": [
         "Interactive: Pinball bumpers that light up on hit",
-        "New object: Beach ball — huge, light, super bouncy",
-        "New chaos button: Gravity flip — gravity rotates 90° each press"
+        "New object: Beach ball \u2014 huge, light, super bouncy",
+        "New chaos button: Gravity flip \u2014 gravity rotates 90\u00b0 each press"
       ],
-      "summary": "Added Pinball Bumpers (🔴) — place static bumpers that flash white and blast objects away on contact with particle bursts and satisfying pings. Beach Ball (🏖️) tool spawns huge, lightweight, super-bouncy balls with colorful striped panels and a glossy shine. Gravity Flip (G-FLIP) chaos button rotates gravity 90° each press (down→right→up→left) with a directional label flash and screen shake."
+      "summary": "Added Pinball Bumpers (\ud83d\udd34) \u2014 place static bumpers that flash white and blast objects away on contact with particle bursts and satisfying pings. Beach Ball (\ud83c\udfd6\ufe0f) tool spawns huge, lightweight, super-bouncy balls with colorful striped panels and a glossy shine. Gravity Flip (G-FLIP) chaos button rotates gravity 90\u00b0 each press (down\u2192right\u2192up\u2192left) with a directional label flash and screen shake."
+    },
+    {
+      "date": "2026-02-11",
+      "ideas": [
+        "New object: Rubber duck that squeaks on impact",
+        "New chaos button: Mega bounce \u2014 temporarily max out all restitution",
+        "Easter egg: Konami code activates ultra-chaos mode"
+      ],
+      "summary": "Added Rubber Duck tool (\ud83e\udd86) \u2014 yellow duck that squeaks on every impact with cute particles and custom sound. Mega Bounce (\ud83c\udfc0) chaos button maxes all restitution to 1.2 for 5 seconds \u2014 everything becomes a super ball with green particle burst and timer bar. Konami Code easter egg (\u2191\u2191\u2193\u2193\u2190\u2192\u2190\u2192BA) triggers 10 seconds of ULTRA CHAOS \u2014 random explosions, object spawns, gravity nudges, screen-shaking rainbow tint, and a massive particle burst."
     }
   ],
   "ideaPool": [
@@ -46,9 +55,8 @@
     "New object: Wrecking ball on a chain constraint",
     "New object: Bowling pin that tips over satisfyingly",
     "New object: Domino tile for chain reactions",
-    "New chaos button: Vortex — spins all objects around a center point",
-    "New chaos button: Shuffle — randomize all object positions",
-    "New chaos button: Mega bounce — temporarily max out all restitution",
+    "New chaos button: Vortex \u2014 spins all objects around a center point",
+    "New chaos button: Shuffle \u2014 randomize all object positions",
     "Visual: Screen flash and chromatic aberration on big impacts",
     "Visual: Glow effect on fast-moving objects",
     "Visual: Matrix-style falling characters in background",
@@ -57,9 +65,9 @@
     "Sound: Victory fanfare when destruction threshold reached",
     "Gravity: Underwater mode with buoyancy and drag",
     "Gravity: Sideways gravity option",
-    "Game mode: Target practice — spawn bullseyes worth points",
-    "Game mode: Stacking challenge — build tallest tower",
-    "Game mode: Bowling — pins at one end, ball at other",
+    "Game mode: Target practice \u2014 spawn bullseyes worth points",
+    "Game mode: Stacking challenge \u2014 build tallest tower",
+    "Game mode: Bowling \u2014 pins at one end, ball at other",
     "Interactive: Conveyor belt surface that moves objects along it",
     "Interactive: Trampoline platform with extra bounce",
     "Interactive: Fan/blower that pushes objects with airflow",
@@ -69,19 +77,17 @@
     "UX: Replay/undo last spawn",
     "UX: Screenshot button that saves the canvas",
     "Easter egg: Spawn 100 tiny balls at once (confetti cannon)",
-    "Easter egg: Konami code activates ultra-chaos mode",
     "Easter egg: Shake device to trigger earthquake (mobile)",
-    "New object: Rubber duck that squeaks on impact",
     "New object: Ice cube that's super slippery (low friction)",
-    "New chaos button: Freeze — all objects stop instantly then resume",
+    "New chaos button: Freeze \u2014 all objects stop instantly then resume",
     "Visual: Lightning bolt between close fast-moving objects",
     "Interactive: Seesaw/teeter-totter you can place",
-    "Game mode: Destruction meter — counts total energy released",
-    "Interactive: Springboard launcher — place it and objects bounce off",
+    "Game mode: Destruction meter \u2014 counts total energy released",
+    "Interactive: Springboard launcher \u2014 place it and objects bounce off",
     "Visual: Object glow pulse on spawn (birth flash)",
     "Sound: Whoosh sound on slingshot launch scaled to power",
     "Easter egg: Triple-tap title for disco mode (flashing background colors)",
-    "New object: Anvil — extra heavy, smashes through everything",
-    "Game mode: Popcorn — objects randomly pop upward every few seconds"
+    "New object: Anvil \u2014 extra heavy, smashes through everything",
+    "Game mode: Popcorn \u2014 objects randomly pop upward every few seconds"
   ]
 }
