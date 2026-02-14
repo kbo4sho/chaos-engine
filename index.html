@@ -229,6 +229,7 @@ canvas#game {
     <button class="tool-btn" data-tool="beachball" style="color:#00ccff;"><span class="icon">🏖️</span>Beach</button>
     <button class="tool-btn" data-tool="duck" style="color:#ffdd00;"><span class="icon">🦆</span>Duck</button>
     <button class="tool-btn" data-tool="domino" style="color:#ff8844;"><span class="icon">🀄</span>Domino</button>
+    <button class="tool-btn" data-tool="anvil" style="color:#aaaaaa;"><span class="icon">🔨</span>Anvil</button>
     <button class="tool-btn draw-btn" data-tool="draw"><span class="icon">✏️</span>Draw</button>
   </div>
 
@@ -245,6 +246,7 @@ canvas#game {
     <button class="chaos-btn" id="btn-gravflip" style="border-color:#ffdd00;color:#ffdd00;background:#1a1a0a;"><span class="icon">🔄</span>G-FLIP</button>
     <button class="chaos-btn" id="btn-megabounce" style="border-color:#00ff41;color:#00ff41;background:#0a1a0a;"><span class="icon">🏀</span>BOUNCE</button>
     <button class="chaos-btn" id="btn-vortex" style="border-color:#ff00ff;color:#ff00ff;background:#1a001a;"><span class="icon">🌀</span>VORTEX</button>
+    <button class="chaos-btn" id="btn-tornado" style="border-color:#ff8800;color:#ff8800;background:#1a1000;"><span class="icon">🌪️</span>TORNADO</button>
     <button class="chaos-btn safe" id="btn-clear"><span class="icon">🗑️</span>CLEAR</button>
     <button class="chaos-btn safe" id="btn-pause"><span class="icon">⏸️</span>PAUSE</button>
   </div>
@@ -305,6 +307,10 @@ let konamiBuffer = [];
 const konamiCode = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
 let ultraChaosActive = false;
 let ultraChaosTimer = 0;
+let tornadoActive = false;
+let tornadoTimer = 0;
+let tornadoX = 0;
+let tornadoDir = 1;
 
 // ── AUDIO ──
 let audioCtx = null;
@@ -514,6 +520,25 @@ function spawnObject(x, y, vx=0, vy=0) {
         friction: 0.6,
         density: 0.003,
         render: { type:'domino', color:'#ff8844', width: dW, height: dH }
+      });
+      break;
+    }
+    case 'anvil': {
+      const aW = 45 + Math.random()*15;
+      const aH = 35 + Math.random()*10;
+      const anvilVerts = [
+        {x: -aW*0.6, y: -aH*0.5},
+        {x: aW*0.6, y: -aH*0.5},
+        {x: aW*0.35, y: -aH*0.1},
+        {x: aW*0.3, y: aH*0.5},
+        {x: -aW*0.3, y: aH*0.5},
+        {x: -aW*0.35, y: -aH*0.1},
+      ];
+      body = Bodies.fromVertices(x, y, anvilVerts, {
+        restitution: 0.05,
+        friction: 0.9,
+        density: 0.02,
+        render: { type:'anvil', color:'#aaaaaa', width: aW, height: aH }
       });
       break;
     }
@@ -882,6 +907,17 @@ document.getElementById('btn-vortex').addEventListener('click', () => {
       life: 1, color: '#ff00ff', size: 2 + Math.random()*3
     });
   }
+});
+
+document.getElementById('btn-tornado').addEventListener('click', () => {
+  if (tornadoActive) return;
+  tornadoActive = true;
+  tornadoTimer = 360; // 6 seconds
+  tornadoX = Math.random() > 0.5 ? -30 : canvas.width + 30;
+  tornadoDir = tornadoX < 0 ? 1 : -1;
+  shakeIntensity = 10;
+  playSound(150, 0.8, 'sawtooth', 0.1);
+  playSound(80, 1.0, 'sine', 0.06);
 });
 
 document.getElementById('btn-clear').addEventListener('click', () => {
@@ -1468,6 +1504,38 @@ function drawBody(b) {
       ctx.beginPath(); ctx.arc(2.5, dH*0.32, 2, 0, Math.PI*2); ctx.fill();
       break;
     }
+    case 'anvil': {
+      // Draw anvil using vertices
+      ctx.restore();
+      ctx.save();
+      const verts = b.vertices;
+      ctx.beginPath();
+      ctx.moveTo(verts[0].x, verts[0].y);
+      for (let vi = 1; vi < verts.length; vi++) ctx.lineTo(verts[vi].x, verts[vi].y);
+      ctx.closePath();
+      ctx.fillStyle = '#666666';
+      ctx.fill();
+      ctx.strokeStyle = '#aaaaaa';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      // Highlight on top face
+      if (verts.length >= 2) {
+        ctx.beginPath();
+        ctx.moveTo(verts[0].x, verts[0].y);
+        ctx.lineTo(verts[1].x, verts[1].y);
+        ctx.strokeStyle = '#cccccc';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      }
+      // Weight text
+      ctx.fillStyle = '#ffffff88';
+      ctx.font = '14px VT323';
+      ctx.textAlign = 'center';
+      ctx.fillText('ANVIL', b.position.x, b.position.y + 4);
+      ctx.textAlign = 'left';
+      ctx.restore();
+      return;
+    }
     case 'bumper': {
       const bR = r.radius || 22;
       const flash = b.hitFlash || 0;
@@ -2006,6 +2074,52 @@ function loop(timestamp) {
     }
   }
 
+  // Tornado
+  if (tornadoActive && tornadoTimer > 0) {
+    tornadoTimer--;
+    tornadoX += tornadoDir * 2.5;
+    const tornadoY = canvas.height * 0.6;
+    const tornadoRadius = 120;
+    const allT = Composite.allBodies(world);
+    allT.forEach(b => {
+      if (b.isStatic) return;
+      const dx = b.position.x - tornadoX;
+      const dy = b.position.y - tornadoY;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < tornadoRadius && dist > 5) {
+        // Upward suction + circular spin
+        const strength = 0.004 * (1 - dist/tornadoRadius);
+        const tangentX = -dy / dist;
+        const tangentY = dx / dist;
+        Body.applyForce(b, b.position, {
+          x: tangentX * strength * 0.5 + (tornadoX - b.position.x) / dist * strength * 0.3,
+          y: -strength * 1.5
+        });
+        Body.setAngularVelocity(b, b.angularVelocity + (Math.random()-0.5)*0.1);
+      }
+    });
+    // Debris particles
+    if (tornadoTimer % 3 === 0) {
+      const angle = Math.random() * Math.PI * 2;
+      const d = Math.random() * 60;
+      particles.push({
+        x: tornadoX + Math.cos(angle)*d,
+        y: tornadoY + Math.sin(angle)*d - Math.random()*80,
+        vx: Math.cos(angle+Math.PI/2)*3 + tornadoDir,
+        vy: -(1 + Math.random()*3),
+        life: 0.5 + Math.random()*0.5,
+        color: ['#ff8800','#ffaa33','#cc6600','#886633'][Math.floor(Math.random()*4)],
+        size: 1 + Math.random()*3
+      });
+    }
+    if (tornadoTimer % 8 === 0) shakeIntensity = Math.max(shakeIntensity, 4);
+    if (tornadoTimer <= 0) {
+      tornadoActive = false;
+      shakeIntensity = 15;
+      playBoom();
+    }
+  }
+
   // Ultra chaos mode (Konami code)
   if (ultraChaosActive && ultraChaosTimer > 0) {
     ultraChaosTimer--;
@@ -2442,6 +2556,68 @@ function loop(timestamp) {
         }
       }
     }
+  }
+
+  // Tornado visual
+  if (tornadoActive) {
+    const tornadoY = canvas.height * 0.6;
+    // Funnel shape — widening upward
+    for (let i = 0; i < 8; i++) {
+      const t = i / 8;
+      const funnelY = tornadoY - t * canvas.height * 0.5;
+      const funnelW = 10 + t * 70;
+      const sway = Math.sin(timestamp/200 + i * 0.8) * (5 + t * 15);
+      ctx.beginPath();
+      ctx.ellipse(tornadoX + sway, funnelY, funnelW, 8 + t * 4, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(255,136,0,${0.4 - t * 0.04})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    // Label
+    const pulse = 0.6 + Math.sin(timestamp/150)*0.4;
+    ctx.globalAlpha = pulse;
+    ctx.fillStyle = '#ff8800';
+    ctx.font = '28px VT323';
+    ctx.textAlign = 'center';
+    ctx.fillText('🌪️ T O R N A D O 🌪️', tornadoX, tornadoY - canvas.height * 0.5 - 15);
+    ctx.globalAlpha = 1;
+    // Timer bar
+    const barW = 150, barH = 5;
+    ctx.fillStyle = '#ff880033';
+    ctx.fillRect(tornadoX - barW/2, tornadoY - canvas.height * 0.5 - 5, barW, barH);
+    ctx.fillStyle = '#ff8800';
+    ctx.fillRect(tornadoX - barW/2, tornadoY - canvas.height * 0.5 - 5, barW * (tornadoTimer/360), barH);
+    ctx.textAlign = 'left';
+  }
+
+  // Fire trails on very fast objects
+  {
+    const fireThreshold = 10;
+    const dynBodies2 = allBodies.filter(b => !b.isStatic);
+    dynBodies2.forEach(b => {
+      const spd = Math.sqrt(b.velocity.x*b.velocity.x + b.velocity.y*b.velocity.y);
+      if (spd > fireThreshold) {
+        const intensity = Math.min((spd - fireThreshold) / 15, 1);
+        // Draw fire trail behind the object
+        const trailLen = 3 + Math.floor(intensity * 5);
+        for (let f = 0; f < trailLen; f++) {
+          const tx = b.position.x - b.velocity.x * (f * 0.3) + (Math.random()-0.5) * 6;
+          const ty = b.position.y - b.velocity.y * (f * 0.3) + (Math.random()-0.5) * 6;
+          const fSize = (3 + Math.random()*5) * (1 - f/trailLen);
+          const alpha = intensity * (1 - f/trailLen) * 0.8;
+          ctx.globalAlpha = alpha;
+          ctx.beginPath();
+          ctx.arc(tx, ty, fSize, 0, Math.PI*2);
+          // Gradient from yellow core to red outer
+          const colorMix = f / trailLen;
+          const r2 = 255;
+          const g = Math.floor(200 * (1-colorMix));
+          ctx.fillStyle = `rgb(${r2},${g},0)`;
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      }
+    });
   }
 
   // Draw mode indicator

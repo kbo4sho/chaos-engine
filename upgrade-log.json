@@ -55,6 +55,15 @@
         "Visual: Lightning bolt between close fast-moving objects"
       ],
       "summary": "Added Domino tile (🀄) — tall, thin tiles perfect for chain reactions with retro dot markings. Vortex (🌀) chaos button spins all objects around center with tangential force + inward pull for 5 seconds, purple swirl rings and particles. Lightning bolts — jagged electric arcs spark between nearby fast-moving objects with cyan glow, adding dramatic visual energy to high-speed chaos."
+    },
+    {
+      "date": "2026-02-13",
+      "ideas": [
+        "New chaos button: Tornado — funnel that moves across screen",
+        "New object: Anvil — extra heavy, smashes through everything",
+        "Visual: Fire trail on objects moving faster than threshold"
+      ],
+      "summary": "Added Tornado (🌪️) chaos button — a funnel sweeps across the screen for 6 seconds, sucking objects upward and spinning them with debris particles. Anvil tool (🔨) spawns ultra-heavy anvils that smash through everything with satisfying weight. Fire trails blaze behind any object moving fast enough — yellow-to-red gradient flames that scale with speed."
     }
   ],
   "ideaPool": [
@@ -93,12 +102,9 @@
     "Visual: Object glow pulse on spawn (birth flash)",
     "Sound: Whoosh sound on slingshot launch scaled to power",
     "Easter egg: Triple-tap title for disco mode (flashing background colors)",
-    "New object: Anvil — extra heavy, smashes through everything",
     "Game mode: Popcorn — objects randomly pop upward every few seconds",
     "New object: Spinning saw blade that cuts through objects",
     "Interactive: Rope/chain that connects two tap points",
-    "Visual: Fire trail on objects moving faster than threshold",
-    "New chaos button: Tornado — funnel that moves across screen",
     "Game mode: Pinball score counter with multiplier",
     "Interactive: Catapult you can load and launch",
     "Visual: Pixel dust cloud when objects land hard"
