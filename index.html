@@ -230,6 +230,7 @@ canvas#game {
     <button class="tool-btn" data-tool="duck" style="color:#ffdd00;"><span class="icon">🦆</span>Duck</button>
     <button class="tool-btn" data-tool="domino" style="color:#ff8844;"><span class="icon">🀄</span>Domino</button>
     <button class="tool-btn" data-tool="anvil" style="color:#aaaaaa;"><span class="icon">🔨</span>Anvil</button>
+    <button class="tool-btn" data-tool="ragdoll" style="color:#ff6644;"><span class="icon">🧍</span>Ragdoll</button>
     <button class="tool-btn draw-btn" data-tool="draw"><span class="icon">✏️</span>Draw</button>
   </div>
 
@@ -542,6 +543,10 @@ function spawnObject(x, y, vx=0, vy=0) {
       });
       break;
     }
+    case 'ragdoll': {
+      body = createRagdoll(x, y);
+      break;
+    }
     case 'bumper': {
       const r = 22;
       body = Bodies.circle(x, y, r, {
@@ -615,6 +620,114 @@ function createDino(x, y, color) {
     render: { type:'dino', color }
   });
   return body;
+}
+
+function createRagdoll(x, y) {
+  const scale = 0.8;
+  const ragColor = '#ff6644';
+  const group = Body.nextGroup(true); // parts don't collide with each other
+
+  // Head
+  const head = Bodies.circle(x, y - 40*scale, 10*scale, {
+    friction: 0.4, restitution: 0.2, density: 0.002,
+    collisionFilter: { group },
+    render: { type:'ragdoll-head', color: ragColor, radius: 10*scale }
+  });
+
+  // Torso
+  const torso = Bodies.rectangle(x, y, 14*scale, 30*scale, {
+    friction: 0.4, restitution: 0.1, density: 0.003,
+    collisionFilter: { group },
+    render: { type:'ragdoll-torso', color: ragColor, width: 14*scale, height: 30*scale }
+  });
+
+  // Upper arms
+  const upperArmL = Bodies.rectangle(x - 18*scale, y - 10*scale, 16*scale, 7*scale, {
+    friction: 0.3, restitution: 0.1, density: 0.002,
+    collisionFilter: { group },
+    render: { type:'ragdoll-limb', color: ragColor, width: 16*scale, height: 7*scale }
+  });
+  const upperArmR = Bodies.rectangle(x + 18*scale, y - 10*scale, 16*scale, 7*scale, {
+    friction: 0.3, restitution: 0.1, density: 0.002,
+    collisionFilter: { group },
+    render: { type:'ragdoll-limb', color: ragColor, width: 16*scale, height: 7*scale }
+  });
+
+  // Lower arms
+  const lowerArmL = Bodies.rectangle(x - 34*scale, y - 10*scale, 14*scale, 6*scale, {
+    friction: 0.3, restitution: 0.1, density: 0.0015,
+    collisionFilter: { group },
+    render: { type:'ragdoll-limb', color: '#ff8866', width: 14*scale, height: 6*scale }
+  });
+  const lowerArmR = Bodies.rectangle(x + 34*scale, y - 10*scale, 14*scale, 6*scale, {
+    friction: 0.3, restitution: 0.1, density: 0.0015,
+    collisionFilter: { group },
+    render: { type:'ragdoll-limb', color: '#ff8866', width: 14*scale, height: 6*scale }
+  });
+
+  // Upper legs
+  const upperLegL = Bodies.rectangle(x - 5*scale, y + 24*scale, 7*scale, 18*scale, {
+    friction: 0.4, restitution: 0.1, density: 0.003,
+    collisionFilter: { group },
+    render: { type:'ragdoll-limb', color: ragColor, width: 7*scale, height: 18*scale }
+  });
+  const upperLegR = Bodies.rectangle(x + 5*scale, y + 24*scale, 7*scale, 18*scale, {
+    friction: 0.4, restitution: 0.1, density: 0.003,
+    collisionFilter: { group },
+    render: { type:'ragdoll-limb', color: ragColor, width: 7*scale, height: 18*scale }
+  });
+
+  // Lower legs
+  const lowerLegL = Bodies.rectangle(x - 5*scale, y + 44*scale, 6*scale, 16*scale, {
+    friction: 0.5, restitution: 0.1, density: 0.002,
+    collisionFilter: { group },
+    render: { type:'ragdoll-limb', color: '#ff8866', width: 6*scale, height: 16*scale }
+  });
+  const lowerLegR = Bodies.rectangle(x + 5*scale, y + 44*scale, 6*scale, 16*scale, {
+    friction: 0.5, restitution: 0.1, density: 0.002,
+    collisionFilter: { group },
+    render: { type:'ragdoll-limb', color: '#ff8866', width: 6*scale, height: 16*scale }
+  });
+
+  // Constraints (joints)
+  const jointStiff = 0.6;
+  const jointDamp = 0.1;
+
+  // Neck: head to torso
+  const neck = Constraint.create({ bodyA: head, pointA: {x:0, y:10*scale}, bodyB: torso, pointB: {x:0, y:-15*scale}, stiffness: jointStiff, damping: jointDamp, length: 0, render: { visible: false } });
+
+  // Shoulders
+  const shoulderL = Constraint.create({ bodyA: torso, pointA: {x:-7*scale, y:-10*scale}, bodyB: upperArmL, pointB: {x:8*scale, y:0}, stiffness: jointStiff, damping: jointDamp, length: 0, render: { visible: false } });
+  const shoulderR = Constraint.create({ bodyA: torso, pointA: {x:7*scale, y:-10*scale}, bodyB: upperArmR, pointB: {x:-8*scale, y:0}, stiffness: jointStiff, damping: jointDamp, length: 0, render: { visible: false } });
+
+  // Elbows
+  const elbowL = Constraint.create({ bodyA: upperArmL, pointA: {x:-8*scale, y:0}, bodyB: lowerArmL, pointB: {x:7*scale, y:0}, stiffness: jointStiff, damping: jointDamp, length: 0, render: { visible: false } });
+  const elbowR = Constraint.create({ bodyA: upperArmR, pointA: {x:8*scale, y:0}, bodyB: lowerArmR, pointB: {x:-7*scale, y:0}, stiffness: jointStiff, damping: jointDamp, length: 0, render: { visible: false } });
+
+  // Hips
+  const hipL = Constraint.create({ bodyA: torso, pointA: {x:-5*scale, y:15*scale}, bodyB: upperLegL, pointB: {x:0, y:-9*scale}, stiffness: jointStiff, damping: jointDamp, length: 0, render: { visible: false } });
+  const hipR = Constraint.create({ bodyA: torso, pointA: {x:5*scale, y:15*scale}, bodyB: upperLegR, pointB: {x:0, y:-9*scale}, stiffness: jointStiff, damping: jointDamp, length: 0, render: { visible: false } });
+
+  // Knees
+  const kneeL = Constraint.create({ bodyA: upperLegL, pointA: {x:0, y:9*scale}, bodyB: lowerLegL, pointB: {x:0, y:-8*scale}, stiffness: jointStiff, damping: jointDamp, length: 0, render: { visible: false } });
+  const kneeR = Constraint.create({ bodyA: upperLegR, pointA: {x:0, y:9*scale}, bodyB: lowerLegR, pointB: {x:0, y:-8*scale}, stiffness: jointStiff, damping: jointDamp, length: 0, render: { visible: false } });
+
+  // Angle-limit constraints (keep it human-ish, prevent spaghetti)
+  const limitStiff = 0.3;
+  // Head-to-torso distance limit
+  const headLimit = Constraint.create({ bodyA: head, bodyB: torso, stiffness: limitStiff, damping: 0.2, length: 25*scale, render: { visible: false } });
+  // Arm span limits
+  const armLimitL = Constraint.create({ bodyA: torso, pointA:{x:-7*scale, y:-10*scale}, bodyB: lowerArmL, pointB:{x:-7*scale, y:0}, stiffness: 0.1, damping: 0.15, length: 30*scale, render: { visible: false } });
+  const armLimitR = Constraint.create({ bodyA: torso, pointA:{x:7*scale, y:-10*scale}, bodyB: lowerArmR, pointB:{x:7*scale, y:0}, stiffness: 0.1, damping: 0.15, length: 30*scale, render: { visible: false } });
+  // Leg limits
+  const legLimitL = Constraint.create({ bodyA: torso, pointA:{x:-5*scale, y:15*scale}, bodyB: lowerLegL, pointB:{x:0, y:8*scale}, stiffness: 0.1, damping: 0.15, length: 32*scale, render: { visible: false } });
+  const legLimitR = Constraint.create({ bodyA: torso, pointA:{x:5*scale, y:15*scale}, bodyB: lowerLegR, pointB:{x:0, y:8*scale}, stiffness: 0.1, damping: 0.15, length: 32*scale, render: { visible: false } });
+
+  const comp = Composite.create();
+  Composite.add(comp, [head, torso, upperArmL, upperArmR, lowerArmL, lowerArmR, upperLegL, upperLegR, lowerLegL, lowerLegR]);
+  Composite.add(comp, [neck, shoulderL, shoulderR, elbowL, elbowR, hipL, hipR, kneeL, kneeR]);
+  Composite.add(comp, [headLimit, armLimitL, armLimitR, legLimitL, legLimitR]);
+  return comp;
 }
 
 // ── BOMB EXPLOSION ──
@@ -1568,6 +1681,53 @@ function drawBody(b) {
       ctx.arc(0, 0, 4, 0, Math.PI*2);
       ctx.fillStyle = flash > 0 ? '#ffffff' : '#ffdd00';
       ctx.fill();
+      break;
+    }
+    case 'ragdoll-head': {
+      const radius = r.radius || 8;
+      // Glow
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI*2);
+      ctx.fillStyle = color + 'cc';
+      ctx.fill();
+      ctx.strokeStyle = '#ffaa88';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      // Eyes
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.arc(-3, -2, 1.5, 0, Math.PI*2);
+      ctx.arc(3, -2, 1.5, 0, Math.PI*2);
+      ctx.fill();
+      break;
+    }
+    case 'ragdoll-torso': {
+      const tw = r.width || 11;
+      const th = r.height || 24;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 6;
+      ctx.fillStyle = color + 'bb';
+      ctx.fillRect(-tw/2, -th/2, tw, th);
+      ctx.strokeStyle = '#ffaa88';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(-tw/2, -th/2, tw, th);
+      ctx.shadowBlur = 0;
+      break;
+    }
+    case 'ragdoll-limb': {
+      const lw = r.width || 10;
+      const lh = r.height || 6;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 5;
+      ctx.fillStyle = color + 'aa';
+      ctx.fillRect(-lw/2, -lh/2, lw, lh);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(-lw/2, -lh/2, lw, lh);
+      ctx.shadowBlur = 0;
       break;
     }
     case 'drawn': {
