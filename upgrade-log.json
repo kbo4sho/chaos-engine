@@ -64,6 +64,15 @@
         "Visual: Fire trail on objects moving faster than threshold"
       ],
       "summary": "Added Tornado (🌪️) chaos button — a funnel sweeps across the screen for 6 seconds, sucking objects upward and spinning them with debris particles. Anvil tool (🔨) spawns ultra-heavy anvils that smash through everything with satisfying weight. Fire trails blaze behind any object moving fast enough — yellow-to-red gradient flames that scale with speed."
+    },
+    {
+      "date": "2026-02-14",
+      "ideas": [
+        "Interactive: Trampoline platform with extra bounce",
+        "New chaos button: Freeze — all objects stop instantly then resume",
+        "Visual: Pixel dust cloud when objects land hard"
+      ],
+      "summary": "Added Trampoline tool (🟩) — place static bounce pads that launch objects skyward with spring particles and a satisfying boing sound. Freeze (🧊) chaos button instantly freezes all objects in place for 3 seconds with ice crystal particles and blue frost overlay, then everything resumes with a dramatic thaw burst. Pixel dust clouds poof up when objects slam into walls/floor — brown/tan expanding puffs that add weight and impact to every hard landing."
     }
   ],
   "ideaPool": [
@@ -85,7 +94,6 @@
     "Game mode: Stacking challenge — build tallest tower",
     "Game mode: Bowling — pins at one end, ball at other",
     "Interactive: Conveyor belt surface that moves objects along it",
-    "Interactive: Trampoline platform with extra bounce",
     "Interactive: Fan/blower that pushes objects with airflow",
     "Interactive: Pendulum wrecking ball you can release",
     "UX: Object size slider for current tool",
@@ -95,7 +103,6 @@
     "Easter egg: Spawn 100 tiny balls at once (confetti cannon)",
     "Easter egg: Shake device to trigger earthquake (mobile)",
     "New object: Ice cube that's super slippery (low friction)",
-    "New chaos button: Freeze — all objects stop instantly then resume",
     "Interactive: Seesaw/teeter-totter you can place",
     "Game mode: Destruction meter — counts total energy released",
     "Interactive: Springboard launcher — place it and objects bounce off",
@@ -106,7 +113,6 @@
     "New object: Spinning saw blade that cuts through objects",
     "Interactive: Rope/chain that connects two tap points",
     "Game mode: Pinball score counter with multiplier",
-    "Interactive: Catapult you can load and launch",
-    "Visual: Pixel dust cloud when objects land hard"
+    "Interactive: Catapult you can load and launch"
   ]
 }

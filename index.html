@@ -231,6 +231,7 @@ canvas#game {
     <button class="tool-btn" data-tool="domino" style="color:#ff8844;"><span class="icon">🀄</span>Domino</button>
     <button class="tool-btn" data-tool="anvil" style="color:#aaaaaa;"><span class="icon">🔨</span>Anvil</button>
     <button class="tool-btn" data-tool="ragdoll" style="color:#ff6644;"><span class="icon">🧍</span>Ragdoll</button>
+    <button class="tool-btn" data-tool="trampoline" style="color:#00ff99;"><span class="icon">🟩</span>Tramp</button>
     <button class="tool-btn draw-btn" data-tool="draw"><span class="icon">✏️</span>Draw</button>
   </div>
 
@@ -248,6 +249,7 @@ canvas#game {
     <button class="chaos-btn" id="btn-megabounce" style="border-color:#00ff41;color:#00ff41;background:#0a1a0a;"><span class="icon">🏀</span>BOUNCE</button>
     <button class="chaos-btn" id="btn-vortex" style="border-color:#ff00ff;color:#ff00ff;background:#1a001a;"><span class="icon">🌀</span>VORTEX</button>
     <button class="chaos-btn" id="btn-tornado" style="border-color:#ff8800;color:#ff8800;background:#1a1000;"><span class="icon">🌪️</span>TORNADO</button>
+    <button class="chaos-btn" id="btn-freeze" style="border-color:#00ddff;color:#00ddff;background:#001a2a;"><span class="icon">🧊</span>FREEZE</button>
     <button class="chaos-btn safe" id="btn-clear"><span class="icon">🗑️</span>CLEAR</button>
     <button class="chaos-btn safe" id="btn-pause"><span class="icon">⏸️</span>PAUSE</button>
   </div>
@@ -312,6 +314,9 @@ let tornadoActive = false;
 let tornadoTimer = 0;
 let tornadoX = 0;
 let tornadoDir = 1;
+let freezeActive = false;
+let freezeTimer = 0;
+let frozenVelocities = new Map();
 
 // ── AUDIO ──
 let audioCtx = null;
@@ -545,6 +550,18 @@ function spawnObject(x, y, vx=0, vy=0) {
     }
     case 'ragdoll': {
       body = createRagdoll(x, y);
+      break;
+    }
+    case 'trampoline': {
+      const tW = 80 + Math.random()*30;
+      const tH = 10;
+      body = Bodies.rectangle(x, y, tW, tH, {
+        isStatic: true,
+        restitution: 2.0,
+        label: 'trampoline',
+        render: { type:'trampoline', color:'#00ff99', width: tW, height: tH }
+      });
+      body.isTrampoline = true;
       break;
     }
     case 'bumper': {
@@ -1033,6 +1050,36 @@ document.getElementById('btn-tornado').addEventListener('click', () => {
   playSound(80, 1.0, 'sine', 0.06);
 });
 
+document.getElementById('btn-freeze').addEventListener('click', () => {
+  if (freezeActive) return;
+  freezeActive = true;
+  freezeTimer = 180; // 3 seconds
+  frozenVelocities.clear();
+  const allBodies = Composite.allBodies(world);
+  allBodies.forEach(b => {
+    if (b.isStatic) return;
+    frozenVelocities.set(b.id, { vx: b.velocity.x, vy: b.velocity.y, av: b.angularVelocity });
+    Body.setVelocity(b, { x: 0, y: 0 });
+    Body.setAngularVelocity(b, 0);
+    b.isStatic = true;
+    b._wasFrozen = true;
+  });
+  shakeIntensity = 8;
+  playSound(2000, 0.3, 'sine', 0.12);
+  playSound(1500, 0.2, 'square', 0.06);
+  // Ice crystal particles
+  for (let i = 0; i < 40; i++) {
+    particles.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      vx: (Math.random()-0.5)*3, vy: -(1 + Math.random()*2),
+      life: 1 + Math.random()*1,
+      color: ['#00ddff','#aaeeff','#ffffff','#66ccff'][Math.floor(Math.random()*4)],
+      size: 2 + Math.random()*4
+    });
+  }
+});
+
 document.getElementById('btn-clear').addEventListener('click', () => {
   const allBodies = Composite.allBodies(world);
   allBodies.forEach(b => {
@@ -1240,6 +1287,29 @@ Events.on(engine, 'collisionStart', (e) => {
       shakeIntensity = Math.max(shakeIntensity, 5);
     }
 
+    // Trampoline super-bounce
+    const trampBody = pair.bodyA.isTrampoline ? pair.bodyA : (pair.bodyB.isTrampoline ? pair.bodyB : null);
+    const bouncedBody = trampBody === pair.bodyA ? pair.bodyB : pair.bodyA;
+    if (trampBody && bouncedBody && !bouncedBody.isStatic) {
+      // Launch upward with extra oomph
+      const speed = Math.sqrt(bouncedBody.velocity.x*bouncedBody.velocity.x + bouncedBody.velocity.y*bouncedBody.velocity.y);
+      Body.setVelocity(bouncedBody, { x: bouncedBody.velocity.x * 1.2, y: -Math.max(Math.abs(bouncedBody.velocity.y), 8) * 1.5 });
+      playSound(300, 0.15, 'sine', 0.12);
+      playSound(600, 0.1, 'sine', 0.08);
+      // Spring particles
+      for (let i = 0; i < 10; i++) {
+        particles.push({
+          x: bouncedBody.position.x + (Math.random()-0.5)*40,
+          y: trampBody.position.y - 5,
+          vx: (Math.random()-0.5)*3, vy: -(2 + Math.random()*4),
+          life: 0.4 + Math.random()*0.3,
+          color: ['#00ff99','#66ffcc','#ffffff'][Math.floor(Math.random()*3)],
+          size: 2 + Math.random()*2
+        });
+      }
+      shakeIntensity = Math.max(shakeIntensity, 4);
+    }
+
     // Duck squeak on any collision
     if ((pair.bodyA.isDuck || pair.bodyB.isDuck)) {
       const duckBody = pair.bodyA.isDuck ? pair.bodyA : pair.bodyB;
@@ -1254,6 +1324,33 @@ Events.on(engine, 'collisionStart', (e) => {
             x: duckBody.position.x, y: duckBody.position.y,
             vx: Math.cos(angle)*2, vy: Math.sin(angle)*2 - 1,
             life: 0.4, color: '#ffdd00', size: 2 + Math.random()*2
+          });
+        }
+      }
+    }
+
+    // Pixel dust cloud on hard wall/floor impact
+    const wallBody = pair.bodyA.label === 'wall' ? pair.bodyA : (pair.bodyB.label === 'wall' ? pair.bodyB : null);
+    const impactBody = wallBody === pair.bodyA ? pair.bodyB : pair.bodyA;
+    if (wallBody && impactBody && !impactBody.isStatic) {
+      const impactSpeed = Math.sqrt(impactBody.velocity.x*impactBody.velocity.x + impactBody.velocity.y*impactBody.velocity.y);
+      if (impactSpeed > 6) {
+        const dustCount = Math.min(Math.floor(impactSpeed * 1.5), 20);
+        const contact = pair.collision.supports && pair.collision.supports[0] ? pair.collision.supports[0] : impactBody.position;
+        const dustX = contact.x || impactBody.position.x;
+        const dustY = contact.y || impactBody.position.y;
+        for (let d = 0; d < dustCount; d++) {
+          const angle = Math.random() * Math.PI; // upward arc
+          const speed = 1 + Math.random() * 3;
+          particles.push({
+            x: dustX + (Math.random()-0.5)*20,
+            y: dustY,
+            vx: Math.cos(angle - Math.PI/2) * speed * (Math.random() > 0.5 ? 1 : -1),
+            vy: -Math.abs(Math.sin(angle)) * speed,
+            life: 0.4 + Math.random()*0.6,
+            color: ['#443322','#665544','#887766','#aa9988'][Math.floor(Math.random()*4)],
+            size: 2 + Math.random()*4,
+            isDust: true
           });
         }
       }
@@ -1649,6 +1746,38 @@ function drawBody(b) {
       ctx.restore();
       return;
     }
+    case 'trampoline': {
+      const tw = r.width || 80;
+      const th = r.height || 10;
+      // Platform body
+      ctx.fillStyle = '#00ff9944';
+      ctx.fillRect(-tw/2, -th/2, tw, th);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(-tw/2, -th/2, tw, th);
+      // Spring coils underneath
+      const coils = 5;
+      const coilW = tw / (coils * 2);
+      ctx.strokeStyle = '#00ff9988';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let ci = 0; ci < coils; ci++) {
+        const cx = -tw/2 + coilW + ci * (tw / coils);
+        ctx.moveTo(cx - coilW*0.4, th/2);
+        ctx.lineTo(cx, th/2 + 8);
+        ctx.lineTo(cx + coilW*0.4, th/2);
+      }
+      ctx.stroke();
+      // "BOING" text
+      ctx.fillStyle = '#00ff99aa';
+      ctx.font = '11px VT323';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('BOING', 0, 0);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      break;
+    }
     case 'bumper': {
       const bR = r.radius || 22;
       const flash = b.hitFlash || 0;
@@ -1909,7 +2038,16 @@ function drawParticles(dt) {
     ctx.globalAlpha = Math.min(1, p.life * 2);
     ctx.fillStyle = p.color;
 
-    if (p.isConfetti) {
+    if (p.isDust) {
+      // Dust: soft round puffs that expand and fade
+      p.vx *= 0.96; // air drag
+      p.vy *= 0.95;
+      p.size += 0.15; // expand as it dissipates
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+      ctx.fillStyle = p.color;
+      ctx.fill();
+    } else if (p.isConfetti) {
       // Confetti: tumbling rectangles that flutter
       p.vx *= 0.99; // air drag
       p.vy += Math.sin(p.x * 0.1) * 0.03; // flutter
@@ -2280,6 +2418,44 @@ function loop(timestamp) {
     }
   }
 
+  // Freeze timer
+  if (freezeActive && freezeTimer > 0) {
+    freezeTimer--;
+    if (freezeTimer <= 0) {
+      freezeActive = false;
+      // Unfreeze everything!
+      const allBodies = Composite.allBodies(world);
+      allBodies.forEach(b => {
+        if (b._wasFrozen) {
+          b.isStatic = false;
+          b._wasFrozen = false;
+          const saved = frozenVelocities.get(b.id);
+          if (saved) {
+            Body.setVelocity(b, { x: saved.vx, y: saved.vy });
+            Body.setAngularVelocity(b, saved.av);
+          }
+          // Wake it up
+          Body.setStatic(b, false);
+        }
+      });
+      frozenVelocities.clear();
+      shakeIntensity = 15;
+      playBoom();
+      playSound(600, 0.2, 'sine', 0.1);
+      // Thaw burst particles
+      for (let i = 0; i < 30; i++) {
+        particles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          vx: (Math.random()-0.5)*4, vy: (Math.random()-0.5)*4,
+          life: 0.5 + Math.random()*0.5,
+          color: ['#00ddff','#ffffff'][Math.floor(Math.random()*2)],
+          size: 2 + Math.random()*3
+        });
+      }
+    }
+  }
+
   // Ultra chaos mode (Konami code)
   if (ultraChaosActive && ultraChaosTimer > 0) {
     ultraChaosTimer--;
@@ -2634,6 +2810,47 @@ function loop(timestamp) {
     ctx.fillStyle = '#00ff41';
     ctx.fillRect(barX, barY, barW * pct, barH);
     ctx.textAlign = 'left';
+  }
+
+  // Freeze indicator
+  if (freezeActive) {
+    // Ice blue overlay
+    ctx.fillStyle = 'rgba(0,180,255,0.06)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Frost border
+    const frostGrd = ctx.createRadialGradient(
+      canvas.width/2, canvas.height/2, canvas.height * 0.35,
+      canvas.width/2, canvas.height/2, canvas.height * 0.75
+    );
+    frostGrd.addColorStop(0, 'rgba(0,200,255,0)');
+    frostGrd.addColorStop(1, 'rgba(0,200,255,0.12)');
+    ctx.fillStyle = frostGrd;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Label
+    const pulse = 0.7 + Math.sin(timestamp / 200) * 0.3;
+    ctx.globalAlpha = pulse;
+    ctx.fillStyle = '#00ddff';
+    ctx.font = '32px VT323';
+    ctx.textAlign = 'center';
+    ctx.fillText('🧊 F R O Z E N 🧊', canvas.width/2, 50);
+    ctx.globalAlpha = 1;
+    // Timer bar
+    const barW = 200, barH = 6;
+    const barX = canvas.width/2 - barW/2;
+    ctx.fillStyle = '#00ddff33';
+    ctx.fillRect(barX, 62, barW, barH);
+    ctx.fillStyle = '#00ddff';
+    ctx.fillRect(barX, 62, barW * (freezeTimer/180), barH);
+    ctx.textAlign = 'left';
+    // Floating ice crystals
+    if (freezeTimer % 10 === 0) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        vx: (Math.random()-0.5)*0.5, vy: -(0.5 + Math.random()),
+        life: 1.5, color: '#aaeeff', size: 1 + Math.random()*2
+      });
+    }
   }
 
   // Ultra chaos mode visuals
