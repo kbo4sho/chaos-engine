@@ -232,6 +232,7 @@ canvas#game {
     <button class="tool-btn" data-tool="anvil" style="color:#aaaaaa;"><span class="icon">🔨</span>Anvil</button>
     <button class="tool-btn" data-tool="ragdoll" style="color:#ff6644;"><span class="icon">🧍</span>Ragdoll</button>
     <button class="tool-btn" data-tool="trampoline" style="color:#00ff99;"><span class="icon">🟩</span>Tramp</button>
+    <button class="tool-btn" data-tool="conveyor" style="color:#ff8800;"><span class="icon">⏩</span>Convyr</button>
     <button class="tool-btn draw-btn" data-tool="draw"><span class="icon">✏️</span>Draw</button>
   </div>
 
@@ -250,6 +251,7 @@ canvas#game {
     <button class="chaos-btn" id="btn-vortex" style="border-color:#ff00ff;color:#ff00ff;background:#1a001a;"><span class="icon">🌀</span>VORTEX</button>
     <button class="chaos-btn" id="btn-tornado" style="border-color:#ff8800;color:#ff8800;background:#1a1000;"><span class="icon">🌪️</span>TORNADO</button>
     <button class="chaos-btn" id="btn-freeze" style="border-color:#00ddff;color:#00ddff;background:#001a2a;"><span class="icon">🧊</span>FREEZE</button>
+    <button class="chaos-btn" id="btn-popcorn" style="border-color:#ffdd00;color:#ffdd00;background:#1a1a00;"><span class="icon">🍿</span>POPCORN</button>
     <button class="chaos-btn safe" id="btn-clear"><span class="icon">🗑️</span>CLEAR</button>
     <button class="chaos-btn safe" id="btn-pause"><span class="icon">⏸️</span>PAUSE</button>
   </div>
@@ -317,6 +319,10 @@ let tornadoDir = 1;
 let freezeActive = false;
 let freezeTimer = 0;
 let frozenVelocities = new Map();
+let conveyors = []; // {body, dir} — dir: 1=right, -1=left
+let popcornActive = false;
+let popcornTimer = 0;
+let chromaticAberration = 0; // intensity, decays over time
 
 // ── AUDIO ──
 let audioCtx = null;
@@ -562,6 +568,22 @@ function spawnObject(x, y, vx=0, vy=0) {
         render: { type:'trampoline', color:'#00ff99', width: tW, height: tH }
       });
       body.isTrampoline = true;
+      break;
+    }
+    case 'conveyor': {
+      const cW = 100 + Math.random()*40;
+      const cH = 12;
+      const dir = Math.random() > 0.5 ? 1 : -1;
+      body = Bodies.rectangle(x, y, cW, cH, {
+        isStatic: true,
+        friction: 1.0,
+        label: 'conveyor',
+        render: { type:'conveyor', color:'#ff8800', width: cW, height: cH, dir }
+      });
+      body.isConveyor = true;
+      body.conveyorDir = dir;
+      body.conveyorSpeed = 3;
+      conveyors.push(body);
       break;
     }
     case 'bumper': {
@@ -855,6 +877,7 @@ function randomExplosion() {
   });
   playBoom();
   shakeIntensity = 15;
+  chromaticAberration = 6;
 }
 
 // ── CHAOS BUTTONS ──
@@ -1080,6 +1103,26 @@ document.getElementById('btn-freeze').addEventListener('click', () => {
   }
 });
 
+document.getElementById('btn-popcorn').addEventListener('click', () => {
+  if (popcornActive) return;
+  popcornActive = true;
+  popcornTimer = 480; // 8 seconds of popping
+  shakeIntensity = 6;
+  playSound(500, 0.15, 'sine', 0.1);
+  playSound(700, 0.1, 'square', 0.06);
+  // Butter-yellow burst
+  for (let i = 0; i < 20; i++) {
+    particles.push({
+      x: Math.random() * canvas.width,
+      y: canvas.height,
+      vx: (Math.random()-0.5)*3, vy: -(4 + Math.random()*6),
+      life: 0.6 + Math.random()*0.6,
+      color: ['#ffdd00','#ffffff','#ff8800'][Math.floor(Math.random()*3)],
+      size: 2 + Math.random()*3
+    });
+  }
+});
+
 document.getElementById('btn-clear').addEventListener('click', () => {
   const allBodies = Composite.allBodies(world);
   allBodies.forEach(b => {
@@ -1094,6 +1137,7 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   });
   rocketBodies = [];
   bumpers = [];
+  conveyors = [];
   particles = [];
   explosions = [];
   portals = [];
@@ -1402,8 +1446,9 @@ Events.on(engine, 'collisionStart', (e) => {
         explosions.push({ x:px, y:py, r:0, maxR: relVel * 5, alpha: 0.6 });
         // Satisfying crunch sound
         playSound(150 + Math.random()*100, 0.12, 'sawtooth', 0.08);
-        // Small screen shake
+        // Small screen shake + chromatic aberration
         shakeIntensity = Math.max(shakeIntensity, Math.min(relVel * 0.5, 10));
+        chromaticAberration = Math.max(chromaticAberration, Math.min(relVel * 0.6, 8));
       }
     }
   });
@@ -1774,6 +1819,47 @@ function drawBody(b) {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('BOING', 0, 0);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      break;
+    }
+    case 'conveyor': {
+      const cw = r.width || 100;
+      const ch = r.height || 12;
+      const dir = r.dir || 1;
+      // Belt body
+      ctx.fillStyle = '#ff880044';
+      ctx.fillRect(-cw/2, -ch/2, cw, ch);
+      ctx.strokeStyle = '#ff8800';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(-cw/2, -ch/2, cw, ch);
+      // Animated chevrons showing direction
+      const time = performance.now();
+      const offset = (time / 80 * dir) % 20;
+      ctx.strokeStyle = '#ff880088';
+      ctx.lineWidth = 2;
+      const chevCount = Math.floor(cw / 20) + 1;
+      for (let ci = -1; ci < chevCount; ci++) {
+        const cx = -cw/2 + ci * 20 + offset;
+        if (cx < -cw/2 - 10 || cx > cw/2 + 10) continue;
+        ctx.beginPath();
+        if (dir > 0) {
+          ctx.moveTo(cx, -ch/2 + 2);
+          ctx.lineTo(cx + 6, 0);
+          ctx.lineTo(cx, ch/2 - 2);
+        } else {
+          ctx.moveTo(cx, -ch/2 + 2);
+          ctx.lineTo(cx - 6, 0);
+          ctx.lineTo(cx, ch/2 - 2);
+        }
+        ctx.stroke();
+      }
+      // Direction label
+      ctx.fillStyle = '#ff8800aa';
+      ctx.font = '10px VT323';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(dir > 0 ? '▶▶▶' : '◀◀◀', 0, 0);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'alphabetic';
       break;
@@ -2456,6 +2542,61 @@ function loop(timestamp) {
     }
   }
 
+  // Conveyor belt physics
+  conveyors = conveyors.filter(c => Composite.get(world, c.id, 'body'));
+  if (conveyors.length > 0) {
+    const allConvBodies = Composite.allBodies(world);
+    allConvBodies.forEach(b => {
+      if (b.isStatic) return;
+      conveyors.forEach(conv => {
+        // Check if body is resting on conveyor (overlapping bounds + close Y)
+        const bBottom = b.bounds.max.y;
+        const cTop = conv.bounds.min.y;
+        const cBottom = conv.bounds.max.y;
+        const bCenterX = b.position.x;
+        if (bBottom >= cTop - 4 && bBottom <= cBottom + 8 &&
+            bCenterX >= conv.bounds.min.x - 10 && bCenterX <= conv.bounds.max.x + 10) {
+          Body.applyForce(b, b.position, { x: conv.conveyorDir * 0.0008, y: 0 });
+        }
+      });
+    });
+  }
+
+  // Popcorn mode
+  if (popcornActive && popcornTimer > 0) {
+    popcornTimer--;
+    if (popcornTimer % 15 === 0) {
+      const dynBods = Composite.allBodies(world).filter(b => !b.isStatic);
+      if (dynBods.length > 0) {
+        const target = dynBods[Math.floor(Math.random() * dynBods.length)];
+        const popForce = 0.03 + Math.random() * 0.04;
+        Body.applyForce(target, target.position, { x: (Math.random()-0.5)*0.02, y: -popForce });
+        Body.setAngularVelocity(target, (Math.random()-0.5)*0.3);
+        // Pop particles
+        for (let i = 0; i < 6; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          particles.push({
+            x: target.position.x, y: target.position.y,
+            vx: Math.cos(angle)*2, vy: Math.sin(angle)*2 - 2,
+            life: 0.3 + Math.random()*0.3,
+            color: ['#ffdd00','#ffffff','#ff8800'][Math.floor(Math.random()*3)],
+            size: 2 + Math.random()*2
+          });
+        }
+        if (popcornTimer % 30 === 0) playSound(600 + Math.random()*600, 0.06, 'sine', 0.06);
+      }
+    }
+    if (popcornTimer <= 0) {
+      popcornActive = false;
+    }
+  }
+
+  // Chromatic aberration decay
+  if (chromaticAberration > 0) {
+    chromaticAberration *= 0.92;
+    if (chromaticAberration < 0.3) chromaticAberration = 0;
+  }
+
   // Ultra chaos mode (Konami code)
   if (ultraChaosActive && ultraChaosTimer > 0) {
     ultraChaosTimer--;
@@ -2995,6 +3136,42 @@ function loop(timestamp) {
         ctx.globalAlpha = 1;
       }
     });
+  }
+
+  // Chromatic aberration (RGB split) on big impacts
+  if (chromaticAberration > 0.5) {
+    const offset = chromaticAberration;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.12;
+    // Red channel offset
+    ctx.drawImage(canvas, offset, 0);
+    // Blue channel offset
+    ctx.drawImage(canvas, -offset, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    // White screen flash (brief)
+    if (chromaticAberration > 4) {
+      ctx.fillStyle = `rgba(255,255,255,${(chromaticAberration - 4) * 0.04})`;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+
+  // Popcorn indicator
+  if (popcornActive) {
+    const pulse = 0.6 + Math.sin(timestamp / 150) * 0.4;
+    ctx.globalAlpha = pulse;
+    ctx.fillStyle = '#ffdd00';
+    ctx.font = '28px VT323';
+    ctx.textAlign = 'center';
+    ctx.fillText('🍿 P O P C O R N ! 🍿', canvas.width/2, 50);
+    ctx.globalAlpha = 1;
+    const barW = 200, barH = 6;
+    const barX = canvas.width/2 - barW/2;
+    ctx.fillStyle = '#ffdd0033';
+    ctx.fillRect(barX, 62, barW, barH);
+    ctx.fillStyle = '#ffdd00';
+    ctx.fillRect(barX, 62, barW * (popcornTimer/480), barH);
+    ctx.textAlign = 'left';
   }
 
   // Draw mode indicator

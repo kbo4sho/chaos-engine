@@ -73,6 +73,15 @@
         "Visual: Pixel dust cloud when objects land hard"
       ],
       "summary": "Added Trampoline tool (🟩) — place static bounce pads that launch objects skyward with spring particles and a satisfying boing sound. Freeze (🧊) chaos button instantly freezes all objects in place for 3 seconds with ice crystal particles and blue frost overlay, then everything resumes with a dramatic thaw burst. Pixel dust clouds poof up when objects slam into walls/floor — brown/tan expanding puffs that add weight and impact to every hard landing."
+    },
+    {
+      "date": "2026-02-15",
+      "ideas": [
+        "Interactive: Conveyor belt surface that moves objects along it",
+        "Game mode: Popcorn — objects randomly pop upward every few seconds",
+        "Visual: Screen flash and chromatic aberration on big impacts"
+      ],
+      "summary": "Added Conveyor Belt tool (⏩) — place static belts with animated chevrons that push objects left or right via surface friction. Popcorn (🍿) chaos button makes random objects pop upward for 8 seconds with butter-yellow particles and bounce sounds. Chromatic aberration — hard impacts and explosions now trigger RGB channel splitting and white screen flash for dramatic visual punch."
     }
   ],
   "ideaPool": [
@@ -82,7 +91,6 @@
     "New object: Wrecking ball on a chain constraint",
     "New object: Bowling pin that tips over satisfyingly",
     "New chaos button: Shuffle — randomize all object positions",
-    "Visual: Screen flash and chromatic aberration on big impacts",
     "Visual: Glow effect on fast-moving objects",
     "Visual: Matrix-style falling characters in background",
     "Sound: Material-based impact sounds (metal clang, rubber boing, wood thud)",
@@ -93,7 +101,6 @@
     "Game mode: Target practice — spawn bullseyes worth points",
     "Game mode: Stacking challenge — build tallest tower",
     "Game mode: Bowling — pins at one end, ball at other",
-    "Interactive: Conveyor belt surface that moves objects along it",
     "Interactive: Fan/blower that pushes objects with airflow",
     "Interactive: Pendulum wrecking ball you can release",
     "UX: Object size slider for current tool",
@@ -109,7 +116,6 @@
     "Visual: Object glow pulse on spawn (birth flash)",
     "Sound: Whoosh sound on slingshot launch scaled to power",
     "Easter egg: Triple-tap title for disco mode (flashing background colors)",
-    "Game mode: Popcorn — objects randomly pop upward every few seconds",
     "New object: Spinning saw blade that cuts through objects",
     "Interactive: Rope/chain that connects two tap points",
     "Game mode: Pinball score counter with multiplier",
