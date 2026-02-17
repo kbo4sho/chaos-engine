@@ -233,6 +233,7 @@ canvas#game {
     <button class="tool-btn" data-tool="ragdoll" style="color:#ff6644;"><span class="icon">🧍</span>Ragdoll</button>
     <button class="tool-btn" data-tool="trampoline" style="color:#00ff99;"><span class="icon">🟩</span>Tramp</button>
     <button class="tool-btn" data-tool="conveyor" style="color:#ff8800;"><span class="icon">⏩</span>Convyr</button>
+    <button class="tool-btn" data-tool="wrecking" style="color:#ff4444;"><span class="icon">⚫</span>Wreck</button>
     <button class="tool-btn draw-btn" data-tool="draw"><span class="icon">✏️</span>Draw</button>
   </div>
 
@@ -252,6 +253,7 @@ canvas#game {
     <button class="chaos-btn" id="btn-tornado" style="border-color:#ff8800;color:#ff8800;background:#1a1000;"><span class="icon">🌪️</span>TORNADO</button>
     <button class="chaos-btn" id="btn-freeze" style="border-color:#00ddff;color:#00ddff;background:#001a2a;"><span class="icon">🧊</span>FREEZE</button>
     <button class="chaos-btn" id="btn-popcorn" style="border-color:#ffdd00;color:#ffdd00;background:#1a1a00;"><span class="icon">🍿</span>POPCORN</button>
+    <button class="chaos-btn" id="btn-shuffle" style="border-color:#ffaa00;color:#ffaa00;background:#1a1500;"><span class="icon">🔀</span>SHUFFLE</button>
     <button class="chaos-btn safe" id="btn-clear"><span class="icon">🗑️</span>CLEAR</button>
     <button class="chaos-btn safe" id="btn-pause"><span class="icon">⏸️</span>PAUSE</button>
   </div>
@@ -323,6 +325,9 @@ let conveyors = []; // {body, dir} — dir: 1=right, -1=left
 let popcornActive = false;
 let popcornTimer = 0;
 let chromaticAberration = 0; // intensity, decays over time
+let destructionMeter = 0; // total energy released
+let destructionFlash = 0; // flash on big hits
+let wreckingBalls = []; // {ball, chain, anchor} sets
 
 // ── AUDIO ──
 let audioCtx = null;
@@ -585,6 +590,30 @@ function spawnObject(x, y, vx=0, vy=0) {
       body.conveyorSpeed = 3;
       conveyors.push(body);
       break;
+    }
+    case 'wrecking': {
+      const wr = 22 + Math.random()*8;
+      const chainLen = 120 + Math.random()*40;
+      const anchor = Bodies.circle(x, y, 5, {
+        isStatic: true,
+        render: { type:'wrecking-anchor', color:'#ff4444', radius: 5 }
+      });
+      const wBall = Bodies.circle(x, y + chainLen, wr, {
+        restitution: 0.2, friction: 0.3, density: 0.015,
+        render: { type:'wrecking-ball', color:'#444444', radius: wr }
+      });
+      const chain = Constraint.create({
+        bodyA: anchor, bodyB: wBall,
+        length: chainLen, stiffness: 0.9, damping: 0.01,
+        render: { visible: false }
+      });
+      Composite.add(world, [anchor, wBall, chain]);
+      wreckingBalls.push({ anchor, ball: wBall, chain });
+      Body.setVelocity(wBall, { x: 8 + Math.random()*5, y: 0 });
+      playSpawn();
+      playSound(200, 0.3, 'sine', 0.1);
+      pointerDown = false;
+      return;
     }
     case 'bumper': {
       const r = 22;
@@ -1123,6 +1152,35 @@ document.getElementById('btn-popcorn').addEventListener('click', () => {
   }
 });
 
+document.getElementById('btn-shuffle').addEventListener('click', () => {
+  const dynBods = Composite.allBodies(world).filter(b => !b.isStatic);
+  if (dynBods.length < 2) return;
+  // Collect all positions, shuffle them, reassign
+  const positions = dynBods.map(b => ({ x: b.position.x, y: b.position.y }));
+  for (let i = positions.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [positions[i], positions[j]] = [positions[j], positions[i]];
+  }
+  dynBods.forEach((b, i) => {
+    // Disappear particles at old position
+    for (let p = 0; p < 8; p++) {
+      const angle = Math.random() * Math.PI * 2;
+      particles.push({
+        x: b.position.x, y: b.position.y,
+        vx: Math.cos(angle)*3, vy: Math.sin(angle)*3,
+        life: 0.4, color: '#ffaa00', size: 2 + Math.random()*3
+      });
+    }
+    Body.setPosition(b, positions[i]);
+    Body.setVelocity(b, { x: (Math.random()-0.5)*6, y: (Math.random()-0.5)*6 });
+    Body.setAngularVelocity(b, (Math.random()-0.5)*0.3);
+  });
+  shakeIntensity = 15;
+  playSound(600, 0.2, 'sine', 0.1);
+  playSound(900, 0.15, 'square', 0.06);
+  chromaticAberration = 4;
+});
+
 document.getElementById('btn-clear').addEventListener('click', () => {
   const allBodies = Composite.allBodies(world);
   allBodies.forEach(b => {
@@ -1138,6 +1196,8 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   rocketBodies = [];
   bumpers = [];
   conveyors = [];
+  wreckingBalls = [];
+  destructionMeter = 0;
   particles = [];
   explosions = [];
   portals = [];
@@ -1424,6 +1484,10 @@ Events.on(engine, 'collisionStart', (e) => {
         });
       }
       if (relVel > 3) playBounce();
+
+      // Destruction meter — track energy from all impacts
+      destructionMeter += relVel * relVel * 0.1;
+      if (relVel > 5) destructionFlash = Math.min(relVel * 0.1, 1);
 
       // 🎉 CONFETTI BURST on hard impacts!
       if (relVel > 8) {
@@ -1898,6 +1962,47 @@ function drawBody(b) {
       ctx.fill();
       break;
     }
+    case 'wrecking-anchor': {
+      // Small red pivot point
+      ctx.beginPath();
+      ctx.arc(0, 0, 6, 0, Math.PI*2);
+      ctx.fillStyle = '#ff444488';
+      ctx.fill();
+      ctx.strokeStyle = '#ff4444';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      // Mount bracket
+      ctx.fillStyle = '#ff444466';
+      ctx.fillRect(-10, -3, 20, 6);
+      break;
+    }
+    case 'wrecking-ball': {
+      const wbR = r.radius || 25;
+      // Heavy dark sphere with metallic sheen
+      const grad = ctx.createRadialGradient(-wbR*0.3, -wbR*0.3, wbR*0.1, 0, 0, wbR);
+      grad.addColorStop(0, '#888888');
+      grad.addColorStop(0.5, '#444444');
+      grad.addColorStop(1, '#222222');
+      ctx.beginPath();
+      ctx.arc(0, 0, wbR, 0, Math.PI*2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+      ctx.strokeStyle = '#666666';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      // Highlight
+      ctx.beginPath();
+      ctx.ellipse(-wbR*0.3, -wbR*0.35, wbR*0.2, wbR*0.15, -0.4, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(255,255,255,0.2)';
+      ctx.fill();
+      // Ring at top (chain attachment)
+      ctx.beginPath();
+      ctx.arc(0, -wbR + 3, 5, 0, Math.PI*2);
+      ctx.strokeStyle = '#888';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      break;
+    }
     case 'ragdoll-head': {
       const radius = r.radius || 8;
       // Glow
@@ -2045,16 +2150,35 @@ function drawWalls() {
 
 function drawConstraints() {
   const constraints = Composite.allConstraints(world);
+  // Check which constraints are wrecking ball chains
+  const wreckingChains = new Set(wreckingBalls.map(wb => wb.chain));
   constraints.forEach(c => {
     if (!c.bodyA || !c.bodyB) return;
     const pA = Vector.add(c.bodyA.position, Vector.rotate(c.pointA, c.bodyA.angle));
     const pB = Vector.add(c.bodyB.position, Vector.rotate(c.pointB, c.bodyB.angle));
-    ctx.beginPath();
-    ctx.moveTo(pA.x, pA.y);
-    ctx.lineTo(pB.x, pB.y);
-    ctx.strokeStyle = '#0abdc688';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    if (wreckingChains.has(c)) {
+      // Draw chain links
+      const dx = pB.x - pA.x, dy = pB.y - pA.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      const links = Math.max(Math.floor(dist / 12), 3);
+      for (let i = 0; i < links; i++) {
+        const t = i / links;
+        const lx = pA.x + dx * t;
+        const ly = pA.y + dy * t;
+        ctx.beginPath();
+        ctx.arc(lx, ly, 3, 0, Math.PI*2);
+        ctx.strokeStyle = i % 2 === 0 ? '#888888' : '#666666';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(pA.x, pA.y);
+      ctx.lineTo(pB.x, pB.y);
+      ctx.strokeStyle = '#0abdc688';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
   });
 }
 
@@ -2386,6 +2510,9 @@ function loop(timestamp) {
       }
     });
   }
+
+  // Clean up wrecking balls
+  wreckingBalls = wreckingBalls.filter(wb => Composite.get(world, wb.ball.id, 'body'));
 
   // Bumper flash decay
   bumpers = bumpers.filter(bmp => Composite.get(world, bmp.id, 'body'));
@@ -3173,6 +3300,41 @@ function loop(timestamp) {
     ctx.fillRect(barX, 62, barW * (popcornTimer/480), barH);
     ctx.textAlign = 'left';
   }
+
+  // Destruction meter (bottom-left HUD)
+  if (destructionMeter > 0) {
+    const meterX = 12, meterY = canvas.height - 20;
+    const meterW = 160, meterH = 14;
+    // Milestones at powers of 10
+    const level = Math.floor(Math.log10(Math.max(destructionMeter, 1)));
+    const levelNames = ['CALM','MILD','ROWDY','WILD','INSANE','LEGENDARY','GODLIKE'];
+    const levelColors = ['#00ff41','#0abdc6','#ffdd00','#ff8800','#ff3333','#cc00ff','#ffffff'];
+    const lvl = Math.min(level, levelNames.length - 1);
+    const col = levelColors[lvl];
+    // Background
+    ctx.fillStyle = '#0a0a0a88';
+    ctx.fillRect(meterX - 2, meterY - meterH - 18, meterW + 4, meterH + 22);
+    // Label
+    ctx.fillStyle = col;
+    ctx.font = '14px VT323';
+    ctx.textAlign = 'left';
+    const flash = destructionFlash > 0 ? 1 : 0.8;
+    ctx.globalAlpha = flash;
+    ctx.fillText('💥 DESTRUCTION: ' + levelNames[lvl], meterX, meterY - meterH - 4);
+    // Bar background
+    ctx.fillStyle = col + '33';
+    ctx.fillRect(meterX, meterY - meterH, meterW, meterH);
+    // Bar fill — progress within current level (log scale)
+    const progress = (Math.log10(Math.max(destructionMeter, 1)) % 1);
+    ctx.fillStyle = col;
+    ctx.fillRect(meterX, meterY - meterH, meterW * progress, meterH);
+    // Score
+    ctx.fillStyle = col + 'cc';
+    ctx.font = '12px VT323';
+    ctx.fillText(Math.floor(destructionMeter).toLocaleString(), meterX + meterW + 6, meterY - 3);
+    ctx.globalAlpha = 1;
+  }
+  if (destructionFlash > 0) destructionFlash *= 0.9;
 
   // Draw mode indicator
   if (drawMode) {

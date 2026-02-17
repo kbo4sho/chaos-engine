@@ -82,15 +82,22 @@
         "Visual: Screen flash and chromatic aberration on big impacts"
       ],
       "summary": "Added Conveyor Belt tool (⏩) — place static belts with animated chevrons that push objects left or right via surface friction. Popcorn (🍿) chaos button makes random objects pop upward for 8 seconds with butter-yellow particles and bounce sounds. Chromatic aberration — hard impacts and explosions now trigger RGB channel splitting and white screen flash for dramatic visual punch."
+    },
+    {
+      "date": "2026-02-16",
+      "ideas": [
+        "New object: Wrecking ball on a chain constraint",
+        "New chaos button: Shuffle — randomize all object positions",
+        "Game mode: Destruction meter — counts total energy released"
+      ],
+      "summary": "Added Wrecking Ball tool (⚫) — heavy iron ball swinging on a chain from a static anchor point with metallic rendering and chain-link visuals. Shuffle (🔀) chaos button teleports every dynamic object to a random other object's position with orange burst particles, instant chaos. Destruction Meter HUD (bottom-left) tracks cumulative collision energy with 7 escalating ranks from CALM to GODLIKE, log-scale progress bar, and color-coded labels."
     }
   ],
   "ideaPool": [
     "New object: Chain links that connect to nearby objects",
     "New object: Magnet that attracts/repels nearby metal objects",
     "New object: Ragdoll stick figure",
-    "New object: Wrecking ball on a chain constraint",
     "New object: Bowling pin that tips over satisfyingly",
-    "New chaos button: Shuffle — randomize all object positions",
     "Visual: Glow effect on fast-moving objects",
     "Visual: Matrix-style falling characters in background",
     "Sound: Material-based impact sounds (metal clang, rubber boing, wood thud)",
@@ -111,7 +118,6 @@
     "Easter egg: Shake device to trigger earthquake (mobile)",
     "New object: Ice cube that's super slippery (low friction)",
     "Interactive: Seesaw/teeter-totter you can place",
-    "Game mode: Destruction meter — counts total energy released",
     "Interactive: Springboard launcher — place it and objects bounce off",
     "Visual: Object glow pulse on spawn (birth flash)",
     "Sound: Whoosh sound on slingshot launch scaled to power",
