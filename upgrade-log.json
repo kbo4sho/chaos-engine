@@ -91,6 +91,15 @@
         "Game mode: Destruction meter — counts total energy released"
       ],
       "summary": "Added Wrecking Ball tool (⚫) — heavy iron ball swinging on a chain from a static anchor point with metallic rendering and chain-link visuals. Shuffle (🔀) chaos button teleports every dynamic object to a random other object's position with orange burst particles, instant chaos. Destruction Meter HUD (bottom-left) tracks cumulative collision energy with 7 escalating ranks from CALM to GODLIKE, log-scale progress bar, and color-coded labels."
+    },
+    {
+      "date": "2026-02-17",
+      "ideas": [
+        "Interactive: Fan/blower that pushes objects with airflow",
+        "New object: Ice cube that's super slippery (low friction)",
+        "Easter egg: Triple-tap title for disco mode (flashing background colors)"
+      ],
+      "summary": "Added Fan tool (💨) — place static blowers that push objects upward with visible wind particles and spinning blade animation. Ice Cube tool (🧊) — super slippery low-friction blocks with translucent icy rendering, internal cracks, and shine highlight. Disco Mode easter egg — triple-tap the title to toggle a disco ball with rotating spotlight beams, mirror tile sparkles, and rainbow particle rain."
     }
   ],
   "ideaPool": [
@@ -108,7 +117,6 @@
     "Game mode: Target practice — spawn bullseyes worth points",
     "Game mode: Stacking challenge — build tallest tower",
     "Game mode: Bowling — pins at one end, ball at other",
-    "Interactive: Fan/blower that pushes objects with airflow",
     "Interactive: Pendulum wrecking ball you can release",
     "UX: Object size slider for current tool",
     "UX: Color picker for spawned objects",
@@ -116,12 +124,10 @@
     "UX: Screenshot button that saves the canvas",
     "Easter egg: Spawn 100 tiny balls at once (confetti cannon)",
     "Easter egg: Shake device to trigger earthquake (mobile)",
-    "New object: Ice cube that's super slippery (low friction)",
     "Interactive: Seesaw/teeter-totter you can place",
     "Interactive: Springboard launcher — place it and objects bounce off",
     "Visual: Object glow pulse on spawn (birth flash)",
     "Sound: Whoosh sound on slingshot launch scaled to power",
-    "Easter egg: Triple-tap title for disco mode (flashing background colors)",
     "New object: Spinning saw blade that cuts through objects",
     "Interactive: Rope/chain that connects two tap points",
     "Game mode: Pinball score counter with multiplier",

@@ -235,6 +235,8 @@ canvas#game {
     <button class="tool-btn" data-tool="conveyor-left" style="color:#ff8800;"><span class="icon">⬅️</span>Conv◀</button>
     <button class="tool-btn" data-tool="conveyor-right" style="color:#ff8800;"><span class="icon">➡️</span>Conv▶</button>
     <button class="tool-btn" data-tool="wrecking" style="color:#ff4444;"><span class="icon">⚫</span>Wreck</button>
+    <button class="tool-btn" data-tool="ice" style="color:#aaeeff;"><span class="icon">🧊</span>Ice</button>
+    <button class="tool-btn" data-tool="fan" style="color:#66ddff;"><span class="icon">💨</span>Fan</button>
     <button class="tool-btn draw-btn" data-tool="draw"><span class="icon">✏️</span>Draw</button>
   </div>
 
@@ -329,6 +331,10 @@ let chromaticAberration = 0; // intensity, decays over time
 let destructionMeter = 0; // total energy released
 let destructionFlash = 0; // flash on big hits
 let wreckingBalls = []; // {ball, chain, anchor} sets
+let discoMode = false;
+let discoTimer = 0;
+let titleTapCount = 0;
+let titleTapTimer = 0;
 
 // ── AUDIO ──
 let audioCtx = null;
@@ -616,6 +622,30 @@ function spawnObject(x, y, vx=0, vy=0) {
       playSound(200, 0.3, 'sine', 0.1);
       pointerDown = false;
       return;
+    }
+    case 'ice': {
+      const iS = 25 + Math.random()*15;
+      body = Bodies.rectangle(x, y, iS, iS, {
+        restitution: 0.15,
+        friction: 0.01,
+        frictionStatic: 0.01,
+        frictionAir: 0.0005,
+        density: 0.002,
+        render: { type:'ice', color:'#aaeeff', size: iS }
+      });
+      break;
+    }
+    case 'fan': {
+      const fW = 50, fH = 40;
+      body = Bodies.rectangle(x, y, fW, fH, {
+        isStatic: true,
+        label: 'fan',
+        render: { type:'fan', color:'#66ddff', width: fW, height: fH }
+      });
+      body.isFan = true;
+      body.fanRange = 180;
+      body.fanStrength = 0.003;
+      break;
     }
     case 'bumper': {
       const r = 22;
@@ -2052,6 +2082,72 @@ function drawBody(b) {
       ctx.shadowBlur = 0;
       break;
     }
+    case 'ice': {
+      const iS = r.size || 25;
+      // Translucent icy block
+      ctx.fillStyle = 'rgba(170,238,255,0.25)';
+      ctx.fillRect(-iS/2, -iS/2, iS, iS);
+      ctx.strokeStyle = '#aaeeff';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(-iS/2, -iS/2, iS, iS);
+      // Internal cracks
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-iS*0.3, -iS*0.2);
+      ctx.lineTo(0, iS*0.1);
+      ctx.lineTo(iS*0.2, -iS*0.3);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(iS*0.1, iS*0.1);
+      ctx.lineTo(iS*0.3, iS*0.35);
+      ctx.stroke();
+      // Shine highlight
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.beginPath();
+      ctx.moveTo(-iS*0.35, -iS*0.45);
+      ctx.lineTo(-iS*0.15, -iS*0.45);
+      ctx.lineTo(-iS*0.35, -iS*0.25);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    }
+    case 'fan': {
+      const fw = r.width || 50;
+      const fh = r.height || 40;
+      // Housing
+      ctx.fillStyle = '#0a2a3a';
+      ctx.fillRect(-fw/2, -fh/2, fw, fh);
+      ctx.strokeStyle = '#66ddff';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(-fw/2, -fh/2, fw, fh);
+      // Fan blades (animated)
+      const time = performance.now();
+      const bladeAngle = time / 60;
+      ctx.strokeStyle = '#66ddffcc';
+      ctx.lineWidth = 3;
+      for (let i = 0; i < 3; i++) {
+        const a = bladeAngle + (Math.PI*2/3)*i;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(Math.cos(a)*fh*0.35, Math.sin(a)*fh*0.35);
+        ctx.stroke();
+      }
+      // Center hub
+      ctx.beginPath();
+      ctx.arc(0, 0, 4, 0, Math.PI*2);
+      ctx.fillStyle = '#66ddff';
+      ctx.fill();
+      // Direction arrow (blows upward)
+      ctx.fillStyle = '#66ddff88';
+      ctx.font = '14px VT323';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('↑↑↑', 0, -fh/2 - 10);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      break;
+    }
     case 'drawn': {
       // Draw the rectangle
       const w = b.bounds.max.x - b.bounds.min.x;
@@ -2689,6 +2785,47 @@ function loop(timestamp) {
         }
       });
     });
+  }
+
+  // Fan blower physics
+  {
+    const allFanBodies = Composite.allBodies(world);
+    const fans = allFanBodies.filter(b => b.isFan);
+    if (fans.length > 0) {
+      allFanBodies.forEach(b => {
+        if (b.isStatic) return;
+        fans.forEach(fan => {
+          const dx = b.position.x - fan.position.x;
+          const dy = b.position.y - fan.position.y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          // Fan blows upward from its position
+          if (dist < fan.fanRange && dist > 5) {
+            // Check if object is above the fan and within horizontal cone
+            if (dy < 0 && Math.abs(dx) < fan.fanRange * 0.6) {
+              const strength = fan.fanStrength * (1 - dist/fan.fanRange);
+              Body.applyForce(b, b.position, {
+                x: dx * 0.00002, // slight horizontal spread
+                y: -strength
+              });
+            }
+          }
+        });
+      });
+      // Wind particles from fans
+      if (timestamp % 80 < 16) {
+        fans.forEach(fan => {
+          particles.push({
+            x: fan.position.x + (Math.random()-0.5)*40,
+            y: fan.position.y - 20,
+            vx: (Math.random()-0.5)*1.5,
+            vy: -(3 + Math.random()*4),
+            life: 0.4 + Math.random()*0.4,
+            color: '#66ddff',
+            size: 1 + Math.random()*2
+          });
+        });
+      }
+    }
   }
 
   // Popcorn mode
@@ -3338,6 +3475,75 @@ function loop(timestamp) {
   }
   if (destructionFlash > 0) destructionFlash *= 0.9;
 
+  // Disco mode visuals
+  if (discoMode) {
+    const t = timestamp;
+    const hue = (t / 3) % 360;
+    // Pulsing background color wash
+    ctx.fillStyle = `hsla(${hue}, 100%, 50%, 0.04)`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Disco ball spotlight beams
+    const beamCount = 6;
+    const centerX = canvas.width / 2, centerY = 60;
+    for (let i = 0; i < beamCount; i++) {
+      const angle = (t / 800) + (Math.PI * 2 * i / beamCount);
+      const beamLen = Math.max(canvas.width, canvas.height);
+      const endX = centerX + Math.cos(angle) * beamLen;
+      const endY = centerY + Math.sin(angle) * beamLen;
+      const beamHue = (hue + i * 60) % 360;
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY);
+      ctx.lineTo(endX - Math.sin(angle)*30, endY + Math.cos(angle)*30);
+      ctx.lineTo(endX + Math.sin(angle)*30, endY - Math.cos(angle)*30);
+      ctx.closePath();
+      ctx.fillStyle = `hsla(${beamHue}, 100%, 60%, 0.06)`;
+      ctx.fill();
+    }
+    // Disco ball
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, 18, 0, Math.PI*2);
+    const dbGrad = ctx.createRadialGradient(centerX-5, centerY-5, 2, centerX, centerY, 18);
+    dbGrad.addColorStop(0, '#ffffff');
+    dbGrad.addColorStop(0.5, '#cccccc');
+    dbGrad.addColorStop(1, '#666666');
+    ctx.fillStyle = dbGrad;
+    ctx.fill();
+    // Mirror tiles on disco ball
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 8; c++) {
+        const ta = (Math.PI*2*c/8) + t/500 + r*0.3;
+        const tr = 8 + r*4;
+        const tx = centerX + Math.cos(ta)*tr;
+        const ty = centerY + Math.sin(ta)*tr - 2 + r*3;
+        const sparkle = Math.sin(t/100 + c*2 + r*3) > 0.5 ? 1 : 0.3;
+        ctx.fillStyle = `rgba(255,255,255,${sparkle})`;
+        ctx.fillRect(tx-2, ty-2, 4, 3);
+      }
+    }
+    // Label
+    const pulse = 0.7 + Math.sin(t / 150) * 0.3;
+    ctx.globalAlpha = pulse;
+    ctx.fillStyle = `hsl(${hue}, 100%, 70%)`;
+    ctx.font = '24px VT323';
+    ctx.textAlign = 'center';
+    ctx.fillText('🪩 D I S C O   M O D E 🪩', canvas.width/2, canvas.height - 40);
+    ctx.textAlign = 'left';
+    ctx.globalAlpha = 1;
+    // Random sparkle particles
+    if (Math.random() < 0.3) {
+      const sparkHue = Math.random() * 360;
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height * 0.8,
+        vx: (Math.random()-0.5)*2,
+        vy: -(0.5 + Math.random()*2),
+        life: 0.5 + Math.random()*0.5,
+        color: `hsl(${sparkHue}, 100%, 70%)`,
+        size: 1 + Math.random()*3
+      });
+    }
+  }
+
   // Draw mode indicator
   if (drawMode) {
     ctx.fillStyle = '#ff6600';
@@ -3402,6 +3608,26 @@ document.getElementById('toggle-chaos').addEventListener('click', () => {
   const btn = document.getElementById('toggle-chaos');
   cb.classList.toggle('collapsed');
   btn.textContent = cb.classList.contains('collapsed') ? '💥 CHAOS ▶' : '💥 CHAOS ▼';
+});
+
+// Triple-tap title for DISCO MODE
+document.querySelector('#topbar .title').addEventListener('click', () => {
+  titleTapCount++;
+  clearTimeout(titleTapTimer);
+  titleTapTimer = setTimeout(() => { titleTapCount = 0; }, 600);
+  if (titleTapCount >= 3) {
+    titleTapCount = 0;
+    discoMode = !discoMode;
+    discoTimer = discoMode ? Infinity : 0;
+    if (discoMode) {
+      playSound(800, 0.15, 'square', 0.1);
+      playSound(1000, 0.1, 'sine', 0.08);
+      playSound(1200, 0.1, 'sine', 0.06);
+      shakeIntensity = 10;
+    } else {
+      playSound(400, 0.2, 'sine', 0.08);
+    }
+  }
 });
 
 console.log('⚡ CHAOS ENGINE initialized');
