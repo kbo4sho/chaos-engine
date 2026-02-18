@@ -580,7 +580,7 @@ function spawnObject(x, y, vx=0, vy=0) {
     case 'conveyor-right': {
       const cW = 100 + Math.random()*40;
       const cH = 12;
-      const dir = tool === 'conveyor-right' ? 1 : -1;
+      const dir = currentTool === 'conveyor-right' ? 1 : -1;
       body = Bodies.rectangle(x, y, cW, cH, {
         isStatic: true,
         friction: 1.0,
