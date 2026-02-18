@@ -28,7 +28,7 @@ describe('Tool Button Existence', () => {
   const allTools = [
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
-    'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'draw'
+    'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan', 'draw'
   ];
 
   allTools.forEach(tool => {
@@ -39,9 +39,9 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 20 tool buttons', () => {
+  it('should have exactly 22 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(20);
+    expect(buttons.length).toBe(22);
   });
 
   it('should have ball as default active tool', () => {
@@ -270,6 +270,14 @@ describe('Code Structure - spawnObject Function', () => {
   it('should have case for conveyor-right', () => {
     expect(scriptContent).toContain("case 'conveyor-right':");
   });
+
+  it('should have case for ice', () => {
+    expect(scriptContent).toContain("case 'ice':");
+  });
+
+  it('should have case for fan', () => {
+    expect(scriptContent).toContain("case 'fan':");
+  });
 });
 
 // ============================================
@@ -453,7 +461,7 @@ describe('Rendering Types in Code', () => {
     'ball', 'block', 'rocket', 'bomb', 'balloon', 'star', 'beachball',
     'duck', 'domino', 'anvil', 'trampoline', 'conveyor', 'bumper',
     'dino', 'car-body', 'wheel', 'drawn', 'wrecking-anchor', 'wrecking-ball',
-    'ragdoll-head', 'ragdoll-torso', 'ragdoll-limb'
+    'ragdoll-head', 'ragdoll-torso', 'ragdoll-limb', 'ice', 'fan'
   ];
 
   renderTypes.forEach(type => {
@@ -732,5 +740,91 @@ describe('Matter.js Integration', () => {
 
   it('should destructure Matter components', () => {
     expect(scriptContent).toContain('const { Engine, World, Bodies, Body, Composite, Events, Mouse, Vector, Constraint } = Matter');
+  });
+});
+
+// ============================================
+// LESSON MODE API TESTS (Code Analysis)
+// ============================================
+
+describe('Lesson Mode API', () => {
+  it('should expose window.ChaosEngine', () => {
+    expect(scriptContent).toContain('window.ChaosEngine = {');
+  });
+
+  it('should have loadLesson method', () => {
+    expect(scriptContent).toContain('loadLesson(config)');
+  });
+
+  it('should have onEvent method', () => {
+    expect(scriptContent).toContain('onEvent(callback)');
+  });
+
+  it('should have getState method', () => {
+    expect(scriptContent).toContain('getState()');
+  });
+
+  it('should have endLesson method', () => {
+    expect(scriptContent).toContain('endLesson()');
+  });
+
+  it('should have checkGoals method', () => {
+    expect(scriptContent).toContain('checkGoals:');
+  });
+
+  it('should have setPaused method', () => {
+    expect(scriptContent).toContain('setPaused(val)');
+  });
+
+  it('should have version property', () => {
+    expect(scriptContent).toContain("version: '1.1.0-lesson-api'");
+  });
+
+  it('should have gravity presets', () => {
+    expect(scriptContent).toContain('const gravityPresets = {');
+    expect(scriptContent).toContain('earth: 1');
+    expect(scriptContent).toContain('moon: 0.166');
+    expect(scriptContent).toContain('mars: 0.38');
+    expect(scriptContent).toContain('jupiter: 2.53');
+    expect(scriptContent).toContain('space: 0');
+  });
+
+  it('should track lesson state', () => {
+    expect(scriptContent).toContain('const lessonState = {');
+    expect(scriptContent).toContain('active: false');
+    expect(scriptContent).toContain('config: null');
+    expect(scriptContent).toContain('goals: []');
+  });
+
+  it('should emit lesson events', () => {
+    expect(scriptContent).toContain('function emitLessonEvent(');
+    expect(scriptContent).toContain("emitLessonEvent('lesson-loaded'");
+    expect(scriptContent).toContain("emitLessonEvent('goal-reached'");
+    expect(scriptContent).toContain("emitLessonEvent('all-goals-reached'");
+    expect(scriptContent).toContain("emitLessonEvent('collision'");
+  });
+
+  it('should check lesson goals', () => {
+    expect(scriptContent).toContain('function checkLessonGoals()');
+  });
+
+  it('should support goal types', () => {
+    expect(scriptContent).toContain("case 'count-placed':");
+    expect(scriptContent).toContain("case 'count-exact':");
+    expect(scriptContent).toContain("case 'height-reached':");
+    expect(scriptContent).toContain("case 'all-objects-below':");
+    expect(scriptContent).toContain("case 'collision-count':");
+  });
+
+  it('should spawn fixtures from config', () => {
+    expect(scriptContent).toContain("config.simulation?.fixtures");
+  });
+
+  it('should spawn objects from config', () => {
+    expect(scriptContent).toContain("config.simulation?.spawnObjects");
+  });
+
+  it('should support hiding controls in lesson mode', () => {
+    expect(scriptContent).toContain('config.hideControls');
   });
 });

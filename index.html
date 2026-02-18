@@ -3630,6 +3630,220 @@ document.querySelector('#topbar .title').addEventListener('click', () => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+// LESSON MODE API - For integration with Lesson Engine
+// ═══════════════════════════════════════════════════════════════════════════
+
+const lessonState = {
+  active: false,
+  config: null,
+  goals: [],
+  eventCallbacks: [],
+  spawnedLessonObjects: [],
+  goalsReached: new Set()
+};
+
+const gravityPresets = {
+  earth: 1, moon: 0.166, mars: 0.38, jupiter: 2.53, space: 0
+};
+
+function emitLessonEvent(type, data) {
+  lessonState.eventCallbacks.forEach(cb => {
+    try { cb({ type, ...data, timestamp: Date.now() }); } catch(e) { console.error('Lesson event callback error:', e); }
+  });
+}
+
+function checkLessonGoals() {
+  if (!lessonState.active || !lessonState.goals.length) return;
+  
+  const state = window.ChaosEngine.getState();
+  
+  lessonState.goals.forEach((goal, idx) => {
+    if (lessonState.goalsReached.has(idx)) return;
+    
+    let reached = false;
+    switch(goal.type) {
+      case 'count-placed':
+        reached = state.objectCount >= goal.target;
+        break;
+      case 'count-exact':
+        const diff = Math.abs(state.objectCount - goal.target);
+        reached = diff <= (goal.tolerance || 0);
+        break;
+      case 'height-reached':
+        reached = state.objects.some(obj => obj.y <= goal.y);
+        break;
+      case 'all-objects-below':
+        reached = state.objects.every(obj => obj.y >= goal.y);
+        break;
+      case 'collision-count':
+        reached = (state.collisionCount || 0) >= goal.target;
+        break;
+    }
+    
+    if (reached) {
+      lessonState.goalsReached.add(idx);
+      emitLessonEvent('goal-reached', { goalIndex: idx, goal });
+      
+      if (lessonState.goalsReached.size === lessonState.goals.length) {
+        emitLessonEvent('all-goals-reached', { goals: lessonState.goals });
+      }
+    }
+  });
+}
+
+// Check goals periodically during lesson mode
+setInterval(() => { if (lessonState.active && !paused) checkLessonGoals(); }, 250);
+
+window.ChaosEngine = {
+  // Load a lesson configuration
+  loadLesson(config) {
+    // Clear existing simulation
+    document.getElementById('btn-clear').click();
+    
+    lessonState.active = true;
+    lessonState.config = config;
+    lessonState.goals = config.simulation?.goals || [];
+    lessonState.spawnedLessonObjects = [];
+    lessonState.goalsReached.clear();
+    
+    // Set gravity
+    const grav = config.simulation?.gravity;
+    if (grav !== undefined) {
+      const gravValue = typeof grav === 'number' ? grav : (gravityPresets[grav] ?? 1);
+      gravityTarget = gravValue;
+      engine.gravity.y = gravValue;
+      // Update planet display
+      const planetName = typeof grav === 'string' ? grav.toUpperCase() : 'CUSTOM';
+      document.getElementById('planet-name').textContent = planetName;
+      document.querySelectorAll('.planet-btn').forEach(b => b.classList.remove('active'));
+      const matchingBtn = document.querySelector(`[data-gravity="${gravValue}"]`);
+      if (matchingBtn) matchingBtn.classList.add('active');
+    }
+    
+    // Spawn fixtures (static objects)
+    (config.simulation?.fixtures || []).forEach(fix => {
+      if (fix.type === 'rectangle') {
+        const body = Bodies.rectangle(fix.x, fix.y, fix.width, fix.height, {
+          isStatic: true,
+          label: fix.label || 'fixture',
+          render: { type: 'block', color: fix.color || '#0abdc6', size: Math.max(fix.width, fix.height) }
+        });
+        Composite.add(world, body);
+        lessonState.spawnedLessonObjects.push(body);
+      } else if (fix.type === 'sprite' || fix.type === 'emoji') {
+        // Create a marker for sprites/emojis (small static body)
+        const body = Bodies.circle(fix.x, fix.y, 20, {
+          isStatic: true, label: fix.label || 'sprite',
+          render: { type: 'ball', color: '#ffdd00', radius: 20 }
+        });
+        body.emoji = fix.image || fix.emoji || '📍';
+        Composite.add(world, body);
+        lessonState.spawnedLessonObjects.push(body);
+      }
+    });
+    
+    // Spawn draggable objects
+    (config.simulation?.spawnObjects || []).forEach(spec => {
+      const toolMap = { circle: 'ball', rectangle: 'block', box: 'block', star: 'star', balloon: 'balloon' };
+      const tool = toolMap[spec.type] || spec.type || 'ball';
+      const savedTool = currentTool;
+      currentTool = tool;
+      
+      const count = spec.count || 1;
+      for (let i = 0; i < count; i++) {
+        const x = spec.x ?? (80 + Math.random() * (canvas.width - 160));
+        const y = spec.y ?? (60 + i * 40);
+        const body = spawnObject(x, y);
+        if (body) {
+          if (spec.label) body.lessonLabel = spec.label;
+          lessonState.spawnedLessonObjects.push(body);
+        }
+      }
+      currentTool = savedTool;
+    });
+    
+    // Hide sandbox UI in lesson mode (optional - controlled by config)
+    if (config.hideControls) {
+      document.getElementById('toolbar').style.display = 'none';
+      document.getElementById('chaos-bar').style.display = 'none';
+      document.getElementById('gravity-panel').style.display = 'none';
+    }
+    
+    emitLessonEvent('lesson-loaded', { config });
+    return { success: true, objectCount: lessonState.spawnedLessonObjects.length };
+  },
+  
+  // Register event callback
+  onEvent(callback) {
+    if (typeof callback === 'function') {
+      lessonState.eventCallbacks.push(callback);
+    }
+    return () => {
+      const idx = lessonState.eventCallbacks.indexOf(callback);
+      if (idx > -1) lessonState.eventCallbacks.splice(idx, 1);
+    };
+  },
+  
+  // Get current simulation state
+  getState() {
+    const allBodies = Composite.allBodies(world);
+    const dynamicBodies = allBodies.filter(b => !b.isStatic && b.label !== 'wall');
+    
+    return {
+      lessonActive: lessonState.active,
+      lessonId: lessonState.config?.id || null,
+      paused,
+      gravity: { x: engine.gravity.x, y: engine.gravity.y },
+      objectCount: dynamicBodies.length,
+      goalsTotal: lessonState.goals.length,
+      goalsReached: lessonState.goalsReached.size,
+      allGoalsReached: lessonState.goals.length > 0 && lessonState.goalsReached.size === lessonState.goals.length,
+      objects: dynamicBodies.map(b => ({
+        id: b.id,
+        label: b.lessonLabel || b.label || b.render?.type || 'unknown',
+        x: Math.round(b.position.x),
+        y: Math.round(b.position.y),
+        velocity: { x: Math.round(b.velocity.x * 10) / 10, y: Math.round(b.velocity.y * 10) / 10 },
+        sleeping: b.isSleeping
+      }))
+    };
+  },
+  
+  // End lesson mode
+  endLesson() {
+    lessonState.active = false;
+    lessonState.config = null;
+    lessonState.goals = [];
+    lessonState.goalsReached.clear();
+    // Restore UI
+    document.getElementById('toolbar').style.display = '';
+    document.getElementById('chaos-bar').style.display = '';
+    document.getElementById('gravity-panel').style.display = '';
+    emitLessonEvent('lesson-ended', {});
+  },
+  
+  // Trigger goal check manually
+  checkGoals: checkLessonGoals,
+  
+  // Utility: pause/unpause
+  setPaused(val) { paused = !!val; },
+  
+  // Get version
+  version: '1.1.0-lesson-api'
+};
+
+// Emit collision events during lessons
+Events.on(engine, 'collisionStart', (e) => {
+  if (!lessonState.active) return;
+  e.pairs.forEach(pair => {
+    emitLessonEvent('collision', {
+      bodyA: { id: pair.bodyA.id, label: pair.bodyA.lessonLabel || pair.bodyA.label },
+      bodyB: { id: pair.bodyB.id, label: pair.bodyB.lessonLabel || pair.bodyB.label }
+    });
+  });
+});
+
 console.log('⚡ CHAOS ENGINE initialized');
 </script>
 </body>
