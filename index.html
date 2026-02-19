@@ -237,6 +237,7 @@ canvas#game {
     <button class="tool-btn" data-tool="wrecking" style="color:#ff4444;"><span class="icon">⚫</span>Wreck</button>
     <button class="tool-btn" data-tool="ice" style="color:#aaeeff;"><span class="icon">🧊</span>Ice</button>
     <button class="tool-btn" data-tool="fan" style="color:#66ddff;"><span class="icon">💨</span>Fan</button>
+    <button class="tool-btn" data-tool="magnet" style="color:#ff4466;"><span class="icon">🧲</span>Magnet</button>
     <button class="tool-btn draw-btn" data-tool="draw"><span class="icon">✏️</span>Draw</button>
   </div>
 
@@ -257,6 +258,7 @@ canvas#game {
     <button class="chaos-btn" id="btn-freeze" style="border-color:#00ddff;color:#00ddff;background:#001a2a;"><span class="icon">🧊</span>FREEZE</button>
     <button class="chaos-btn" id="btn-popcorn" style="border-color:#ffdd00;color:#ffdd00;background:#1a1a00;"><span class="icon">🍿</span>POPCORN</button>
     <button class="chaos-btn" id="btn-shuffle" style="border-color:#ffaa00;color:#ffaa00;background:#1a1500;"><span class="icon">🔀</span>SHUFFLE</button>
+    <button class="chaos-btn" id="btn-target" style="border-color:#ff4444;color:#ff4444;background:#1a0a0a;"><span class="icon">🎯</span>TARGET</button>
     <button class="chaos-btn safe" id="btn-clear"><span class="icon">🗑️</span>CLEAR</button>
     <button class="chaos-btn safe" id="btn-pause"><span class="icon">⏸️</span>PAUSE</button>
   </div>
@@ -335,6 +337,19 @@ let discoMode = false;
 let discoTimer = 0;
 let titleTapCount = 0;
 let titleTapTimer = 0;
+
+// Target Practice
+let targetMode = false;
+let targetTimer = 0;
+let targetScore = 0;
+let targetBodies = [];
+let targetCleared = false;
+let targetClearedTimer = 0;
+
+// Magnets
+let magnets = []; // {body, attracting: true/false}
+
+// Speed glow (purely visual, no state needed)
 
 // ── AUDIO ──
 let audioCtx = null;
@@ -645,6 +660,32 @@ function spawnObject(x, y, vx=0, vy=0) {
       body.isFan = true;
       body.fanRange = 180;
       body.fanStrength = 0.003;
+      break;
+    }
+    case 'magnet': {
+      // Check if there's already a magnet near this position — toggle to repel
+      let existingMagnet = null;
+      for (const m of magnets) {
+        const mdx = m.body.position.x - x;
+        const mdy = m.body.position.y - y;
+        if (Math.sqrt(mdx*mdx + mdy*mdy) < 40) { existingMagnet = m; break; }
+      }
+      if (existingMagnet) {
+        existingMagnet.attracting = !existingMagnet.attracting;
+        existingMagnet.body.render.color = existingMagnet.attracting ? '#ff4466' : '#4466ff';
+        playSound(existingMagnet.attracting ? 600 : 400, 0.15, 'sine', 0.1);
+        pointerDown = false;
+        return;
+      }
+      const mW = 40, mH = 50;
+      body = Bodies.rectangle(x, y, mW, mH, {
+        isStatic: true,
+        label: 'magnet',
+        render: { type:'magnet', color:'#ff4466', width: mW, height: mH }
+      });
+      body.isMagnet = true;
+      const magEntry = { body, attracting: true };
+      magnets.push(magEntry);
       break;
     }
     case 'bumper': {
@@ -1213,6 +1254,35 @@ document.getElementById('btn-shuffle').addEventListener('click', () => {
   chromaticAberration = 4;
 });
 
+document.getElementById('btn-target').addEventListener('click', () => {
+  if (targetMode) return;
+  targetMode = true;
+  targetTimer = 900; // 15 seconds at 60fps
+  targetScore = 0;
+  targetCleared = false;
+  targetClearedTimer = 0;
+  targetBodies = [];
+  // Spawn 5 targets at random positions
+  for (let i = 0; i < 5; i++) {
+    const tx = 60 + Math.random() * (canvas.width - 120);
+    const ty = 60 + Math.random() * (canvas.height - 120);
+    const tr = 25;
+    const tbody = Bodies.circle(tx, ty, tr, {
+      isStatic: true,
+      isSensor: true,
+      label: 'target',
+      render: { type:'target', color:'#ff3333', radius: tr }
+    });
+    tbody.isTarget = true;
+    tbody.targetHit = false;
+    Composite.add(world, tbody);
+    targetBodies.push(tbody);
+  }
+  shakeIntensity = 8;
+  playSound(800, 0.2, 'sine', 0.1);
+  playSound(1200, 0.15, 'square', 0.06);
+});
+
 document.getElementById('btn-clear').addEventListener('click', () => {
   const allBodies = Composite.allBodies(world);
   allBodies.forEach(b => {
@@ -1229,6 +1299,9 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   bumpers = [];
   conveyors = [];
   wreckingBalls = [];
+  magnets = [];
+  targetBodies = [];
+  targetMode = false;
   destructionMeter = 0;
   particles = [];
   explosions = [];
@@ -1396,6 +1469,32 @@ canvas.addEventListener('touchend', onUp, {passive:false});
 // ── COLLISION EVENTS ──
 Events.on(engine, 'collisionStart', (e) => {
   e.pairs.forEach(pair => {
+    // Target hit detection
+    const targetBody = pair.bodyA.isTarget ? pair.bodyA : (pair.bodyB.isTarget ? pair.bodyB : null);
+    const hitterBody = targetBody === pair.bodyA ? pair.bodyB : pair.bodyA;
+    if (targetBody && hitterBody && !hitterBody.isStatic && !targetBody.targetHit) {
+      targetBody.targetHit = true;
+      targetScore += 10;
+      // Explosion particles
+      for (let i = 0; i < 20; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 2 + Math.random() * 5;
+        particles.push({
+          x: targetBody.position.x, y: targetBody.position.y,
+          vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed,
+          life: 0.4 + Math.random()*0.4,
+          color: ['#ff3333','#ffffff','#ffdd00','#ff6600'][Math.floor(Math.random()*4)],
+          size: 2 + Math.random()*4
+        });
+      }
+      // Remove target
+      Composite.remove(world, targetBody);
+      // Ding sound
+      playSound(1200, 0.15, 'sine', 0.15);
+      playSound(1800, 0.1, 'sine', 0.08);
+      shakeIntensity = Math.max(shakeIntensity, 6);
+    }
+
     // Bumper hit detection
     const bumperBody = pair.bodyA.isBumper ? pair.bodyA : (pair.bodyB.isBumper ? pair.bodyB : null);
     const otherBody = bumperBody === pair.bodyA ? pair.bodyB : pair.bodyA;
@@ -2195,6 +2294,51 @@ function drawBody(b) {
       ctx.restore();
       return;
     }
+    case 'magnet': {
+      const mw = r.width || 40;
+      const mh = r.height || 50;
+      const isAttract = color === '#ff4466';
+      // Horseshoe magnet body
+      ctx.fillStyle = '#888888';
+      ctx.fillRect(-mw/2, -mh/2, mw, mh);
+      // Red pole (left)
+      ctx.fillStyle = '#ff3333';
+      ctx.fillRect(-mw/2, -mh/2, mw/2 - 2, mh*0.4);
+      // Blue pole (right)
+      ctx.fillStyle = '#3333ff';
+      ctx.fillRect(2, -mh/2, mw/2 - 2, mh*0.4);
+      // Border
+      ctx.strokeStyle = isAttract ? '#ff4466' : '#4466ff';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(-mw/2, -mh/2, mw, mh);
+      // Label
+      ctx.fillStyle = isAttract ? '#ff4466' : '#4466ff';
+      ctx.font = '12px VT323';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(isAttract ? 'PULL' : 'PUSH', 0, mh*0.15);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      break;
+    }
+    case 'target': {
+      const tR = r.radius || 25;
+      // Concentric rings: red/white/red/white/red
+      const ringColors = ['#ff3333','#ffffff','#ff3333','#ffffff','#ff3333'];
+      for (let i = 4; i >= 0; i--) {
+        const ringR = tR * (i + 1) / 5;
+        ctx.beginPath();
+        ctx.arc(0, 0, ringR, 0, Math.PI*2);
+        ctx.fillStyle = ringColors[i];
+        ctx.fill();
+      }
+      // Bullseye center dot
+      ctx.beginPath();
+      ctx.arc(0, 0, tR * 0.12, 0, Math.PI*2);
+      ctx.fillStyle = '#ffdd00';
+      ctx.fill();
+      break;
+    }
     default: {
       // Generic polygon
       ctx.restore();
@@ -2828,6 +2972,65 @@ function loop(timestamp) {
     }
   }
 
+  // Magnet force
+  magnets = magnets.filter(m => Composite.get(world, m.body.id, 'body'));
+  if (magnets.length > 0) {
+    const allMagBodies = Composite.allBodies(world);
+    allMagBodies.forEach(b => {
+      if (b.isStatic) return;
+      magnets.forEach(mag => {
+        const dx = mag.body.position.x - b.position.x;
+        const dy = mag.body.position.y - b.position.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < 150 && dist > 10) {
+          const strength = 0.002 / (dist / 50);
+          const dir = mag.attracting ? 1 : -1;
+          Body.applyForce(b, b.position, {
+            x: (dx/dist) * strength * dir,
+            y: (dy/dist) * strength * dir
+          });
+        }
+      });
+    });
+  }
+
+  // Target practice timer
+  if (targetMode && targetTimer > 0) {
+    targetTimer--;
+    // Check if all targets hit
+    const remaining = targetBodies.filter(t => !t.targetHit);
+    if (remaining.length === 0 && !targetCleared) {
+      targetCleared = true;
+      targetClearedTimer = 180; // 3 seconds of "CLEARED!"
+      targetScore += 50; // bonus
+      shakeIntensity = 20;
+      chromaticAberration = 6;
+      playSound(1000, 0.3, 'sine', 0.15);
+      playSound(1200, 0.2, 'sine', 0.1);
+      playSound(1500, 0.15, 'sine', 0.08);
+      // Fanfare particles
+      for (let i = 0; i < 60; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 3 + Math.random() * 6;
+        particles.push({
+          x: canvas.width/2, y: canvas.height/2,
+          vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed,
+          life: 1 + Math.random(), color: ['#ffdd00','#ff3333','#00ff41','#ffffff'][Math.floor(Math.random()*4)],
+          size: 3 + Math.random()*4
+        });
+      }
+    }
+    if (targetClearedTimer > 0) targetClearedTimer--;
+    if (targetTimer <= 0) {
+      // Time's up — remove remaining targets
+      targetBodies.forEach(t => {
+        if (Composite.get(world, t.id, 'body')) Composite.remove(world, t);
+      });
+      targetBodies = [];
+      targetMode = false;
+    }
+  }
+
   // Popcorn mode
   if (popcornActive && popcornTimer > 0) {
     popcornTimer--;
@@ -2990,6 +3193,57 @@ function loop(timestamp) {
 
   // Constraints (car axles)
   drawConstraints();
+
+  // Speed glow on fast objects
+  allBodies.forEach(b => {
+    if (b.isStatic) return;
+    const spd = Math.sqrt(b.velocity.x*b.velocity.x + b.velocity.y*b.velocity.y);
+    if (spd > 5) {
+      const intensity = Math.min((spd - 5) / 15, 1); // 0 at 5, 1 at 20
+      const glowR = (b.render?.radius || b.render?.size || b.render?.outerR || 20) * (1.5 + intensity * 1.5);
+      // Color: yellow → orange → red → white
+      let glowColor;
+      if (intensity < 0.33) glowColor = `rgba(255,255,0,${0.15 + intensity * 0.4})`;
+      else if (intensity < 0.66) glowColor = `rgba(255,${Math.floor(165 - (intensity-0.33)*300)},0,${0.2 + intensity * 0.3})`;
+      else if (intensity < 0.9) glowColor = `rgba(255,${Math.floor(50 - (intensity-0.66)*100)},0,${0.25 + intensity * 0.25})`;
+      else glowColor = `rgba(255,255,255,${0.3 + intensity * 0.2})`;
+      // Pulsing
+      const pulse = 0.8 + Math.sin(performance.now() / 100 + b.id) * 0.2;
+      const grd = ctx.createRadialGradient(b.position.x, b.position.y, 0, b.position.x, b.position.y, glowR * pulse);
+      grd.addColorStop(0, glowColor);
+      grd.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.beginPath();
+      ctx.arc(b.position.x, b.position.y, glowR * pulse, 0, Math.PI*2);
+      ctx.fillStyle = grd;
+      ctx.fill();
+    }
+  });
+
+  // Magnet field lines
+  magnets.forEach(mag => {
+    const mx = mag.body.position.x, my = mag.body.position.y;
+    const isAttract = mag.attracting;
+    const col = isAttract ? 'rgba(255,68,102,' : 'rgba(68,102,255,';
+    const time = performance.now();
+    // Draw curved field arcs
+    for (let i = 0; i < 6; i++) {
+      const angle = (Math.PI*2/6)*i + time/2000;
+      const dist = 60 + Math.sin(time/400 + i)*20;
+      ctx.beginPath();
+      ctx.arc(mx, my, dist, angle, angle + 0.8);
+      ctx.strokeStyle = col + '0.2)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+    // Range circle
+    ctx.beginPath();
+    ctx.arc(mx, my, 150, 0, Math.PI*2);
+    ctx.strokeStyle = col + '0.08)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 8]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
 
   // Bodies
   allBodies.forEach(b => {
@@ -3438,6 +3692,40 @@ function loop(timestamp) {
     ctx.fillStyle = '#ffdd00';
     ctx.fillRect(barX, 62, barW * (popcornTimer/480), barH);
     ctx.textAlign = 'left';
+  }
+
+  // Target practice HUD
+  if (targetMode) {
+    const remaining = targetBodies.filter(t => !t.targetHit).length;
+    // Score overlay top-right
+    ctx.fillStyle = '#0a0a0acc';
+    ctx.fillRect(canvas.width - 180, 8, 172, 60);
+    ctx.strokeStyle = '#ff3333';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(canvas.width - 180, 8, 172, 60);
+    ctx.fillStyle = '#ff3333';
+    ctx.font = '24px VT323';
+    ctx.textAlign = 'right';
+    ctx.fillText('🎯 SCORE: ' + targetScore, canvas.width - 16, 34);
+    ctx.fillStyle = '#ffdd00';
+    ctx.font = '18px VT323';
+    ctx.fillText('LEFT: ' + remaining + '  ⏱ ' + Math.ceil(targetTimer/60) + 's', canvas.width - 16, 58);
+    ctx.textAlign = 'left';
+    // Cleared flash
+    if (targetCleared && targetClearedTimer > 0) {
+      const alpha = Math.min(1, targetClearedTimer / 60);
+      const pulse = 0.7 + Math.sin(performance.now() / 100) * 0.3;
+      ctx.globalAlpha = alpha * pulse;
+      ctx.fillStyle = '#ffdd00';
+      ctx.font = '48px VT323';
+      ctx.textAlign = 'center';
+      ctx.fillText('🎯 C L E A R E D ! 🎯', canvas.width/2, canvas.height/2);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '28px VT323';
+      ctx.fillText('BONUS +50!', canvas.width/2, canvas.height/2 + 40);
+      ctx.textAlign = 'left';
+      ctx.globalAlpha = 1;
+    }
   }
 
   // Destruction meter (bottom-left HUD)

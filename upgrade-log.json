@@ -100,21 +100,27 @@
         "Easter egg: Triple-tap title for disco mode (flashing background colors)"
       ],
       "summary": "Added Fan tool (💨) — place static blowers that push objects upward with visible wind particles and spinning blade animation. Ice Cube tool (🧊) — super slippery low-friction blocks with translucent icy rendering, internal cracks, and shine highlight. Disco Mode easter egg — triple-tap the title to toggle a disco ball with rotating spotlight beams, mirror tile sparkles, and rainbow particle rain."
+    },
+    {
+      "date": "2026-02-18",
+      "ideas": [
+        "Game mode: Target practice — spawn bullseyes worth points",
+        "New object: Magnet that attracts/repels nearby metal objects",
+        "Visual: Glow effect on fast-moving objects"
+      ],
+      "summary": "Added Target Practice (🎯) chaos button — spawns 5 bullseye targets with concentric red/white circles, +10 points per hit with ding sound and particle explosions, CLEARED! bonus at 5/5, 15-second timer with score HUD. Magnet tool (🧲) — place static magnets that attract nearby objects within 150px, tap again to toggle repel mode, rendered with red/blue poles and curved magnetic field arcs. Speed Glow — objects moving fast get a pulsing radial gradient aura that shifts yellow→orange→red→white with increasing speed."
     }
   ],
   "ideaPool": [
     "New object: Chain links that connect to nearby objects",
-    "New object: Magnet that attracts/repels nearby metal objects",
     "New object: Ragdoll stick figure",
     "New object: Bowling pin that tips over satisfyingly",
-    "Visual: Glow effect on fast-moving objects",
     "Visual: Matrix-style falling characters in background",
     "Sound: Material-based impact sounds (metal clang, rubber boing, wood thud)",
     "Sound: Background ambient hum that reacts to chaos level",
     "Sound: Victory fanfare when destruction threshold reached",
     "Gravity: Underwater mode with buoyancy and drag",
     "Gravity: Sideways gravity option",
-    "Game mode: Target practice — spawn bullseyes worth points",
     "Game mode: Stacking challenge — build tallest tower",
     "Game mode: Bowling — pins at one end, ball at other",
     "Interactive: Pendulum wrecking ball you can release",
