@@ -238,6 +238,8 @@ canvas#game {
     <button class="tool-btn" data-tool="ice" style="color:#aaeeff;"><span class="icon">🧊</span>Ice</button>
     <button class="tool-btn" data-tool="fan" style="color:#66ddff;"><span class="icon">💨</span>Fan</button>
     <button class="tool-btn" data-tool="magnet" style="color:#ff4466;"><span class="icon">🧲</span>Magnet</button>
+    <button class="tool-btn" data-tool="pin" style="color:#ffffff;"><span class="icon">🎳</span>Pin</button>
+    <button class="tool-btn" data-tool="seesaw" style="color:#ffcc00;"><span class="icon">⚖️</span>Seesaw</button>
     <button class="tool-btn draw-btn" data-tool="draw"><span class="icon">✏️</span>Draw</button>
   </div>
 
@@ -259,6 +261,7 @@ canvas#game {
     <button class="chaos-btn" id="btn-popcorn" style="border-color:#ffdd00;color:#ffdd00;background:#1a1a00;"><span class="icon">🍿</span>POPCORN</button>
     <button class="chaos-btn" id="btn-shuffle" style="border-color:#ffaa00;color:#ffaa00;background:#1a1500;"><span class="icon">🔀</span>SHUFFLE</button>
     <button class="chaos-btn" id="btn-target" style="border-color:#ff4444;color:#ff4444;background:#1a0a0a;"><span class="icon">🎯</span>TARGET</button>
+    <button class="chaos-btn" id="btn-ocean" style="border-color:#0066ff;color:#0088ff;background:#000a2a;"><span class="icon">🌊</span>OCEAN</button>
     <button class="chaos-btn safe" id="btn-clear"><span class="icon">🗑️</span>CLEAR</button>
     <button class="chaos-btn safe" id="btn-pause"><span class="icon">⏸️</span>PAUSE</button>
   </div>
@@ -317,6 +320,9 @@ let megaBounceTimer = 0;
 let megaBounceOriginal = new Map(); // body.id -> original restitution
 let konamiBuffer = [];
 const konamiCode = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+let seesaws = []; // {plank, pivot, constraint} sets
+let oceanMode = false;
+let oceanBubbles = [];
 let ultraChaosActive = false;
 let ultraChaosTimer = 0;
 let tornadoActive = false;
@@ -700,6 +706,52 @@ function spawnObject(x, y, vx=0, vy=0) {
       body.hitFlash = 0;
       bumpers.push(body);
       break;
+    }
+    case 'pin': {
+      const pH = 55 + Math.random()*10;
+      const pW = 14;
+      body = Bodies.rectangle(x, y, pW, pH, {
+        restitution: 0.1,
+        friction: 0.5,
+        frictionStatic: 0.4,
+        density: 0.001,
+        render: { type:'pin', color:'#fff8ee', width: pW, height: pH }
+      });
+      break;
+    }
+    case 'seesaw': {
+      const plankW = 120, plankH = 8;
+      const pivotH = 20;
+      const plank = Bodies.rectangle(x, y - pivotH/2, plankW, plankH, {
+        restitution: 0.1,
+        friction: 0.8,
+        density: 0.003,
+        render: { type:'seesaw-plank', color:'#aa8844', width: plankW, height: plankH }
+      });
+      const pivotVerts = [
+        {x: 0, y: -pivotH/2},
+        {x: pivotH*0.6, y: pivotH/2},
+        {x: -pivotH*0.6, y: pivotH/2}
+      ];
+      const pivot = Bodies.fromVertices(x, y + pivotH/2, pivotVerts, {
+        isStatic: true,
+        render: { type:'seesaw-pivot', color:'#886633', height: pivotH }
+      });
+      const constraint = Constraint.create({
+        bodyA: pivot,
+        bodyB: plank,
+        pointA: { x: 0, y: -pivotH/2 },
+        pointB: { x: 0, y: 0 },
+        length: 0,
+        stiffness: 1,
+        render: { visible: false }
+      });
+      Composite.add(world, [plank, pivot, constraint]);
+      seesaws.push({ plank, pivot, constraint });
+      playSpawn();
+      playSound(300, 0.2, 'triangle', 0.1);
+      pointerDown = false;
+      return;
     }
   }
 
@@ -1283,6 +1335,26 @@ document.getElementById('btn-target').addEventListener('click', () => {
   playSound(1200, 0.15, 'square', 0.06);
 });
 
+document.getElementById('btn-ocean').addEventListener('click', () => {
+  oceanMode = !oceanMode;
+  const btn = document.getElementById('btn-ocean');
+  if (oceanMode) {
+    btn.style.background = '#002255';
+    btn.style.boxShadow = '0 0 12px #0066ff88';
+    // Reduce gravity to 30%
+    gravityTarget *= 0.3;
+    playSound(200, 0.3, 'sine', 0.3);
+    playSound(150, 0.2, 'sine', 0.5);
+  } else {
+    btn.style.background = '#000a2a';
+    btn.style.boxShadow = 'none';
+    // Restore gravity
+    gravityTarget /= 0.3;
+    oceanBubbles = [];
+    playSound(600, 0.2, 'sine', 0.15);
+  }
+});
+
 document.getElementById('btn-clear').addEventListener('click', () => {
   const allBodies = Composite.allBodies(world);
   allBodies.forEach(b => {
@@ -1307,6 +1379,15 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   explosions = [];
   portals = [];
   portalCooldowns.clear();
+  seesaws = [];
+  if (oceanMode) {
+    oceanMode = false;
+    gravityTarget /= 0.3;
+    oceanBubbles = [];
+    const oceanBtn = document.getElementById('btn-ocean');
+    oceanBtn.style.background = '#000a2a';
+    oceanBtn.style.boxShadow = 'none';
+  }
   gravityAngle = 0;
   engine.gravity.x = 0;
   engine.gravity.y = gravityTarget;
@@ -2339,6 +2420,60 @@ function drawBody(b) {
       ctx.fill();
       break;
     }
+    case 'pin': {
+      const pw = r.width || 14;
+      const ph = r.height || 60;
+      // Main body - cream white
+      ctx.fillStyle = '#fff8ee';
+      ctx.fillRect(-pw/2, -ph/2, pw, ph);
+      // Rounded top cap
+      ctx.beginPath();
+      ctx.arc(0, -ph/2, pw/2 + 1, Math.PI, 0);
+      ctx.fillStyle = '#fff8ee';
+      ctx.fill();
+      // Red neck stripe
+      ctx.fillStyle = '#cc2222';
+      ctx.fillRect(-pw/2, -ph*0.15, pw, ph*0.06);
+      ctx.fillRect(-pw/2, -ph*0.08, pw, ph*0.06);
+      // Outline
+      ctx.strokeStyle = '#ccbbaa';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(-pw/2, -ph/2, pw, ph);
+      break;
+    }
+    case 'seesaw-plank': {
+      const sw = r.width || 120;
+      const sh = r.height || 8;
+      ctx.fillStyle = '#aa8844';
+      ctx.fillRect(-sw/2, -sh/2, sw, sh);
+      ctx.strokeStyle = '#ccaa55';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(-sw/2, -sh/2, sw, sh);
+      // Wood grain lines
+      ctx.strokeStyle = '#99773344';
+      ctx.lineWidth = 0.5;
+      for (let i = -sw/2 + 10; i < sw/2; i += 20) {
+        ctx.beginPath();
+        ctx.moveTo(i, -sh/2);
+        ctx.lineTo(i, sh/2);
+        ctx.stroke();
+      }
+      break;
+    }
+    case 'seesaw-pivot': {
+      const pvH = r.height || 20;
+      ctx.beginPath();
+      ctx.moveTo(0, -pvH/2);
+      ctx.lineTo(pvH*0.6, pvH/2);
+      ctx.lineTo(-pvH*0.6, pvH/2);
+      ctx.closePath();
+      ctx.fillStyle = '#886633';
+      ctx.fill();
+      ctx.strokeStyle = '#aa8844';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      break;
+    }
     default: {
       // Generic polygon
       ctx.restore();
@@ -2587,6 +2722,38 @@ function loop(timestamp) {
     allBodies.forEach(b => {
       if (!b.isStatic) Body.applyForce(b, b.position, {x: windForce, y: 0});
     });
+  }
+
+  // Ocean mode — water drag + bubbles
+  if (oceanMode) {
+    const allOcean = Composite.allBodies(world);
+    allOcean.forEach(b => {
+      if (b.isStatic) return;
+      // Water drag: opposing force proportional to velocity
+      const drag = 0.0008;
+      Body.applyForce(b, b.position, {
+        x: -b.velocity.x * drag * b.mass,
+        y: -b.velocity.y * drag * b.mass
+      });
+    });
+    // Spawn bubble particles from bottom
+    if (Math.random() < 0.3) {
+      oceanBubbles.push({
+        x: Math.random() * canvas.width,
+        y: canvas.height + 5,
+        r: 2 + Math.random() * 5,
+        speed: 0.5 + Math.random() * 1.5,
+        wobble: Math.random() * Math.PI * 2,
+        alpha: 0.3 + Math.random() * 0.4
+      });
+    }
+    // Update bubbles
+    for (let i = oceanBubbles.length - 1; i >= 0; i--) {
+      const bub = oceanBubbles[i];
+      bub.y -= bub.speed;
+      bub.x += Math.sin(bub.wobble + bub.y * 0.02) * 0.3;
+      if (bub.y < -10) oceanBubbles.splice(i, 1);
+    }
   }
 
   // Balloon buoyancy — float upward
@@ -3470,6 +3637,35 @@ function loop(timestamp) {
     ctx.fillRect(barX, barY, barW, barH);
     ctx.fillStyle = '#00ff41';
     ctx.fillRect(barX, barY, barW * pct, barH);
+    ctx.textAlign = 'left';
+  }
+
+  // Ocean mode overlay
+  if (oceanMode) {
+    // Blue tint
+    ctx.fillStyle = 'rgba(0,40,120,0.12)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Draw bubbles
+    oceanBubbles.forEach(bub => {
+      ctx.beginPath();
+      ctx.arc(bub.x, bub.y, bub.r, 0, Math.PI*2);
+      ctx.strokeStyle = `rgba(100,200,255,${bub.alpha})`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      // Highlight
+      ctx.beginPath();
+      ctx.arc(bub.x - bub.r*0.25, bub.y - bub.r*0.25, bub.r*0.3, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(200,240,255,${bub.alpha * 0.6})`;
+      ctx.fill();
+    });
+    // Label
+    const pulse = 0.6 + Math.sin(timestamp / 300) * 0.4;
+    ctx.globalAlpha = pulse;
+    ctx.fillStyle = '#0088ff';
+    ctx.font = '28px VT323';
+    ctx.textAlign = 'center';
+    ctx.fillText('🌊 O C E A N   M O D E 🌊', canvas.width/2, antiGravActive ? 140 : megaBounceActive ? 100 : 50);
+    ctx.globalAlpha = 1;
     ctx.textAlign = 'left';
   }
 

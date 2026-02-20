@@ -109,17 +109,24 @@
         "Visual: Glow effect on fast-moving objects"
       ],
       "summary": "Added Target Practice (🎯) chaos button — spawns 5 bullseye targets with concentric red/white circles, +10 points per hit with ding sound and particle explosions, CLEARED! bonus at 5/5, 15-second timer with score HUD. Magnet tool (🧲) — place static magnets that attract nearby objects within 150px, tap again to toggle repel mode, rendered with red/blue poles and curved magnetic field arcs. Speed Glow — objects moving fast get a pulsing radial gradient aura that shifts yellow→orange→red→white with increasing speed."
+    },
+    {
+      "date": "2026-02-19",
+      "ideas": [
+        "New object: Bowling pin that tips over satisfyingly",
+        "Interactive: Seesaw/teeter-totter you can place",
+        "Gravity: Underwater mode with buoyancy and drag"
+      ],
+      "summary": "Added Bowling Pin tool (🎳) — tall narrow cream-white pins with red neck stripes that tip over satisfyingly with low density physics. Seesaw tool (⚖️) — place a wooden plank balanced on a triangle pivot via revolute constraint, perfect for launching objects by dropping heavy things on one end. Ocean Mode (🌊) toggle chaos button — reduces gravity to 30%, applies water drag to all bodies, spawns rising bubble particles with wobble, and adds a blue tint overlay for floaty underwater physics."
     }
   ],
   "ideaPool": [
     "New object: Chain links that connect to nearby objects",
     "New object: Ragdoll stick figure",
-    "New object: Bowling pin that tips over satisfyingly",
     "Visual: Matrix-style falling characters in background",
     "Sound: Material-based impact sounds (metal clang, rubber boing, wood thud)",
     "Sound: Background ambient hum that reacts to chaos level",
     "Sound: Victory fanfare when destruction threshold reached",
-    "Gravity: Underwater mode with buoyancy and drag",
     "Gravity: Sideways gravity option",
     "Game mode: Stacking challenge — build tallest tower",
     "Game mode: Bowling — pins at one end, ball at other",
@@ -130,13 +137,15 @@
     "UX: Screenshot button that saves the canvas",
     "Easter egg: Spawn 100 tiny balls at once (confetti cannon)",
     "Easter egg: Shake device to trigger earthquake (mobile)",
-    "Interactive: Seesaw/teeter-totter you can place",
     "Interactive: Springboard launcher — place it and objects bounce off",
     "Visual: Object glow pulse on spawn (birth flash)",
     "Sound: Whoosh sound on slingshot launch scaled to power",
     "New object: Spinning saw blade that cuts through objects",
     "Interactive: Rope/chain that connects two tap points",
     "Game mode: Pinball score counter with multiplier",
-    "Interactive: Catapult you can load and launch"
+    "Interactive: Catapult you can load and launch",
+    "Visual: Northern lights aurora background effect",
+    "Game mode: Jenga tower — pre-built tower to knock down",
+    "Interactive: Zipline — wire objects can slide along"
   ]
 }
