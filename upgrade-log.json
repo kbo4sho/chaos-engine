@@ -118,6 +118,15 @@
         "Gravity: Underwater mode with buoyancy and drag"
       ],
       "summary": "Added Bowling Pin tool (🎳) — tall narrow cream-white pins with red neck stripes that tip over satisfyingly with low density physics. Seesaw tool (⚖️) — place a wooden plank balanced on a triangle pivot via revolute constraint, perfect for launching objects by dropping heavy things on one end. Ocean Mode (🌊) toggle chaos button — reduces gravity to 30%, applies water drag to all bodies, spawns rising bubble particles with wobble, and adds a blue tint overlay for floaty underwater physics."
+    },
+    {
+      "date": "2026-02-20",
+      "ideas": [
+        "Game mode: Jenga tower — pre-built tower to knock down",
+        "Interactive: Rope/chain that connects two tap points",
+        "Visual: Object glow pulse on spawn (birth flash)"
+      ],
+      "summary": "Added Jenga Tower (🏗️) chaos button — spawns 12 rows of alternating wooden blocks with ascending build sound, perfect for demolition. Rope tool (🪢) — select two objects to connect them with a sagging brown rope constraint, with knot dots and dashed selection indicator. Spawn Birth Flash — every new object appears with an expanding white ring and sparkle particles for a satisfying pop-in effect."
     }
   ],
   "ideaPool": [
@@ -138,14 +147,11 @@
     "Easter egg: Spawn 100 tiny balls at once (confetti cannon)",
     "Easter egg: Shake device to trigger earthquake (mobile)",
     "Interactive: Springboard launcher — place it and objects bounce off",
-    "Visual: Object glow pulse on spawn (birth flash)",
     "Sound: Whoosh sound on slingshot launch scaled to power",
     "New object: Spinning saw blade that cuts through objects",
-    "Interactive: Rope/chain that connects two tap points",
     "Game mode: Pinball score counter with multiplier",
     "Interactive: Catapult you can load and launch",
     "Visual: Northern lights aurora background effect",
-    "Game mode: Jenga tower — pre-built tower to knock down",
     "Interactive: Zipline — wire objects can slide along"
   ]
 }

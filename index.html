@@ -240,6 +240,7 @@ canvas#game {
     <button class="tool-btn" data-tool="magnet" style="color:#ff4466;"><span class="icon">🧲</span>Magnet</button>
     <button class="tool-btn" data-tool="pin" style="color:#ffffff;"><span class="icon">🎳</span>Pin</button>
     <button class="tool-btn" data-tool="seesaw" style="color:#ffcc00;"><span class="icon">⚖️</span>Seesaw</button>
+    <button class="tool-btn" data-tool="rope" style="color:#cc8844;"><span class="icon">🪢</span>Rope</button>
     <button class="tool-btn draw-btn" data-tool="draw"><span class="icon">✏️</span>Draw</button>
   </div>
 
@@ -262,6 +263,7 @@ canvas#game {
     <button class="chaos-btn" id="btn-shuffle" style="border-color:#ffaa00;color:#ffaa00;background:#1a1500;"><span class="icon">🔀</span>SHUFFLE</button>
     <button class="chaos-btn" id="btn-target" style="border-color:#ff4444;color:#ff4444;background:#1a0a0a;"><span class="icon">🎯</span>TARGET</button>
     <button class="chaos-btn" id="btn-ocean" style="border-color:#0066ff;color:#0088ff;background:#000a2a;"><span class="icon">🌊</span>OCEAN</button>
+    <button class="chaos-btn" id="btn-jenga" style="border-color:#ffaa44;color:#ffaa44;background:#1a1500;"><span class="icon">🏗️</span>JENGA</button>
     <button class="chaos-btn safe" id="btn-clear"><span class="icon">🗑️</span>CLEAR</button>
     <button class="chaos-btn safe" id="btn-pause"><span class="icon">⏸️</span>PAUSE</button>
   </div>
@@ -356,6 +358,10 @@ let targetClearedTimer = 0;
 let magnets = []; // {body, attracting: true/false}
 
 // Speed glow (purely visual, no state needed)
+
+// Rope tool
+let ropeFirstBody = null;
+let ropes = []; // constraints created by rope tool
 
 // ── AUDIO ──
 let audioCtx = null;
@@ -771,6 +777,19 @@ function spawnObject(x, y, vx=0, vy=0) {
       Composite.add(world, body);
     }
     playSpawn();
+    // Birth flash effect
+    const spawnX = body.position ? body.position.x : x;
+    const spawnY = body.position ? body.position.y : y;
+    for (let bf = 0; bf < 8; bf++) {
+      const angle = (Math.PI * 2 * bf) / 8;
+      particles.push({
+        x: spawnX, y: spawnY,
+        vx: Math.cos(angle) * 3, vy: Math.sin(angle) * 3 - 1,
+        size: 3, life: 0.4, color: '#ffffff', isBirthFlash: true
+      });
+    }
+    // Expanding ring stored in explosions array
+    explosions.push({ x: spawnX, y: spawnY, r: 5, maxR: 50, alpha: 0.8, isBirthRing: true });
   }
   return body;
 }
@@ -1355,6 +1374,42 @@ document.getElementById('btn-ocean').addEventListener('click', () => {
   }
 });
 
+document.getElementById('btn-jenga').addEventListener('click', () => {
+  const cx = canvas.width / 2;
+  const baseY = canvas.height - 40;
+  const blockW = 80, blockH = 18, gap = 1;
+  const rows = 12;
+  for (let row = 0; row < rows; row++) {
+    const y = baseY - row * (blockH + gap) - blockH / 2;
+    if (row % 2 === 0) {
+      // 3 horizontal blocks side by side
+      for (let col = -1; col <= 1; col++) {
+        const bx = cx + col * (blockW / 3 + gap);
+        const b = Bodies.rectangle(bx, y, blockW / 3, blockH, {
+          restitution: 0.1, friction: 0.8, density: 0.002,
+          render: { type: 'jenga', color: '#c4a35a' }
+        });
+        Composite.add(world, b);
+      }
+    } else {
+      // 3 vertical-ish blocks (rotated 90°)
+      for (let col = -1; col <= 1; col++) {
+        const bx = cx + col * (blockW / 3 + gap);
+        const b = Bodies.rectangle(bx, y, blockH, blockW / 3, {
+          restitution: 0.1, friction: 0.8, density: 0.002,
+          angle: 0,
+          render: { type: 'jenga', color: '#b89448' }
+        });
+        Composite.add(world, b);
+      }
+    }
+    // Ascending build sound
+    setTimeout(() => playSound(300 + row * 60, 0.05, 'square', 0.04), row * 50);
+  }
+  shakeIntensity = 5;
+  setTimeout(() => playSound(800, 0.3, 'sine', 0.1), rows * 50);
+});
+
 document.getElementById('btn-clear').addEventListener('click', () => {
   const allBodies = Composite.allBodies(world);
   allBodies.forEach(b => {
@@ -1380,6 +1435,8 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   portals = [];
   portalCooldowns.clear();
   seesaws = [];
+  ropes = [];
+  ropeFirstBody = null;
   if (oceanMode) {
     oceanMode = false;
     gravityTarget /= 0.3;
@@ -1438,6 +1495,45 @@ function onDown(e) {
   // Portal placement
   if (currentTool === 'portal') {
     placePortal(pos.x, pos.y);
+    pointerDown = false;
+    return;
+  }
+
+  // Rope tool — connect two bodies
+  if (currentTool === 'rope') {
+    const allB = Composite.allBodies(world);
+    let nearest = null, nearDist = 50;
+    for (const b of allB) {
+      if (b.isStatic) continue;
+      const dx = b.position.x - pos.x, dy = b.position.y - pos.y;
+      const d = Math.sqrt(dx*dx + dy*dy);
+      if (d < nearDist) { nearest = b; nearDist = d; }
+    }
+    if (nearest) {
+      if (!ropeFirstBody) {
+        ropeFirstBody = nearest;
+        // Flash to indicate selection
+        particles.push({ x: nearest.position.x, y: nearest.position.y, vx:0, vy:-1, size:6, life:0.5, color:'#cc8844' });
+        playSound(600, 0.1, 'sine', 0.08);
+      } else if (nearest !== ropeFirstBody) {
+        const rope = Constraint.create({
+          bodyA: ropeFirstBody, bodyB: nearest,
+          stiffness: 0.02, damping: 0.05,
+          render: { type:'rope' }
+        });
+        Composite.add(world, rope);
+        ropes.push(rope);
+        // Particles at both ends
+        for (const b of [ropeFirstBody, nearest]) {
+          for (let i = 0; i < 5; i++) {
+            particles.push({ x: b.position.x, y: b.position.y, vx:(Math.random()-0.5)*4, vy:(Math.random()-0.5)*4, size:3, life:0.4, color:'#cc8844' });
+          }
+        }
+        playSound(400, 0.15, 'sine', 0.1);
+        playSound(500, 0.1, 'square', 0.06);
+        ropeFirstBody = null;
+      }
+    }
     pointerDown = false;
     return;
   }
@@ -2460,6 +2556,41 @@ function drawBody(b) {
       }
       break;
     }
+    case 'jenga': {
+      // Wooden Jenga block with grain lines
+      const jw = r.width || 26, jh = r.height || 18;
+      const verts = b.vertices;
+      ctx.restore();
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(verts[0].x, verts[0].y);
+      for (let v = 1; v < verts.length; v++) ctx.lineTo(verts[v].x, verts[v].y);
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+      // Wood grain
+      ctx.strokeStyle = '#a07830';
+      ctx.lineWidth = 0.5;
+      ctx.globalAlpha = 0.4;
+      for (let g = 0; g < 3; g++) {
+        const gy = b.position.y - 6 + g * 5;
+        ctx.beginPath();
+        ctx.moveTo(b.position.x - 15, gy);
+        ctx.lineTo(b.position.x + 15, gy);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      // Outline
+      ctx.strokeStyle = '#8a6e2f';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(verts[0].x, verts[0].y);
+      for (let v = 1; v < verts.length; v++) ctx.lineTo(verts[v].x, verts[v].y);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
+      return;
+    }
     case 'seesaw-pivot': {
       const pvH = r.height || 20;
       ctx.beginPath();
@@ -2614,6 +2745,58 @@ function drawDrawing() {
   ctx.stroke();
 }
 
+function drawRopes() {
+  for (const rope of ropes) {
+    if (!rope.bodyA || !rope.bodyB) continue;
+    const ax = rope.bodyA.position.x, ay = rope.bodyA.position.y;
+    const bx = rope.bodyB.position.x, by = rope.bodyB.position.y;
+    const dx = bx - ax, dy = by - ay;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const segs = Math.max(6, Math.floor(dist / 15));
+    // Draw sagging rope segments
+    ctx.strokeStyle = '#8B6914';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    for (let s = 1; s <= segs; s++) {
+      const t = s / segs;
+      const mx = ax + dx * t;
+      const sag = Math.sin(t * Math.PI) * dist * 0.08;
+      const my = ay + dy * t + sag;
+      ctx.lineTo(mx, my);
+    }
+    ctx.stroke();
+    // Rope highlight
+    ctx.strokeStyle = '#cc884466';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    for (let s = 1; s <= segs; s++) {
+      const t = s / segs;
+      const mx = ax + dx * t;
+      const sag = Math.sin(t * Math.PI) * dist * 0.08 - 1;
+      const my = ay + dy * t + sag;
+      ctx.lineTo(mx, my);
+    }
+    ctx.stroke();
+    // Knot dots at ends
+    ctx.fillStyle = '#6B4914';
+    ctx.beginPath(); ctx.arc(ax, ay, 4, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(bx, by, 4, 0, Math.PI*2); ctx.fill();
+  }
+  // Highlight selected first body for rope tool
+  if (ropeFirstBody && currentTool === 'rope') {
+    ctx.strokeStyle = '#cc8844';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.arc(ropeFirstBody.position.x, ropeFirstBody.position.y, 30, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
 function drawParticles(dt) {
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
@@ -2647,6 +2830,15 @@ function drawParticles(dt) {
       const h = p.size * 0.7;
       ctx.fillRect(-w/2, -h/2, w, h);
       ctx.restore();
+    } else if (p.isBirthFlash) {
+      // Bright sparkle that fades
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = '#ffffff';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * (p.life / 0.4), 0, Math.PI*2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
     } else {
       ctx.fillRect(p.x - p.size/2, p.y - p.size/2, p.size, p.size);
     }
@@ -2660,15 +2852,29 @@ function drawExplosions(dt) {
     ex.r += (ex.maxR - ex.r) * 0.15;
     ex.alpha -= dt * 2;
     if (ex.alpha <= 0) { explosions.splice(i, 1); continue; }
-    ctx.globalAlpha = ex.alpha * 0.4;
-    ctx.beginPath();
-    ctx.arc(ex.x, ex.y, ex.r, 0, Math.PI*2);
-    ctx.fillStyle = '#ff6600';
-    ctx.fill();
-    ctx.globalAlpha = ex.alpha * 0.6;
-    ctx.strokeStyle = '#ff3333';
-    ctx.lineWidth = 3;
-    ctx.stroke();
+    if (ex.isBirthRing) {
+      // White expanding ring for spawn effect
+      ctx.globalAlpha = ex.alpha * 0.7;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.shadowColor = '#00ff41';
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.arc(ex.x, ex.y, ex.r, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ex.alpha -= dt * 1.5; // fade faster
+    } else {
+      ctx.globalAlpha = ex.alpha * 0.4;
+      ctx.beginPath();
+      ctx.arc(ex.x, ex.y, ex.r, 0, Math.PI*2);
+      ctx.fillStyle = '#ff6600';
+      ctx.fill();
+      ctx.globalAlpha = ex.alpha * 0.6;
+      ctx.strokeStyle = '#ff3333';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
   }
   ctx.globalAlpha = 1;
 }
@@ -3419,6 +3625,7 @@ function loop(timestamp) {
   });
 
   // Effects
+  drawRopes();
   drawExplosions(dt);
   drawParticles(dt);
   drawSlingshot();
