@@ -264,6 +264,7 @@ canvas#game {
     <button class="chaos-btn" id="btn-target" style="border-color:#ff4444;color:#ff4444;background:#1a0a0a;"><span class="icon">🎯</span>TARGET</button>
     <button class="chaos-btn" id="btn-ocean" style="border-color:#0066ff;color:#0088ff;background:#000a2a;"><span class="icon">🌊</span>OCEAN</button>
     <button class="chaos-btn" id="btn-jenga" style="border-color:#ffaa44;color:#ffaa44;background:#1a1500;"><span class="icon">🏗️</span>JENGA</button>
+    <button class="chaos-btn safe" id="btn-screenshot"><span class="icon">📸</span>SNAP</button>
     <button class="chaos-btn safe" id="btn-clear"><span class="icon">🗑️</span>CLEAR</button>
     <button class="chaos-btn safe" id="btn-pause"><span class="icon">⏸️</span>PAUSE</button>
   </div>
@@ -1449,6 +1450,54 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   engine.gravity.x = 0;
   engine.gravity.y = gravityTarget;
   playSound(400, 0.2, 'sine', 0.1);
+});
+
+document.getElementById('btn-screenshot').addEventListener('click', () => {
+  // Capture canvas as image
+  canvas.toBlob((blob) => {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    const filename = `chaos-engine-${timestamp}.png`;
+    
+    // Create download link
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+    
+    // Cleanup
+    setTimeout(() => URL.revokeObjectURL(link.href), 100);
+    
+    // Visual feedback — camera flash
+    const flashDiv = document.createElement('div');
+    flashDiv.style.cssText = 'position:fixed;inset:0;background:#fff;pointer-events:none;z-index:99999;opacity:0.8;';
+    document.body.appendChild(flashDiv);
+    setTimeout(() => {
+      flashDiv.style.transition = 'opacity 0.3s';
+      flashDiv.style.opacity = '0';
+      setTimeout(() => flashDiv.remove(), 300);
+    }, 50);
+    
+    // Camera shutter sound
+    playSound(2000, 0.05, 'sine', 0.15);
+    playSound(1500, 0.08, 'square', 0.08);
+    
+    // Show notification
+    const notif = document.createElement('div');
+    notif.textContent = '📸 Screenshot saved!';
+    notif.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);' +
+      'background:#00ff41;color:#000;padding:12px 24px;border-radius:4px;' +
+      'font-family:VT323,monospace;font-size:24px;z-index:99998;' +
+      'box-shadow:0 0 20px rgba(0,255,65,0.6);pointer-events:none;';
+    document.body.appendChild(notif);
+    setTimeout(() => {
+      notif.style.transition = 'opacity 0.5s, transform 0.5s';
+      notif.style.opacity = '0';
+      notif.style.transform = 'translate(-50%,-50%) scale(1.2)';
+      setTimeout(() => notif.remove(), 500);
+    }, 1000);
+  }, 'image/png');
+  
+  shakeIntensity = 6;
 });
 
 const pauseBtn = document.getElementById('btn-pause');

@@ -127,11 +127,17 @@
         "Visual: Object glow pulse on spawn (birth flash)"
       ],
       "summary": "Added Jenga Tower (🏗️) chaos button — spawns 12 rows of alternating wooden blocks with ascending build sound, perfect for demolition. Rope tool (🪢) — select two objects to connect them with a sagging brown rope constraint, with knot dots and dashed selection indicator. Spawn Birth Flash — every new object appears with an expanding white ring and sparkle particles for a satisfying pop-in effect."
+    },
+    {
+      "date": "2026-02-27",
+      "ideas": [
+        "UX: Screenshot button that saves the canvas"
+      ],
+      "summary": "Added Screenshot button (📸 SNAP) to chaos bar — captures the canvas as PNG with timestamped filename, includes white camera flash effect overlay, shutter sound effect, and on-screen 'Screenshot saved!' notification that fades out. Perfect for sharing chaotic masterpieces!"
     }
   ],
   "ideaPool": [
     "New object: Chain links that connect to nearby objects",
-    "New object: Ragdoll stick figure",
     "Visual: Matrix-style falling characters in background",
     "Sound: Material-based impact sounds (metal clang, rubber boing, wood thud)",
     "Sound: Background ambient hum that reacts to chaos level",
@@ -143,7 +149,6 @@
     "UX: Object size slider for current tool",
     "UX: Color picker for spawned objects",
     "UX: Replay/undo last spawn",
-    "UX: Screenshot button that saves the canvas",
     "Easter egg: Spawn 100 tiny balls at once (confetti cannon)",
     "Easter egg: Shake device to trigger earthquake (mobile)",
     "Interactive: Springboard launcher — place it and objects bounce off",
