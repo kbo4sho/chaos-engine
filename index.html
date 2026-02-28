@@ -407,6 +407,49 @@ function playSqueak() {
 }
 function playSpawn() { playSound(800, 0.1, 'square', 0.06); }
 
+// ── MATERIAL-BASED IMPACT SOUNDS ──
+function playImpactSound(materialA, materialB, intensity) {
+  const vol = Math.min(intensity * 0.05, 0.15);
+  if (vol < 0.02) return; // Too quiet to play
+  
+  // Detect material collision type
+  const materials = [materialA, materialB].sort().join('-');
+  
+  // Metal impacts - high, sharp clangs
+  if (materials.includes('metal')) {
+    const freq = 800 + Math.random() * 600;
+    playSound(freq, 0.08 + intensity * 0.02, 'square', vol);
+    setTimeout(() => playSound(freq * 1.2, 0.05, 'sine', vol * 0.6), 20);
+  }
+  // Rubber impacts - bouncy boings
+  else if (materials.includes('rubber')) {
+    const freq = 150 + Math.random() * 200;
+    playSound(freq, 0.12, 'sine', vol);
+    playSound(freq * 1.5, 0.08, 'sine', vol * 0.5);
+  }
+  // Wood impacts - hollow thunks
+  else if (materials.includes('wood')) {
+    const freq = 100 + Math.random() * 100;
+    playSound(freq, 0.15, 'triangle', vol * 1.2);
+    playSound(freq * 0.7, 0.1, 'sawtooth', vol * 0.4);
+  }
+  // Glass/ice impacts - crystalline tings
+  else if (materials.includes('glass') || materials.includes('ice')) {
+    const freq = 1200 + Math.random() * 800;
+    playSound(freq, 0.06, 'sine', vol * 0.8);
+    playSound(freq * 1.4, 0.04, 'sine', vol * 0.5);
+  }
+  // Plastic impacts - light taps
+  else if (materials.includes('plastic')) {
+    const freq = 400 + Math.random() * 300;
+    playSound(freq, 0.08, 'triangle', vol * 0.7);
+  }
+  // Default (generic) - current behavior
+  else {
+    playSound(200 + Math.random() * 300, 0.08, 'sine', vol);
+  }
+}
+
 // ── WALLS ──
 function rebuildWalls() {
   walls.forEach(w => Composite.remove(world, w));
@@ -470,6 +513,7 @@ function spawnObject(x, y, vx=0, vy=0) {
         friction: 0.3, frictionAir: 0.001,
         render: { type:'ball', color, radius:r }
       });
+      body.material = 'rubber';
       break;
     }
     case 'block': {
@@ -478,6 +522,7 @@ function spawnObject(x, y, vx=0, vy=0) {
         restitution: 0.2, friction: 0.6,
         render: { type:'block', color, size:s }
       });
+      body.material = 'wood';
       break;
     }
     case 'rocket': {
@@ -485,6 +530,7 @@ function spawnObject(x, y, vx=0, vy=0) {
         restitution: 0.1, friction: 0.3, frictionAir: 0.02,
         render: { type:'rocket', color:'#ff6600' }
       });
+      body.material = 'metal';
       rocketBodies.push(body);
       break;
     }
@@ -502,6 +548,7 @@ function spawnObject(x, y, vx=0, vy=0) {
         render: { type:'bomb', color:'#ff3333' }
       });
       body.isBomb = true;
+      body.material = 'plastic';
       break;
     }
     case 'balloon': {
@@ -516,6 +563,7 @@ function spawnObject(x, y, vx=0, vy=0) {
         render: { type:'balloon', color: bColor, radius: bR }
       });
       body.isBalloon = true;
+      body.material = 'rubber';
       break;
     }
     case 'star': {
@@ -536,6 +584,7 @@ function spawnObject(x, y, vx=0, vy=0) {
         frictionAir: 0.001,
         render: { type:'star', color: starColor, outerR }
       });
+      body.material = 'metal';
       break;
     }
     case 'beachball': {
@@ -551,6 +600,7 @@ function spawnObject(x, y, vx=0, vy=0) {
         density: 0.0003,
         render: { type:'beachball', color: c1, color2: c2, radius: r }
       });
+      body.material = 'plastic';
       break;
     }
     case 'duck': {
@@ -562,6 +612,7 @@ function spawnObject(x, y, vx=0, vy=0) {
         render: { type:'duck', color:'#ffdd00', radius: duckR }
       });
       body.isDuck = true;
+      body.material = 'rubber';
       break;
     }
     case 'domino': {
@@ -573,6 +624,7 @@ function spawnObject(x, y, vx=0, vy=0) {
         density: 0.003,
         render: { type:'domino', color:'#ff8844', width: dW, height: dH }
       });
+      body.material = 'wood';
       break;
     }
     case 'anvil': {
@@ -592,6 +644,7 @@ function spawnObject(x, y, vx=0, vy=0) {
         density: 0.02,
         render: { type:'anvil', color:'#aaaaaa', width: aW, height: aH }
       });
+      body.material = 'metal';
       break;
     }
     case 'ragdoll': {
@@ -661,6 +714,7 @@ function spawnObject(x, y, vx=0, vy=0) {
         density: 0.002,
         render: { type:'ice', color:'#aaeeff', size: iS }
       });
+      body.material = 'ice';
       break;
     }
     case 'fan': {
@@ -724,6 +778,7 @@ function spawnObject(x, y, vx=0, vy=0) {
         density: 0.001,
         render: { type:'pin', color:'#fff8ee', width: pW, height: pH }
       });
+      body.material = 'wood';
       break;
     }
     case 'seesaw': {
@@ -801,14 +856,17 @@ function createCar(x, y) {
   const chassis = Bodies.rectangle(x, y, chassisW, chassisH, {
     friction: 0.5, render: { type:'car-body', color:'#0abdc6' }
   });
+  chassis.material = 'metal';
   const wheelL = Bodies.circle(x - 20, y + 15, wheelR, {
     friction: 0.8, restitution: 0.3,
     render: { type:'wheel', color:'#00ff41', radius:wheelR }
   });
+  wheelL.material = 'rubber';
   const wheelR2 = Bodies.circle(x + 20, y + 15, wheelR, {
     friction: 0.8, restitution: 0.3,
     render: { type:'wheel', color:'#00ff41', radius:wheelR }
   });
+  wheelR2.material = 'rubber';
   const axleL = Constraint.create({ bodyA: chassis, pointA: {x:-20, y:15}, bodyB: wheelL, stiffness: 0.5, damping: 0.1, length: 0 });
   const axleR = Constraint.create({ bodyA: chassis, pointA: {x:20, y:15}, bodyB: wheelR2, stiffness: 0.5, damping: 0.1, length: 0 });
 
@@ -1840,7 +1898,12 @@ Events.on(engine, 'collisionStart', (e) => {
           size: 1 + Math.random()*2
         });
       }
-      if (relVel > 3) playBounce();
+      // Material-based impact sounds
+      if (relVel > 3) {
+        const matA = pair.bodyA.material || 'default';
+        const matB = pair.bodyB.material || 'default';
+        playImpactSound(matA, matB, relVel);
+      }
 
       // Destruction meter — track energy from all impacts
       destructionMeter += relVel * relVel * 0.1;

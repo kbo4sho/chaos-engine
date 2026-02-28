@@ -134,12 +134,18 @@
         "UX: Screenshot button that saves the canvas"
       ],
       "summary": "Added Screenshot button (📸 SNAP) to chaos bar — captures the canvas as PNG with timestamped filename, includes white camera flash effect overlay, shutter sound effect, and on-screen 'Screenshot saved!' notification that fades out. Perfect for sharing chaotic masterpieces!"
+    },
+    {
+      "date": "2026-02-27",
+      "ideas": [
+        "Sound: Material-based impact sounds (metal clang, rubber boing, wood thud)"
+      ],
+      "summary": "Implemented material-based collision audio system — every object now has a material property (metal, rubber, wood, plastic, glass/ice) that determines its impact sound. Metal objects clang with high-pitched rings, rubber boings with bouncy tones, wood thunks with hollow percussive hits, glass/ice tings with crystalline chimes, and plastic taps with light clicks. Sounds scale with impact intensity for highly satisfying physics feedback!"
     }
   ],
   "ideaPool": [
     "New object: Chain links that connect to nearby objects",
     "Visual: Matrix-style falling characters in background",
-    "Sound: Material-based impact sounds (metal clang, rubber boing, wood thud)",
     "Sound: Background ambient hum that reacts to chaos level",
     "Sound: Victory fanfare when destruction threshold reached",
     "Gravity: Sideways gravity option",
