@@ -406,6 +406,34 @@ function playSqueak() {
   setTimeout(() => playSound(1100 + Math.random()*300, 0.1, 'sine', 0.1), 50);
 }
 function playSpawn() { playSound(800, 0.1, 'square', 0.06); }
+function playWhoosh(power) {
+  // Whoosh sound scaled to slingshot power (power range: 0-25)
+  // Sweep from low freq upward with volume and duration scaled to power
+  try {
+    const a = getAudio();
+    const osc = a.createOscillator();
+    const gain = a.createGain();
+    
+    // Scale parameters based on power
+    const normalizedPower = Math.min(power / 25, 1); // 0-1
+    const startFreq = 80 + normalizedPower * 40; // 80-120 Hz
+    const endFreq = 200 + normalizedPower * 400; // 200-600 Hz
+    const duration = 0.15 + normalizedPower * 0.15; // 0.15-0.3 sec
+    const volume = 0.08 + normalizedPower * 0.08; // 0.08-0.16
+    
+    osc.type = 'sawtooth'; // Airy whoosh sound
+    osc.frequency.setValueAtTime(startFreq, a.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(endFreq, a.currentTime + duration);
+    
+    gain.gain.setValueAtTime(volume, a.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, a.currentTime + duration);
+    
+    osc.connect(gain);
+    gain.connect(a.destination);
+    osc.start();
+    osc.stop(a.currentTime + duration);
+  } catch(e) {}
+}
 
 // ── MATERIAL-BASED IMPACT SOUNDS ──
 function playImpactSound(materialA, materialB, intensity) {
@@ -1719,6 +1747,7 @@ function onUp(e) {
       const power = Math.min(dist / 15, 25);
       const vx = (dx / dist) * power;
       const vy = (dy / dist) * power;
+      playWhoosh(power); // Launch sound scaled to power
       spawnObject(slingStart.x, slingStart.y, vx, vy);
     }
   }

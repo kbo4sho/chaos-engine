@@ -141,6 +141,13 @@
         "Sound: Material-based impact sounds (metal clang, rubber boing, wood thud)"
       ],
       "summary": "Implemented material-based collision audio system — every object now has a material property (metal, rubber, wood, plastic, glass/ice) that determines its impact sound. Metal objects clang with high-pitched rings, rubber boings with bouncy tones, wood thunks with hollow percussive hits, glass/ice tings with crystalline chimes, and plastic taps with light clicks. Sounds scale with impact intensity for highly satisfying physics feedback!"
+    },
+    {
+      "date": "2026-02-28",
+      "ideas": [
+        "Sound: Whoosh sound on slingshot launch scaled to power"
+      ],
+      "summary": "Added power-scaled whoosh sound on slingshot launches — uses sawtooth wave with frequency sweep from 80-600Hz, duration 0.15-0.3s, and volume 0.08-0.16, all scaled to launch power (0-25). Weak launches get subtle low whooshes, max-power launches get satisfying high-pitched swooshes. Adds crucial audio feedback to the core slingshot mechanic!"
     }
   ],
   "ideaPool": [
@@ -158,7 +165,6 @@
     "Easter egg: Spawn 100 tiny balls at once (confetti cannon)",
     "Easter egg: Shake device to trigger earthquake (mobile)",
     "Interactive: Springboard launcher — place it and objects bounce off",
-    "Sound: Whoosh sound on slingshot launch scaled to power",
     "New object: Spinning saw blade that cuts through objects",
     "Game mode: Pinball score counter with multiplier",
     "Interactive: Catapult you can load and launch",
