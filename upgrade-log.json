@@ -148,12 +148,18 @@
         "Sound: Whoosh sound on slingshot launch scaled to power"
       ],
       "summary": "Added power-scaled whoosh sound on slingshot launches — uses sawtooth wave with frequency sweep from 80-600Hz, duration 0.15-0.3s, and volume 0.08-0.16, all scaled to launch power (0-25). Weak launches get subtle low whooshes, max-power launches get satisfying high-pitched swooshes. Adds crucial audio feedback to the core slingshot mechanic!"
+    },
+    {
+      "date": "2026-03-01",
+      "ideas": [
+        "Sound: Background ambient hum that reacts to chaos level"
+      ],
+      "summary": "Implemented dynamic background ambient hum that responds to destruction meter in real-time. Dual-oscillator system (sine + triangle) creates a rich, evolving soundscape. Frequency ranges from 40Hz (CALM) to 120Hz (GODLIKE), volume scales from 0.015 to 0.08 based on chaos level. Toggle button in chaos bar (🔊 AMBIENT) controls playback. Audio automatically adjusts pitch and intensity as physics mayhem escalates — adds atmospheric depth and subconscious feedback to the chaos!"
     }
   ],
   "ideaPool": [
     "New object: Chain links that connect to nearby objects",
     "Visual: Matrix-style falling characters in background",
-    "Sound: Background ambient hum that reacts to chaos level",
     "Sound: Victory fanfare when destruction threshold reached",
     "Gravity: Sideways gravity option",
     "Game mode: Stacking challenge — build tallest tower",
