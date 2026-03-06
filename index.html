@@ -116,6 +116,11 @@ canvas#game {
   box-shadow:0 0 10px rgba(255,102,0,0.4);
   color:#ff6600;
 }
+.tool-btn.slomo-btn.active {
+  border-color:#cc00ff; background:#1a0a2a;
+  box-shadow:0 0 10px rgba(204,0,255,0.4);
+  color:#cc00ff;
+}
 
 /* ── CHAOS BUTTONS ── */
 #chaos-bar {
@@ -242,6 +247,8 @@ canvas#game {
     <button class="tool-btn" data-tool="seesaw" style="color:#ffcc00;"><span class="icon">⚖️</span>Seesaw</button>
     <button class="tool-btn" data-tool="rope" style="color:#cc8844;"><span class="icon">🪢</span>Rope</button>
     <button class="tool-btn draw-btn" data-tool="draw"><span class="icon">✏️</span>Draw</button>
+    <button class="tool-btn slomo-btn" data-tool="slomo"><span class="icon">⏱️</span>SLO-MO</button>
+    <button class="tool-btn" data-tool="grab" style="color:#ffdd00;"><span class="icon">✊</span>GRAB</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -364,6 +371,22 @@ let magnets = []; // {body, attracting: true/false}
 // Rope tool
 let ropeFirstBody = null;
 let ropes = []; // constraints created by rope tool
+
+// Slow motion toggle
+let sloMoActive = false;
+
+// Grab and throw tool
+let grabActive = false;
+let grabBody = null;
+let grabOffsetX = 0;
+let grabOffsetY = 0;
+let grabHistory = []; // [{x, y, t}] for velocity tracking
+
+// Block shattering
+let shatterDebounce = new Set(); // prevent double-shattering same body
+
+// Per-body speed trails (line-based)
+const bodyTrails = new Map(); // body.id -> [{x, y}]
 
 // ── AUDIO ──
 let audioCtx = null;
@@ -586,10 +609,17 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       btn.classList.toggle('active', drawMode);
       if (!drawMode) drawPoints = [];
       // Deselect doesn't happen for draw toggle
+    } else if (tool === 'slomo') {
+      // Toggle slow motion mode
+      sloMoActive = !sloMoActive;
+      btn.classList.toggle('active', sloMoActive);
+      playSound(sloMoActive ? 200 : 800, 0.2, 'sine', 0.1);
+      if (sloMoActive) shakeIntensity = 5;
+      return;
     } else {
       drawMode = false;
       document.querySelector('.draw-btn').classList.remove('active');
-      document.querySelectorAll('.tool-btn:not(.draw-btn)').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tool-btn:not(.draw-btn):not(.slomo-btn)').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       currentTool = tool;
     }
@@ -1137,8 +1167,76 @@ function explodeBomb(bomb) {
     }
   });
 
+  // Chain reaction: check for nearby bombs and trigger them with stagger
+  const chainRadius = radius * 1.3;
+  allBodies.forEach(b => {
+    if (!b.isBomb || b === bomb) return;
+    const dx = b.position.x - pos.x;
+    const dy = b.position.y - pos.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if (dist < chainRadius) {
+      const delay = 120 + Math.random() * 100; // 120-220ms stagger
+      setTimeout(() => {
+        if (Composite.get(world, b.id, 'body')) explodeBomb(b);
+      }, delay);
+    }
+  });
+
   Composite.remove(world, bomb);
   playBoom();
+}
+
+// ── BLOCK SHATTERING ──
+function shatterBlock(b) {
+  if (!Composite.get(world, b.id, 'body')) return; // already removed
+  const pos = { x: b.position.x, y: b.position.y };
+  const vel = { x: b.velocity.x, y: b.velocity.y };
+  const color = b.render?.color || '#00ff41';
+  const origSize = b.render?.size || 30;
+
+  Composite.remove(world, b);
+  shatterDebounce.delete(b.id);
+
+  // Particle burst at impact
+  for (let i = 0; i < 18; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 2 + Math.random() * 6;
+    particles.push({
+      x: pos.x, y: pos.y,
+      vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed,
+      life: 0.4 + Math.random()*0.5,
+      color, size: 2 + Math.random()*4
+    });
+  }
+
+  // Create 4-6 fragments
+  const fragCount = 4 + Math.floor(Math.random() * 3);
+  for (let i = 0; i < fragCount; i++) {
+    const angle = (Math.PI * 2 * i / fragCount) + Math.random() * 0.8;
+    const fW = origSize * (0.25 + Math.random() * 0.25);
+    const fH = origSize * (0.25 + Math.random() * 0.25);
+    const fragX = pos.x + Math.cos(angle) * origSize * 0.35;
+    const fragY = pos.y + Math.sin(angle) * origSize * 0.35;
+    const frag = Bodies.rectangle(fragX, fragY, fW, fH, {
+      restitution: 0.3, friction: 0.5,
+      angle: Math.random() * Math.PI * 2,
+      render: { type: 'block', color, size: Math.max(fW, fH) }
+    });
+    frag.material = 'wood';
+    frag.isFragment = true; // don't shatter fragments again
+    const fragSpeed = 3 + Math.random() * 5;
+    Body.setVelocity(frag, {
+      x: vel.x * 0.2 + Math.cos(angle) * fragSpeed,
+      y: vel.y * 0.2 + Math.sin(angle) * fragSpeed
+    });
+    Body.setAngularVelocity(frag, (Math.random()-0.5)*0.6);
+    Composite.add(world, frag);
+  }
+
+  explosions.push({ x: pos.x, y: pos.y, r: 0, maxR: origSize * 2.5, alpha: 0.5 });
+  playSound(180 + Math.random()*80, 0.12, 'triangle', 0.1);
+  shakeIntensity = Math.max(shakeIntensity, 6);
+  chromaticAberration = Math.max(chromaticAberration, 2);
 }
 
 // ── PORTALS ──
@@ -1585,16 +1683,13 @@ document.getElementById('btn-ambient').addEventListener('click', () => {
 });
 
 document.getElementById('btn-clear').addEventListener('click', () => {
-  const allBodies = Composite.allBodies(world);
-  allBodies.forEach(b => {
-    if (!b.isStatic) Composite.remove(world, b);
-  });
-  // Remove constraints too
+  // Remove ALL constraints first
   const allConstraints = Composite.allConstraints(world);
   allConstraints.forEach(c => Composite.remove(world, c));
-  // Remove drawn walls (non-boundary statics)
+  // Remove ALL bodies except boundary walls
+  const allBodies = Composite.allBodies(world);
   allBodies.forEach(b => {
-    if (b.isStatic && b.label === 'drawn') Composite.remove(world, b);
+    if (b.label !== 'wall') Composite.remove(world, b);
   });
   rocketBodies = [];
   bumpers = [];
@@ -1611,6 +1706,11 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   seesaws = [];
   ropes = [];
   ropeFirstBody = null;
+  grabActive = false;
+  grabBody = null;
+  grabHistory = [];
+  bodyTrails.clear();
+  shatterDebounce.clear();
   if (oceanMode) {
     oceanMode = false;
     gravityTarget /= 0.3;
@@ -1760,6 +1860,30 @@ function onDown(e) {
     return;
   }
 
+  // GRAB tool — pick up and throw objects
+  if (currentTool === 'grab') {
+    const allGrab = Composite.allBodies(world);
+    for (const b of allGrab) {
+      if (b.isStatic) continue;
+      const dx = pos.x - b.position.x;
+      const dy = pos.y - b.position.y;
+      const r = (b.render?.radius || b.render?.size || 20) * 1.4;
+      if (Math.sqrt(dx*dx + dy*dy) < r) {
+        grabActive = true;
+        grabBody = b;
+        grabOffsetX = dx;
+        grabOffsetY = dy;
+        grabHistory = [{ x: pos.x, y: pos.y, t: Date.now() }];
+        Body.setVelocity(b, { x: 0, y: 0 });
+        Body.setAngularVelocity(b, 0);
+        playSound(600, 0.08, 'sine', 0.06);
+        break;
+      }
+    }
+    pointerDown = false;
+    return;
+  }
+
   // Check if clicking a bomb
   const allBodies = Composite.allBodies(world);
   for (const b of allBodies) {
@@ -1780,8 +1904,26 @@ function onDown(e) {
 
 function onMove(e) {
   e.preventDefault();
-  if (!pointerDown) return;
   const pos = getPointerPos(e);
+
+  // Handle grab drag (doesn't need pointerDown)
+  if (grabActive && grabBody) {
+    if (Composite.get(world, grabBody.id, 'body')) {
+      Body.setPosition(grabBody, {
+        x: pos.x - grabOffsetX,
+        y: pos.y - grabOffsetY
+      });
+      Body.setVelocity(grabBody, { x: 0, y: 0 });
+      grabHistory.push({ x: pos.x, y: pos.y, t: Date.now() });
+      if (grabHistory.length > 15) grabHistory.shift();
+    } else {
+      grabActive = false;
+      grabBody = null;
+    }
+    return;
+  }
+
+  if (!pointerDown) return;
 
   if (drawMode) {
     drawPoints.push(pos);
@@ -1793,9 +1935,34 @@ function onMove(e) {
 
 function onUp(e) {
   e.preventDefault();
+  const pos = getPointerPosFromEnd(e);
+
+  // Release grab
+  if (grabActive) {
+    grabActive = false;
+    if (grabBody && Composite.get(world, grabBody.id, 'body')) {
+      if (grabHistory.length >= 2) {
+        const recent = grabHistory.slice(-4);
+        const first = recent[0];
+        const last = recent[recent.length - 1];
+        const timeDelta = Math.max(last.t - first.t, 8);
+        // Convert px/ms to px/physics-step
+        const throwVx = ((last.x - first.x) / timeDelta) * (1000 / 60);
+        const throwVy = ((last.y - first.y) / timeDelta) * (1000 / 60);
+        const speed = Math.sqrt(throwVx*throwVx + throwVy*throwVy);
+        const maxSpeed = 30;
+        const scale = speed > maxSpeed ? maxSpeed / speed : 1;
+        Body.setVelocity(grabBody, { x: throwVx * scale, y: throwVy * scale });
+        if (speed > 3) playWhoosh(Math.min(speed, 25));
+      }
+    }
+    grabBody = null;
+    grabHistory = [];
+    return;
+  }
+
   if (!pointerDown) return;
   pointerDown = false;
-  const pos = getPointerPosFromEnd(e);
 
   if (drawMode && drawPoints.length > 1) {
     // Create static wall segments from drawn points
@@ -2014,6 +2181,16 @@ Events.on(engine, 'collisionStart', (e) => {
           size: 1 + Math.random()*2
         });
       }
+      // Block shattering on hard impact
+      if (relVel > 9) {
+        [pair.bodyA, pair.bodyB].forEach(b => {
+          if (!b.isStatic && b.render?.type === 'block' && !b.isFragment && !shatterDebounce.has(b.id)) {
+            shatterDebounce.add(b.id);
+            setTimeout(() => shatterBlock(b), 0);
+          }
+        });
+      }
+
       // Material-based impact sounds
       if (relVel > 3) {
         const matA = pair.bodyA.material || 'default';
@@ -3730,7 +3907,7 @@ function loop(timestamp) {
 
   // Physics step
   if (!paused) {
-    const timeScale = timeWarpActive ? 0.2 : 1;
+    const timeScale = (timeWarpActive || sloMoActive) ? 0.2 : 1;
     Engine.update(engine, (1000/60) * timeScale);
   }
 
@@ -3766,6 +3943,30 @@ function loop(timestamp) {
     }
   }
 
+  // Per-body line trails (speed trails feature)
+  const TRAIL_SPEED_THRESHOLD = 5;
+  const MAX_TRAIL_LEN = 12;
+  allBodies.forEach(b => {
+    if (b.isStatic) return;
+    const speed = Math.sqrt(b.velocity.x*b.velocity.x + b.velocity.y*b.velocity.y);
+    if (speed > TRAIL_SPEED_THRESHOLD) {
+      if (!bodyTrails.has(b.id)) bodyTrails.set(b.id, []);
+      const trail = bodyTrails.get(b.id);
+      trail.unshift({ x: b.position.x, y: b.position.y });
+      if (trail.length > MAX_TRAIL_LEN) trail.pop();
+    } else {
+      const trail = bodyTrails.get(b.id);
+      if (trail) {
+        trail.pop();
+        if (trail.length === 0) bodyTrails.delete(b.id);
+      }
+    }
+  });
+  // Cleanup trails for removed bodies
+  for (const [id] of bodyTrails) {
+    if (!allBodies.find(b => b.id === id)) bodyTrails.delete(id);
+  }
+
   // ── RENDER ──
   ctx.save();
   ctx.translate(shakeOffset.x, shakeOffset.y);
@@ -3777,7 +3978,7 @@ function loop(timestamp) {
   // Grid
   drawGrid();
 
-  // Trails (afterimages)
+  // Trails (afterimages - dot system)
   trails.forEach(t => {
     ctx.globalAlpha = t.alpha;
     ctx.beginPath();
@@ -3791,6 +3992,26 @@ function loop(timestamp) {
     ctx.fill();
   });
   ctx.globalAlpha = 1;
+
+  // Per-body speed trail lines
+  bodyTrails.forEach((trail, bodyId) => {
+    if (trail.length < 2) return;
+    const b = allBodies.find(b2 => b2.id === bodyId);
+    const color = b?.render?.color || '#00ff41';
+    ctx.lineCap = 'round';
+    for (let i = 0; i < trail.length - 1; i++) {
+      const alpha = (1 - i / trail.length) * 0.55;
+      const lineWidth = Math.max(1, (1 - i / trail.length) * 4);
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lineWidth;
+      ctx.beginPath();
+      ctx.moveTo(trail[i].x, trail[i].y);
+      ctx.lineTo(trail[i+1].x, trail[i+1].y);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  });
 
   // Walls
   drawWalls();
@@ -4464,6 +4685,46 @@ function loop(timestamp) {
         size: 1 + Math.random()*3
       });
     }
+  }
+
+  // SLO-MO toggle indicator
+  if (sloMoActive) {
+    // Green vignette edges
+    const sloGrd = ctx.createRadialGradient(
+      canvas.width/2, canvas.height/2, canvas.height * 0.3,
+      canvas.width/2, canvas.height/2, canvas.height * 0.8
+    );
+    sloGrd.addColorStop(0, 'rgba(0,180,100,0)');
+    sloGrd.addColorStop(1, 'rgba(0,180,100,0.12)');
+    ctx.fillStyle = sloGrd;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Label
+    const sPulse = 0.7 + Math.sin(timestamp / 400) * 0.3;
+    ctx.globalAlpha = sPulse;
+    ctx.fillStyle = '#00ff41';
+    ctx.font = '22px VT323';
+    ctx.textAlign = 'right';
+    ctx.fillText('SLO-MO', canvas.width - 15, 30);
+    ctx.textAlign = 'left';
+    ctx.globalAlpha = 1;
+  }
+
+  // GRAB tool indicator
+  if (grabActive && grabBody && Composite.get(world, grabBody.id, 'body')) {
+    const gr = (grabBody.render?.radius || grabBody.render?.size || 20) * 1.6;
+    ctx.beginPath();
+    ctx.arc(grabBody.position.x, grabBody.position.y, gr, 0, Math.PI * 2);
+    ctx.strokeStyle = '#ffdd00';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // Grab icon above body
+    ctx.fillStyle = '#ffdd00';
+    ctx.font = '18px VT323';
+    ctx.textAlign = 'center';
+    ctx.fillText('✊', grabBody.position.x, grabBody.position.y - gr - 6);
+    ctx.textAlign = 'left';
   }
 
   // Draw mode indicator

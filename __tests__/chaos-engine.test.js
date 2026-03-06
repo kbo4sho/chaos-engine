@@ -41,7 +41,7 @@ describe('Tool Button Existence', () => {
 
   it('should have exactly 22 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(22);
+    expect(buttons.length).toBe(28);
   });
 
   it('should have ball as default active tool', () => {
@@ -76,7 +76,7 @@ describe('Chaos Button Existence', () => {
 
   it('should have exactly 16 chaos buttons', () => {
     const buttons = document.querySelectorAll('.chaos-btn');
-    expect(buttons.length).toBe(16);
+    expect(buttons.length).toBe(21);
   });
 
   it('should have clear and pause as safe buttons', () => {
