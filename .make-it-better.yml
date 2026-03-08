@@ -1,0 +1,8 @@
+goal: "Make this physics sandbox more fun, more surprising, and more satisfying to play with"
+mode: propose
+quality_bar: high
+max_changes_per_run: 1
+test_command: npm test
+verify: both
+branch: make-it-better
+test_required: true
