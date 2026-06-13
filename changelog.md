@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-06-13T17:45:30Z — Shipped: Tap ripple effect
+**Why:** Canvas taps had no immediate feedback before the object appeared. A quick expanding ring makes every click or touch feel acknowledged and more tactile.
+**Goal alignment:** "more satisfying to play with" — pure visual juice for the most common interaction, with no new controls or physics changes
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (202/202 passing); browser smoke ✓ (local app loads, tap spawns object, ripple visible)
+**Status:** shipped
+
 ## 2026-03-01T15:44:00Z — Fixed broken test expectations
 **Why:** Test suite was failing — button counts hardcoded at 22/16 but actual HTML has 26/21. Tests must pass before any improvements ship.
 **Goal alignment:** Foundation — can't improve what you can't verify

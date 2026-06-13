@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-06-13",
+      "ideas": [
+        "Visual: Tap ripple effect on every canvas press"
+      ],
+      "summary": "Implemented tap ripples — every canvas click or touch now emits a color-matched expanding neon ring before the object spawns, making taps feel more responsive without changing physics or adding UI."
+    },
+    {
       "date": "2026-02-08",
       "ideas": [
         "New object: Bouncy star shape with high restitution",

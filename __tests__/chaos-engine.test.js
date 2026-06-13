@@ -642,6 +642,10 @@ describe('Visual Effects', () => {
     expect(scriptContent).toContain('let trails = []');
   });
 
+  it('should track tap ripples', () => {
+    expect(scriptContent).toContain('let ripples = []');
+  });
+
   it('should have screen shake', () => {
     expect(scriptContent).toContain('let shakeIntensity = 0');
     expect(scriptContent).toContain('shakeOffset');
@@ -658,6 +662,13 @@ describe('Visual Effects', () => {
 
   it('should draw particles', () => {
     expect(scriptContent).toContain('function drawParticles(');
+  });
+
+  it('should add and draw tap ripples', () => {
+    expect(scriptContent).toContain('function addRipple(');
+    expect(scriptContent).toContain('function drawRipples(');
+    expect(scriptContent).toContain('addRipple(pos.x, pos.y)');
+    expect(scriptContent).toContain('drawRipples(dt)');
   });
 
   it('should draw explosions', () => {

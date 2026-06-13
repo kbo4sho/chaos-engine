@@ -307,6 +307,7 @@ let slingStart = null;
 let slingCurrent = null;
 let particles = [];
 let explosions = [];
+let ripples = [];
 let rocketBodies = [];
 let shakeOffset = { x: 0, y: 0 };
 let shakeIntensity = 0;
@@ -1800,12 +1801,50 @@ function getPointerPosFromEnd(e) {
   };
 }
 
+function getToolAccentColor(tool) {
+  const colors = {
+    ball: '#00ff41',
+    block: '#0abdc6',
+    rocket: '#ff6600',
+    bomb: '#ff3333',
+    balloon: '#ff3399',
+    star: '#ffdd00',
+    portal: '#cc00ff',
+    bumper: '#ff3399',
+    beachball: '#00ccff',
+    duck: '#ffdd00',
+    domino: '#ff8844',
+    anvil: '#aaaaaa',
+    trampoline: '#00ff99',
+    ice: '#aaeeff',
+    fan: '#66ddff',
+    magnet: '#ff4466',
+    pin: '#ffffff',
+    seesaw: '#ffcc00',
+    rope: '#cc8844',
+    draw: '#ff6600',
+    grab: '#ffdd00'
+  };
+  return colors[tool] || '#0abdc6';
+}
+
+function addRipple(x, y) {
+  ripples.push({
+    x, y,
+    r: 5,
+    maxR: 42,
+    alpha: 0.65,
+    color: getToolAccentColor(currentTool)
+  });
+}
+
 let pointerDown = false;
 let pointerStartTime = 0;
 
 function onDown(e) {
   e.preventDefault();
   const pos = getPointerPos(e);
+  addRipple(pos.x, pos.y);
   pointerDown = true;
   pointerStartTime = Date.now();
 
@@ -3254,6 +3293,27 @@ function drawParticles(dt) {
   ctx.globalAlpha = 1;
 }
 
+function drawRipples(dt) {
+  for (let i = ripples.length - 1; i >= 0; i--) {
+    const r = ripples[i];
+    r.r += (r.maxR - r.r) * 0.22;
+    r.alpha -= dt * 1.8;
+    if (r.alpha <= 0.01) { ripples.splice(i, 1); continue; }
+
+    const progress = Math.min(r.r / r.maxR, 1);
+    ctx.globalAlpha = r.alpha;
+    ctx.strokeStyle = r.color;
+    ctx.lineWidth = Math.max(0.5, 2.5 - progress * 1.8);
+    ctx.shadowColor = r.color;
+    ctx.shadowBlur = 8 * (1 - progress);
+    ctx.beginPath();
+    ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+  ctx.globalAlpha = 1;
+}
+
 function drawExplosions(dt) {
   for (let i = explosions.length - 1; i >= 0; i--) {
     const ex = explosions[i];
@@ -3977,6 +4037,9 @@ function loop(timestamp) {
 
   // Grid
   drawGrid();
+
+  // Tap ripples
+  drawRipples(dt);
 
   // Trails (afterimages - dot system)
   trails.forEach(t => {
