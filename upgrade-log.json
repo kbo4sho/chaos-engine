@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-06-14",
+      "ideas": [
+        "Visual: Spawn pop animation for newly placed objects"
+      ],
+      "summary": "Implemented spawn pop animation — newly spawned bodies now get a 150ms visual scale-in from tiny to a slight overshoot before settling at full size, making placement feel punchier without changing physics or adding UI."
+    },
+    {
       "date": "2026-06-13",
       "ideas": [
         "Visual: Tap ripple effect on every canvas press"

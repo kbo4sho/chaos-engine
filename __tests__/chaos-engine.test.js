@@ -671,6 +671,23 @@ describe('Visual Effects', () => {
     expect(scriptContent).toContain('drawRipples(dt)');
   });
 
+  it('should animate spawned bodies with a pop scale-in', () => {
+    expect(scriptContent).toContain('const SPAWN_POP_MS = 150');
+    expect(scriptContent).toContain('function getSpawnPopScale(');
+    expect(scriptContent).toContain('function markSpawnPop(');
+    expect(scriptContent).toContain('function updateSpawnPopAnimations(');
+    expect(scriptContent).toContain('b.spawnTime = now');
+    expect(scriptContent).toContain('b.spawnScale = 0.05');
+    expect(scriptContent).toContain('b.spawnScale = getSpawnPopScale(elapsed)');
+    expect(scriptContent).toContain('ctx.scale(spawnScale, spawnScale)');
+  });
+
+  it('should mark simple and composite spawns for pop animation', () => {
+    expect(scriptContent).toContain('markSpawnPop(body)');
+    expect(scriptContent).toContain('markSpawnPop([anchor, wBall])');
+    expect(scriptContent).toContain('markSpawnPop([plank, pivot])');
+  });
+
   it('should draw explosions', () => {
     expect(scriptContent).toContain('function drawExplosions(');
   });

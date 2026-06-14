@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-06-14T14:03:47Z — Shipped: Spawn pop animation
+**Why:** Objects already had a birth flash, but their bodies still appeared at full size immediately. A quick scale-in makes each spawn feel punchier while leaving physics unchanged.
+**Goal alignment:** "more satisfying to play with" — visual polish for the core spawn interaction, with no new controls or gameplay rules
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (204/204 passing)
+**Status:** shipped
+
 ## 2026-06-13T17:45:30Z — Shipped: Tap ripple effect
 **Why:** Canvas taps had no immediate feedback before the object appeared. A quick expanding ring makes every click or touch feel acknowledged and more tactile.
 **Goal alignment:** "more satisfying to play with" — pure visual juice for the most common interaction, with no new controls or physics changes

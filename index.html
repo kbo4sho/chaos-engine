@@ -389,6 +389,37 @@ let shatterDebounce = new Set(); // prevent double-shattering same body
 // Per-body speed trails (line-based)
 const bodyTrails = new Map(); // body.id -> [{x, y}]
 
+// Spawn pop animation
+const SPAWN_POP_MS = 150;
+
+function getSpawnPopScale(elapsed) {
+  const t = Math.min(Math.max(elapsed / SPAWN_POP_MS, 0), 1);
+  if (t < 0.6) return Math.max(0.05, (t / 0.6) * 1.15);
+  return 1.15 - ((t - 0.6) / 0.4) * 0.15;
+}
+
+function markSpawnPop(target, now = performance.now()) {
+  const bodies = Array.isArray(target) ? target : (target?.bodies || (target ? [target] : []));
+  bodies.forEach(b => {
+    if (!b || b.label === 'wall') return;
+    b.spawnTime = now;
+    b.spawnScale = 0.05;
+  });
+}
+
+function updateSpawnPopAnimations(now = performance.now()) {
+  Composite.allBodies(world).forEach(b => {
+    if (b.spawnTime == null) return;
+    const elapsed = now - b.spawnTime;
+    if (elapsed >= SPAWN_POP_MS) {
+      b.spawnScale = 1;
+      delete b.spawnTime;
+      return;
+    }
+    b.spawnScale = getSpawnPopScale(elapsed);
+  });
+}
+
 // ── AUDIO ──
 let audioCtx = null;
 function getAudio() {
@@ -825,6 +856,7 @@ function spawnObject(x, y, vx=0, vy=0) {
         length: chainLen, stiffness: 0.9, damping: 0.01,
         render: { visible: false }
       });
+      markSpawnPop([anchor, wBall]);
       Composite.add(world, [anchor, wBall, chain]);
       wreckingBalls.push({ anchor, ball: wBall, chain });
       Body.setVelocity(wBall, { x: 8 + Math.random()*5, y: 0 });
@@ -937,6 +969,7 @@ function spawnObject(x, y, vx=0, vy=0) {
         stiffness: 1,
         render: { visible: false }
       });
+      markSpawnPop([plank, pivot]);
       Composite.add(world, [plank, pivot, constraint]);
       seesaws.push({ plank, pivot, constraint });
       playSpawn();
@@ -955,6 +988,7 @@ function spawnObject(x, y, vx=0, vy=0) {
         Body.setVelocity(body, {x:vx, y:vy});
       }
     }
+    markSpawnPop(body);
     if (body.bodies) {
       // It's a composite (car)
       Composite.add(world, body);
@@ -2278,10 +2312,12 @@ function drawBody(b) {
   const r = b.render || {};
   const type = r.type || 'default';
   const color = r.color || '#00ff41';
+  const spawnScale = b.spawnScale || 1;
 
   ctx.save();
   ctx.translate(b.position.x, b.position.y);
   ctx.rotate(b.angle);
+  if (spawnScale !== 1) ctx.scale(spawnScale, spawnScale);
 
   switch(type) {
     case 'ball': {
@@ -3975,6 +4011,7 @@ function loop(timestamp) {
   const allBodies = Composite.allBodies(world);
   const dynamicCount = allBodies.filter(b => !b.isStatic).length;
   document.getElementById('obj-count').textContent = dynamicCount;
+  updateSpawnPopAnimations(timestamp);
 
   // Record trails for fast-moving objects
   allBodies.forEach(b => {
