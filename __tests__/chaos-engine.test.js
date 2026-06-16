@@ -593,6 +593,43 @@ describe('Audio Functions', () => {
 });
 
 // ============================================
+// HAPTIC FEEDBACK TESTS (Code Analysis)
+// ============================================
+
+describe('Haptic Feedback', () => {
+  it('should define safe haptic helpers', () => {
+    expect(scriptContent).toContain('let lastHapticTime = -Infinity');
+    expect(scriptContent).toContain('function haptic(pattern)');
+    expect(scriptContent).toContain("typeof navigator !== 'undefined'");
+    expect(scriptContent).toContain('navigator.vibrate(pattern)');
+    expect(scriptContent).toContain('function hapticThrottled(pattern, minInterval = 50)');
+    expect(scriptContent).toContain('performance.now()');
+  });
+
+  it('should add haptic pulses to tactile user actions', () => {
+    const expectedPatterns = [
+      'haptic([30, 20, 60])',
+      'haptic([50, 30, 80])',
+      'haptic([20, 10, 20, 10, 40, 10, 60])',
+      'haptic([10, 5, 10, 5, 10, 5, 30])',
+      'haptic([25])',
+      'haptic([20, 10, 40])',
+      'haptic([10, 10, 10, 10, 10])',
+      'haptic([15])',
+    ];
+
+    expectedPatterns.forEach(pattern => {
+      expect(scriptContent).toContain(pattern);
+    });
+  });
+
+  it('should throttle hard collision haptics', () => {
+    expect(scriptContent).toContain('if (relVel > 8)');
+    expect(scriptContent).toContain('hapticThrottled([10])');
+  });
+});
+
+// ============================================
 // DRAWING MODE TESTS (Code Analysis)
 // ============================================
 

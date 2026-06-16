@@ -714,6 +714,22 @@ function playSound(freq, dur, type='square', vol=0.12) {
     osc.start(); osc.stop(a.currentTime + dur);
   } catch(e) {}
 }
+
+let lastHapticTime = -Infinity;
+function haptic(pattern) {
+  try {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate(pattern);
+    }
+  } catch(e) {}
+}
+function hapticThrottled(pattern, minInterval = 50) {
+  const now = performance.now();
+  if (now - lastHapticTime < minInterval) return;
+  lastHapticTime = now;
+  haptic(pattern);
+}
+
 function playBoom() {
   try {
     const a = getAudio();
@@ -1549,6 +1565,7 @@ function explodeBomb(bomb) {
   });
 
   Composite.remove(world, bomb);
+  haptic([30, 20, 60]);
   playBoom();
 }
 
@@ -1676,10 +1693,12 @@ function randomExplosion() {
 
 // ── CHAOS BUTTONS ──
 document.getElementById('btn-explode').addEventListener('click', () => {
+  haptic([50, 30, 80]);
   randomExplosion();
 });
 
 document.getElementById('btn-quake').addEventListener('click', () => {
+  haptic([20, 10, 20, 10, 40, 10, 60]);
   shakeIntensity = 25;
   const allBodies = Composite.allBodies(world);
   allBodies.forEach(b => {
@@ -1701,6 +1720,7 @@ document.getElementById('btn-wind').addEventListener('click', () => {
 });
 
 document.getElementById('btn-blackhole').addEventListener('click', () => {
+  haptic([10, 5, 10, 5, 10, 5, 30]);
   blackHoleActive = true;
   blackHoleTimer = 300; // 5 seconds at 60fps
   blackHolePos = { x: canvas.width / 2, y: canvas.height / 2 };
@@ -1778,6 +1798,7 @@ document.getElementById('btn-rain').addEventListener('click', () => {
 });
 
 document.getElementById('btn-gravflip').addEventListener('click', () => {
+  haptic([25]);
   gravityAngle = (gravityAngle + 1) % 4;
   const dirs = [
     { x: 0, y: 1, name: '⬇️ DOWN' },
@@ -1805,6 +1826,7 @@ document.getElementById('btn-gravflip').addEventListener('click', () => {
 
 document.getElementById('btn-megabounce').addEventListener('click', () => {
   if (megaBounceActive) return;
+  haptic([20, 10, 40]);
   megaBounceActive = true;
   megaBounceTimer = 300; // 5 seconds
   megaBounceOriginal.clear();
@@ -2054,9 +2076,9 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   allConstraints.forEach(c => Composite.remove(world, c));
   // Remove ALL bodies except boundary walls
   const allBodies = Composite.allBodies(world);
-  allBodies.forEach(b => {
-    if (b.label !== 'wall') Composite.remove(world, b);
-  });
+  const bodiesToClear = allBodies.filter(b => b.label !== 'wall');
+  if (bodiesToClear.length > 0 || allConstraints.length > 0) haptic([10, 10, 10, 10, 10]);
+  bodiesToClear.forEach(b => Composite.remove(world, b));
   rocketBodies = [];
   bumpers = [];
   conveyors = [];
@@ -2423,6 +2445,7 @@ function onUp(e) {
       const power = Math.min(dist / 15, 25);
       const vx = (dx / dist) * power;
       const vy = (dy / dist) * power;
+      haptic([15]);
       playWhoosh(power); // Launch sound scaled to power
       spawnObject(slingStart.x, slingStart.y, vx, vy);
     }
@@ -2629,6 +2652,7 @@ Events.on(engine, 'collisionStart', (e) => {
 
       // 🎉 CONFETTI BURST on hard impacts!
       if (relVel > 8) {
+        hapticThrottled([10]);
         const confettiCount = Math.min(Math.floor(relVel * 2), 30);
         const confettiColors = ['#ff3399','#ffdd00','#00ff41','#0abdc6','#ff6600','#cc00ff','#ffffff','#ff3333'];
         for (let c = 0; c < confettiCount; c++) {

@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-06-16T04:09:00Z — Shipped: Mobile haptic feedback
+**Why:** The sandbox already has strong visual and audio feedback, but mobile play had no tactile layer. Small vibration pulses make explosions, launches, gravity flips, clears, and hard impacts feel more physical without changing controls or physics.
+**Goal alignment:** "more satisfying to play with" — tactile polish for existing high-energy interactions, with graceful no-op behavior on unsupported browsers
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (222/222 passing)
+**Status:** shipped
+
 ## 2026-06-14T14:03:47Z — Shipped: Spawn pop animation
 **Why:** Objects already had a birth flash, but their bodies still appeared at full size immediately. A quick scale-in makes each spawn feel punchier while leaving physics unchanged.
 **Goal alignment:** "more satisfying to play with" — visual polish for the core spawn interaction, with no new controls or gameplay rules

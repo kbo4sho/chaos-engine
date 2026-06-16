@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-06-16",
+      "ideas": [
+        "Mobile: Haptic feedback for tactile actions"
+      ],
+      "summary": "Implemented mobile haptic feedback — tactile vibration pulses now accompany bomb detonations, the explosion and quake buttons, black hole activation, gravity flips, mega bounce, scene clear, slingshot launches, and hard impacts, with collision pulses throttled and unsupported browsers silently ignoring the effect."
+    },
+    {
       "date": "2026-06-14",
       "ideas": [
         "Visual: Spawn pop animation for newly placed objects"
