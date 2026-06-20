@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-06-20T18:45:03Z — Proposed: Chain Link tool
+**Why:** The sandbox has ropes and wrecking balls, but no repeatable physical part for building flexible structures. Auto-connecting metal links would let players build dangling chains, bridges, traps, and improvised machines from the existing object toolbar without changing the layout.
+**Goal alignment:** "more fun, more surprising, more satisfying" — adds a new feature that expands creative construction and emergent physics while preserving the two bottom scrolling sections.
+**Files changed:** proposals/2026-06-20-chain-link-tool.md, changelog.md
+**Verified:** tests ✓ (218/218), proposal only
+**Status:** proposed
+
 ## 2026-06-16T04:09:00Z — Shipped: Mobile haptic feedback
 **Why:** The sandbox already has strong visual and audio feedback, but mobile play had no tactile layer. Small vibration pulses make explosions, launches, gravity flips, clears, and hard impacts feel more physical without changing controls or physics.
 **Goal alignment:** "more satisfying to play with" — tactile polish for existing high-energy interactions, with graceful no-op behavior on unsupported browsers
