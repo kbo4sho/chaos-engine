@@ -186,38 +186,6 @@ describe('UI Elements', () => {
     const gravPanel = document.getElementById('gravity-panel');
     expect(gravPanel).not.toBeNull();
   });
-
-  it('should have focused dock controls', () => {
-    const dock = document.getElementById('focus-dock');
-    expect(dock).not.toBeNull();
-    expect(document.getElementById('current-tool-btn')).not.toBeNull();
-    expect(document.getElementById('recent-tools')).not.toBeNull();
-    expect(document.getElementById('tools-drawer-toggle')).not.toBeNull();
-    expect(document.getElementById('chaos-drawer-toggle')).not.toBeNull();
-    expect(document.getElementById('gravity-drawer-toggle')).not.toBeNull();
-    expect(document.getElementById('help-drawer-toggle')).not.toBeNull();
-  });
-
-  it('should keep primary actions reachable from the dock', () => {
-    const actionButtons = document.querySelectorAll('#focus-dock [data-action-target]');
-    expect(actionButtons.length).toBe(3);
-    actionButtons.forEach(btn => {
-      expect(document.getElementById(btn.dataset.actionTarget)).not.toBeNull();
-    });
-  });
-
-  it('should organize controls into drawers', () => {
-    expect(document.querySelectorAll('.control-drawer').length).toBe(4);
-    expect(document.getElementById('toolbar').closest('.control-drawer').id).toBe('tools-sheet');
-    expect(document.getElementById('chaos-bar').closest('.control-drawer').id).toBe('chaos-sheet');
-    expect(document.getElementById('gravity-panel').closest('.control-drawer').id).toBe('gravity-sheet');
-  });
-
-  it('should have a contextual canvas status hint', () => {
-    const hint = document.getElementById('ux-hint');
-    expect(hint).not.toBeNull();
-    expect(hint.textContent).toContain('READY');
-  });
 });
 
 // ============================================

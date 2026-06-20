@@ -39,11 +39,11 @@ body::after {
 /* ── TOP BAR ── */
 #topbar {
   display:flex; align-items:center; justify-content:space-between;
-  min-height:44px; padding:6px 14px; gap:10px; flex-shrink:0;
+  padding:6px 12px; gap:8px; flex-shrink:0;
   background:#0d1117;
   border-bottom:2px solid #0abdc6;
   box-shadow:0 2px 12px rgba(10,189,198,0.3);
-  z-index:20;
+  z-index:10;
 }
 #topbar .title {
   font-size:28px; color:#00ff41; letter-spacing:4px;
@@ -52,7 +52,6 @@ body::after {
 }
 #gravity-panel {
   display:flex; align-items:center; gap:6px; flex-wrap:nowrap;
-  justify-content:center;
 }
 #gravity-panel .planet-btn {
   background:#111820; border:1px solid #0abdc6;
@@ -89,122 +88,19 @@ canvas#game {
   touch-action:none;
 }
 
-#ux-hint {
-  position:absolute; left:50%; bottom:18px; transform:translateX(-50%);
-  min-width:180px; max-width:min(520px, calc(100% - 32px));
-  padding:6px 14px;
-  border:1px solid rgba(10,189,198,0.65);
-  background:rgba(8,12,16,0.72);
-  color:#0abdc6; text-align:center;
-  font-size:18px; line-height:1.1;
-  text-shadow:0 0 8px rgba(10,189,198,0.65);
-  box-shadow:0 0 18px rgba(10,189,198,0.16);
-  pointer-events:none; z-index:5;
-  opacity:0.92;
-}
-
-/* ── FOCUSED DOCK ── */
-#focus-dock {
-  display:grid;
-  grid-template-columns:minmax(118px, 180px) minmax(180px, 360px) repeat(7, 72px);
-  justify-content:center;
-  align-items:center; gap:6px;
-  min-height:66px; padding:7px 10px;
-  background:linear-gradient(180deg,#0d1117 0%,#090d11 100%);
-  border-top:2px solid #00ff41;
-  box-shadow:0 -2px 18px rgba(0,255,65,0.16);
-  z-index:30; flex-shrink:0;
-}
-.dock-btn,
-.recent-tool-btn {
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  min-width:0; height:50px; padding:3px 6px;
-  background:#111820; border:1px solid #1a3a2a;
-  color:#00ff41; font-family:'VT323',monospace; font-size:13px;
-  cursor:pointer; border-radius:3px; transition:all .15s;
-}
-.dock-btn:hover,
-.dock-btn:focus-visible,
-.recent-tool-btn:hover,
-.recent-tool-btn:focus-visible {
-  outline:none; border-color:#00ff41; background:#0a2a1a;
-  box-shadow:0 0 10px rgba(0,255,65,0.28);
-}
-.dock-btn.active {
-  border-color:#0abdc6; color:#0abdc6; background:#0a1d24;
-  box-shadow:0 0 12px rgba(10,189,198,0.35);
-}
-.dock-btn.safe { border-color:#0abdc6; color:#0abdc6; background:#0a1a1a; }
-.dock-btn.danger { border-color:#ff3333; color:#ff3333; background:#1a0a0a; }
-.dock-icon { font-size:21px; line-height:1; }
-#current-tool-btn {
-  align-items:flex-start; padding-left:10px;
-  border-color:#00ff41; background:#0a2a1a;
-}
-#current-tool-btn .dock-label {
-  width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-  text-align:left;
-}
-#recent-tools {
-  display:grid; grid-template-columns:repeat(4, minmax(38px, 1fr)); gap:5px;
-}
-.recent-tool-btn {
-  height:46px; padding:3px 4px;
-  color:#0abdc6; border-color:#163a42; background:#0a161a;
-}
-.recent-tool-btn.active {
-  border-color:#00ff41; color:#00ff41; background:#0a2a1a;
-}
-.recent-tool-btn .dock-icon { font-size:20px; }
-.dock-label { line-height:1; white-space:nowrap; }
-
-#control-backdrop {
-  position:absolute; inset:0; z-index:35; display:none;
-  background:rgba(0,0,0,0.18);
-}
-#control-backdrop.open { display:block; }
-#drawer-layer { position:absolute; inset:0; z-index:40; pointer-events:none; overflow:hidden; }
-.control-drawer {
-  position:absolute; left:10px; right:10px; bottom:76px;
-  max-height:min(56vh, 440px);
-  padding:10px;
-  background:rgba(13,17,23,0.97);
-  border:2px solid #0abdc6;
-  box-shadow:0 0 22px rgba(10,189,198,0.28);
-  transform:translateY(calc(100% + 92px));
-  opacity:0; pointer-events:none;
-  transition:transform .18s ease, opacity .18s ease;
-}
-.control-drawer.open {
-  transform:translateY(0);
-  opacity:1; pointer-events:auto;
-}
-.drawer-title {
-  display:flex; align-items:center; justify-content:space-between;
-  margin-bottom:8px; color:#0abdc6; font-size:19px;
-  text-shadow:0 0 8px rgba(10,189,198,0.4);
-}
-.drawer-close {
-  background:#111820; border:1px solid #0abdc6; color:#0abdc6;
-  font-family:'VT323',monospace; font-size:18px; width:32px; height:28px;
-  cursor:pointer; border-radius:2px;
-}
-.drawer-close:hover,
-.drawer-close:focus-visible { background:#0abdc6; color:#0a0a0a; outline:none; }
-
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
-  display:grid;
-  grid-template-columns:repeat(auto-fit, minmax(68px, 1fr));
-  align-items:stretch; gap:6px; padding:0;
-  background:transparent;
-  border:0; box-shadow:none;
-  overflow-y:auto; overflow-x:hidden; flex-wrap:initial;
-  max-height:calc(min(56vh, 440px) - 60px);
+  display:flex; align-items:center; justify-content:center;
+  gap:4px; padding:6px 8px; flex-shrink:0;
+  background:#0d1117;
+  border-top:2px solid #0abdc6;
+  border-bottom:2px solid #0abdc6;
+  box-shadow:0 -2px 12px rgba(10,189,198,0.2);
+  overflow-x:auto; flex-wrap:nowrap;
 }
 .tool-btn {
   display:flex; flex-direction:column; align-items:center; justify-content:center;
-  min-width:0; height:58px; padding:2px 6px;
+  min-width:64px; height:58px; padding:2px 6px;
   background:#111820; border:2px solid #1a3a2a;
   color:#00ff41; font-family:'VT323',monospace; font-size:13px;
   cursor:pointer; border-radius:3px; transition:all .15s;
@@ -228,17 +124,15 @@ canvas#game {
 
 /* ── CHAOS BUTTONS ── */
 #chaos-bar {
-  display:grid;
-  grid-template-columns:repeat(auto-fit, minmax(74px, 1fr));
-  align-items:stretch; gap:6px; padding:0;
-  background:transparent;
-  border:0; box-shadow:none;
-  overflow-y:auto; overflow-x:hidden;
-  max-height:calc(min(56vh, 440px) - 60px);
+  display:flex; align-items:center; justify-content:center;
+  gap:4px; padding:6px 8px; flex-shrink:0;
+  background:#0d1117;
+  border-top:2px solid #00ff41;
+  box-shadow:0 -2px 12px rgba(0,255,65,0.15);
 }
 .chaos-btn {
   display:flex; flex-direction:column; align-items:center; justify-content:center;
-  min-width:0; height:52px; padding:2px 8px;
+  min-width:68px; height:52px; padding:2px 8px;
   background:#1a0a0a; border:2px solid #ff3333;
   color:#ff3333; font-family:'VT323',monospace; font-size:12px;
   cursor:pointer; border-radius:3px; transition:all .15s;
@@ -254,15 +148,16 @@ canvas#game {
 
 /* ── SCROLLABLE TOOLBARS ── */
 #toolbar, #chaos-bar {
+  overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  touch-action: pan-y;
+  touch-action: pan-x;
   scrollbar-width: none;
 }
 #toolbar::-webkit-scrollbar, #chaos-bar::-webkit-scrollbar { display:none; }
 
 /* ── COLLAPSE TOGGLES ── */
 .bar-toggle {
-  display:none;
+  display:none; /* hidden on desktop */
   background:#0d1117; border:1px solid #0abdc6;
   color:#0abdc6; font-family:'VT323',monospace; font-size:16px;
   padding:4px 12px; cursor:pointer; text-align:center;
@@ -270,72 +165,32 @@ canvas#game {
 }
 .bar-toggle:active { background:#0abdc6; color:#0a0a0a; }
 
-#gravity-sheet #gravity-panel {
-  padding:6px 0 2px;
-}
-
-#help-sheet {
-  max-width:720px; left:50%; right:auto; width:min(720px, calc(100% - 20px));
-  transform:translate(-50%, calc(100% + 92px));
-}
-#help-sheet.open { transform:translate(-50%, 0); }
-.help-grid {
-  display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px;
-}
-.help-chip {
-  display:flex; align-items:center; gap:8px;
-  min-height:44px; padding:8px 10px;
-  background:#0a1216; border:1px solid #163a42;
-  color:#0abdc6; font-size:17px;
-}
-.help-chip strong { color:#00ff41; font-weight:normal; }
-
 /* ── MOBILE TWEAKS ── */
 @media(max-width:600px) {
   #topbar {
-    min-height:42px; padding:4px 9px; gap:4px;
+    flex-wrap:wrap; padding:4px 8px; gap:4px;
   }
   #topbar .title { font-size:18px; letter-spacing:2px; }
-  #gravity-panel { overflow-x:auto; -webkit-overflow-scrolling:touch; touch-action:pan-x; }
+  #gravity-panel {
+    order:3; width:100%; justify-content:center;
+    overflow-x:auto; -webkit-overflow-scrolling:touch;
+    touch-action:pan-x; padding:2px 0;
+  }
   #gravity-panel::-webkit-scrollbar { display:none; }
   #gravity-panel .planet-btn { font-size:13px; padding:4px 8px; min-height:32px; }
   #stats { font-size:14px; }
-  #ux-hint { bottom:12px; min-width:148px; font-size:15px; padding:5px 10px; }
-  #focus-dock {
-    grid-template-columns:minmax(84px, 1.2fr) repeat(6, minmax(38px, 1fr));
-    gap:4px; min-height:58px; padding:6px 5px;
-  }
-  #recent-tools { display:none; }
-  .dock-btn { height:46px; padding:2px 4px; font-size:11px; }
-  .dock-icon { font-size:19px; }
-  .dock-btn[data-action-target="btn-screenshot"] { display:none; }
-  .control-drawer {
-    left:0; right:0; bottom:62px; max-height:58vh;
-    border-left:0; border-right:0; padding:8px;
-  }
-  #toolbar {
-    grid-template-columns:repeat(auto-fit, minmax(56px, 1fr));
-    max-height:calc(58vh - 56px);
-  }
-  .tool-btn { height:50px; font-size:11px; }
+  .tool-btn { min-width:52px; height:50px; font-size:11px; }
   .tool-btn .icon { font-size:20px; }
-  #chaos-bar {
-    grid-template-columns:repeat(auto-fit, minmax(58px, 1fr));
-    max-height:calc(58vh - 56px);
-  }
-  .chaos-btn { height:46px; font-size:11px; }
-  .bar-toggle { display:none; }
-  .help-grid { grid-template-columns:1fr; }
+  .chaos-btn { min-width:56px; height:46px; font-size:11px; }
+  .bar-toggle { display:block; }
+  #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
 
 /* ── TABLET TWEAKS ── */
 @media(min-width:601px) and (max-width:1024px) {
   #topbar .title { font-size:22px; letter-spacing:3px; }
-  #focus-dock {
-    grid-template-columns:minmax(110px, 1fr) minmax(148px, 1.3fr) repeat(7, minmax(48px, 1fr));
-  }
-  .tool-btn { height:52px; font-size:12px; }
-  .chaos-btn { height:48px; font-size:12px; }
+  .tool-btn { min-width:56px; height:52px; font-size:12px; }
+  .chaos-btn { min-width:60px; height:48px; font-size:12px; }
 }
 </style>
 </head>
@@ -344,6 +199,14 @@ canvas#game {
   <!-- TOP BAR -->
   <div id="topbar">
     <div class="title">⚡ CHAOS ENGINE</div>
+    <div id="gravity-panel">
+      <span style="font-size:14px;color:#0abdc6;">GRAV:</span>
+      <button class="planet-btn active" data-gravity="1" data-name="Earth">🌍</button>
+      <button class="planet-btn" data-gravity="0.166" data-name="Moon">🌙</button>
+      <button class="planet-btn" data-gravity="0.38" data-name="Mars">🔴</button>
+      <button class="planet-btn" data-gravity="2.53" data-name="Jupiter">🟠</button>
+      <button class="planet-btn" data-gravity="0" data-name="Space">🚀</button>
+    </div>
     <div id="stats">
       <span id="planet-name">EARTH</span> |
       OBJ: <span id="obj-count">0</span>
@@ -353,125 +216,65 @@ canvas#game {
   <!-- CANVAS -->
   <div id="canvas-wrap">
     <canvas id="game"></canvas>
-    <div id="ux-hint" aria-live="polite">BALL READY</div>
   </div>
 
-  <!-- FOCUSED DOCK -->
-  <div id="focus-dock" aria-label="Primary controls">
-    <button class="dock-btn active" id="current-tool-btn" data-drawer-target="tools" title="Current tool">
-      <span class="dock-icon" id="current-tool-icon">⚽</span>
-      <span class="dock-label" id="current-tool-label">Ball</span>
-    </button>
-    <div id="recent-tools" aria-label="Recent tools"></div>
-    <button class="dock-btn" id="tools-drawer-toggle" data-drawer-target="tools" title="All tools"><span class="dock-icon">🔧</span><span class="dock-label">Tools</span></button>
-    <button class="dock-btn" id="chaos-drawer-toggle" data-drawer-target="chaos" title="Chaos actions"><span class="dock-icon">💥</span><span class="dock-label">Chaos</span></button>
-    <button class="dock-btn" id="gravity-drawer-toggle" data-drawer-target="gravity" title="Gravity"><span class="dock-icon">🌍</span><span class="dock-label">Gravity</span></button>
-    <button class="dock-btn" id="help-drawer-toggle" data-drawer-target="help" title="Control guide"><span class="dock-icon">⌨</span><span class="dock-label">Guide</span></button>
-    <button class="dock-btn safe" id="dock-snap" data-action-target="btn-screenshot" title="Save screenshot"><span class="dock-icon">📸</span><span class="dock-label">Snap</span></button>
-    <button class="dock-btn safe" id="dock-pause" data-action-target="btn-pause" title="Pause"><span class="dock-icon">⏸️</span><span class="dock-label">Pause</span></button>
-    <button class="dock-btn danger" id="dock-clear" data-action-target="btn-clear" title="Clear scene"><span class="dock-icon">🗑️</span><span class="dock-label">Clear</span></button>
+  <!-- OBJECT TOOLBAR -->
+  <button class="bar-toggle" id="toggle-toolbar">🔧 OBJECTS ▼</button>
+  <div id="toolbar">
+    <button class="tool-btn active" data-tool="ball"><span class="icon">⚽</span>Ball</button>
+    <button class="tool-btn" data-tool="block"><span class="icon">📦</span>Block</button>
+    <button class="tool-btn" data-tool="rocket"><span class="icon">🚀</span>Rocket</button>
+    <button class="tool-btn" data-tool="car"><span class="icon">🚗</span>Car</button>
+    <button class="tool-btn" data-tool="dino"><span class="icon">🦕</span>Dino</button>
+    <button class="tool-btn" data-tool="bomb"><span class="icon">💣</span>Bomb</button>
+    <button class="tool-btn" data-tool="star"><span class="icon">⭐</span>Star</button>
+    <button class="tool-btn" data-tool="balloon"><span class="icon">🎈</span>Balloon</button>
+    <button class="tool-btn" data-tool="portal" style="color:#cc00ff;"><span class="icon">🌀</span>Portal</button>
+    <button class="tool-btn" data-tool="bumper" style="color:#ff3399;"><span class="icon">🔴</span>Bumper</button>
+    <button class="tool-btn" data-tool="beachball" style="color:#00ccff;"><span class="icon">🏖️</span>Beach</button>
+    <button class="tool-btn" data-tool="duck" style="color:#ffdd00;"><span class="icon">🦆</span>Duck</button>
+    <button class="tool-btn" data-tool="domino" style="color:#ff8844;"><span class="icon">🀄</span>Domino</button>
+    <button class="tool-btn" data-tool="anvil" style="color:#aaaaaa;"><span class="icon">🔨</span>Anvil</button>
+    <button class="tool-btn" data-tool="ragdoll" style="color:#ff6644;"><span class="icon">🧍</span>Ragdoll</button>
+    <button class="tool-btn" data-tool="trampoline" style="color:#00ff99;"><span class="icon">🟩</span>Tramp</button>
+    <button class="tool-btn" data-tool="conveyor-left" style="color:#ff8800;"><span class="icon">⬅️</span>Conv◀</button>
+    <button class="tool-btn" data-tool="conveyor-right" style="color:#ff8800;"><span class="icon">➡️</span>Conv▶</button>
+    <button class="tool-btn" data-tool="wrecking" style="color:#ff4444;"><span class="icon">⚫</span>Wreck</button>
+    <button class="tool-btn" data-tool="ice" style="color:#aaeeff;"><span class="icon">🧊</span>Ice</button>
+    <button class="tool-btn" data-tool="fan" style="color:#66ddff;"><span class="icon">💨</span>Fan</button>
+    <button class="tool-btn" data-tool="magnet" style="color:#ff4466;"><span class="icon">🧲</span>Magnet</button>
+    <button class="tool-btn" data-tool="pin" style="color:#ffffff;"><span class="icon">🎳</span>Pin</button>
+    <button class="tool-btn" data-tool="seesaw" style="color:#ffcc00;"><span class="icon">⚖️</span>Seesaw</button>
+    <button class="tool-btn" data-tool="rope" style="color:#cc8844;"><span class="icon">🪢</span>Rope</button>
+    <button class="tool-btn draw-btn" data-tool="draw"><span class="icon">✏️</span>Draw</button>
+    <button class="tool-btn slomo-btn" data-tool="slomo"><span class="icon">⏱️</span>SLO-MO</button>
+    <button class="tool-btn" data-tool="grab" style="color:#ffdd00;"><span class="icon">✊</span>GRAB</button>
   </div>
 
-  <div id="control-backdrop" aria-hidden="true"></div>
-  <div id="drawer-layer">
-    <!-- OBJECT TOOLBAR -->
-    <section class="control-drawer" id="tools-sheet" data-drawer="tools" aria-label="Tools drawer">
-      <div class="drawer-title">
-        <button class="bar-toggle" id="toggle-toolbar">🔧 OBJECTS</button>
-        <span>OBJECTS</span>
-        <button class="drawer-close" data-close-drawers title="Close">×</button>
-      </div>
-      <div id="toolbar">
-        <button class="tool-btn active" data-tool="ball" title="Ball"><span class="icon">⚽</span>Ball</button>
-        <button class="tool-btn" data-tool="block" title="Block"><span class="icon">📦</span>Block</button>
-        <button class="tool-btn" data-tool="rocket" title="Rocket"><span class="icon">🚀</span>Rocket</button>
-        <button class="tool-btn" data-tool="car" title="Car"><span class="icon">🚗</span>Car</button>
-        <button class="tool-btn" data-tool="dino" title="Dino"><span class="icon">🦕</span>Dino</button>
-        <button class="tool-btn" data-tool="bomb" title="Bomb"><span class="icon">💣</span>Bomb</button>
-        <button class="tool-btn" data-tool="star" title="Star"><span class="icon">⭐</span>Star</button>
-        <button class="tool-btn" data-tool="balloon" title="Balloon"><span class="icon">🎈</span>Balloon</button>
-        <button class="tool-btn" data-tool="portal" title="Portal" style="color:#cc00ff;"><span class="icon">🌀</span>Portal</button>
-        <button class="tool-btn" data-tool="bumper" title="Bumper" style="color:#ff3399;"><span class="icon">🔴</span>Bumper</button>
-        <button class="tool-btn" data-tool="beachball" title="Beach ball" style="color:#00ccff;"><span class="icon">🏖️</span>Beach</button>
-        <button class="tool-btn" data-tool="duck" title="Duck" style="color:#ffdd00;"><span class="icon">🦆</span>Duck</button>
-        <button class="tool-btn" data-tool="domino" title="Domino" style="color:#ff8844;"><span class="icon">🀄</span>Domino</button>
-        <button class="tool-btn" data-tool="anvil" title="Anvil" style="color:#aaaaaa;"><span class="icon">🔨</span>Anvil</button>
-        <button class="tool-btn" data-tool="ragdoll" title="Ragdoll" style="color:#ff6644;"><span class="icon">🧍</span>Ragdoll</button>
-        <button class="tool-btn" data-tool="trampoline" title="Trampoline" style="color:#00ff99;"><span class="icon">🟩</span>Tramp</button>
-        <button class="tool-btn" data-tool="conveyor-left" title="Conveyor left" style="color:#ff8800;"><span class="icon">⬅️</span>Conv◀</button>
-        <button class="tool-btn" data-tool="conveyor-right" title="Conveyor right" style="color:#ff8800;"><span class="icon">➡️</span>Conv▶</button>
-        <button class="tool-btn" data-tool="wrecking" title="Wrecking ball" style="color:#ff4444;"><span class="icon">⚫</span>Wreck</button>
-        <button class="tool-btn" data-tool="ice" title="Ice" style="color:#aaeeff;"><span class="icon">🧊</span>Ice</button>
-        <button class="tool-btn" data-tool="fan" title="Fan" style="color:#66ddff;"><span class="icon">💨</span>Fan</button>
-        <button class="tool-btn" data-tool="magnet" title="Magnet" style="color:#ff4466;"><span class="icon">🧲</span>Magnet</button>
-        <button class="tool-btn" data-tool="pin" title="Pin" style="color:#ffffff;"><span class="icon">🎳</span>Pin</button>
-        <button class="tool-btn" data-tool="seesaw" title="Seesaw" style="color:#ffcc00;"><span class="icon">⚖️</span>Seesaw</button>
-        <button class="tool-btn" data-tool="rope" title="Rope" style="color:#cc8844;"><span class="icon">🪢</span>Rope</button>
-        <button class="tool-btn draw-btn" data-tool="draw" title="Draw"><span class="icon">✏️</span>Draw</button>
-        <button class="tool-btn slomo-btn" data-tool="slomo" title="Slow motion"><span class="icon">⏱️</span>SLO-MO</button>
-        <button class="tool-btn" data-tool="grab" title="Grab" style="color:#ffdd00;"><span class="icon">✊</span>GRAB</button>
-      </div>
-    </section>
-
-    <!-- CHAOS BAR -->
-    <section class="control-drawer" id="chaos-sheet" data-drawer="chaos" aria-label="Chaos drawer">
-      <div class="drawer-title">
-        <button class="bar-toggle" id="toggle-chaos">💥 CHAOS</button>
-        <span>CHAOS</span>
-        <button class="drawer-close" data-close-drawers title="Close">×</button>
-      </div>
-      <div id="chaos-bar">
-        <button class="chaos-btn" id="btn-explode" title="Explode"><span class="icon">💥</span>EXPLODE</button>
-        <button class="chaos-btn" id="btn-quake" title="Quake"><span class="icon">🌋</span>QUAKE</button>
-        <button class="chaos-btn" id="btn-wind" title="Wind"><span class="icon">🌪️</span>WIND</button>
-        <button class="chaos-btn" id="btn-blackhole" title="Black hole"><span class="icon">🕳️</span>B.HOLE</button>
-        <button class="chaos-btn" id="btn-antigrav" title="Float"><span class="icon">🫧</span>FLOAT</button>
-        <button class="chaos-btn" id="btn-timewarp" title="Timed slow motion" style="border-color:#cc00ff;color:#cc00ff;background:#1a0a2a;"><span class="icon">⏳</span>SLO-MO</button>
-        <button class="chaos-btn" id="btn-rain" title="Rain" style="border-color:#00ccff;color:#00ccff;background:#0a0a1a;"><span class="icon">🌧️</span>RAIN</button>
-        <button class="chaos-btn" id="btn-gravflip" title="Gravity flip" style="border-color:#ffdd00;color:#ffdd00;background:#1a1a0a;"><span class="icon">🔄</span>G-FLIP</button>
-        <button class="chaos-btn" id="btn-megabounce" title="Mega bounce" style="border-color:#00ff41;color:#00ff41;background:#0a1a0a;"><span class="icon">🏀</span>BOUNCE</button>
-        <button class="chaos-btn" id="btn-vortex" title="Vortex" style="border-color:#ff00ff;color:#ff00ff;background:#1a001a;"><span class="icon">🌀</span>VORTEX</button>
-        <button class="chaos-btn" id="btn-tornado" title="Tornado" style="border-color:#ff8800;color:#ff8800;background:#1a1000;"><span class="icon">🌪️</span>TORNADO</button>
-        <button class="chaos-btn" id="btn-freeze" title="Freeze" style="border-color:#00ddff;color:#00ddff;background:#001a2a;"><span class="icon">🧊</span>FREEZE</button>
-        <button class="chaos-btn" id="btn-popcorn" title="Popcorn" style="border-color:#ffdd00;color:#ffdd00;background:#1a1a00;"><span class="icon">🍿</span>POPCORN</button>
-        <button class="chaos-btn" id="btn-shuffle" title="Shuffle" style="border-color:#ffaa00;color:#ffaa00;background:#1a1500;"><span class="icon">🔀</span>SHUFFLE</button>
-        <button class="chaos-btn" id="btn-target" title="Target" style="border-color:#ff4444;color:#ff4444;background:#1a0a0a;"><span class="icon">🎯</span>TARGET</button>
-        <button class="chaos-btn" id="btn-ocean" title="Ocean" style="border-color:#0066ff;color:#0088ff;background:#000a2a;"><span class="icon">🌊</span>OCEAN</button>
-        <button class="chaos-btn" id="btn-jenga" title="Jenga" style="border-color:#ffaa44;color:#ffaa44;background:#1a1500;"><span class="icon">🏗️</span>JENGA</button>
-        <button class="chaos-btn safe" id="btn-ambient" title="Ambient audio" style="border-color:#6699cc;color:#6699cc;"><span class="icon">🔊</span>AMBIENT</button>
-        <button class="chaos-btn safe" id="btn-screenshot" title="Screenshot"><span class="icon">📸</span>SNAP</button>
-        <button class="chaos-btn safe" id="btn-clear" title="Clear"><span class="icon">🗑️</span>CLEAR</button>
-        <button class="chaos-btn safe" id="btn-pause" title="Pause"><span class="icon">⏸️</span>PAUSE</button>
-      </div>
-    </section>
-
-    <section class="control-drawer" id="gravity-sheet" data-drawer="gravity" aria-label="Gravity drawer">
-      <div class="drawer-title">
-        <span>GRAVITY</span>
-        <button class="drawer-close" data-close-drawers title="Close">×</button>
-      </div>
-      <div id="gravity-panel">
-        <span style="font-size:14px;color:#0abdc6;">GRAV:</span>
-        <button class="planet-btn active" data-gravity="1" data-name="Earth" title="Earth">🌍</button>
-        <button class="planet-btn" data-gravity="0.166" data-name="Moon" title="Moon">🌙</button>
-        <button class="planet-btn" data-gravity="0.38" data-name="Mars" title="Mars">🔴</button>
-        <button class="planet-btn" data-gravity="2.53" data-name="Jupiter" title="Jupiter">🟠</button>
-        <button class="planet-btn" data-gravity="0" data-name="Space" title="Space">🚀</button>
-      </div>
-    </section>
-
-    <section class="control-drawer" id="help-sheet" data-drawer="help" aria-label="Guide drawer">
-      <div class="drawer-title">
-        <span>GUIDE</span>
-        <button class="drawer-close" data-close-drawers title="Close">×</button>
-      </div>
-      <div class="help-grid">
-        <div class="help-chip"><strong>Canvas</strong><span>Tap spawn / drag launch</span></div>
-        <div class="help-chip"><strong>Draw</strong><span>Sketch walls and ramps</span></div>
-        <div class="help-chip"><strong>Grab</strong><span>Drag objects, release to throw</span></div>
-        <div class="help-chip"><strong>Rope</strong><span>Select two objects</span></div>
-      </div>
-    </section>
+  <!-- CHAOS BAR -->
+  <button class="bar-toggle" id="toggle-chaos">💥 CHAOS ▼</button>
+  <div id="chaos-bar">
+    <button class="chaos-btn" id="btn-explode"><span class="icon">💥</span>EXPLODE</button>
+    <button class="chaos-btn" id="btn-quake"><span class="icon">🌋</span>QUAKE</button>
+    <button class="chaos-btn" id="btn-wind"><span class="icon">🌪️</span>WIND</button>
+    <button class="chaos-btn" id="btn-blackhole"><span class="icon">🕳️</span>B.HOLE</button>
+    <button class="chaos-btn" id="btn-antigrav"><span class="icon">🫧</span>FLOAT</button>
+    <button class="chaos-btn" id="btn-timewarp" style="border-color:#cc00ff;color:#cc00ff;background:#1a0a2a;"><span class="icon">⏳</span>SLO-MO</button>
+    <button class="chaos-btn" id="btn-rain" style="border-color:#00ccff;color:#00ccff;background:#0a0a1a;"><span class="icon">🌧️</span>RAIN</button>
+    <button class="chaos-btn" id="btn-gravflip" style="border-color:#ffdd00;color:#ffdd00;background:#1a1a0a;"><span class="icon">🔄</span>G-FLIP</button>
+    <button class="chaos-btn" id="btn-megabounce" style="border-color:#00ff41;color:#00ff41;background:#0a1a0a;"><span class="icon">🏀</span>BOUNCE</button>
+    <button class="chaos-btn" id="btn-vortex" style="border-color:#ff00ff;color:#ff00ff;background:#1a001a;"><span class="icon">🌀</span>VORTEX</button>
+    <button class="chaos-btn" id="btn-tornado" style="border-color:#ff8800;color:#ff8800;background:#1a1000;"><span class="icon">🌪️</span>TORNADO</button>
+    <button class="chaos-btn" id="btn-freeze" style="border-color:#00ddff;color:#00ddff;background:#001a2a;"><span class="icon">🧊</span>FREEZE</button>
+    <button class="chaos-btn" id="btn-popcorn" style="border-color:#ffdd00;color:#ffdd00;background:#1a1a00;"><span class="icon">🍿</span>POPCORN</button>
+    <button class="chaos-btn" id="btn-shuffle" style="border-color:#ffaa00;color:#ffaa00;background:#1a1500;"><span class="icon">🔀</span>SHUFFLE</button>
+    <button class="chaos-btn" id="btn-target" style="border-color:#ff4444;color:#ff4444;background:#1a0a0a;"><span class="icon">🎯</span>TARGET</button>
+    <button class="chaos-btn" id="btn-ocean" style="border-color:#0066ff;color:#0088ff;background:#000a2a;"><span class="icon">🌊</span>OCEAN</button>
+    <button class="chaos-btn" id="btn-jenga" style="border-color:#ffaa44;color:#ffaa44;background:#1a1500;"><span class="icon">🏗️</span>JENGA</button>
+    <button class="chaos-btn safe" id="btn-ambient" style="border-color:#6699cc;color:#6699cc;"><span class="icon">🔊</span>AMBIENT</button>
+    <button class="chaos-btn safe" id="btn-screenshot"><span class="icon">📸</span>SNAP</button>
+    <button class="chaos-btn safe" id="btn-clear"><span class="icon">🗑️</span>CLEAR</button>
+    <button class="chaos-btn safe" id="btn-pause"><span class="icon">⏸️</span>PAUSE</button>
   </div>
 </div>
 
@@ -486,15 +289,6 @@ const { Engine, World, Bodies, Body, Composite, Events, Mouse, Vector, Constrain
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const wrap = document.getElementById('canvas-wrap');
-const drawerLayer = document.getElementById('drawer-layer');
-const controlBackdrop = document.getElementById('control-backdrop');
-const uxHint = document.getElementById('ux-hint');
-const currentToolIcon = document.getElementById('current-tool-icon');
-const currentToolLabel = document.getElementById('current-tool-label');
-const recentToolsWrap = document.getElementById('recent-tools');
-let activeDrawer = null;
-const shortcutFallbacks = ['ball', 'block', 'bomb', 'grab', 'rocket', 'draw', 'slomo', 'rope'];
-let recentTools = ['block', 'bomb', 'grab', 'rocket'];
 
 function resize() {
   canvas.width = wrap.clientWidth;
@@ -843,115 +637,6 @@ function rebuildWalls() {
 resize();
 window.addEventListener('resize', resize);
 
-// ── FOCUSED UX SHELL ──
-function getToolButton(tool) {
-  return document.querySelector(`.tool-btn[data-tool="${tool}"]`);
-}
-
-function getToolMeta(tool) {
-  const btn = getToolButton(tool);
-  if (!btn) return { icon: '⚙️', label: tool.toUpperCase(), color: '#0abdc6' };
-  const icon = btn.querySelector('.icon')?.textContent.trim() || '⚙️';
-  const label = btn.textContent.replace(icon, '').trim() || tool.toUpperCase();
-  const color = btn.style.color || '#00ff41';
-  return { icon, label, color };
-}
-
-function setUxStatus(text, color = '#0abdc6') {
-  if (!uxHint) return;
-  const shadowColor = color.startsWith('#') ? `${color}99` : color;
-  uxHint.textContent = text;
-  uxHint.style.color = color;
-  uxHint.style.borderColor = color;
-  uxHint.style.textShadow = `0 0 8px ${shadowColor}`;
-}
-
-function updateDockTool(tool = currentTool) {
-  const meta = getToolMeta(tool);
-  if (currentToolIcon) currentToolIcon.textContent = meta.icon;
-  if (currentToolLabel) currentToolLabel.textContent = meta.label;
-  document.querySelectorAll('.recent-tool-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.toolShortcut === tool);
-  });
-}
-
-function renderRecentTools() {
-  if (!recentToolsWrap) return;
-  const activeTool = drawMode ? 'draw' : currentTool;
-  const shortcuts = [];
-  [...recentTools, ...shortcutFallbacks].forEach(tool => {
-    if (tool !== activeTool && getToolButton(tool) && !shortcuts.includes(tool) && shortcuts.length < 4) {
-      shortcuts.push(tool);
-    }
-  });
-  recentToolsWrap.innerHTML = '';
-  shortcuts.forEach(tool => {
-    const meta = getToolMeta(tool);
-    const btn = document.createElement('button');
-    btn.className = 'recent-tool-btn';
-    btn.dataset.toolShortcut = tool;
-    btn.title = meta.label;
-    btn.innerHTML = `<span class="dock-icon">${meta.icon}</span>`;
-    btn.addEventListener('click', () => {
-      const toolBtn = getToolButton(tool);
-      if (toolBtn) toolBtn.click();
-    });
-    recentToolsWrap.appendChild(btn);
-  });
-  updateDockTool(activeTool);
-}
-
-function rememberRecentTool(tool) {
-  recentTools = [tool, ...recentTools.filter(t => t !== tool)].slice(0, 4);
-  renderRecentTools();
-}
-
-function closeDrawers() {
-  activeDrawer = null;
-  document.querySelectorAll('.control-drawer').forEach(drawer => drawer.classList.remove('open'));
-  controlBackdrop?.classList.remove('open');
-  document.querySelectorAll('[data-drawer-target]').forEach(btn => btn.classList.remove('active'));
-}
-
-function openDrawer(name) {
-  activeDrawer = name;
-  document.querySelectorAll('.control-drawer').forEach(drawer => {
-    drawer.classList.toggle('open', drawer.dataset.drawer === name);
-  });
-  controlBackdrop?.classList.add('open');
-  document.querySelectorAll('[data-drawer-target]').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.drawerTarget === name);
-  });
-}
-
-function toggleDrawer(name) {
-  if (activeDrawer === name) closeDrawers();
-  else openDrawer(name);
-}
-
-document.querySelectorAll('[data-drawer-target]').forEach(btn => {
-  btn.addEventListener('click', () => toggleDrawer(btn.dataset.drawerTarget));
-});
-
-document.querySelectorAll('[data-close-drawers]').forEach(btn => {
-  btn.addEventListener('click', closeDrawers);
-});
-
-controlBackdrop?.addEventListener('click', closeDrawers);
-
-document.querySelectorAll('[data-action-target]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.getElementById(btn.dataset.actionTarget)?.click();
-    closeDrawers();
-  });
-});
-
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeDrawers();
-});
-
-renderRecentTools();
-
 // ── GRAVITY BUTTONS ──
 document.querySelectorAll('.planet-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -959,10 +644,6 @@ document.querySelectorAll('.planet-btn').forEach(btn => {
     btn.classList.add('active');
     gravityTarget = parseFloat(btn.dataset.gravity);
     document.getElementById('planet-name').textContent = btn.dataset.name.toUpperCase();
-    const gravityToggle = document.getElementById('gravity-drawer-toggle')?.querySelector('.dock-icon');
-    if (gravityToggle) gravityToggle.textContent = btn.textContent.trim();
-    setUxStatus(`${btn.dataset.name.toUpperCase()} GRAVITY`, '#0abdc6');
-    closeDrawers();
     playSound(600, 0.15, 'sine', 0.08);
   });
 });
@@ -976,19 +657,12 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       btn.classList.toggle('active', drawMode);
       if (!drawMode) drawPoints = [];
       // Deselect doesn't happen for draw toggle
-      rememberRecentTool('draw');
-      updateDockTool(drawMode ? 'draw' : currentTool);
-      setUxStatus(drawMode ? 'DRAW MODE' : `${getToolMeta(currentTool).label.toUpperCase()} READY`, drawMode ? '#ff6600' : getToolMeta(currentTool).color);
     } else if (tool === 'slomo') {
       // Toggle slow motion mode
       sloMoActive = !sloMoActive;
       btn.classList.toggle('active', sloMoActive);
       playSound(sloMoActive ? 200 : 800, 0.2, 'sine', 0.1);
       if (sloMoActive) shakeIntensity = 5;
-      rememberRecentTool('slomo');
-      updateDockTool(sloMoActive ? 'slomo' : currentTool);
-      setUxStatus(sloMoActive ? 'SLO-MO ON' : `${getToolMeta(currentTool).label.toUpperCase()} READY`, sloMoActive ? '#cc00ff' : getToolMeta(currentTool).color);
-      closeDrawers();
       return;
     } else {
       drawMode = false;
@@ -996,12 +670,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       document.querySelectorAll('.tool-btn:not(.draw-btn):not(.slomo-btn)').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       currentTool = tool;
-      rememberRecentTool(tool);
-      updateDockTool(tool);
-      const meta = getToolMeta(tool);
-      setUxStatus(`${meta.label.toUpperCase()} READY`, meta.color);
     }
-    closeDrawers();
     playSound(1000, 0.05, 'square', 0.05);
   });
 });
@@ -2110,7 +1779,6 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   gravityAngle = 0;
   engine.gravity.x = 0;
   engine.gravity.y = gravityTarget;
-  setUxStatus('SCENE CLEARED', '#ff3333');
   playSound(400, 0.2, 'sine', 0.1);
 });
 
@@ -2160,7 +1828,6 @@ document.getElementById('btn-screenshot').addEventListener('click', () => {
   }, 'image/png');
   
   shakeIntensity = 6;
-  setUxStatus('SNAP SAVED', '#0abdc6');
 });
 
 const pauseBtn = document.getElementById('btn-pause');
@@ -2168,23 +1835,7 @@ pauseBtn.addEventListener('click', () => {
   paused = !paused;
   pauseBtn.querySelector('.icon').textContent = paused ? '▶️' : '⏸️';
   pauseBtn.querySelector('.icon').nextSibling.textContent = paused ? 'PLAY' : 'PAUSE';
-  const dockPause = document.getElementById('dock-pause');
-  if (dockPause) {
-    dockPause.querySelector('.dock-icon').textContent = paused ? '▶️' : '⏸️';
-    dockPause.querySelector('.dock-label').textContent = paused ? 'Play' : 'Pause';
-  }
-  setUxStatus(paused ? 'PAUSED' : `${getToolMeta(currentTool).label.toUpperCase()} READY`, paused ? '#00ff41' : getToolMeta(currentTool).color);
   playSound(paused ? 300 : 600, 0.1, 'square', 0.06);
-});
-
-document.getElementById('chaos-bar').addEventListener('click', e => {
-  const btn = e.target.closest('.chaos-btn');
-  if (!btn) return;
-  const icon = btn.querySelector('.icon')?.textContent.trim() || '';
-  const action = btn.textContent.replace(icon, '').trim();
-  const label = [icon, action].filter(Boolean).join(' ');
-  setUxStatus(label || 'CHAOS', btn.classList.contains('safe') ? '#0abdc6' : (btn.style.color || '#ff3333'));
-  closeDrawers();
 });
 
 // ── POINTER / TOUCH INPUT ──
@@ -5254,14 +4905,16 @@ document.addEventListener('keydown', (e) => {
 
 // ── COLLAPSE TOGGLES (mobile) ──
 document.getElementById('toggle-toolbar').addEventListener('click', () => {
+  const tb = document.getElementById('toolbar');
   const btn = document.getElementById('toggle-toolbar');
-  toggleDrawer('tools');
-  btn.textContent = activeDrawer === 'tools' ? '🔧 OBJECTS ▲' : '🔧 OBJECTS';
+  tb.classList.toggle('collapsed');
+  btn.textContent = tb.classList.contains('collapsed') ? '🔧 OBJECTS ▶' : '🔧 OBJECTS ▼';
 });
 document.getElementById('toggle-chaos').addEventListener('click', () => {
+  const cb = document.getElementById('chaos-bar');
   const btn = document.getElementById('toggle-chaos');
-  toggleDrawer('chaos');
-  btn.textContent = activeDrawer === 'chaos' ? '💥 CHAOS ▲' : '💥 CHAOS';
+  cb.classList.toggle('collapsed');
+  btn.textContent = cb.classList.contains('collapsed') ? '💥 CHAOS ▶' : '💥 CHAOS ▼';
 });
 
 // Triple-tap title for DISCO MODE
@@ -5419,10 +5072,9 @@ window.ChaosEngine = {
     
     // Hide sandbox UI in lesson mode (optional - controlled by config)
     if (config.hideControls) {
-      closeDrawers();
-      ['focus-dock', 'drawer-layer', 'control-backdrop', 'toolbar', 'chaos-bar', 'gravity-panel'].forEach(id => {
-        document.getElementById(id).style.display = 'none';
-      });
+      document.getElementById('toolbar').style.display = 'none';
+      document.getElementById('chaos-bar').style.display = 'none';
+      document.getElementById('gravity-panel').style.display = 'none';
     }
     
     emitLessonEvent('lesson-loaded', { config });
@@ -5472,9 +5124,9 @@ window.ChaosEngine = {
     lessonState.goals = [];
     lessonState.goalsReached.clear();
     // Restore UI
-    ['focus-dock', 'drawer-layer', 'control-backdrop', 'toolbar', 'chaos-bar', 'gravity-panel'].forEach(id => {
-      document.getElementById(id).style.display = '';
-    });
+    document.getElementById('toolbar').style.display = '';
+    document.getElementById('chaos-bar').style.display = '';
+    document.getElementById('gravity-panel').style.display = '';
     emitLessonEvent('lesson-ended', {});
   },
   
