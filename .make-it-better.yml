@@ -6,3 +6,10 @@ test_command: npm test
 verify: both
 branch: make-it-better
 test_required: true
+constraints:
+  - "Auto upgrades must be feature work only: add new features or improve existing features."
+  - "Do not redesign, restructure, or rearrange the app layout."
+  - "Preserve the current shell: top bar, canvas area, object toolbar, and chaos bar."
+  - "Keep the two bottom horizontally scrolling sections: #toolbar and #chaos-bar."
+  - "New controls must be added inside the appropriate existing bottom scrolling section instead of replacing or adding new layout regions."
+  - "Visual polish is allowed only when it supports a feature and does not move, resize, collapse, or replace the core layout."
