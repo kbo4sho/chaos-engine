@@ -543,10 +543,46 @@ function playBoom() {
     src.start();
   } catch(e) {}
 }
-function playBounce() { playSound(200 + Math.random()*300, 0.08, 'sine', 0.08); }
+
+const PENTATONIC_IMPACT_SCALE = [
+  130.81, 146.83, 164.81, 196.00, 220.00,
+  261.63, 293.66, 329.63, 392.00, 440.00,
+  523.25, 587.33, 659.25, 783.99, 880.00,
+];
+const IMPACT_MATERIAL_OCTAVES = {
+  wood: 0,
+  rubber: 5,
+  plastic: 5,
+  metal: 10,
+  glass: 10,
+  ice: 10,
+  default: 5,
+};
+
+function randomPentatonicNote(octaveStart = IMPACT_MATERIAL_OCTAVES.default) {
+  return PENTATONIC_IMPACT_SCALE[octaveStart + Math.floor(Math.random() * 5)];
+}
+
+function musicalImpactFreq(material = 'default', intensity = 1) {
+  const octaveStart = IMPACT_MATERIAL_OCTAVES[material] ?? IMPACT_MATERIAL_OCTAVES.default;
+  const normalizedHit = Math.min(Math.max(intensity / 10, 0), 1);
+  const noteOffset = Math.min(Math.floor(normalizedHit * 5), 4);
+  return PENTATONIC_IMPACT_SCALE[octaveStart + noteOffset];
+}
+
+function musicalImpactHarmony(freq, steps = 2) {
+  const nearestIdx = PENTATONIC_IMPACT_SCALE.reduce((bestIdx, note, idx) => {
+    const bestDiff = Math.abs(PENTATONIC_IMPACT_SCALE[bestIdx] - freq);
+    return Math.abs(note - freq) < bestDiff ? idx : bestIdx;
+  }, 0);
+  const targetIdx = Math.min(Math.max(nearestIdx + steps, 0), PENTATONIC_IMPACT_SCALE.length - 1);
+  return PENTATONIC_IMPACT_SCALE[targetIdx];
+}
+
+function playBounce() { playSound(randomPentatonicNote(5), 0.08, 'sine', 0.08); }
 function playSqueak() {
-  playSound(900 + Math.random()*400, 0.15, 'sine', 0.15);
-  setTimeout(() => playSound(1100 + Math.random()*300, 0.1, 'sine', 0.1), 50);
+  playSound(PENTATONIC_IMPACT_SCALE[12], 0.15, 'sine', 0.15);
+  setTimeout(() => playSound(PENTATONIC_IMPACT_SCALE[14], 0.1, 'sine', 0.1), 50);
 }
 function playSpawn() { playSound(800, 0.1, 'square', 0.06); }
 function playWhoosh(power) {
@@ -588,36 +624,36 @@ function playImpactSound(materialA, materialB, intensity) {
   
   // Metal impacts - high, sharp clangs
   if (materials.includes('metal')) {
-    const freq = 800 + Math.random() * 600;
+    const freq = musicalImpactFreq('metal', intensity);
     playSound(freq, 0.08 + intensity * 0.02, 'square', vol);
-    setTimeout(() => playSound(freq * 1.2, 0.05, 'sine', vol * 0.6), 20);
+    setTimeout(() => playSound(musicalImpactHarmony(freq, 2), 0.05, 'sine', vol * 0.6), 20);
   }
   // Rubber impacts - bouncy boings
   else if (materials.includes('rubber')) {
-    const freq = 150 + Math.random() * 200;
+    const freq = musicalImpactFreq('rubber', intensity);
     playSound(freq, 0.12, 'sine', vol);
-    playSound(freq * 1.5, 0.08, 'sine', vol * 0.5);
+    playSound(musicalImpactHarmony(freq, 3), 0.08, 'sine', vol * 0.5);
   }
   // Wood impacts - hollow thunks
   else if (materials.includes('wood')) {
-    const freq = 100 + Math.random() * 100;
+    const freq = musicalImpactFreq('wood', intensity);
     playSound(freq, 0.15, 'triangle', vol * 1.2);
-    playSound(freq * 0.7, 0.1, 'sawtooth', vol * 0.4);
+    playSound(musicalImpactHarmony(freq, -2), 0.1, 'sawtooth', vol * 0.4);
   }
   // Glass/ice impacts - crystalline tings
   else if (materials.includes('glass') || materials.includes('ice')) {
-    const freq = 1200 + Math.random() * 800;
+    const freq = musicalImpactFreq(materials.includes('ice') ? 'ice' : 'glass', intensity);
     playSound(freq, 0.06, 'sine', vol * 0.8);
-    playSound(freq * 1.4, 0.04, 'sine', vol * 0.5);
+    playSound(musicalImpactHarmony(freq, 2), 0.04, 'sine', vol * 0.5);
   }
   // Plastic impacts - light taps
   else if (materials.includes('plastic')) {
-    const freq = 400 + Math.random() * 300;
+    const freq = musicalImpactFreq('plastic', intensity);
     playSound(freq, 0.08, 'triangle', vol * 0.7);
   }
-  // Default (generic) - current behavior
+  // Default (generic)
   else {
-    playSound(200 + Math.random() * 300, 0.08, 'sine', vol);
+    playSound(musicalImpactFreq('default', intensity), 0.08, 'sine', vol);
   }
 }
 

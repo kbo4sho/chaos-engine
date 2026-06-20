@@ -576,6 +576,22 @@ describe('Audio Functions', () => {
   it('should have playSpawn function', () => {
     expect(scriptContent).toContain('function playSpawn()');
   });
+
+  it('should quantize collision audio to pentatonic notes', () => {
+    expect(scriptContent).toContain('const PENTATONIC_IMPACT_SCALE = [');
+    expect(scriptContent).toContain('130.81, 146.83, 164.81, 196.00, 220.00');
+    expect(scriptContent).toContain('523.25, 587.33, 659.25, 783.99, 880.00');
+    expect(scriptContent).toContain('const IMPACT_MATERIAL_OCTAVES = {');
+    expect(scriptContent).toContain('function randomPentatonicNote(');
+    expect(scriptContent).toContain('function musicalImpactFreq(');
+    expect(scriptContent).toContain('function musicalImpactHarmony(');
+    expect(scriptContent).toContain('playSound(randomPentatonicNote(5), 0.08');
+    expect(scriptContent).toContain("const freq = musicalImpactFreq('metal', intensity)");
+    expect(scriptContent).toContain("const freq = musicalImpactFreq('rubber', intensity)");
+    expect(scriptContent).toContain("const freq = musicalImpactFreq('wood', intensity)");
+    expect(scriptContent).toContain("const freq = musicalImpactFreq('plastic', intensity)");
+    expect(scriptContent).toContain("playSound(musicalImpactFreq('default', intensity), 0.08");
+  });
 });
 
 // ============================================

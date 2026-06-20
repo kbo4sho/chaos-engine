@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-06-20T23:52:13Z — Shipped: Musical collision notes
+**Why:** Collision sounds used arbitrary random frequencies, so busy scenes could become noisy instead of rhythmic. Pentatonic impact notes make bounces, squeaks, and material collisions layer into a more musical physics toy without adding UI or changing motion.
+**Goal alignment:** "more satisfying to play with" — audio polish that makes existing collisions feel more intentional and rewards chaotic scenes with consonant generative sound.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (225/225 passing)
+**Status:** shipped
+
 ## 2026-06-20T18:48:37Z — Shipped: Chain Link tool
 **Why:** The sandbox had ropes and wrecking balls, but no repeatable physical part for building flexible structures. Chain links add a compact construction primitive for dangling chains, bridges, traps, and improvised machines.
 **Goal alignment:** "more fun, more surprising, more satisfying" — new feature work that expands emergent physics while keeping the existing top bar, canvas, object toolbar, and chaos bar layout intact.

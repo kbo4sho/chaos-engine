@@ -5,6 +5,13 @@
     {
       "date": "2026-06-20",
       "ideas": [
+        "Sound: Musical collisions with pentatonic impact notes"
+      ],
+      "summary": "Implemented musical collision notes — impact, bounce, and duck squeak sounds now draw from a shared C-major pentatonic scale by material and hit intensity, so busy collision chains layer into consonant generative audio while preserving the existing material sound character."
+    },
+    {
+      "date": "2026-06-20",
+      "ideas": [
         "New object: Chain links that connect to nearby objects"
       ],
       "summary": "Implemented Chain Link tool (🔗) — a new object button in the existing bottom toolbar that spawns small metal links, automatically connects each link to up to two nearby dynamic bodies with flexible Matter.js constraints, renders hollow cyan metal links and matching chain constraints, and clears all chain state on reset without changing the app layout."
