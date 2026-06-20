@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-06-20T18:48:37Z — Shipped: Chain Link tool
+**Why:** The sandbox had ropes and wrecking balls, but no repeatable physical part for building flexible structures. Chain links add a compact construction primitive for dangling chains, bridges, traps, and improvised machines.
+**Goal alignment:** "more fun, more surprising, more satisfying" — new feature work that expands emergent physics while keeping the existing top bar, canvas, object toolbar, and chaos bar layout intact.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (224/224 passing)
+**Status:** shipped
+
 ## 2026-06-20T18:45:03Z — Proposed: Chain Link tool
 **Why:** The sandbox has ropes and wrecking balls, but no repeatable physical part for building flexible structures. Auto-connecting metal links would let players build dangling chains, bridges, traps, and improvised machines from the existing object toolbar without changing the layout.
 **Goal alignment:** "more fun, more surprising, more satisfying" — adds a new feature that expands creative construction and emergent physics while preserving the two bottom scrolling sections.

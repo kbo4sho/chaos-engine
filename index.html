@@ -246,6 +246,7 @@ canvas#game {
     <button class="tool-btn" data-tool="pin" style="color:#ffffff;"><span class="icon">🎳</span>Pin</button>
     <button class="tool-btn" data-tool="seesaw" style="color:#ffcc00;"><span class="icon">⚖️</span>Seesaw</button>
     <button class="tool-btn" data-tool="rope" style="color:#cc8844;"><span class="icon">🪢</span>Rope</button>
+    <button class="tool-btn" data-tool="chain-link" style="color:#99ccff;"><span class="icon">🔗</span>Chain</button>
     <button class="tool-btn draw-btn" data-tool="draw"><span class="icon">✏️</span>Draw</button>
     <button class="tool-btn slomo-btn" data-tool="slomo"><span class="icon">⏱️</span>SLO-MO</button>
     <button class="tool-btn" data-tool="grab" style="color:#ffdd00;"><span class="icon">✊</span>GRAB</button>
@@ -372,6 +373,7 @@ let magnets = []; // {body, attracting: true/false}
 // Rope tool
 let ropeFirstBody = null;
 let ropes = []; // constraints created by rope tool
+let chainLinks = []; // bodies created by chain-link tool
 
 // Slow motion toggle
 let sloMoActive = false;
@@ -993,6 +995,22 @@ function spawnObject(x, y, vx=0, vy=0) {
       pointerDown = false;
       return;
     }
+    case 'chain-link': {
+      const linkW = 36;
+      const linkH = 12;
+      body = Bodies.rectangle(x, y, linkW, linkH, {
+        restitution: 0.25,
+        friction: 0.35,
+        density: 0.004,
+        chamfer: { radius: 6 },
+        label: 'chain-link',
+        render: { type:'chain-link', color:'#99ccff', width: linkW, height: linkH }
+      });
+      body.material = 'metal';
+      body.chainConnections = 0;
+      chainLinks.push(body);
+      break;
+    }
   }
 
   if (body) {
@@ -1011,6 +1029,7 @@ function spawnObject(x, y, vx=0, vy=0) {
     } else {
       Composite.add(world, body);
     }
+    if (body.label === 'chain-link') connectChainLink(body);
     playSpawn();
     // Birth flash effect
     const spawnX = body.position ? body.position.x : x;
@@ -1027,6 +1046,60 @@ function spawnObject(x, y, vx=0, vy=0) {
     explosions.push({ x: spawnX, y: spawnY, r: 5, maxR: 50, alpha: 0.8, isBirthRing: true });
   }
   return body;
+}
+
+function connectChainLink(link) {
+  const allBodies = Composite.allBodies(world);
+  const candidates = allBodies
+    .filter(b => {
+      if (b === link || b.label === 'wall' || b.isStatic) return false;
+      if (b.label === 'chain-link' && (b.chainConnections || 0) >= 2) return false;
+      return true;
+    })
+    .map(b => {
+      const dx = b.position.x - link.position.x;
+      const dy = b.position.y - link.position.y;
+      return {
+        body: b,
+        dist: Math.sqrt(dx*dx + dy*dy),
+        isChain: b.label === 'chain-link'
+      };
+    })
+    .filter(item => item.dist <= 55)
+    .sort((a, b) => {
+      if (a.isChain !== b.isChain) return a.isChain ? -1 : 1;
+      return a.dist - b.dist;
+    });
+
+  let madeConnections = 0;
+  for (const { body: target, dist } of candidates) {
+    if (madeConnections >= 2 || (link.chainConnections || 0) >= 2) break;
+    const constraint = Constraint.create({
+      bodyA: link,
+      bodyB: target,
+      length: Math.max(18, dist),
+      stiffness: 0.7,
+      damping: 0.08,
+      render: { type:'chain-link-constraint' }
+    });
+    Composite.add(world, constraint);
+    link.chainConnections = (link.chainConnections || 0) + 1;
+    target.chainConnections = (target.chainConnections || 0) + 1;
+    madeConnections++;
+    const mx = (link.position.x + target.position.x) / 2;
+    const my = (link.position.y + target.position.y) / 2;
+    for (let i = 0; i < 4; i++) {
+      particles.push({
+        x: mx, y: my,
+        vx: (Math.random()-0.5)*3,
+        vy: (Math.random()-0.5)*3,
+        size: 2,
+        life: 0.25,
+        color: '#99ccff'
+      });
+    }
+  }
+  if (madeConnections > 0) playSound(900, 0.06, 'square', 0.05);
 }
 
 function createCar(x, y) {
@@ -1762,6 +1835,7 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   portalCooldowns.clear();
   seesaws = [];
   ropes = [];
+  chainLinks = [];
   ropeFirstBody = null;
   grabActive = false;
   grabBody = null;
@@ -1878,6 +1952,7 @@ function getToolAccentColor(tool) {
     pin: '#ffffff',
     seesaw: '#ffcc00',
     rope: '#cc8844',
+    'chain-link': '#99ccff',
     draw: '#ff6600',
     grab: '#ffdd00'
   };
@@ -2818,6 +2893,28 @@ function drawBody(b) {
       ctx.stroke();
       break;
     }
+    case 'chain-link': {
+      const linkW = r.width || 36;
+      const linkH = r.height || 12;
+      ctx.shadowColor = '#99ccff';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, linkW/2, linkH/2, 0, 0, Math.PI*2);
+      ctx.fillStyle = '#99ccff22';
+      ctx.fill();
+      ctx.strokeStyle = '#99ccff';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, linkW*0.26, linkH*0.28, 0, 0, Math.PI*2);
+      ctx.fillStyle = '#080c10';
+      ctx.fill();
+      ctx.strokeStyle = '#d8f2ff99';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      break;
+    }
     case 'ragdoll-head': {
       const radius = r.radius || 8;
       // Glow
@@ -3171,7 +3268,7 @@ function drawConstraints() {
     if (!c.bodyA || !c.bodyB) return;
     const pA = Vector.add(c.bodyA.position, Vector.rotate(c.pointA, c.bodyA.angle));
     const pB = Vector.add(c.bodyB.position, Vector.rotate(c.pointB, c.bodyB.angle));
-    if (wreckingChains.has(c)) {
+    if (wreckingChains.has(c) || c.render?.type === 'chain-link-constraint') {
       // Draw chain links
       const dx = pB.x - pA.x, dy = pB.y - pA.y;
       const dist = Math.sqrt(dx*dx + dy*dy);
@@ -3182,7 +3279,9 @@ function drawConstraints() {
         const ly = pA.y + dy * t;
         ctx.beginPath();
         ctx.arc(lx, ly, 3, 0, Math.PI*2);
-        ctx.strokeStyle = i % 2 === 0 ? '#888888' : '#666666';
+        ctx.strokeStyle = c.render?.type === 'chain-link-constraint'
+          ? (i % 2 === 0 ? '#99ccff' : '#d8f2ff')
+          : (i % 2 === 0 ? '#888888' : '#666666');
         ctx.lineWidth = 2;
         ctx.stroke();
       }

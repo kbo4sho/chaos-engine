@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'draw', 'slomo', 'grab'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'draw', 'slomo', 'grab'
   ];
 
   allTools.forEach(tool => {
@@ -40,9 +40,9 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 28 tool buttons', () => {
+  it('should have exactly 29 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(28);
+    expect(buttons.length).toBe(29);
   });
 
   it('should have ball as default active tool', () => {
@@ -280,6 +280,10 @@ describe('Code Structure - spawnObject Function', () => {
   it('should have case for fan', () => {
     expect(scriptContent).toContain("case 'fan':");
   });
+
+  it('should have case for chain-link', () => {
+    expect(scriptContent).toContain("case 'chain-link':");
+  });
 });
 
 // ============================================
@@ -376,6 +380,14 @@ describe('Object Properties in Code', () => {
   it('should set bumper restitution to 1.5', () => {
     expect(scriptContent).toContain('restitution: 1.5');
   });
+
+  it('should create and track chain links', () => {
+    expect(scriptContent).toContain('let chainLinks = []');
+    expect(scriptContent).toContain("label: 'chain-link'");
+    expect(scriptContent).toContain("type:'chain-link'");
+    expect(scriptContent).toContain('body.chainConnections = 0');
+    expect(scriptContent).toContain('chainLinks.push(body)');
+  });
 });
 
 // ============================================
@@ -405,6 +417,12 @@ describe('Chaos Functions in Code', () => {
 
   it('should have createRagdoll function', () => {
     expect(scriptContent).toContain('function createRagdoll(');
+  });
+
+  it('should have connectChainLink function', () => {
+    expect(scriptContent).toContain('function connectChainLink(');
+    expect(scriptContent).toContain("render: { type:'chain-link-constraint' }");
+    expect(scriptContent).toContain('Composite.add(world, constraint)');
   });
 
   it('should have wind force handling', () => {
@@ -463,7 +481,7 @@ describe('Rendering Types in Code', () => {
     'ball', 'block', 'rocket', 'bomb', 'balloon', 'star', 'beachball',
     'duck', 'domino', 'anvil', 'trampoline', 'conveyor', 'bumper',
     'dino', 'car-body', 'wheel', 'drawn', 'wrecking-anchor', 'wrecking-ball',
-    'ragdoll-head', 'ragdoll-torso', 'ragdoll-limb', 'ice', 'fan'
+    'ragdoll-head', 'ragdoll-torso', 'ragdoll-limb', 'ice', 'fan', 'chain-link'
   ];
 
   renderTypes.forEach(type => {
@@ -745,6 +763,11 @@ describe('Visual Effects', () => {
 
   it('should draw constraints', () => {
     expect(scriptContent).toContain('function drawConstraints()');
+  });
+
+  it('should draw chain-link constraints as chain links', () => {
+    expect(scriptContent).toContain("c.render?.type === 'chain-link-constraint'");
+    expect(scriptContent).toContain('#99ccff');
   });
 });
 

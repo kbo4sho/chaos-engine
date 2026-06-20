@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-06-20",
+      "ideas": [
+        "New object: Chain links that connect to nearby objects"
+      ],
+      "summary": "Implemented Chain Link tool (🔗) — a new object button in the existing bottom toolbar that spawns small metal links, automatically connects each link to up to two nearby dynamic bodies with flexible Matter.js constraints, renders hollow cyan metal links and matching chain constraints, and clears all chain state on reset without changing the app layout."
+    },
+    {
       "date": "2026-06-16",
       "ideas": [
         "Mobile: Haptic feedback for tactile actions"
@@ -179,7 +186,6 @@
     }
   ],
   "ideaPool": [
-    "New object: Chain links that connect to nearby objects",
     "Visual: Matrix-style falling characters in background",
     "Sound: Victory fanfare when destruction threshold reached",
     "Gravity: Sideways gravity option",
