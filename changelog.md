@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-06-21T14:04:23Z — Shipped: Destruction level-up celebration
+**Why:** The destruction meter already tracked escalating chaos, but crossing a new rank only changed the label. Level-up confetti, a short center-screen banner, shake, and rising chimes make each threshold feel like a reward.
+**Goal alignment:** "more satisfying to play with" — rewards the existing collision and destruction loop without adding controls or changing physics.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (226/226 passing)
+**Status:** shipped
+
 ## 2026-06-20T23:52:13Z — Shipped: Musical collision notes
 **Why:** Collision sounds used arbitrary random frequencies, so busy scenes could become noisy instead of rhythmic. Pentatonic impact notes make bounces, squeaks, and material collisions layer into a more musical physics toy without adding UI or changing motion.
 **Goal alignment:** "more satisfying to play with" — audio polish that makes existing collisions feel more intentional and rewards chaotic scenes with consonant generative sound.

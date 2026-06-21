@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-06-21",
+      "ideas": [
+        "Visual/audio: Destruction meter level-up celebration"
+      ],
+      "summary": "Implemented destruction level-up celebration — when collision energy pushes the existing destruction meter into a higher rank, the app now fires color-matched confetti, a short center-screen level-up banner, screen shake, flash, and rising chimes, then resets the celebration state on Clear."
+    },
+    {
       "date": "2026-06-20",
       "ideas": [
         "Sound: Musical collisions with pentatonic impact notes"

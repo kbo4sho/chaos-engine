@@ -351,6 +351,10 @@ let popcornTimer = 0;
 let chromaticAberration = 0; // intensity, decays over time
 let destructionMeter = 0; // total energy released
 let destructionFlash = 0; // flash on big hits
+let lastDestructionLevel = 0;
+let destructionLevelBanner = null;
+const DESTRUCTION_LEVEL_NAMES = ['CALM','MILD','ROWDY','WILD','INSANE','LEGENDARY','GODLIKE'];
+const DESTRUCTION_LEVEL_COLORS = ['#00ff41','#0abdc6','#ffdd00','#ff8800','#ff3333','#cc00ff','#ffffff'];
 let wreckingBalls = []; // {ball, chain, anchor} sets
 let discoMode = false;
 let discoTimer = 0;
@@ -655,6 +659,44 @@ function playImpactSound(materialA, materialB, intensity) {
   else {
     playSound(musicalImpactFreq('default', intensity), 0.08, 'sine', vol);
   }
+}
+
+function getDestructionLevel(value = destructionMeter) {
+  const rawLevel = Math.floor(Math.log10(Math.max(value, 1)));
+  return Math.min(rawLevel, DESTRUCTION_LEVEL_NAMES.length - 1);
+}
+
+function celebrateDestructionLevel(level) {
+  const color = DESTRUCTION_LEVEL_COLORS[level] || '#ffffff';
+  const burstColors = [color, '#ffffff', '#ffdd00', '#ff3399', '#00ff41'];
+  const burstX = canvas.width / 2;
+  const burstY = canvas.height * 0.42;
+  for (let i = 0; i < 40; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 3 + Math.random() * 8;
+    particles.push({
+      x: burstX,
+      y: burstY,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 3,
+      life: 0.8 + Math.random() * 0.6,
+      color: burstColors[Math.floor(Math.random() * burstColors.length)],
+      size: 2 + Math.random() * 4,
+      isConfetti: true
+    });
+  }
+  destructionLevelBanner = {
+    text: 'LEVEL UP: ' + DESTRUCTION_LEVEL_NAMES[level],
+    color,
+    timer: 90,
+    maxTimer: 90
+  };
+  destructionFlash = 1;
+  shakeIntensity = Math.max(shakeIntensity, 8);
+  const baseFreq = 400 + level * 150;
+  playSound(baseFreq, 0.15, 'sine', 0.12);
+  setTimeout(() => playSound(baseFreq * 1.25, 0.12, 'sine', 0.10), 80);
+  setTimeout(() => playSound(baseFreq * 1.5, 0.2, 'sine', 0.08), 160);
 }
 
 // ── WALLS ──
@@ -1865,6 +1907,8 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   targetBodies = [];
   targetMode = false;
   destructionMeter = 0;
+  lastDestructionLevel = 0;
+  destructionLevelBanner = null;
   particles = [];
   explosions = [];
   portals = [];
@@ -2408,6 +2452,11 @@ Events.on(engine, 'collisionStart', (e) => {
       // Destruction meter — track energy from all impacts
       destructionMeter += relVel * relVel * 0.1;
       if (relVel > 5) destructionFlash = Math.min(relVel * 0.1, 1);
+      const destructionLevel = getDestructionLevel();
+      if (destructionLevel > lastDestructionLevel) {
+        lastDestructionLevel = destructionLevel;
+        celebrateDestructionLevel(destructionLevel);
+      }
       
       // Update ambient hum based on new chaos level
       updateAmbientHum();
@@ -4842,16 +4891,31 @@ function loop(timestamp) {
     }
   }
 
+  // Destruction level-up banner
+  if (destructionLevelBanner) {
+    const banner = destructionLevelBanner;
+    const alpha = Math.min(1, banner.timer / 25);
+    const pulse = 0.85 + Math.sin(timestamp / 90) * 0.15;
+    ctx.save();
+    ctx.globalAlpha = alpha * pulse;
+    ctx.fillStyle = banner.color;
+    ctx.shadowColor = banner.color;
+    ctx.shadowBlur = 16;
+    ctx.font = '34px VT323';
+    ctx.textAlign = 'center';
+    ctx.fillText(banner.text, canvas.width / 2, canvas.height * 0.38);
+    ctx.restore();
+    banner.timer--;
+    if (banner.timer <= 0) destructionLevelBanner = null;
+  }
+
   // Destruction meter (bottom-left HUD)
   if (destructionMeter > 0) {
     const meterX = 12, meterY = canvas.height - 20;
     const meterW = 160, meterH = 14;
     // Milestones at powers of 10
-    const level = Math.floor(Math.log10(Math.max(destructionMeter, 1)));
-    const levelNames = ['CALM','MILD','ROWDY','WILD','INSANE','LEGENDARY','GODLIKE'];
-    const levelColors = ['#00ff41','#0abdc6','#ffdd00','#ff8800','#ff3333','#cc00ff','#ffffff'];
-    const lvl = Math.min(level, levelNames.length - 1);
-    const col = levelColors[lvl];
+    const lvl = getDestructionLevel();
+    const col = DESTRUCTION_LEVEL_COLORS[lvl];
     // Background
     ctx.fillStyle = '#0a0a0a88';
     ctx.fillRect(meterX - 2, meterY - meterH - 18, meterW + 4, meterH + 22);
@@ -4861,7 +4925,7 @@ function loop(timestamp) {
     ctx.textAlign = 'left';
     const flash = destructionFlash > 0 ? 1 : 0.8;
     ctx.globalAlpha = flash;
-    ctx.fillText('💥 DESTRUCTION: ' + levelNames[lvl], meterX, meterY - meterH - 4);
+    ctx.fillText('💥 DESTRUCTION: ' + DESTRUCTION_LEVEL_NAMES[lvl], meterX, meterY - meterH - 4);
     // Bar background
     ctx.fillStyle = col + '33';
     ctx.fillRect(meterX, meterY - meterH, meterW, meterH);

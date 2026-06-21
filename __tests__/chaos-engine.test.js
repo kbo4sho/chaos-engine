@@ -733,6 +733,21 @@ describe('Visual Effects', () => {
     expect(scriptContent).toContain('let destructionFlash = 0');
   });
 
+  it('should celebrate destruction meter level-ups', () => {
+    expect(scriptContent).toContain('let lastDestructionLevel = 0');
+    expect(scriptContent).toContain('let destructionLevelBanner = null');
+    expect(scriptContent).toContain('const DESTRUCTION_LEVEL_NAMES = [');
+    expect(scriptContent).toContain('function getDestructionLevel(');
+    expect(scriptContent).toContain('function celebrateDestructionLevel(');
+    expect(scriptContent).toContain('if (destructionLevel > lastDestructionLevel)');
+    expect(scriptContent).toContain('celebrateDestructionLevel(destructionLevel)');
+    expect(scriptContent).toContain("text: 'LEVEL UP: ' + DESTRUCTION_LEVEL_NAMES[level]");
+    expect(scriptContent).toContain('isConfetti: true');
+    expect(scriptContent).toContain('setTimeout(() => playSound(baseFreq * 1.25');
+    expect(scriptContent).toContain('lastDestructionLevel = 0');
+    expect(scriptContent).toContain('destructionLevelBanner = null');
+  });
+
   it('should draw particles', () => {
     expect(scriptContent).toContain('function drawParticles(');
   });
