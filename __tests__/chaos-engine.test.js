@@ -767,13 +767,35 @@ describe('Visual Effects', () => {
     expect(scriptContent).toContain('b.spawnTime = now');
     expect(scriptContent).toContain('b.spawnScale = 0.05');
     expect(scriptContent).toContain('b.spawnScale = getSpawnPopScale(elapsed)');
-    expect(scriptContent).toContain('ctx.scale(spawnScale, spawnScale)');
+    expect(scriptContent).toContain('ctx.scale(spawnScale * clearScale, spawnScale * clearScale)');
   });
 
   it('should mark simple and composite spawns for pop animation', () => {
     expect(scriptContent).toContain('markSpawnPop(body)');
     expect(scriptContent).toContain('markSpawnPop([anchor, wBall])');
     expect(scriptContent).toContain('markSpawnPop([plank, pivot])');
+  });
+
+  it('should animate scene clearing with a vortex drain', () => {
+    expect(scriptContent).toContain('const CLEAR_VORTEX_MS = 600');
+    expect(scriptContent).toContain('let clearAnimating = false');
+    expect(scriptContent).toContain('let clearVortex = null');
+    expect(scriptContent).toContain('function startClearVortex(');
+    expect(scriptContent).toContain('function updateClearVortex(');
+    expect(scriptContent).toContain('function drawClearVortex(');
+    expect(scriptContent).toContain('function finishClear(playFeedback = true)');
+    expect(scriptContent).toContain('playClearVortexSound()');
+    expect(scriptContent).toContain('r.clearScale || 1');
+    expect(scriptContent).toContain('ctx.scale(spawnScale * clearScale, spawnScale * clearScale)');
+    expect(scriptContent).toContain('updateClearVortex(timestamp)');
+    expect(scriptContent).toContain('drawClearVortex(timestamp)');
+  });
+
+  it('should guard interactions and support force-completing clear animation', () => {
+    expect(scriptContent).toContain('if (clearAnimating) return;');
+    expect(scriptContent).toContain('if (clearAnimating) {\n    finishClear();');
+    expect(scriptContent).toContain('startClearVortex(bodiesToClear)');
+    expect(scriptContent).toContain('if (t >= 1) finishClear(false)');
   });
 
   it('should draw explosions', () => {
@@ -875,6 +897,12 @@ describe('Lesson Mode API', () => {
 
   it('should have loadLesson method', () => {
     expect(scriptContent).toContain('loadLesson(config)');
+  });
+
+  it('should clear synchronously before loading lesson fixtures', () => {
+    const loadLessonMatch = scriptContent.match(/loadLesson\(config\) \{[\s\S]*?lessonState\.active = true;/);
+    expect(loadLessonMatch).not.toBeNull();
+    expect(loadLessonMatch?.[0]).toContain('finishClear(false)');
   });
 
   it('should have onEvent method', () => {

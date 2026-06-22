@@ -360,6 +360,9 @@ let discoMode = false;
 let discoTimer = 0;
 let titleTapCount = 0;
 let titleTapTimer = 0;
+const CLEAR_VORTEX_MS = 600;
+let clearAnimating = false;
+let clearVortex = null;
 
 // Target Practice
 let targetMode = false;
@@ -615,6 +618,23 @@ function playWhoosh(power) {
     gain.connect(a.destination);
     osc.start();
     osc.stop(a.currentTime + duration);
+  } catch(e) {}
+}
+
+function playClearVortexSound() {
+  try {
+    const a = getAudio();
+    const osc = a.createOscillator();
+    const gain = a.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(900, a.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(90, a.currentTime + 0.55);
+    gain.gain.setValueAtTime(0.12, a.currentTime);
+    gain.gain.linearRampToValueAtTime(0.001, a.currentTime + 0.6);
+    osc.connect(gain);
+    gain.connect(a.destination);
+    osc.start();
+    osc.stop(a.currentTime + 0.6);
   } catch(e) {}
 }
 
@@ -1890,14 +1910,152 @@ document.getElementById('btn-ambient').addEventListener('click', () => {
   }
 });
 
-document.getElementById('btn-clear').addEventListener('click', () => {
+function startClearVortex(bodiesToClear) {
+  clearAnimating = true;
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+  const now = performance.now();
+  clearVortex = {
+    start: now,
+    cx,
+    cy,
+    lastParticle: now
+  };
+
+  pointerDown = false;
+  slingStart = null;
+  slingCurrent = null;
+  grabActive = false;
+  grabBody = null;
+  grabHistory = [];
+  bodiesToClear.forEach((b, i) => {
+    b.clearVortexSpin = i % 2 === 0 ? 1 : -1;
+    if (b.render) b.render.clearScale = 1;
+  });
+
+  haptic([10, 10, 10, 10, 10]);
+  playClearVortexSound();
+  shakeIntensity = Math.max(shakeIntensity, 6);
+
+  for (let i = 0; i < 18; i++) {
+    const angle = (Math.PI * 2 * i) / 18;
+    const dist = 35 + (i % 3) * 16;
+    particles.push({
+      x: cx + Math.cos(angle) * dist,
+      y: cy + Math.sin(angle) * dist,
+      vx: Math.cos(angle + Math.PI / 2) * 2.4,
+      vy: Math.sin(angle + Math.PI / 2) * 2.4,
+      life: 0.6,
+      color: ['#0abdc6','#00ff41','#ffffff'][i % 3],
+      size: 2 + (i % 3)
+    });
+  }
+}
+
+function updateClearVortex(timestamp) {
+  if (!clearAnimating || !clearVortex) return;
+
+  const elapsed = timestamp - clearVortex.start;
+  const t = Math.min(elapsed / CLEAR_VORTEX_MS, 1);
+  const eased = t * t;
+  const bodies = Composite.allBodies(world).filter(b => b.label !== 'wall');
+
+  bodies.forEach(b => {
+    if (b.render) b.render.clearScale = Math.max(0.03, 1 - eased * 0.97);
+
+    if (b.isStatic) return;
+    const dx = clearVortex.cx - b.position.x;
+    const dy = clearVortex.cy - b.position.y;
+    const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+    const tangentX = -dy / dist;
+    const tangentY = dx / dist;
+    const pull = 0.002 + eased * 0.012;
+    const spin = 0.0025 * (b.clearVortexSpin || 1);
+
+    Body.applyForce(b, b.position, {
+      x: (dx / dist) * pull + tangentX * spin,
+      y: (dy / dist) * pull + tangentY * spin
+    });
+    Body.setAngularVelocity(b, b.angularVelocity + 0.035 * (b.clearVortexSpin || 1));
+  });
+
+  if (timestamp - clearVortex.lastParticle > 45) {
+    clearVortex.lastParticle = timestamp;
+    for (let i = 0; i < 4; i++) {
+      const angle = timestamp / 140 + i * Math.PI / 2;
+      const dist = 24 + Math.random() * 70 * (1 - t * 0.35);
+      particles.push({
+        x: clearVortex.cx + Math.cos(angle) * dist,
+        y: clearVortex.cy + Math.sin(angle) * dist,
+        vx: Math.cos(angle + Math.PI / 2) * 2.1 - Math.cos(angle) * 1.2,
+        vy: Math.sin(angle + Math.PI / 2) * 2.1 - Math.sin(angle) * 1.2,
+        life: 0.35,
+        color: ['#0abdc6','#00ff41','#99ccff','#ffffff'][i],
+        size: 1 + Math.random() * 2
+      });
+    }
+  }
+
+  if (t >= 1) finishClear(false);
+}
+
+function drawClearVortex(timestamp) {
+  if (!clearAnimating || !clearVortex) return;
+
+  const elapsed = timestamp - clearVortex.start;
+  const t = Math.min(elapsed / CLEAR_VORTEX_MS, 1);
+  const alpha = Math.max(0, 1 - t * 0.25);
+  const pulse = 0.75 + Math.sin(timestamp / 80) * 0.25;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  for (let ring = 0; ring < 5; ring++) {
+    const radius = 24 + ring * 26 + Math.sin(timestamp / 110 + ring) * 6;
+    ctx.beginPath();
+    ctx.arc(clearVortex.cx, clearVortex.cy, radius * (1 - t * 0.35), 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(10,189,198,${0.35 - ring * 0.05})`;
+    ctx.lineWidth = 3 - ring * 0.35;
+    ctx.stroke();
+  }
+
+  const grd = ctx.createRadialGradient(clearVortex.cx, clearVortex.cy, 0, clearVortex.cx, clearVortex.cy, 110);
+  grd.addColorStop(0, `rgba(0,255,65,${0.18 * pulse})`);
+  grd.addColorStop(0.5, `rgba(10,189,198,${0.12 * pulse})`);
+  grd.addColorStop(1, 'rgba(10,189,198,0)');
+  ctx.fillStyle = grd;
+  ctx.beginPath();
+  ctx.arc(clearVortex.cx, clearVortex.cy, 110, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#0abdc6';
+  ctx.shadowColor = '#0abdc6';
+  ctx.shadowBlur = 14;
+  ctx.font = '26px VT323';
+  ctx.textAlign = 'center';
+  ctx.globalAlpha = alpha * pulse;
+  ctx.fillText('CLEARING', clearVortex.cx, clearVortex.cy - 62);
+  ctx.restore();
+  ctx.textAlign = 'left';
+  ctx.globalAlpha = 1;
+}
+
+function finishClear(playFeedback = true) {
+  clearAnimating = false;
+  clearVortex = null;
+
   // Remove ALL constraints first
   const allConstraints = Composite.allConstraints(world);
   allConstraints.forEach(c => Composite.remove(world, c));
   // Remove ALL bodies except boundary walls
   const allBodies = Composite.allBodies(world);
   const bodiesToClear = allBodies.filter(b => b.label !== 'wall');
-  if (bodiesToClear.length > 0 || allConstraints.length > 0) haptic([10, 10, 10, 10, 10]);
+  if (bodiesToClear.length > 0 || allConstraints.length > 0) {
+    bodiesToClear.forEach(b => {
+      if (b.render) delete b.render.clearScale;
+      delete b.clearVortexSpin;
+    });
+    if (playFeedback) haptic([10, 10, 10, 10, 10]);
+  }
   bodiesToClear.forEach(b => Composite.remove(world, b));
   rocketBodies = [];
   bumpers = [];
@@ -1933,7 +2091,23 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   gravityAngle = 0;
   engine.gravity.x = 0;
   engine.gravity.y = gravityTarget;
-  playSound(400, 0.2, 'sine', 0.1);
+  if (playFeedback) playSound(400, 0.2, 'sine', 0.1);
+}
+
+document.getElementById('btn-clear').addEventListener('click', () => {
+  if (clearAnimating) {
+    finishClear();
+    return;
+  }
+
+  const allBodies = Composite.allBodies(world);
+  const bodiesToClear = allBodies.filter(b => b.label !== 'wall');
+  if (bodiesToClear.length === 0) {
+    finishClear();
+    return;
+  }
+
+  startClearVortex(bodiesToClear);
 });
 
 document.getElementById('btn-screenshot').addEventListener('click', () => {
@@ -2054,6 +2228,7 @@ let pointerStartTime = 0;
 
 function onDown(e) {
   e.preventDefault();
+  if (clearAnimating) return;
   const pos = getPointerPos(e);
   addRipple(pos.x, pos.y);
   pointerDown = true;
@@ -2497,11 +2672,12 @@ function drawBody(b) {
   const type = r.type || 'default';
   const color = r.color || '#00ff41';
   const spawnScale = b.spawnScale || 1;
+  const clearScale = r.clearScale || 1;
 
   ctx.save();
   ctx.translate(b.position.x, b.position.y);
   ctx.rotate(b.angle);
-  if (spawnScale !== 1) ctx.scale(spawnScale, spawnScale);
+  if (spawnScale !== 1 || clearScale !== 1) ctx.scale(spawnScale * clearScale, spawnScale * clearScale);
 
   switch(type) {
     case 'ball': {
@@ -3912,6 +4088,8 @@ function loop(timestamp) {
     }
   }
 
+  updateClearVortex(timestamp);
+
   // Tornado
   if (tornadoActive && tornadoTimer > 0) {
     tornadoTimer--;
@@ -4721,6 +4899,8 @@ function loop(timestamp) {
     ctx.textAlign = 'left';
   }
 
+  drawClearVortex(timestamp);
+
   // Lightning bolts between nearby fast objects
   {
     const dynBodies = allBodies.filter(b => !b.isStatic);
@@ -5205,7 +5385,7 @@ window.ChaosEngine = {
   // Load a lesson configuration
   loadLesson(config) {
     // Clear existing simulation
-    document.getElementById('btn-clear').click();
+    finishClear(false);
     
     lessonState.active = true;
     lessonState.config = config;

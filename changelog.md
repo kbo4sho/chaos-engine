@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-06-22T14:05:52Z — Shipped: Animated clear vortex drain
+**Why:** Clear was still an instant hard cut after a chaotic scene. A short vortex drain gives the reset loop its own satisfying payoff: objects shrink, spin toward center, pulse with cyan rings, and vanish after the effect.
+**Goal alignment:** "more satisfying to play with" — polishes the common build → chaos → clear loop without adding controls or changing normal physics.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (229/229 passing)
+**Status:** shipped
+
 ## 2026-06-21T14:04:23Z — Shipped: Destruction level-up celebration
 **Why:** The destruction meter already tracked escalating chaos, but crossing a new rank only changed the label. Level-up confetti, a short center-screen banner, shake, and rising chimes make each threshold feel like a reward.
 **Goal alignment:** "more satisfying to play with" — rewards the existing collision and destruction loop without adding controls or changing physics.

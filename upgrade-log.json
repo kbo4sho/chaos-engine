@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-06-22",
+      "ideas": [
+        "Visual: Animated clear vortex drain"
+      ],
+      "summary": "Implemented animated clear vortex drain — pressing Clear with scene objects now starts a 600ms cyan cleanup vortex that shrinks bodies, pulls dynamic objects toward center with a spiral force, plays a descending sweep, locks canvas input during cleanup, and then runs the existing reset. Empty clears and lesson loading still use the instant cleanup path."
+    },
+    {
       "date": "2026-06-21",
       "ideas": [
         "Visual/audio: Destruction meter level-up celebration"
