@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-06-23",
+      "ideas": [
+        "UX: Eraser poof tool for selective cleanup"
+      ],
+      "summary": "Implemented Eraser tool (🧹) — a new object toolbar tool that removes a tapped non-wall object with a poof particle burst, soft pop sounds, haptic pulse, and tiny screen nudge, while cleaning up connected constraints and feature tracking state so scenes can be refined without using Clear All."
+    },
+    {
       "date": "2026-06-22",
       "ideas": [
         "Visual: Animated clear vortex drain"

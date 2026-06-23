@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-06-23T14:03:55Z — Shipped: Eraser poof tool
+**Why:** Clear All was the only way to remove a misplaced object or clean up one part of a scene. A focused eraser lets players sculpt setups without resetting the whole sandbox, and deletion itself gets a small poof, sound, haptic pulse, and screen nudge.
+**Goal alignment:** "more fun and more satisfying" — improves the build → refine → destroy loop with one discoverable tool and no new dependencies.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (237/237 passing)
+**Status:** shipped
+
 ## 2026-06-22T14:05:52Z — Shipped: Animated clear vortex drain
 **Why:** Clear was still an instant hard cut after a chaotic scene. A short vortex drain gives the reset loop its own satisfying payoff: objects shrink, spin toward center, pulse with cyan rings, and vanish after the effect.
 **Goal alignment:** "more satisfying to play with" — polishes the common build → chaos → clear loop without adding controls or changing normal physics.

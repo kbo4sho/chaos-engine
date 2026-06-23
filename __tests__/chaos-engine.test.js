@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'draw', 'slomo', 'grab'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab'
   ];
 
   allTools.forEach(tool => {
@@ -40,9 +40,9 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 29 tool buttons', () => {
+  it('should have exactly 30 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(29);
+    expect(buttons.length).toBe(30);
   });
 
   it('should have ball as default active tool', () => {
@@ -647,6 +647,61 @@ describe('Drawing Mode', () => {
 
   it('should create static bodies from drawn paths', () => {
     expect(scriptContent).toContain("label: 'drawn'");
+  });
+});
+
+// ============================================
+// ERASER TOOL TESTS (Code Analysis)
+// ============================================
+
+describe('Eraser Tool', () => {
+  it('should have eraser tool button', () => {
+    const eraserBtn = document.querySelector('[data-tool="eraser"]');
+    expect(eraserBtn).not.toBeNull();
+    expect(eraserBtn.textContent).toContain('Erase');
+  });
+
+  it('should include eraser accent color for tap feedback', () => {
+    expect(scriptContent).toContain("eraser: '#ff4444'");
+  });
+
+  it('should define eraser helpers', () => {
+    expect(scriptContent).toContain('function isErasableBody(');
+    expect(scriptContent).toContain('function addErasePoof(');
+    expect(scriptContent).toContain('function eraseBodyAt(');
+  });
+
+  it('should not erase boundary walls or target-practice targets', () => {
+    expect(scriptContent).toContain("b.label !== 'wall'");
+    expect(scriptContent).toContain('!b.isTarget');
+  });
+
+  it('should remove connected constraints and cleanup tracked state', () => {
+    expect(scriptContent).toContain('Composite.allConstraints(world).forEach');
+    expect(scriptContent).toContain('constraintsToRemove.add(c)');
+    expect(scriptContent).toContain('Composite.remove(world, c)');
+    expect(scriptContent).toContain('Composite.remove(world, b)');
+    expect(scriptContent).toContain('rocketBodies = rocketBodies.filter');
+    expect(scriptContent).toContain('bumpers = bumpers.filter');
+    expect(scriptContent).toContain('conveyors = conveyors.filter');
+    expect(scriptContent).toContain('magnets = magnets.filter');
+    expect(scriptContent).toContain('chainLinks = chainLinks.filter');
+    expect(scriptContent).toContain('bodyTrails.delete(b.id)');
+  });
+
+  it('should route eraser taps before bomb click handling', () => {
+    const eraserIdx = scriptContent.indexOf("currentTool === 'eraser'");
+    const bombClickIdx = scriptContent.indexOf('// Check if clicking a bomb');
+    expect(eraserIdx).toBeGreaterThan(-1);
+    expect(bombClickIdx).toBeGreaterThan(-1);
+    expect(eraserIdx).toBeLessThan(bombClickIdx);
+  });
+
+  it('should give eraser visual, audio, and haptic feedback', () => {
+    expect(scriptContent).toContain('particles.push({');
+    expect(scriptContent).toContain('haptic([8])');
+    expect(scriptContent).toContain("playSound(650, 0.1, 'sine', 0.08)");
+    expect(scriptContent).toContain("playSound(280, 0.08, 'triangle', 0.05)");
   });
 });
 

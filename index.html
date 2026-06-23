@@ -247,6 +247,7 @@ canvas#game {
     <button class="tool-btn" data-tool="seesaw" style="color:#ffcc00;"><span class="icon">⚖️</span>Seesaw</button>
     <button class="tool-btn" data-tool="rope" style="color:#cc8844;"><span class="icon">🪢</span>Rope</button>
     <button class="tool-btn" data-tool="chain-link" style="color:#99ccff;"><span class="icon">🔗</span>Chain</button>
+    <button class="tool-btn" data-tool="eraser" style="color:#ff4444;"><span class="icon">🧹</span>Erase</button>
     <button class="tool-btn draw-btn" data-tool="draw"><span class="icon">✏️</span>Draw</button>
     <button class="tool-btn slomo-btn" data-tool="slomo"><span class="icon">⏱️</span>SLO-MO</button>
     <button class="tool-btn" data-tool="grab" style="color:#ffdd00;"><span class="icon">✊</span>GRAB</button>
@@ -2207,6 +2208,7 @@ function getToolAccentColor(tool) {
     seesaw: '#ffcc00',
     rope: '#cc8844',
     'chain-link': '#99ccff',
+    eraser: '#ff4444',
     draw: '#ff6600',
     grab: '#ffdd00'
   };
@@ -2221,6 +2223,120 @@ function addRipple(x, y) {
     alpha: 0.65,
     color: getToolAccentColor(currentTool)
   });
+}
+
+function isErasableBody(b) {
+  return b && b.label !== 'wall' && !b.isTarget;
+}
+
+function addErasePoof(b) {
+  const color = b.render?.color || '#ff4444';
+  const width = b.bounds ? b.bounds.max.x - b.bounds.min.x : 24;
+  const height = b.bounds ? b.bounds.max.y - b.bounds.min.y : 24;
+  const spread = Math.max(12, Math.min(44, Math.max(width, height) * 0.35));
+  for (let i = 0; i < 16; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 2 + Math.random() * 4;
+    particles.push({
+      x: b.position.x + (Math.random()-0.5) * spread,
+      y: b.position.y + (Math.random()-0.5) * spread,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 0.7,
+      life: 0.28 + Math.random() * 0.28,
+      color,
+      size: 2 + Math.random() * 4
+    });
+  }
+}
+
+function eraseBodyAt(pos) {
+  const erasableBodies = Composite.allBodies(world).filter(isErasableBody);
+  let target = Matter.Query.point(erasableBodies, pos).filter(isErasableBody).pop();
+
+  if (!target) {
+    let nearestDist = 44;
+    erasableBodies.forEach(b => {
+      const dx = b.position.x - pos.x;
+      const dy = b.position.y - pos.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < nearestDist) {
+        target = b;
+        nearestDist = dist;
+      }
+    });
+  }
+
+  if (!target) return false;
+
+  const bodiesToRemove = new Set([target]);
+  const constraintsToRemove = new Set();
+  const addConstraint = c => { if (c) constraintsToRemove.add(c); };
+
+  seesaws = seesaws.filter(s => {
+    if (s.plank === target || s.pivot === target) {
+      bodiesToRemove.add(s.plank);
+      bodiesToRemove.add(s.pivot);
+      addConstraint(s.constraint);
+      return false;
+    }
+    return true;
+  });
+
+  wreckingBalls = wreckingBalls.filter(wb => {
+    if (wb.anchor === target || wb.ball === target) {
+      bodiesToRemove.add(wb.anchor);
+      bodiesToRemove.add(wb.ball);
+      addConstraint(wb.chain);
+      return false;
+    }
+    return true;
+  });
+
+  Composite.allConstraints(world).forEach(c => {
+    if (bodiesToRemove.has(c.bodyA) || bodiesToRemove.has(c.bodyB)) {
+      constraintsToRemove.add(c);
+    }
+  });
+
+  constraintsToRemove.forEach(c => {
+    [c.bodyA, c.bodyB].forEach(b => {
+      if (b && !bodiesToRemove.has(b) && b.chainConnections) {
+        b.chainConnections = Math.max(0, b.chainConnections - 1);
+      }
+    });
+    Composite.remove(world, c);
+  });
+
+  const removedBodyIds = new Set();
+  bodiesToRemove.forEach(b => {
+    if (!b || !Composite.get(world, b.id, 'body')) return;
+    addErasePoof(b);
+    removedBodyIds.add(b.id);
+    Composite.remove(world, b);
+    bodyTrails.delete(b.id);
+    shatterDebounce.delete(b.id);
+    portalCooldowns.delete(b.id);
+    megaBounceOriginal.delete(b.id);
+  });
+
+  rocketBodies = rocketBodies.filter(b => !removedBodyIds.has(b.id));
+  bumpers = bumpers.filter(b => !removedBodyIds.has(b.id));
+  conveyors = conveyors.filter(b => !removedBodyIds.has(b.id));
+  magnets = magnets.filter(m => !removedBodyIds.has(m.body.id));
+  chainLinks = chainLinks.filter(b => !removedBodyIds.has(b.id));
+  ropes = ropes.filter(r => !constraintsToRemove.has(r));
+  if (ropeFirstBody && removedBodyIds.has(ropeFirstBody.id)) ropeFirstBody = null;
+  if (grabBody && removedBodyIds.has(grabBody.id)) {
+    grabActive = false;
+    grabBody = null;
+    grabHistory = [];
+  }
+
+  haptic([8]);
+  playSound(650, 0.1, 'sine', 0.08);
+  playSound(280, 0.08, 'triangle', 0.05);
+  shakeIntensity = Math.max(shakeIntensity, 2);
+  return true;
 }
 
 let pointerDown = false;
@@ -2305,6 +2421,13 @@ function onDown(e) {
         break;
       }
     }
+    pointerDown = false;
+    return;
+  }
+
+  // Eraser tool — tap a placed object to delete it with a poof.
+  if (currentTool === 'eraser') {
+    eraseBodyAt(pos);
     pointerDown = false;
     return;
   }
