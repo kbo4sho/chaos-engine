@@ -492,6 +492,43 @@ describe('Rendering Types in Code', () => {
 });
 
 // ============================================
+// COLLISION HEATMAP TESTS
+// ============================================
+
+describe('Collision Heatmap Overlay', () => {
+  it('should define heatmap grid state and constants', () => {
+    expect(scriptContent).toContain('const HEAT_CELL = 24');
+    expect(scriptContent).toContain('const HEAT_DECAY_PER_FRAME = 0.992');
+    expect(scriptContent).toContain('let heatGrid = []');
+    expect(scriptContent).toContain('let heatCanvas = null');
+  });
+
+  it('should initialize heatmap dimensions on resize', () => {
+    expect(scriptContent).toContain('function initCollisionHeatmap()');
+    expect(scriptContent).toContain('initCollisionHeatmap();');
+    expect(scriptContent).toContain('new Float32Array(heatCols)');
+  });
+
+  it('should record collision heat from relative velocity impacts', () => {
+    expect(scriptContent).toContain('function recordCollisionHeat(');
+    expect(scriptContent).toContain('recordCollisionHeat(px, py, relVel)');
+    expect(scriptContent).toContain('heatGrid[row][col] = Math.min(1');
+  });
+
+  it('should draw the heatmap under objects in the render loop', () => {
+    expect(scriptContent).toContain('function drawCollisionHeatmap(dt)');
+    expect(scriptContent).toContain("ctx.globalCompositeOperation = 'screen'");
+    expect(scriptContent).toContain("ctx.filter = 'blur(10px)'");
+    expect(scriptContent).toMatch(/drawGrid\(\);[\s\S]*drawCollisionHeatmap\(dt\);[\s\S]*drawRipples\(dt\);/);
+  });
+
+  it('should clear heatmap state during scene reset', () => {
+    expect(scriptContent).toContain('function resetCollisionHeatmap()');
+    expect(scriptContent).toContain('resetCollisionHeatmap();');
+  });
+});
+
+// ============================================
 // EVENT HANDLER TESTS (Code Analysis)
 // ============================================
 

@@ -296,6 +296,7 @@ function resize() {
   canvas.width = wrap.clientWidth;
   canvas.height = wrap.clientHeight;
   rebuildWalls();
+  initCollisionHeatmap();
 }
 
 const engine = Engine.create({ enableSleeping: true });
@@ -364,6 +365,13 @@ let titleTapTimer = 0;
 const CLEAR_VORTEX_MS = 600;
 let clearAnimating = false;
 let clearVortex = null;
+const HEAT_CELL = 24;
+const HEAT_DECAY_PER_FRAME = 0.992;
+let heatGrid = [];
+let heatCols = 0;
+let heatRows = 0;
+let heatCanvas = null;
+let heatCtx = null;
 
 // Target Practice
 let targetMode = false;
@@ -732,6 +740,95 @@ function rebuildWalls() {
     Bodies.rectangle(W + T/2, H/2, T, H + T*2, opts),     // right
   ];
   Composite.add(world, walls);
+}
+
+// ── COLLISION HEATMAP ──
+function initCollisionHeatmap() {
+  heatCols = Math.max(1, Math.ceil(canvas.width / HEAT_CELL));
+  heatRows = Math.max(1, Math.ceil(canvas.height / HEAT_CELL));
+  heatGrid = Array.from({ length: heatRows }, () => new Float32Array(heatCols));
+  if (!heatCanvas) {
+    heatCanvas = document.createElement('canvas');
+    heatCtx = heatCanvas.getContext('2d');
+  }
+  heatCanvas.width = heatCols;
+  heatCanvas.height = heatRows;
+}
+
+function resetCollisionHeatmap() {
+  heatGrid.forEach(row => row.fill(0));
+  if (heatCtx) heatCtx.clearRect(0, 0, heatCols, heatRows);
+}
+
+function recordCollisionHeat(x, y, intensity) {
+  if (!heatGrid.length) return;
+  const col = Math.floor(x / HEAT_CELL);
+  const row = Math.floor(y / HEAT_CELL);
+  if (row < 0 || row >= heatRows || col < 0 || col >= heatCols) return;
+
+  const boost = Math.min(0.08 + intensity * 0.045, 0.55);
+  heatGrid[row][col] = Math.min(1, heatGrid[row][col] + boost);
+
+  // Let hard hits bleed into adjacent cells so chaos zones glow instead of pixelating.
+  const neighborBoost = boost * 0.32;
+  for (let yy = row - 1; yy <= row + 1; yy++) {
+    for (let xx = col - 1; xx <= col + 1; xx++) {
+      if (yy === row && xx === col) continue;
+      if (yy < 0 || yy >= heatRows || xx < 0 || xx >= heatCols) continue;
+      heatGrid[yy][xx] = Math.min(1, heatGrid[yy][xx] + neighborBoost);
+    }
+  }
+}
+
+function drawCollisionHeatmap(dt) {
+  if (!heatCtx || !heatGrid.length) return;
+  const decay = Math.pow(HEAT_DECAY_PER_FRAME, dt * 60);
+  const img = heatCtx.createImageData(heatCols, heatRows);
+  let hasHeat = false;
+
+  for (let row = 0; row < heatRows; row++) {
+    for (let col = 0; col < heatCols; col++) {
+      let value = heatGrid[row][col] * decay;
+      if (value < 0.015) value = 0;
+      heatGrid[row][col] = value;
+      if (value < 0.08) continue;
+
+      hasHeat = true;
+      const i = (row * heatCols + col) * 4;
+      if (value < 0.35) {
+        const t = value / 0.35;
+        img.data[i] = 0;
+        img.data[i + 1] = Math.floor(80 * t);
+        img.data[i + 2] = Math.floor(180 * t);
+        img.data[i + 3] = Math.floor(70 * t);
+      } else if (value < 0.72) {
+        const t = (value - 0.35) / 0.37;
+        img.data[i] = Math.floor(80 + 150 * t);
+        img.data[i + 1] = Math.floor(20 + 35 * t);
+        img.data[i + 2] = Math.floor(190 - 130 * t);
+        img.data[i + 3] = Math.floor(85 + 60 * t);
+      } else {
+        const t = (value - 0.72) / 0.28;
+        img.data[i] = 255;
+        img.data[i + 1] = Math.floor(80 + 150 * t);
+        img.data[i + 2] = Math.floor(20 * (1 - t));
+        img.data[i + 3] = Math.floor(150 + 60 * t);
+      }
+    }
+  }
+
+  if (!hasHeat) {
+    heatCtx.clearRect(0, 0, heatCols, heatRows);
+    return;
+  }
+
+  heatCtx.putImageData(img, 0, 0);
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  ctx.imageSmoothingEnabled = true;
+  ctx.filter = 'blur(10px)';
+  ctx.drawImage(heatCanvas, 0, 0, canvas.width, canvas.height);
+  ctx.restore();
 }
 
 // ── INIT ──
@@ -2070,6 +2167,7 @@ function finishClear(playFeedback = true) {
   destructionLevelBanner = null;
   particles = [];
   explosions = [];
+  resetCollisionHeatmap();
   portals = [];
   portalCooldowns.clear();
   seesaws = [];
@@ -2718,6 +2816,7 @@ Events.on(engine, 'collisionStart', (e) => {
         ? pair.collision.supports[0] : pair.bodyA.position;
       const px = contact.x || pair.bodyA.position.x;
       const py = contact.y || pair.bodyA.position.y;
+      recordCollisionHeat(px, py, relVel);
       const count = Math.min(Math.floor(relVel), 8);
       for (let i = 0; i < count; i++) {
         const angle = Math.random() * Math.PI * 2;
@@ -4583,6 +4682,9 @@ function loop(timestamp) {
 
   // Grid
   drawGrid();
+
+  // Collision heatmap
+  drawCollisionHeatmap(dt);
 
   // Tap ripples
   drawRipples(dt);

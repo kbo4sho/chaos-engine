@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-06-24T14:04:47Z — Shipped: Collision heatmap overlay
+**Why:** Sparks and dust made impacts feel lively, but the playfield did not remember where the biggest crashes happened. A fading heatmap turns repeated collisions into glowing cyan, violet, and hot orange zones so chaotic scenes leave a visible history.
+**Goal alignment:** "more satisfying to play with" — adds cumulative visual feedback to the existing collision and destruction loop without new controls, dependencies, or physics changes.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (242/242 passing)
+**Status:** shipped
+
 ## 2026-06-23T14:03:55Z — Shipped: Eraser poof tool
 **Why:** Clear All was the only way to remove a misplaced object or clean up one part of a scene. A focused eraser lets players sculpt setups without resetting the whole sandbox, and deletion itself gets a small poof, sound, haptic pulse, and screen nudge.
 **Goal alignment:** "more fun and more satisfying" — improves the build → refine → destroy loop with one discoverable tool and no new dependencies.

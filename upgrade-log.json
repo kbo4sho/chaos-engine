@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-06-24",
+      "ideas": [
+        "Visual: Collision heatmap overlay"
+      ],
+      "summary": "Implemented collision heatmap overlay — energetic impacts now write into a coarse fading canvas grid that renders under objects as cyan, violet, and hot orange glow, making repeated chaos zones visibly accumulate while Clear resets the heat history."
+    },
+    {
       "date": "2026-06-23",
       "ideas": [
         "UX: Eraser poof tool for selective cleanup"
