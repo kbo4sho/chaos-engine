@@ -2439,6 +2439,52 @@ function eraseBodyAt(pos) {
 
 let pointerDown = false;
 let pointerStartTime = 0;
+const TRAJECTORY_DOT_COUNT = 12;
+const TRAJECTORY_STEP_FRAMES = 6;
+const TRAJECTORY_GRAVITY_ACCEL = 0.28; // Approximate Matter.js gravity per 60fps step.
+
+function getSlingshotLaunch(start, current) {
+  const dx = start.x - current.x;
+  const dy = start.y - current.y;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  const power = Math.min(dist / 15, 25);
+  return {
+    dx,
+    dy,
+    dist,
+    power,
+    vx: dist > 0 ? (dx / dist) * power : 0,
+    vy: dist > 0 ? (dy / dist) * power : 0
+  };
+}
+
+function getTrajectoryPoint(start, launch, frames) {
+  const gx = engine.gravity.x || 0;
+  const gy = engine.gravity.y || 0;
+  return {
+    x: start.x + launch.vx * frames + 0.5 * gx * TRAJECTORY_GRAVITY_ACCEL * frames * frames,
+    y: start.y + launch.vy * frames + 0.5 * gy * TRAJECTORY_GRAVITY_ACCEL * frames * frames
+  };
+}
+
+function drawTrajectoryPreview(start, launch) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  for (let i = 1; i <= TRAJECTORY_DOT_COUNT; i++) {
+    const frames = i * TRAJECTORY_STEP_FRAMES;
+    const p = getTrajectoryPoint(start, launch, frames);
+    const alpha = Math.max(0.12, 0.62 - i * 0.04);
+    const size = Math.max(1.6, 4 - i * 0.18);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = i % 3 === 0 ? '#0abdc6' : '#00ff41';
+    ctx.shadowColor = ctx.fillStyle;
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, size, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
 
 function onDown(e) {
   e.preventDefault();
@@ -2635,21 +2681,16 @@ function onUp(e) {
   }
 
   if (slingStart) {
-    const dx = slingStart.x - pos.x;
-    const dy = slingStart.y - pos.y;
-    const dist = Math.sqrt(dx*dx + dy*dy);
+    const launch = getSlingshotLaunch(slingStart, pos);
 
-    if (dist < 10) {
+    if (launch.dist < 10) {
       // Simple tap — spawn at location
       spawnObject(slingStart.x, slingStart.y);
     } else {
       // Slingshot launch
-      const power = Math.min(dist / 15, 25);
-      const vx = (dx / dist) * power;
-      const vy = (dy / dist) * power;
       haptic([15]);
-      playWhoosh(power); // Launch sound scaled to power
-      spawnObject(slingStart.x, slingStart.y, vx, vy);
+      playWhoosh(launch.power); // Launch sound scaled to power
+      spawnObject(slingStart.x, slingStart.y, launch.vx, launch.vy);
     }
   }
 
@@ -3781,26 +3822,25 @@ function drawConstraints() {
 
 function drawSlingshot() {
   if (!slingStart || !slingCurrent || drawMode) return;
-  const dx = slingStart.x - slingCurrent.x;
-  const dy = slingStart.y - slingCurrent.y;
-  const dist = Math.sqrt(dx*dx + dy*dy);
-  if (dist < 10) return;
+  const launch = getSlingshotLaunch(slingStart, slingCurrent);
+  if (launch.dist < 10) return;
 
   // Direction line
   ctx.beginPath();
   ctx.moveTo(slingStart.x, slingStart.y);
-  ctx.lineTo(slingStart.x + dx*0.5, slingStart.y + dy*0.5);
+  ctx.lineTo(slingStart.x + launch.dx*0.5, slingStart.y + launch.dy*0.5);
   ctx.strokeStyle = '#00ff41';
   ctx.lineWidth = 2;
   ctx.setLineDash([6, 3]);
   ctx.stroke();
   ctx.setLineDash([]);
 
+  drawTrajectoryPreview(slingStart, launch);
+
   // Power indicator
-  const power = Math.min(dist / 15, 25);
   ctx.fillStyle = '#00ff41';
   ctx.font = '16px VT323';
-  ctx.fillText(`PWR: ${Math.round(power)}`, slingStart.x + 15, slingStart.y - 15);
+  ctx.fillText(`PWR: ${Math.round(launch.power)}`, slingStart.x + 15, slingStart.y - 15);
 
   // Launch dot
   ctx.beginPath();

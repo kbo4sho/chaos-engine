@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-06-25",
+      "ideas": [
+        "Visual: Slingshot trajectory preview"
+      ],
+      "summary": "Implemented slingshot trajectory preview — drag launches now show 12 fading neon dots based on the same launch vector used on release plus current Matter.js gravity, making aimed shots easier to line up without changing physics or adding controls."
+    },
+    {
       "date": "2026-06-24",
       "ideas": [
         "Visual: Collision heatmap overlay"

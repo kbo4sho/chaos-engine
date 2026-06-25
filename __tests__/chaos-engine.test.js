@@ -764,6 +764,17 @@ describe('Slingshot Mechanics', () => {
     // Power calculation: const power = Math.min(dist / 15, 25);
     expect(scriptContent).toContain('Math.min(dist / 15, 25)');
   });
+
+  it('should draw a gravity-aware trajectory preview while aiming', () => {
+    expect(scriptContent).toContain('const TRAJECTORY_DOT_COUNT = 12');
+    expect(scriptContent).toContain('const TRAJECTORY_STEP_FRAMES = 6');
+    expect(scriptContent).toContain('function getSlingshotLaunch(');
+    expect(scriptContent).toContain('function getTrajectoryPoint(');
+    expect(scriptContent).toContain('function drawTrajectoryPreview(');
+    expect(scriptContent).toContain('engine.gravity.x || 0');
+    expect(scriptContent).toContain('engine.gravity.y || 0');
+    expect(scriptContent).toContain('drawTrajectoryPreview(slingStart, launch)');
+  });
 });
 
 // ============================================

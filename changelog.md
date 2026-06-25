@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-06-25T14:02:10Z — Shipped: Slingshot trajectory preview
+**Why:** Slingshot launches were satisfying but still required guessing the arc. A fading dotted preview makes pull-back shots feel deliberate, especially under altered gravity.
+**Goal alignment:** "more satisfying to play with" — adds immediate visual aiming feedback to the core launch gesture without new controls, dependencies, or physics rules.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (243/243 passing)
+**Status:** shipped
+
 ## 2026-06-24T14:04:47Z — Shipped: Collision heatmap overlay
 **Why:** Sparks and dust made impacts feel lively, but the playfield did not remember where the biggest crashes happened. A fading heatmap turns repeated collisions into glowing cyan, violet, and hot orange zones so chaotic scenes leave a visible history.
 **Goal alignment:** "more satisfying to play with" — adds cumulative visual feedback to the existing collision and destruction loop without new controls, dependencies, or physics changes.
