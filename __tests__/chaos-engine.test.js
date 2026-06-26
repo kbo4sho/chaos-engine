@@ -561,6 +561,53 @@ describe('Event Handlers in Code', () => {
 });
 
 // ============================================
+// KEYBOARD SHORTCUT TESTS
+// ============================================
+
+describe('Keyboard Shortcuts', () => {
+  it('should define desktop shortcut maps for tools and chaos actions', () => {
+    expect(scriptContent).toContain('const TOOL_SHORTCUTS = {');
+    expect(scriptContent).toContain("'1': 'ball'");
+    expect(scriptContent).toContain("'2': 'block'");
+    expect(scriptContent).toContain("'3': 'bomb'");
+    expect(scriptContent).toContain("d: 'draw'");
+    expect(scriptContent).toContain("g: 'grab'");
+    expect(scriptContent).toContain("y: 'chain-link'");
+    expect(scriptContent).toContain("delete: 'eraser'");
+    expect(scriptContent).toContain('const CHAOS_SHORTCUTS = {');
+    expect(scriptContent).toContain("e: 'btn-explode'");
+    expect(scriptContent).toContain("q: 'btn-quake'");
+    expect(scriptContent).toContain("x: 'btn-blackhole'");
+    expect(scriptContent).toContain("z: 'btn-freeze'");
+    expect(scriptContent).toContain("l: 'btn-rain'");
+  });
+
+  it('should route shortcuts through existing buttons with flash feedback', () => {
+    expect(scriptContent).toContain('function isEditableShortcutTarget(');
+    expect(scriptContent).toContain('function flashShortcutButton(');
+    expect(scriptContent).toContain('function triggerShortcutButton(');
+    expect(scriptContent).toContain('function handleKeyboardShortcut(');
+    expect(scriptContent).toContain('btn.click()');
+    expect(scriptContent).toContain("btn.classList.add('shortcut-flash')");
+    expect(scriptContent).toContain("document.querySelector(`.tool-btn[data-tool=\"${tool}\"]`)");
+    expect(scriptContent).toContain("document.getElementById('btn-pause')");
+    expect(scriptContent).toContain("document.getElementById('btn-clear')");
+  });
+
+  it('should ignore editable targets and preserve the Konami listener', () => {
+    const shortcutIdx = scriptContent.indexOf('function handleKeyboardShortcut(');
+    const konamiIdx = scriptContent.indexOf('konamiBuffer.push(e.key)');
+    const shortcutCallIdx = scriptContent.lastIndexOf('handleKeyboardShortcut(e)');
+    expect(shortcutIdx).toBeGreaterThan(-1);
+    expect(konamiIdx).toBeGreaterThan(-1);
+    expect(shortcutCallIdx).toBeGreaterThan(konamiIdx);
+    expect(scriptContent).toContain("tag === 'INPUT'");
+    expect(scriptContent).toContain("tag === 'TEXTAREA'");
+    expect(scriptContent).toContain("tag === 'SELECT'");
+  });
+});
+
+// ============================================
 // PHYSICS ENGINE SETUP TESTS
 // ============================================
 

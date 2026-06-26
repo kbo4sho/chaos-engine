@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-06-26T14:04:02Z — Shipped: Desktop keyboard shortcuts
+**Why:** Desktop building still required leaving the canvas to click tiny toolbar buttons. Shortcut keys let players swap tools, trigger common chaos actions, pause, clear, and toggle slo-mo without breaking placement flow.
+**Goal alignment:** "more fun and more satisfying" — removes friction from the build → experiment loop while preserving the existing toolbar, chaos buttons, sounds, and physics behavior.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (246/246 passing)
+**Status:** shipped
+
 ## 2026-06-25T14:02:10Z — Shipped: Slingshot trajectory preview
 **Why:** Slingshot launches were satisfying but still required guessing the arc. A fading dotted preview makes pull-back shots feel deliberate, especially under altered gravity.
 **Goal alignment:** "more satisfying to play with" — adds immediate visual aiming feedback to the core launch gesture without new controls, dependencies, or physics rules.

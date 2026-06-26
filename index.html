@@ -146,6 +146,15 @@ canvas#game {
 .chaos-btn.safe { border-color:#0abdc6; color:#0abdc6; background:#0a1a1a; }
 .chaos-btn.safe:hover { background:#0a2a2a; box-shadow:0 0 12px rgba(10,189,198,0.4); }
 
+.tool-btn.shortcut-flash,
+.chaos-btn.shortcut-flash {
+  animation: shortcut-pulse .18s ease-out;
+}
+@keyframes shortcut-pulse {
+  0% { transform:scale(1.08); box-shadow:0 0 0 0 rgba(0,255,65,0.75); }
+  100% { transform:scale(1); box-shadow:0 0 18px 8px rgba(0,255,65,0); }
+}
+
 /* ── SCROLLABLE TOOLBARS ── */
 #toolbar, #chaos-bar {
   overflow-x: auto;
@@ -286,6 +295,46 @@ canvas#game {
 // ═══════════════════════════════════════════════
 
 const { Engine, World, Bodies, Body, Composite, Events, Mouse, Vector, Constraint } = Matter;
+
+const TOOL_SHORTCUTS = {
+  '1': 'ball',
+  '2': 'block',
+  '3': 'bomb',
+  '4': 'balloon',
+  '5': 'domino',
+  '6': 'star',
+  '7': 'ragdoll',
+  '8': 'anvil',
+  '9': 'duck',
+  '0': 'beachball',
+  r: 'rocket',
+  c: 'car',
+  d: 'draw',
+  g: 'grab',
+  p: 'portal',
+  t: 'trampoline',
+  m: 'magnet',
+  f: 'fan',
+  k: 'pin',
+  v: 'conveyor-right',
+  i: 'ice',
+  w: 'wrecking',
+  s: 'seesaw',
+  o: 'rope',
+  u: 'bumper',
+  y: 'chain-link',
+  delete: 'eraser'
+};
+
+const CHAOS_SHORTCUTS = {
+  e: 'btn-explode',
+  q: 'btn-quake',
+  x: 'btn-blackhole',
+  z: 'btn-freeze',
+  n: 'btn-antigrav',
+  j: 'btn-gravflip',
+  l: 'btn-rain'
+};
 
 // ── SETUP ──
 const canvas = document.getElementById('game');
@@ -5518,7 +5567,76 @@ function loop(timestamp) {
 
 requestAnimationFrame(loop);
 
-// Konami code listener
+function isEditableShortcutTarget(target) {
+  const tag = target?.tagName;
+  return target?.isContentEditable || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+}
+
+function flashShortcutButton(btn) {
+  btn.classList.remove('shortcut-flash');
+  void btn.offsetWidth;
+  btn.classList.add('shortcut-flash');
+  setTimeout(() => btn.classList.remove('shortcut-flash'), 180);
+}
+
+function triggerShortcutButton(btn) {
+  if (!btn) return false;
+  btn.click();
+  flashShortcutButton(btn);
+  if (btn.scrollIntoView) {
+    btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }
+  return true;
+}
+
+function handleKeyboardShortcut(e) {
+  if (isEditableShortcutTarget(e.target)) return false;
+  const key = e.key.toLowerCase();
+
+  if (e.shiftKey && key === ' ') {
+    const slomoBtn = document.querySelector('[data-tool="slomo"]');
+    if (triggerShortcutButton(slomoBtn)) {
+      e.preventDefault();
+      return true;
+    }
+  }
+
+  const tool = TOOL_SHORTCUTS[key];
+  if (tool) {
+    const btn = document.querySelector(`.tool-btn[data-tool="${tool}"]`);
+    if (triggerShortcutButton(btn)) {
+      e.preventDefault();
+      return true;
+    }
+  }
+
+  const chaosId = CHAOS_SHORTCUTS[key];
+  if (chaosId) {
+    const btn = document.getElementById(chaosId);
+    if (triggerShortcutButton(btn)) {
+      e.preventDefault();
+      return true;
+    }
+  }
+
+  if (key === ' ') {
+    if (triggerShortcutButton(document.getElementById('btn-pause'))) {
+      e.preventDefault();
+      return true;
+    }
+  }
+
+  if (key === 'backspace') {
+    if (triggerShortcutButton(document.getElementById('btn-clear'))) {
+      e.preventDefault();
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// Keyboard shortcuts and Konami code listener
 document.addEventListener('keydown', (e) => {
   konamiBuffer.push(e.key);
   if (konamiBuffer.length > konamiCode.length) konamiBuffer.shift();
@@ -5545,6 +5663,8 @@ document.addEventListener('keydown', (e) => {
       });
     }
   }
+
+  handleKeyboardShortcut(e);
 });
 
 // ── COLLAPSE TOGGLES (mobile) ──

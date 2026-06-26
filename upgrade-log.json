@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-06-26",
+      "ideas": [
+        "UX: Desktop keyboard shortcuts"
+      ],
+      "summary": "Implemented desktop keyboard shortcuts — number keys and mnemonic letters now select common tools, Shift+Space toggles slo-mo, Space pauses, Backspace clears, and single-letter keys trigger common chaos actions through the existing buttons with a short neon flash."
+    },
+    {
       "date": "2026-06-25",
       "ideas": [
         "Visual: Slingshot trajectory preview"
