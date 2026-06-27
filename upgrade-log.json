@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-06-27",
+      "ideas": [
+        "Interaction: Balloon popping on hard impact"
+      ],
+      "summary": "Implemented balloon popping — balloons now burst on hard non-static impacts above relative velocity 5 and when caught in bomb blasts, producing color-matched confetti, curling string remnants, pop sounds, haptic pulse, screen shake, destruction-meter credit, and cleanup of connected constraints/state."
+    },
+    {
       "date": "2026-06-26",
       "ideas": [
         "UX: Desktop keyboard shortcuts"

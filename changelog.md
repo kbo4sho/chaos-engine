@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-06-27T14:05:59Z — Shipped: Balloon popping on hard impact
+**Why:** Balloons were visually distinct but mostly passive once spawned. Hard impacts and nearby bomb blasts now turn them into satisfying targets with a bright pop payoff.
+**Goal alignment:** "more surprising and more satisfying" — adds a discoverable object-specific reaction to existing collisions and explosions without new controls, dependencies, or physics UI.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (252/252 passing)
+**Status:** shipped
+
 ## 2026-06-26T14:04:02Z — Shipped: Desktop keyboard shortcuts
 **Why:** Desktop building still required leaving the canvas to click tiny toolbar buttons. Shortcut keys let players swap tools, trigger common chaos actions, pause, clear, and toggle slo-mo without breaking placement flow.
 **Goal alignment:** "more fun and more satisfying" — removes friction from the build → experiment loop while preserving the existing toolbar, chaos buttons, sounds, and physics behavior.

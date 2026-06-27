@@ -458,6 +458,10 @@ const bodyTrails = new Map(); // body.id -> [{x, y}]
 
 // Spawn pop animation
 const SPAWN_POP_MS = 150;
+const BALLOON_POP_REL_VELOCITY = 5;
+const BALLOON_POP_BURST_PARTICLES = 18;
+const BALLOON_POP_STRING_PARTICLES = 4;
+const BALLOON_POP_DESTRUCTION_BONUS = 50;
 
 function getSpawnPopScale(elapsed) {
   const t = Math.min(Math.max(elapsed / SPAWN_POP_MS, 0), 1);
@@ -775,6 +779,98 @@ function celebrateDestructionLevel(level) {
   playSound(baseFreq, 0.15, 'sine', 0.12);
   setTimeout(() => playSound(baseFreq * 1.25, 0.12, 'sine', 0.10), 80);
   setTimeout(() => playSound(baseFreq * 1.5, 0.2, 'sine', 0.08), 160);
+}
+
+function getRelativeVelocity(bodyA, bodyB) {
+  const velA = bodyA?.velocity || {x:0, y:0};
+  const velB = bodyB?.velocity || {x:0, y:0};
+  return Math.sqrt(
+    Math.pow(velA.x - velB.x, 2) + Math.pow(velA.y - velB.y, 2)
+  );
+}
+
+function popBalloon(balloonBody, popPower = BALLOON_POP_REL_VELOCITY) {
+  if (!balloonBody?.isBalloon || balloonBody.balloonPopped) return false;
+  if (!Composite.get(world, balloonBody.id, 'body')) return false;
+
+  balloonBody.balloonPopped = true;
+  const color = balloonBody.render?.color || '#ff3399';
+  const bx = balloonBody.position.x;
+  const by = balloonBody.position.y;
+  const powerBoost = Math.min(Math.max(popPower - BALLOON_POP_REL_VELOCITY, 0), 8);
+
+  for (let i = 0; i < BALLOON_POP_BURST_PARTICLES; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 2 + Math.random() * (4 + powerBoost * 0.35);
+    particles.push({
+      x: bx, y: by,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 0.8,
+      life: 0.55 + Math.random() * 0.45,
+      color,
+      size: 2 + Math.random() * 4,
+      isConfetti: true
+    });
+  }
+
+  for (let i = 0; i < BALLOON_POP_STRING_PARTICLES; i++) {
+    particles.push({
+      x: bx + (Math.random() - 0.5) * 12,
+      y: by + 10,
+      vx: (Math.random() - 0.5) * 1.4,
+      vy: 1 + Math.random() * 2,
+      life: 0.8 + Math.random() * 0.6,
+      color: '#cccccc',
+      size: 2 + Math.random(),
+      spin: Math.random() * Math.PI * 2,
+      isBalloonString: true
+    });
+  }
+
+  explosions.push({ x: bx, y: by, r: 0, maxR: 34, alpha: 0.45 });
+  playSound(1200 + Math.random() * 400, 0.06, 'sine', 0.15);
+  playSound(300, 0.04, 'sine', 0.06);
+  hapticThrottled([8], 40);
+  shakeIntensity = Math.max(shakeIntensity, 3);
+  destructionMeter += BALLOON_POP_DESTRUCTION_BONUS;
+
+  const destructionLevel = getDestructionLevel();
+  if (destructionLevel > lastDestructionLevel) {
+    lastDestructionLevel = destructionLevel;
+    celebrateDestructionLevel(destructionLevel);
+  }
+  updateAmbientHum();
+
+  const connectedConstraints = new Set();
+  Composite.allConstraints(world).forEach(c => {
+    if (c.bodyA === balloonBody || c.bodyB === balloonBody) {
+      connectedConstraints.add(c);
+    }
+  });
+
+  connectedConstraints.forEach(c => {
+    const other = c.bodyA === balloonBody ? c.bodyB : c.bodyA;
+    if (other?.chainConnections) {
+      other.chainConnections = Math.max(0, other.chainConnections - 1);
+    }
+    Composite.remove(world, c);
+  });
+
+  Composite.remove(world, balloonBody);
+  bodyTrails.delete(balloonBody.id);
+  shatterDebounce.delete(balloonBody.id);
+  portalCooldowns.delete(balloonBody.id);
+  megaBounceOriginal.delete(balloonBody.id);
+  ropes = ropes.filter(r => !connectedConstraints.has(r));
+  chainLinks = chainLinks.filter(b => b.id !== balloonBody.id);
+  if (ropeFirstBody === balloonBody) ropeFirstBody = null;
+  if (grabBody === balloonBody) {
+    grabActive = false;
+    grabBody = null;
+    grabHistory = [];
+  }
+
+  return true;
 }
 
 // ── WALLS ──
@@ -1528,6 +1624,7 @@ function explodeBomb(bomb) {
     const dist = Math.sqrt(dx*dx + dy*dy);
     if (dist < radius && dist > 0) {
       const strength = force * (1 - dist/radius);
+      if (b.isBalloon && popBalloon(b, BALLOON_POP_REL_VELOCITY + 3)) return;
       Body.applyForce(b, b.position, {
         x: (dx/dist) * strength,
         y: (dy/dist) * strength
@@ -2868,6 +2965,17 @@ Events.on(engine, 'collisionStart', (e) => {
       }
     }
 
+    // Balloon pop on hard impact
+    const balloonBody = pair.bodyA.isBalloon ? pair.bodyA : (pair.bodyB.isBalloon ? pair.bodyB : null);
+    const balloonHitter = balloonBody === pair.bodyA ? pair.bodyB : pair.bodyA;
+    if (balloonBody && balloonHitter && !balloonHitter.isStatic) {
+      const balloonRelVel = getRelativeVelocity(balloonBody, balloonHitter);
+      if (balloonRelVel > BALLOON_POP_REL_VELOCITY) {
+        popBalloon(balloonBody, balloonRelVel);
+        return;
+      }
+    }
+
     // Pixel dust cloud on hard wall/floor impact
     const wallBody = pair.bodyA.label === 'wall' ? pair.bodyA : (pair.bodyB.label === 'wall' ? pair.bodyB : null);
     const impactBody = wallBody === pair.bodyA ? pair.bodyB : pair.bodyA;
@@ -2895,11 +3003,7 @@ Events.on(engine, 'collisionStart', (e) => {
       }
     }
 
-    const velA = pair.bodyA.velocity || {x:0,y:0};
-    const velB = pair.bodyB.velocity || {x:0,y:0};
-    const relVel = Math.sqrt(
-      Math.pow(velA.x-velB.x,2) + Math.pow(velA.y-velB.y,2)
-    );
+    const relVel = getRelativeVelocity(pair.bodyA, pair.bodyB);
     if (relVel > 2) {
       // Spark particles at collision point
       const contact = pair.collision.supports && pair.collision.supports[0]
@@ -4017,6 +4121,20 @@ function drawParticles(dt) {
       ctx.arc(p.x, p.y, p.size * (p.life / 0.4), 0, Math.PI*2);
       ctx.fill();
       ctx.shadowBlur = 0;
+    } else if (p.isBalloonString) {
+      // Small falling string curls after a balloon pop.
+      p.vx *= 0.98;
+      p.spin += 0.08;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.spin);
+      ctx.strokeStyle = p.color;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, -p.size * 3);
+      ctx.quadraticCurveTo(p.size, 0, 0, p.size * 3);
+      ctx.stroke();
+      ctx.restore();
     } else {
       ctx.fillRect(p.x - p.size/2, p.y - p.size/2, p.size, p.size);
     }

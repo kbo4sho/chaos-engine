@@ -391,6 +391,75 @@ describe('Object Properties in Code', () => {
 });
 
 // ============================================
+// BALLOON POPPING TESTS
+// ============================================
+
+describe('Balloon Popping', () => {
+  function extractSection(startText, endText) {
+    const start = scriptContent.indexOf(startText);
+    expect(start).toBeGreaterThan(-1);
+    const end = scriptContent.indexOf(endText, start);
+    expect(end).toBeGreaterThan(start);
+    return scriptContent.slice(start, end);
+  }
+
+  it('should define balloon pop threshold and feedback constants', () => {
+    expect(scriptContent).toContain('const BALLOON_POP_REL_VELOCITY = 5');
+    expect(scriptContent).toContain('const BALLOON_POP_BURST_PARTICLES = 18');
+    expect(scriptContent).toContain('const BALLOON_POP_STRING_PARTICLES = 4');
+    expect(scriptContent).toContain('const BALLOON_POP_DESTRUCTION_BONUS = 50');
+  });
+
+  it('should pop balloons with color-matched confetti, string remnants, and sound', () => {
+    const popSection = extractSection('function popBalloon(', '// ── WALLS ──');
+    expect(popSection).toContain('balloonBody.balloonPopped = true');
+    expect(popSection).toContain('balloonBody.render?.color');
+    expect(popSection).toContain('i < BALLOON_POP_BURST_PARTICLES');
+    expect(popSection).toContain('isConfetti: true');
+    expect(popSection).toContain('i < BALLOON_POP_STRING_PARTICLES');
+    expect(popSection).toContain('isBalloonString: true');
+    expect(popSection).toContain('playSound(1200 + Math.random() * 400');
+    expect(popSection).toContain('playSound(300, 0.04');
+    expect(popSection).toContain('hapticThrottled([8], 40)');
+    expect(popSection).toContain('destructionMeter += BALLOON_POP_DESTRUCTION_BONUS');
+  });
+
+  it('should remove popped balloons and clean related interaction state', () => {
+    const popSection = extractSection('function popBalloon(', '// ── WALLS ──');
+    expect(popSection).toContain('Composite.allConstraints(world).forEach');
+    expect(popSection).toContain('connectedConstraints.add(c)');
+    expect(popSection).toContain('Composite.remove(world, c)');
+    expect(popSection).toContain('Composite.remove(world, balloonBody)');
+    expect(popSection).toContain('bodyTrails.delete(balloonBody.id)');
+    expect(popSection).toContain('shatterDebounce.delete(balloonBody.id)');
+    expect(popSection).toContain('portalCooldowns.delete(balloonBody.id)');
+    expect(popSection).toContain('megaBounceOriginal.delete(balloonBody.id)');
+    expect(popSection).toContain('ropes = ropes.filter');
+    expect(popSection).toContain('if (grabBody === balloonBody)');
+  });
+
+  it('should trigger balloon pops only from hard non-static collisions', () => {
+    const collisionSection = extractSection('// Balloon pop on hard impact', '// Pixel dust cloud on hard wall/floor impact');
+    expect(collisionSection).toContain('const balloonBody = pair.bodyA.isBalloon');
+    expect(collisionSection).toContain('!balloonHitter.isStatic');
+    expect(collisionSection).toContain('const balloonRelVel = getRelativeVelocity(balloonBody, balloonHitter)');
+    expect(collisionSection).toContain('balloonRelVel > BALLOON_POP_REL_VELOCITY');
+    expect(collisionSection).toContain('popBalloon(balloonBody, balloonRelVel)');
+    expect(collisionSection).toContain('return;');
+  });
+
+  it('should pop balloons caught in bomb blasts', () => {
+    const bombSection = extractSection('// Apply force to nearby bodies', '// Chain reaction: check for nearby bombs and trigger them with stagger');
+    expect(bombSection).toContain('if (b.isBalloon && popBalloon(b, BALLOON_POP_REL_VELOCITY + 3)) return;');
+  });
+
+  it('should draw balloon string particles as falling curls', () => {
+    expect(scriptContent).toContain('} else if (p.isBalloonString) {');
+    expect(scriptContent).toContain('ctx.quadraticCurveTo(p.size, 0, 0, p.size * 3)');
+  });
+});
+
+// ============================================
 // CHAOS FUNCTION TESTS (Code Analysis)
 // ============================================
 
