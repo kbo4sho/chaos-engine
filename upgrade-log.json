@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-06-28",
+      "ideas": [
+        "Feedback: Impact combo rewards"
+      ],
+      "summary": "Implemented impact combo rewards — hard impacts above relative velocity 5 now chain into a short combo window, show a temporary combo and session-best HUD, add rising notes and extra confetti from 3x onward, and fire stronger milestone feedback at 5x, 10x, 20x, and 50x while Clear resets only the active streak."
+    },
+    {
       "date": "2026-06-27",
       "ideas": [
         "Interaction: Balloon popping on hard impact"

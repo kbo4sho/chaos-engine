@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-06-28T14:03:53Z — Shipped: Impact combo rewards
+**Why:** The destruction meter tracked total chaos, but rapid bursts of hard hits had no distinct payoff. A temporary combo callout now rewards streaks of energetic impacts with rising notes, extra confetti, milestone blasts, and a session-best target.
+**Goal alignment:** "more surprising and more satisfying" — turns collision bursts into a readable reward loop without adding controls, dependencies, or layout changes.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (256/256 passing)
+**Status:** shipped
+
 ## 2026-06-27T14:05:59Z — Shipped: Balloon popping on hard impact
 **Why:** Balloons were visually distinct but mostly passive once spawned. Hard impacts and nearby bomb blasts now turn them into satisfying targets with a bright pop payoff.
 **Goal alignment:** "more surprising and more satisfying" — adds a discoverable object-specific reaction to existing collisions and explosions without new controls, dependencies, or physics UI.

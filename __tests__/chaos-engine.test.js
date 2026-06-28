@@ -785,6 +785,61 @@ describe('Haptic Feedback', () => {
 });
 
 // ============================================
+// IMPACT COMBO TESTS
+// ============================================
+
+describe('Impact Combo System', () => {
+  function extractSection(startText, endText) {
+    const start = scriptContent.indexOf(startText);
+    expect(start).toBeGreaterThan(-1);
+    const end = scriptContent.indexOf(endText, start);
+    expect(end).toBeGreaterThan(start);
+    return scriptContent.slice(start, end);
+  }
+
+  it('should define combo timing, threshold, and session-best state', () => {
+    expect(scriptContent).toContain('const COMBO_WINDOW = 90');
+    expect(scriptContent).toContain('const COMBO_MIN_REL_VELOCITY = 5');
+    expect(scriptContent).toContain('const COMBO_MILESTONES = [5, 10, 20, 50]');
+    expect(scriptContent).toContain('let comboCount = 0');
+    expect(scriptContent).toContain('let comboTimer = 0');
+    expect(scriptContent).toContain('let comboBest = 0');
+    expect(scriptContent).toContain('let comboFlash = 0');
+  });
+
+  it('should register rapid hard impacts with escalating feedback', () => {
+    const comboSection = extractSection('function registerImpactCombo(', 'function getRelativeVelocity(');
+    expect(comboSection).toContain('if (relVel <= COMBO_MIN_REL_VELOCITY) return;');
+    expect(comboSection).toContain('comboCount = comboTimer > 0 ? comboCount + 1 : 1');
+    expect(comboSection).toContain('comboTimer = COMBO_WINDOW');
+    expect(comboSection).toContain('comboBest = Math.max(comboBest, comboCount)');
+    expect(comboSection).toContain('if (comboCount < 3) return;');
+    expect(comboSection).toContain('playSound(pitch, 0.07');
+    expect(comboSection).toContain('isConfetti: true');
+    expect(comboSection).toContain('COMBO_MILESTONES.includes(comboCount)');
+    expect(comboSection).toContain('hapticThrottled([8, 20, 8], 80)');
+    expect(comboSection).toContain('playBoom()');
+  });
+
+  it('should hook combos into collision energy and decay them over time', () => {
+    expect(scriptContent).toContain('registerImpactCombo(relVel, px, py)');
+    expect(scriptContent).toContain('if (comboTimer > 0) {');
+    expect(scriptContent).toContain('comboTimer--');
+    expect(scriptContent).toContain('if (comboTimer <= 0) comboCount = 0');
+    expect(scriptContent).toContain('comboFlash = Math.max(0, comboFlash - dt * 3)');
+  });
+
+  it('should render a temporary combo HUD and clear active combo state', () => {
+    expect(scriptContent).toContain('if (comboCount >= 3 && comboTimer > 0)');
+    expect(scriptContent).toContain("ctx.fillText(comboCount + 'x COMBO'");
+    expect(scriptContent).toContain("ctx.fillText('BEST ' + comboBest + 'x'");
+    expect(scriptContent).toContain('comboCount = 0');
+    expect(scriptContent).toContain('comboTimer = 0');
+    expect(scriptContent).toContain('comboFlash = 0');
+  });
+});
+
+// ============================================
 // DRAWING MODE TESTS (Code Analysis)
 // ============================================
 
