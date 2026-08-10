@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor'
   ];
 
   allTools.forEach(tool => {
@@ -40,9 +40,15 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 30 tool buttons', () => {
+  it('should have exactly 31 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(30);
+    expect(buttons.length).toBe(31);
+  });
+
+  it('should place Anchor at the end of the object toolbar', () => {
+    const toolbar = document.getElementById('toolbar');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('anchor');
+    expect(toolbar.lastElementChild?.textContent).toContain('Anchor');
   });
 
   it('should have ball as default active tool', () => {
@@ -53,6 +59,43 @@ describe('Tool Button Existence', () => {
   it('should have draw button with special class', () => {
     const drawBtn = document.querySelector('[data-tool="draw"]');
     expect(drawBtn.classList.contains('draw-btn')).toBe(true);
+  });
+});
+
+// ============================================
+// ANCHOR TOOL TESTS (Code Analysis)
+// ============================================
+
+describe('Anchor Tool', () => {
+  it('should wire Anchor through the shared selectable tool state', () => {
+    const anchorBtn = document.querySelector('[data-tool="anchor"]');
+    expect(anchorBtn).not.toBeNull();
+    expect(anchorBtn?.classList.contains('tool-btn')).toBe(true);
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'anchor'");
+  });
+
+  it('should toggle tapped bodies between dynamic and static state', () => {
+    expect(scriptContent).toContain('function toggleAnchorAt(pos)');
+    expect(scriptContent).toContain('Matter.Query.point(anchorableBodies, pos)');
+    expect(scriptContent).toContain('const anchored = !target.isAnchored');
+    expect(scriptContent).toContain('Body.setStatic(target, true)');
+    expect(scriptContent).toContain('Body.setStatic(target, false)');
+    expect(scriptContent).toContain('anchoredBodies.add(target)');
+    expect(scriptContent).toContain('anchoredBodies.delete(target)');
+  });
+
+  it('should provide visible feedback and reset Anchor state on Clear', () => {
+    expect(scriptContent).toContain('function drawAnchorMarkers(timestamp)');
+    expect(scriptContent).toContain('drawAnchorMarkers(timestamp)');
+    expect(scriptContent).toContain("anchor: '#00e5ff'");
+    expect(scriptContent).toContain('anchoredBodies.clear()');
+    expect(scriptContent).toContain('!b.isStatic || b.isAnchored');
+  });
+
+  it('should exclude arena and static utility bodies while allowing anchored bodies to be released', () => {
+    expect(scriptContent).toContain("b.label !== 'wall'");
+    expect(scriptContent).toContain('(b.isAnchored || !b.isStatic)');
   });
 });
 

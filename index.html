@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>CHAOS ENGINE</title>
+<link rel="icon" href="data:,">
 <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.20.0/matter.min.js"></script>
 <style>
@@ -260,6 +261,7 @@ canvas#game {
     <button class="tool-btn draw-btn" data-tool="draw"><span class="icon">✏️</span>Draw</button>
     <button class="tool-btn slomo-btn" data-tool="slomo"><span class="icon">⏱️</span>SLO-MO</button>
     <button class="tool-btn" data-tool="grab" style="color:#ffdd00;"><span class="icon">✊</span>GRAB</button>
+    <button class="tool-btn" data-tool="anchor" style="color:#00e5ff;" title="Tap an object to anchor or release it" aria-label="Anchor or release an object"><span class="icon">⚓</span>Anchor</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -456,6 +458,7 @@ let grabBody = null;
 let grabOffsetX = 0;
 let grabOffsetY = 0;
 let grabHistory = []; // [{x, y, t}] for velocity tracking
+let anchoredBodies = new Set(); // bodies locked in place by the Anchor tool
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -2372,6 +2375,7 @@ function finishClear(playFeedback = true) {
   grabActive = false;
   grabBody = null;
   grabHistory = [];
+  anchoredBodies.clear();
   bodyTrails.clear();
   shatterDebounce.clear();
   if (oceanMode) {
@@ -2503,7 +2507,8 @@ function getToolAccentColor(tool) {
     'chain-link': '#99ccff',
     eraser: '#ff4444',
     draw: '#ff6600',
-    grab: '#ffdd00'
+    grab: '#ffdd00',
+    anchor: '#00e5ff'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -2610,6 +2615,7 @@ function eraseBodyAt(pos) {
     shatterDebounce.delete(b.id);
     portalCooldowns.delete(b.id);
     megaBounceOriginal.delete(b.id);
+    anchoredBodies.delete(b);
   });
 
   rocketBodies = rocketBodies.filter(b => !removedBodyIds.has(b.id));
@@ -2629,6 +2635,77 @@ function eraseBodyAt(pos) {
   playSound(650, 0.1, 'sine', 0.08);
   playSound(280, 0.08, 'triangle', 0.05);
   shakeIntensity = Math.max(shakeIntensity, 2);
+  return true;
+}
+
+function isAnchorableBody(b) {
+  return b && b.label !== 'wall' && !b.isTarget && (b.isAnchored || !b.isStatic);
+}
+
+function addAnchorBurst(body, anchored) {
+  const color = anchored ? '#00e5ff' : '#ffdd00';
+  for (let i = 0; i < 12; i++) {
+    const angle = (Math.PI * 2 * i) / 12;
+    const speed = 1.5 + Math.random() * 2.5;
+    particles.push({
+      x: body.position.x,
+      y: body.position.y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      size: 2 + Math.random() * 2,
+      life: 0.3 + Math.random() * 0.2,
+      color
+    });
+  }
+}
+
+function toggleAnchorAt(pos) {
+  const anchorableBodies = Composite.allBodies(world).filter(isAnchorableBody);
+  let target = Matter.Query.point(anchorableBodies, pos).filter(isAnchorableBody).pop();
+
+  // A forgiving fallback keeps small objects easy to hit on touch screens.
+  if (!target) {
+    let nearestDist = 46;
+    anchorableBodies.forEach(b => {
+      const dx = b.position.x - pos.x;
+      const dy = b.position.y - pos.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < nearestDist) {
+        target = b;
+        nearestDist = dist;
+      }
+    });
+  }
+
+  if (!target) return false;
+
+  const anchored = !target.isAnchored;
+  if (anchored) {
+    target.anchorVelocity = { x: target.velocity.x, y: target.velocity.y };
+    target.anchorAngularVelocity = target.angularVelocity;
+    Body.setVelocity(target, { x: 0, y: 0 });
+    Body.setAngularVelocity(target, 0);
+    Body.setStatic(target, true);
+    target.isAnchored = true;
+    anchoredBodies.add(target);
+  } else {
+    Body.setStatic(target, false);
+    target.isAnchored = false;
+    Body.setVelocity(target, {
+      x: (target.anchorVelocity?.x || 0) * 0.25,
+      y: (target.anchorVelocity?.y || 0) * 0.25
+    });
+    Body.setAngularVelocity(target, (target.anchorAngularVelocity || 0) * 0.25);
+    delete target.anchorVelocity;
+    delete target.anchorAngularVelocity;
+    anchoredBodies.delete(target);
+  }
+
+  addAnchorBurst(target, anchored);
+  haptic(anchored ? [10, 20, 10] : [8]);
+  playSound(anchored ? 260 : 620, 0.12, 'square', 0.07);
+  playSound(anchored ? 520 : 880, 0.08, 'sine', 0.05);
+  shakeIntensity = Math.max(shakeIntensity, anchored ? 3 : 1.5);
   return true;
 }
 
@@ -2767,6 +2844,13 @@ function onDown(e) {
   // Eraser tool — tap a placed object to delete it with a poof.
   if (currentTool === 'eraser') {
     eraseBodyAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Anchor tool — tap a dynamic object to lock it in place; tap again to release.
+  if (currentTool === 'anchor') {
+    toggleAnchorAt(pos);
     pointerDown = false;
     return;
   }
@@ -4274,6 +4358,45 @@ function drawGrid() {
   }
 }
 
+function drawAnchorMarkers(timestamp) {
+  anchoredBodies.forEach(b => {
+    if (!Composite.get(world, b.id, 'body')) {
+      anchoredBodies.delete(b);
+      return;
+    }
+
+    const halfW = (b.bounds.max.x - b.bounds.min.x) / 2;
+    const halfH = (b.bounds.max.y - b.bounds.min.y) / 2;
+    const radius = Math.max(18, Math.min(58, Math.sqrt(halfW*halfW + halfH*halfH) + 8));
+    const pulse = 0.72 + Math.sin(timestamp / 180 + b.id) * 0.2;
+
+    ctx.save();
+    ctx.translate(b.position.x, b.position.y);
+    ctx.strokeStyle = `rgba(0,229,255,${pulse})`;
+    ctx.fillStyle = `rgba(0,229,255,${0.12 + pulse * 0.08})`;
+    ctx.shadowColor = '#00e5ff';
+    ctx.shadowBlur = 12;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Small geometric anchor badge that stays readable at any body rotation.
+    ctx.beginPath();
+    ctx.arc(0, -5, 3, 0, Math.PI * 2);
+    ctx.moveTo(0, -2);
+    ctx.lineTo(0, 8);
+    ctx.moveTo(-7, 3);
+    ctx.quadraticCurveTo(-6, 10, 0, 10);
+    ctx.quadraticCurveTo(6, 10, 7, 3);
+    ctx.stroke();
+    ctx.restore();
+  });
+}
+
 // ── MAIN LOOP ──
 let lastTime = 0;
 
@@ -4879,8 +5002,8 @@ function loop(timestamp) {
 
   // Update object count
   const allBodies = Composite.allBodies(world);
-  const dynamicCount = allBodies.filter(b => !b.isStatic).length;
-  document.getElementById('obj-count').textContent = dynamicCount;
+  const objectCount = allBodies.filter(b => !b.isStatic || b.isAnchored).length;
+  document.getElementById('obj-count').textContent = objectCount;
   updateSpawnPopAnimations(timestamp);
 
   // Record trails for fast-moving objects
@@ -5048,6 +5171,7 @@ function loop(timestamp) {
     if (b.label === 'wall') return;
     drawBody(b);
   });
+  drawAnchorMarkers(timestamp);
 
   // Effects
   drawRopes();

@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-08-10T14:07:31Z — Shipped: Anchor tool
+**Why:** Scene construction had ways to spawn, grab, connect, and erase objects, but no persistent per-object way to suspend a piece in space. Anchor turns any dynamic object into a fixed support and releases it with a second tap.
+**Goal alignment:** "more fun, more surprising, more satisfying" — adds a compact construction verb for floating platforms, hanging obstacles, and improvised machines while preserving the existing mobile-friendly toolbar and canvas flow.
+**Files changed:** .agent.md, index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (262/262 passing); browser smoke ✓ (Ball spawned, Anchor selected at toolbar end, body anchored and released, cyan marker visible, 0 console errors/warnings); live ✓ (http://192.168.68.65:3003)
+**Status:** shipped
+
 ## 2026-06-28T14:03:53Z — Shipped: Impact combo rewards
 **Why:** The destruction meter tracked total chaos, but rapid bursts of hard hits had no distinct payoff. A temporary combo callout now rewards streaks of energetic impacts with rising notes, extra confetti, milestone blasts, and a session-best target.
 **Goal alignment:** "more surprising and more satisfying" — turns collision bursts into a readable reward loop without adding controls, dependencies, or layout changes.

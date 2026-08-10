@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-08-10",
+      "ideas": [
+        "New tool: Anchor individual canvas objects"
+      ],
+      "summary": "Implemented Anchor tool (⚓) — the final button in the existing object toolbar now selects a persistent per-object transform: tap a dynamic body to lock it in place with a pulsing cyan anchor marker, then tap it again to release it with restored motion, particle, sound, and haptic feedback; Clear and Eraser clean up Anchor state."
+    },
+    {
       "date": "2026-06-28",
       "ideas": [
         "Feedback: Impact combo rewards"
