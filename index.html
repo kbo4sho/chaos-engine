@@ -88,6 +88,19 @@ canvas#game {
   background:#080c10;
   touch-action:none;
 }
+#resize-feedback {
+  position:absolute; top:14px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#66ff99;
+  font-size:19px; letter-spacing:2px; line-height:1;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none;
+  transition:opacity .12s, transform .12s;
+}
+#resize-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -226,6 +239,7 @@ canvas#game {
   <!-- CANVAS -->
   <div id="canvas-wrap">
     <canvas id="game"></canvas>
+    <div id="resize-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -262,6 +276,7 @@ canvas#game {
     <button class="tool-btn slomo-btn" data-tool="slomo"><span class="icon">⏱️</span>SLO-MO</button>
     <button class="tool-btn" data-tool="grab" style="color:#ffdd00;"><span class="icon">✊</span>GRAB</button>
     <button class="tool-btn" data-tool="anchor" style="color:#00e5ff;" title="Tap an object to anchor or release it" aria-label="Anchor or release an object"><span class="icon">⚓</span>Anchor</button>
+    <button class="tool-btn" data-tool="resize" style="color:#66ff99;" title="Tap an object to grow it; tap this button again to switch to shrink" aria-label="Resize objects: grow mode"><span class="icon resize-icon">↕️</span><span class="resize-label">SIZE+</span></button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -459,6 +474,8 @@ let grabOffsetX = 0;
 let grabOffsetY = 0;
 let grabHistory = []; // [{x, y, t}] for velocity tracking
 let anchoredBodies = new Set(); // bodies locked in place by the Anchor tool
+let resizeMode = 'grow'; // reselect the Resize tool to toggle grow/shrink
+let resizeFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -1041,9 +1058,28 @@ document.querySelectorAll('.planet-btn').forEach(btn => {
 });
 
 // ── TOOL BUTTONS ──
+function updateResizeButton() {
+  const btn = document.querySelector('[data-tool="resize"]');
+  if (!btn) return;
+  const growing = resizeMode === 'grow';
+  btn.querySelector('.resize-label').textContent = growing ? 'SIZE+' : 'SIZE−';
+  btn.style.color = growing ? '#66ff99' : '#ff9966';
+  btn.title = growing
+    ? 'Tap an object to grow it; tap this button again to switch to shrink'
+    : 'Tap an object to shrink it; tap this button again to switch to grow';
+  btn.setAttribute('aria-label', `Resize objects: ${resizeMode} mode`);
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
+    if (tool === 'resize' && currentTool === 'resize' && btn.classList.contains('active')) {
+      resizeMode = resizeMode === 'grow' ? 'shrink' : 'grow';
+      updateResizeButton();
+      playSound(resizeMode === 'grow' ? 720 : 380, 0.08, 'square', 0.06);
+      haptic([6]);
+      return;
+    }
     if (tool === 'draw') {
       drawMode = !drawMode;
       btn.classList.toggle('active', drawMode);
@@ -1062,6 +1098,10 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       document.querySelectorAll('.tool-btn:not(.draw-btn):not(.slomo-btn)').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       currentTool = tool;
+      if (tool === 'resize') {
+        resizeMode = 'grow';
+        updateResizeButton();
+      }
     }
     playSound(1000, 0.05, 'square', 0.05);
   });
@@ -1708,7 +1748,7 @@ function shatterBlock(b) {
   const pos = { x: b.position.x, y: b.position.y };
   const vel = { x: b.velocity.x, y: b.velocity.y };
   const color = b.render?.color || '#00ff41';
-  const origSize = b.render?.size || 30;
+  const origSize = (b.render?.size || 30) * (b.resizeScale || 1);
 
   Composite.remove(world, b);
   shatterDebounce.delete(b.id);
@@ -2376,6 +2416,11 @@ function finishClear(playFeedback = true) {
   grabBody = null;
   grabHistory = [];
   anchoredBodies.clear();
+  resizeMode = 'grow';
+  updateResizeButton();
+  clearTimeout(resizeFeedbackTimer);
+  document.getElementById('resize-feedback').classList.remove('active');
+  document.getElementById('resize-feedback').textContent = '';
   bodyTrails.clear();
   shatterDebounce.clear();
   if (oceanMode) {
@@ -2508,7 +2553,8 @@ function getToolAccentColor(tool) {
     eraser: '#ff4444',
     draw: '#ff6600',
     grab: '#ffdd00',
-    anchor: '#00e5ff'
+    anchor: '#00e5ff',
+    resize: '#66ff99'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -2709,6 +2755,96 @@ function toggleAnchorAt(pos) {
   return true;
 }
 
+function getResizeStep(currentScale, mode) {
+  const factor = mode === 'grow' ? 1.35 : 1 / 1.35;
+  const nextScale = currentScale * factor;
+  if (nextScale < 0.4 || nextScale > 3.4) return null;
+  return { factor, nextScale };
+}
+
+function isResizableBody(b) {
+  if (!b || b.label === 'wall' || b.isTarget || b.isStatic || b.parent !== b) return false;
+  return !Composite.allConstraints(world).some(c => c.bodyA === b || c.bodyB === b);
+}
+
+function addResizeBurst(body, growing) {
+  const color = growing ? '#66ff99' : '#ff9966';
+  const width = body.bounds.max.x - body.bounds.min.x;
+  const height = body.bounds.max.y - body.bounds.min.y;
+  const radius = Math.max(width, height) * 0.55;
+  for (let i = 0; i < 14; i++) {
+    const angle = (Math.PI * 2 * i) / 14;
+    const speed = 1.8 + Math.random() * 2.8;
+    particles.push({
+      x: body.position.x + Math.cos(angle) * radius,
+      y: body.position.y + Math.sin(angle) * radius,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      size: 2 + Math.random() * 2,
+      life: 0.3 + Math.random() * 0.25,
+      color
+    });
+  }
+  explosions.push({
+    x: body.position.x,
+    y: body.position.y,
+    r: Math.max(4, radius * 0.35),
+    maxR: radius * 1.45,
+    alpha: 0.55,
+    isBirthRing: true
+  });
+}
+
+function showResizeFeedback(scale, growing) {
+  const feedback = document.getElementById('resize-feedback');
+  feedback.textContent = `${growing ? 'GROW' : 'SHRINK'} ${Math.round(scale * 100)}%`;
+  feedback.style.color = growing ? '#66ff99' : '#ff9966';
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(resizeFeedbackTimer);
+  resizeFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 750);
+}
+
+function resizeBodyAt(pos) {
+  const resizableBodies = Composite.allBodies(world).filter(isResizableBody);
+  let target = Matter.Query.point(resizableBodies, pos).filter(isResizableBody).pop();
+
+  // Keep small bodies practical to target on phones without resizing nearby assemblies.
+  if (!target) {
+    let nearestDist = 46;
+    resizableBodies.forEach(b => {
+      const dx = b.position.x - pos.x;
+      const dy = b.position.y - pos.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < nearestDist) {
+        target = b;
+        nearestDist = dist;
+      }
+    });
+  }
+
+  if (!target) return false;
+
+  const step = getResizeStep(target.resizeScale || 1, resizeMode);
+  if (!step) {
+    playSound(180, 0.1, 'square', 0.06);
+    haptic([4, 30, 4]);
+    shakeIntensity = Math.max(shakeIntensity, 1.5);
+    return false;
+  }
+
+  Body.scale(target, step.factor, step.factor);
+  target.resizeScale = step.nextScale;
+  addResizeBurst(target, resizeMode === 'grow');
+  showResizeFeedback(step.nextScale, resizeMode === 'grow');
+  haptic(resizeMode === 'grow' ? [9, 18, 9] : [7]);
+  playSound(resizeMode === 'grow' ? 360 / step.nextScale : 620 / step.nextScale, 0.13, 'sine', 0.08);
+  playSound(resizeMode === 'grow' ? 240 : 880, 0.07, 'square', 0.04);
+  shakeIntensity = Math.max(shakeIntensity, resizeMode === 'grow' ? 3 : 1.5);
+  return true;
+}
+
 let pointerDown = false;
 let pointerStartTime = 0;
 const TRAJECTORY_DOT_COUNT = 12;
@@ -2851,6 +2987,13 @@ function onDown(e) {
   // Anchor tool — tap a dynamic object to lock it in place; tap again to release.
   if (currentTool === 'anchor') {
     toggleAnchorAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Resize tool — tap a standalone body to grow or shrink it.
+  if (currentTool === 'resize') {
+    resizeBodyAt(pos);
     pointerDown = false;
     return;
   }
@@ -3227,7 +3370,10 @@ function drawBody(b) {
   ctx.save();
   ctx.translate(b.position.x, b.position.y);
   ctx.rotate(b.angle);
-  if (spawnScale !== 1 || clearScale !== 1) ctx.scale(spawnScale * clearScale, spawnScale * clearScale);
+  const resizeScale = b.resizeScale || 1;
+  if (spawnScale !== 1 || clearScale !== 1 || resizeScale !== 1) {
+    ctx.scale(spawnScale * clearScale * resizeScale, spawnScale * clearScale * resizeScale);
+  }
 
   switch(type) {
     case 'ball': {

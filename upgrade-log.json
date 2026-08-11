@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-08-11",
+      "ideas": [
+        "New tool: Resize standalone canvas objects"
+      ],
+      "summary": "Implemented Resize tool (↕️) — the final button in the existing object toolbar now grows a tapped standalone dynamic body by 1.35×, toggles to shrink mode when the selected button is tapped again, keeps physics and custom rendering in sync within safe 0.4×–3.4× limits, protects static and connected assemblies, adds forgiving touch targeting plus neon percentage feedback, and resets its mode and feedback on Clear."
+    },
+    {
       "date": "2026-08-10",
       "ideas": [
         "New tool: Anchor individual canvas objects"

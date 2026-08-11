@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-08-11T14:13:59Z — Shipped: Resize tool
+**Why:** The toolbar could create, connect, move, anchor, and remove objects, but standalone bodies kept their spawn size forever. Resize adds a direct transform without adding a second control: tap an object to grow it, then reselect the active tool to switch between grow and shrink.
+**Goal alignment:** "more fun, more surprising, more satisfying" — giant balls, tiny anvils, and deliberately mismatched scenes multiply the creative range of existing objects while keeping the one-row mobile toolbar flow.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (267/267 passing); browser smoke ✓ (Ball selected and placed, Resize selected at toolbar end, body grew to 135%, mode toggled, body shrank to 100%, visible status feedback, 0 console errors/warnings); live ✓ (http://192.168.68.65:3003)
+**Status:** shipped
+
 ## 2026-08-10T14:07:31Z — Shipped: Anchor tool
 **Why:** Scene construction had ways to spawn, grab, connect, and erase objects, but no persistent per-object way to suspend a piece in space. Anchor turns any dynamic object into a fixed support and releases it with a second tap.
 **Goal alignment:** "more fun, more surprising, more satisfying" — adds a compact construction verb for floating platforms, hanging obstacles, and improvised machines while preserving the existing mobile-friendly toolbar and canvas flow.

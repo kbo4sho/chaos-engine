@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize'
   ];
 
   allTools.forEach(tool => {
@@ -40,15 +40,16 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 31 tool buttons', () => {
+  it('should have exactly 32 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(31);
+    expect(buttons.length).toBe(32);
   });
 
-  it('should place Anchor at the end of the object toolbar', () => {
+  it('should append Resize after Anchor at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('anchor');
-    expect(toolbar.lastElementChild?.textContent).toContain('Anchor');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('resize');
+    expect(toolbar.lastElementChild?.textContent).toContain('SIZE+');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('anchor');
   });
 
   it('should have ball as default active tool', () => {
@@ -59,6 +60,55 @@ describe('Tool Button Existence', () => {
   it('should have draw button with special class', () => {
     const drawBtn = document.querySelector('[data-tool="draw"]');
     expect(drawBtn.classList.contains('draw-btn')).toBe(true);
+  });
+});
+
+// ============================================
+// RESIZE TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Resize Tool', () => {
+  it('should wire Resize through selectable tool state and a one-button mode toggle', () => {
+    const resizeBtn = document.querySelector('[data-tool="resize"]');
+    expect(resizeBtn).not.toBeNull();
+    expect(resizeBtn?.getAttribute('aria-label')).toContain('grow mode');
+    expect(scriptContent).toContain("currentTool === 'resize'");
+    expect(scriptContent).toContain("resizeMode = resizeMode === 'grow' ? 'shrink' : 'grow'");
+    expect(scriptContent).toContain('function updateResizeButton()');
+  });
+
+  it('should keep resize steps within safe limits in both modes', () => {
+    const source = scriptContent.match(/function getResizeStep\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getResizeStep = new Function(`${source}; return getResizeStep;`)();
+
+    expect(getResizeStep(1, 'grow').nextScale).toBeCloseTo(1.35);
+    expect(getResizeStep(1, 'shrink').nextScale).toBeCloseTo(1 / 1.35);
+    expect(getResizeStep(3.3, 'grow')).toBeNull();
+    expect(getResizeStep(0.4, 'shrink')).toBeNull();
+  });
+
+  it('should scale only standalone dynamic bodies and provide visible feedback', () => {
+    expect(scriptContent).toContain('function isResizableBody(b)');
+    expect(scriptContent).toContain("b.label === 'wall'");
+    expect(scriptContent).toContain('b.isStatic');
+    expect(scriptContent).toContain('b.parent !== b');
+    expect(scriptContent).toContain('Composite.allConstraints(world).some');
+    expect(scriptContent).toContain('function resizeBodyAt(pos)');
+    expect(scriptContent).toContain('Matter.Query.point(resizableBodies, pos)');
+    expect(scriptContent).toContain('Body.scale(target, step.factor, step.factor)');
+    expect(scriptContent).toContain('target.resizeScale = step.nextScale');
+    expect(scriptContent).toContain('function addResizeBurst(body, growing)');
+    expect(scriptContent).toContain('function showResizeFeedback(scale, growing)');
+    expect(document.getElementById('resize-feedback')?.getAttribute('role')).toBe('status');
+  });
+
+  it('should render at the transformed size and reset mode on Clear', () => {
+    expect(scriptContent).toContain('const resizeScale = b.resizeScale || 1');
+    expect(scriptContent).toContain('spawnScale * clearScale * resizeScale');
+    expect(scriptContent).toContain("resizeMode = 'grow';\n  updateResizeButton();");
+    expect(scriptContent).toContain("document.getElementById('resize-feedback').textContent = ''");
+    expect(scriptContent).toContain("resize: '#66ff99'");
   });
 });
 
@@ -1084,7 +1134,7 @@ describe('Visual Effects', () => {
     expect(scriptContent).toContain('b.spawnTime = now');
     expect(scriptContent).toContain('b.spawnScale = 0.05');
     expect(scriptContent).toContain('b.spawnScale = getSpawnPopScale(elapsed)');
-    expect(scriptContent).toContain('ctx.scale(spawnScale * clearScale, spawnScale * clearScale)');
+    expect(scriptContent).toContain('ctx.scale(spawnScale * clearScale * resizeScale, spawnScale * clearScale * resizeScale)');
   });
 
   it('should mark simple and composite spawns for pop animation', () => {
@@ -1103,7 +1153,7 @@ describe('Visual Effects', () => {
     expect(scriptContent).toContain('function finishClear(playFeedback = true)');
     expect(scriptContent).toContain('playClearVortexSound()');
     expect(scriptContent).toContain('r.clearScale || 1');
-    expect(scriptContent).toContain('ctx.scale(spawnScale * clearScale, spawnScale * clearScale)');
+    expect(scriptContent).toContain('ctx.scale(spawnScale * clearScale * resizeScale, spawnScale * clearScale * resizeScale)');
     expect(scriptContent).toContain('updateClearVortex(timestamp)');
     expect(scriptContent).toContain('drawClearVortex(timestamp)');
   });
