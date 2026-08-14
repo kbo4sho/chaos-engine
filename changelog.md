@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-08-14T15:13:02Z — Added: Clone tool
+**Why:** The toolbar could spawn new random objects and transform existing ones, but it could not reproduce a specific object already in the scene. Clone turns a successful shape, size, angle, color, or object behavior into a reusable building part with one tap.
+**Goal alignment:** "more fun, more surprising, more satisfying" — quickly multiplying a giant ball, tuned domino, bomb, duck, or rocket makes experiments faster while preserving the compact one-row tool flow on desktop and mobile.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (272/272 passing); browser smoke ✓ (Ball selected and placed, Clone selected at toolbar end, OBJ increased from 1 to 2, matching duplicate appeared with offset and CLONED ×2 feedback, final button reachable at desktop and 390px mobile widths, 0 console errors/warnings); live pending final deployment check
+**Status:** verified locally; deployment pending
+
 ## 2026-08-11T14:13:59Z — Shipped: Resize tool
 **Why:** The toolbar could create, connect, move, anchor, and remove objects, but standalone bodies kept their spawn size forever. Resize adds a direct transform without adding a second control: tap an object to grow it, then reselect the active tool to switch between grow and shrink.
 **Goal alignment:** "more fun, more surprising, more satisfying" — giant balls, tiny anvils, and deliberately mismatched scenes multiply the creative range of existing objects while keeping the one-row mobile toolbar flow.

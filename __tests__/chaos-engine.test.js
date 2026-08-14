@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone'
   ];
 
   allTools.forEach(tool => {
@@ -40,16 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 32 tool buttons', () => {
+  it('should have exactly 33 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(32);
+    expect(buttons.length).toBe(33);
   });
 
-  it('should append Resize after Anchor at the end of the object toolbar', () => {
+  it('should append Clone after Resize at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('resize');
-    expect(toolbar.lastElementChild?.textContent).toContain('SIZE+');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('anchor');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('clone');
+    expect(toolbar.lastElementChild?.textContent).toContain('Clone');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('resize');
+    expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
   });
 
   it('should have ball as default active tool', () => {
@@ -60,6 +61,57 @@ describe('Tool Button Existence', () => {
   it('should have draw button with special class', () => {
     const drawBtn = document.querySelector('[data-tool="draw"]');
     expect(drawBtn.classList.contains('draw-btn')).toBe(true);
+  });
+});
+
+// ============================================
+// CLONE TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Clone Tool', () => {
+  it('should expose Clone as the final selectable toolbar tool', () => {
+    const cloneBtn = document.querySelector('[data-tool="clone"]');
+    expect(cloneBtn).not.toBeNull();
+    expect(cloneBtn?.getAttribute('aria-label')).toContain('Clone');
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'clone'");
+    expect(scriptContent).toContain('cloneBodyAt(pos)');
+  });
+
+  it('should choose a bounded duplicate position on either side of the canvas', () => {
+    const source = scriptContent.match(/function getClonePosition\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getClonePosition = new Function(`${source}; return getClonePosition;`)();
+    const leftBody = { position: { x: 80, y: 100 }, bounds: { min: { x: 60, y: 80 }, max: { x: 100, y: 120 } } };
+    const rightBody = { position: { x: 470, y: 285 }, bounds: { min: { x: 450, y: 265 }, max: { x: 490, y: 305 } } };
+
+    expect(getClonePosition(leftBody, 500, 300)).toEqual({ x: 126, y: 86, direction: 1 });
+    expect(getClonePosition(rightBody, 500, 300)).toEqual({ x: 424, y: 252, direction: -1 });
+  });
+
+  it('should clone standalone dynamic geometry, appearance, scale, and behavior flags', () => {
+    expect(scriptContent).toContain('function isCloneableBody(b)');
+    expect(scriptContent).toContain("b.label === 'chain-link'");
+    expect(scriptContent).toContain('b.isStatic');
+    expect(scriptContent).toContain('b.parent !== b');
+    expect(scriptContent).toContain('Composite.allConstraints(world).some');
+    expect(scriptContent).toContain('function createBodyClone(source, position)');
+    expect(scriptContent).toContain('Bodies.fromVertices(position.x, position.y, localVertices');
+    expect(scriptContent).toContain('render: { ...source.render }');
+    expect(scriptContent).toContain('clone.resizeScale = source.resizeScale || 1');
+    expect(scriptContent).toContain('clone.isBomb = Boolean(source.isBomb)');
+    expect(scriptContent).toContain("if (clone.render?.type === 'rocket') rocketBodies.push(clone)");
+  });
+
+  it('should provide touch targeting, visible feedback, and Clear cleanup', () => {
+    expect(scriptContent).toContain('Matter.Query.point(cloneableBodies, pos)');
+    expect(scriptContent).toContain('let nearestDist = 46');
+    expect(scriptContent).toContain('function addCloneBurst(source, clone)');
+    expect(scriptContent).toContain('function showCloneFeedback()');
+    expect(document.getElementById('clone-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('clearTimeout(cloneFeedbackTimer)');
+    expect(scriptContent).toContain("document.getElementById('clone-feedback').textContent = ''");
+    expect(scriptContent).toContain("clone: '#cc99ff'");
   });
 });
 

@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-08-14",
+      "ideas": [
+        "New tool: Clone standalone canvas objects"
+      ],
+      "summary": "Implemented Clone tool (👯) — the final button in the existing object toolbar now duplicates a tapped standalone dynamic body's current geometry, rotation, scale, material behavior, and custom appearance into a nearby canvas-safe position, preserves special bomb, balloon, duck, and rocket behavior, rejects static or connected assemblies, adds a 46px touch fallback plus neon clone feedback, clears transient status on reset, and keeps both ends of the overflowing toolbar reachable on desktop and mobile."
+    },
+    {
       "date": "2026-08-11",
       "ideas": [
         "New tool: Resize standalone canvas objects"

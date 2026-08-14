@@ -101,10 +101,23 @@ canvas#game {
 #resize-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#clone-feedback {
+  position:absolute; top:48px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#cc99ff;
+  font-size:19px; letter-spacing:2px; line-height:1;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none;
+  transition:opacity .12s, transform .12s;
+}
+#clone-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
-  display:flex; align-items:center; justify-content:center;
+  display:flex; align-items:center; justify-content:flex-start;
   gap:4px; padding:6px 8px; flex-shrink:0;
   background:#0d1117;
   border-top:2px solid #0abdc6;
@@ -240,6 +253,7 @@ canvas#game {
   <div id="canvas-wrap">
     <canvas id="game"></canvas>
     <div id="resize-feedback" role="status" aria-live="polite"></div>
+    <div id="clone-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -277,6 +291,7 @@ canvas#game {
     <button class="tool-btn" data-tool="grab" style="color:#ffdd00;"><span class="icon">✊</span>GRAB</button>
     <button class="tool-btn" data-tool="anchor" style="color:#00e5ff;" title="Tap an object to anchor or release it" aria-label="Anchor or release an object"><span class="icon">⚓</span>Anchor</button>
     <button class="tool-btn" data-tool="resize" style="color:#66ff99;" title="Tap an object to grow it; tap this button again to switch to shrink" aria-label="Resize objects: grow mode"><span class="icon resize-icon">↕️</span><span class="resize-label">SIZE+</span></button>
+    <button class="tool-btn" data-tool="clone" style="color:#cc99ff;" title="Tap a standalone object to duplicate it" aria-label="Clone a standalone object"><span class="icon">👯</span>Clone</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -476,6 +491,7 @@ let grabHistory = []; // [{x, y, t}] for velocity tracking
 let anchoredBodies = new Set(); // bodies locked in place by the Anchor tool
 let resizeMode = 'grow'; // reselect the Resize tool to toggle grow/shrink
 let resizeFeedbackTimer = 0;
+let cloneFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -2421,6 +2437,9 @@ function finishClear(playFeedback = true) {
   clearTimeout(resizeFeedbackTimer);
   document.getElementById('resize-feedback').classList.remove('active');
   document.getElementById('resize-feedback').textContent = '';
+  clearTimeout(cloneFeedbackTimer);
+  document.getElementById('clone-feedback').classList.remove('active');
+  document.getElementById('clone-feedback').textContent = '';
   bodyTrails.clear();
   shatterDebounce.clear();
   if (oceanMode) {
@@ -2554,7 +2573,8 @@ function getToolAccentColor(tool) {
     draw: '#ff6600',
     grab: '#ffdd00',
     anchor: '#00e5ff',
-    resize: '#66ff99'
+    resize: '#66ff99',
+    clone: '#cc99ff'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -2845,6 +2865,117 @@ function resizeBodyAt(pos) {
   return true;
 }
 
+function isCloneableBody(b) {
+  if (!b || b.label === 'wall' || b.label === 'chain-link' || b.isTarget || b.isStatic || b.isFragment || b.parent !== b) return false;
+  return !Composite.allConstraints(world).some(c => c.bodyA === b || c.bodyB === b);
+}
+
+function getClonePosition(source, canvasWidth, canvasHeight) {
+  const width = source.bounds.max.x - source.bounds.min.x;
+  const height = source.bounds.max.y - source.bounds.min.y;
+  const direction = source.position.x > canvasWidth / 2 ? -1 : 1;
+  const offset = Math.max(38, Math.min(84, width * 1.15));
+  return {
+    x: Math.max(width / 2 + 8, Math.min(canvasWidth - width / 2 - 8, source.position.x + direction * offset)),
+    y: Math.max(height / 2 + 8, Math.min(canvasHeight - height / 2 - 28, source.position.y - Math.min(24, height * 0.35))),
+    direction
+  };
+}
+
+function createBodyClone(source, position) {
+  const localVertices = source.vertices.map(v => Vector.rotate({
+    x: v.x - source.position.x,
+    y: v.y - source.position.y
+  }, -source.angle));
+  const clone = Bodies.fromVertices(position.x, position.y, localVertices, {
+    label: source.label,
+    restitution: source.restitution,
+    friction: source.friction,
+    frictionStatic: source.frictionStatic,
+    frictionAir: source.frictionAir,
+    density: source.density,
+    isSensor: source.isSensor,
+    slop: source.slop,
+    collisionFilter: { ...source.collisionFilter },
+    render: { ...source.render }
+  }, true);
+  Body.setAngle(clone, source.angle);
+  clone.material = source.material;
+  clone.resizeScale = source.resizeScale || 1;
+  clone.isBomb = Boolean(source.isBomb);
+  clone.isBalloon = Boolean(source.isBalloon);
+  clone.isDuck = Boolean(source.isDuck);
+  return clone;
+}
+
+function showCloneFeedback() {
+  const feedback = document.getElementById('clone-feedback');
+  feedback.textContent = 'CLONED ×2';
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(cloneFeedbackTimer);
+  cloneFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 750);
+}
+
+function addCloneBurst(source, clone) {
+  const color = '#cc99ff';
+  const dx = clone.position.x - source.position.x;
+  const dy = clone.position.y - source.position.y;
+  for (let i = 0; i < 18; i++) {
+    const t = i / 17;
+    particles.push({
+      x: source.position.x + dx * t,
+      y: source.position.y + dy * t,
+      vx: (Math.random() - 0.5) * 2.5,
+      vy: -1 - Math.random() * 2,
+      size: 2 + Math.random() * 2,
+      life: 0.3 + Math.random() * 0.25,
+      color
+    });
+  }
+  explosions.push({ x: clone.position.x, y: clone.position.y, r: 5, maxR: 48, alpha: 0.75, isBirthRing: true });
+}
+
+function cloneBodyAt(pos) {
+  const cloneableBodies = Composite.allBodies(world).filter(isCloneableBody);
+  let source = Matter.Query.point(cloneableBodies, pos).filter(isCloneableBody).pop();
+
+  // Keep small bodies easy to duplicate with a fingertip-sized target.
+  if (!source) {
+    let nearestDist = 46;
+    cloneableBodies.forEach(b => {
+      const dx = b.position.x - pos.x;
+      const dy = b.position.y - pos.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < nearestDist) {
+        source = b;
+        nearestDist = dist;
+      }
+    });
+  }
+
+  if (!source) return false;
+
+  const position = getClonePosition(source, canvas.width, canvas.height);
+  const clone = createBodyClone(source, position);
+  Body.setVelocity(clone, {
+    x: source.velocity.x * 0.45 + position.direction * 1.4,
+    y: source.velocity.y * 0.45 - 1.2
+  });
+  Body.setAngularVelocity(clone, source.angularVelocity * 0.65);
+  markSpawnPop(clone);
+  Composite.add(world, clone);
+  if (clone.render?.type === 'rocket') rocketBodies.push(clone);
+  addCloneBurst(source, clone);
+  showCloneFeedback();
+  haptic([8, 16, 8]);
+  playSound(520, 0.1, 'square', 0.06);
+  playSound(780, 0.14, 'sine', 0.08);
+  shakeIntensity = Math.max(shakeIntensity, 2.5);
+  return true;
+}
+
 let pointerDown = false;
 let pointerStartTime = 0;
 const TRAJECTORY_DOT_COUNT = 12;
@@ -2994,6 +3125,13 @@ function onDown(e) {
   // Resize tool — tap a standalone body to grow or shrink it.
   if (currentTool === 'resize') {
     resizeBodyAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Clone tool — tap a standalone body to duplicate it nearby.
+  if (currentTool === 'clone') {
+    cloneBodyAt(pos);
     pointerDown = false;
     return;
   }
