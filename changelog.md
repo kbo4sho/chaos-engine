@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-08-15T14:11:41Z — Added: Motor tool
+**Why:** The toolbar could place, move, connect, anchor, resize, clone, and remove objects, but it had no persistent way to power an individual part. Motor turns existing bodies—including constrained parts—into reusable clockwise or counter-clockwise rotors.
+**Goal alignment:** "more fun, more surprising, more satisfying" — powered seesaws, spinning dominoes, and improvised machines add a new active-building verb while keeping the one-button, one-row desktop and mobile flow.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (277/277 passing); browser smoke ✓ (Ball selected and placed, Motor selected at toolbar end, tapped body cycled CW → CCW → OFF → CW with visible status feedback, powered state ran after unpausing, final 52×50px button reachable at 390×844, 0 console errors/warnings); live ✓ (http://192.168.68.59:3003)
+**Status:** shipped
+
 ## 2026-08-14T15:13:02Z — Added: Clone tool
 **Why:** The toolbar could spawn new random objects and transform existing ones, but it could not reproduce a specific object already in the scene. Clone turns a successful shape, size, angle, color, or object behavior into a reusable building part with one tap.
 **Goal alignment:** "more fun, more surprising, more satisfying" — quickly multiplying a giant ball, tuned domino, bomb, duck, or rocket makes experiments faster while preserving the compact one-row tool flow on desktop and mobile.

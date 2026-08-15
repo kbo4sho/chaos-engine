@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-08-15",
+      "ideas": [
+        "New tool: Motorize individual canvas objects"
+      ],
+      "summary": "Implemented Motor tool (⚙️) — the final button in the existing object toolbar now cycles a tapped dynamic top-level body clockwise, counter-clockwise, then off; persistent target speed turns ordinary and constrained parts into powered mechanisms, a neon gear marker plus status callout makes state visible, 46px fallback targeting supports touch, and Eraser or Clear removes all motor state."
+    },
+    {
       "date": "2026-08-14",
       "ideas": [
         "New tool: Clone standalone canvas objects"

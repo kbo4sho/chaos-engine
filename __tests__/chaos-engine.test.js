@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor'
   ];
 
   allTools.forEach(tool => {
@@ -40,16 +40,16 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 33 tool buttons', () => {
+  it('should have exactly 34 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(33);
+    expect(buttons.length).toBe(34);
   });
 
-  it('should append Clone after Resize at the end of the object toolbar', () => {
+  it('should append Motor after Clone at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('clone');
-    expect(toolbar.lastElementChild?.textContent).toContain('Clone');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('resize');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('motor');
+    expect(toolbar.lastElementChild?.textContent).toContain('Motor');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('clone');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
   });
 
@@ -61,6 +61,52 @@ describe('Tool Button Existence', () => {
   it('should have draw button with special class', () => {
     const drawBtn = document.querySelector('[data-tool="draw"]');
     expect(drawBtn.classList.contains('draw-btn')).toBe(true);
+  });
+});
+
+// ============================================
+// MOTOR TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Motor Tool', () => {
+  it('should expose Motor as the final selectable toolbar tool', () => {
+    const motorBtn = document.querySelector('[data-tool="motor"]');
+    expect(motorBtn).not.toBeNull();
+    expect(motorBtn?.getAttribute('aria-label')).toContain('Motorize');
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'motor'");
+    expect(scriptContent).toContain('toggleMotorAt(pos)');
+  });
+
+  it('should cycle a motor clockwise, counter-clockwise, then off', () => {
+    const source = scriptContent.match(/function getNextMotorDirection\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getNextMotorDirection = new Function(`${source}; return getNextMotorDirection;`)();
+
+    expect(getNextMotorDirection(0)).toBe(1);
+    expect(getNextMotorDirection(1)).toBe(-1);
+    expect(getNextMotorDirection(-1)).toBe(0);
+  });
+
+  it('should motorize dynamic top-level bodies with touch-friendly targeting', () => {
+    expect(scriptContent).toContain('let motorizedBodies = new Map()');
+    expect(scriptContent).toContain('function isMotorableBody(b)');
+    expect(scriptContent).toContain('!b.isStatic && b.parent === b');
+    expect(scriptContent).toContain('Matter.Query.point(motorableBodies, pos)');
+    expect(scriptContent).toContain('let nearestDist = 46');
+    expect(scriptContent).toContain('motorizedBodies.set(target, direction)');
+    expect(scriptContent).toContain('Body.setAngularVelocity(target, direction * 0.24)');
+    expect(scriptContent).toContain('const targetSpeed = direction * 0.24');
+  });
+
+  it('should render motor state, announce changes, and clean up on erase or Clear', () => {
+    expect(document.getElementById('motor-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('function drawMotorMarkers(timestamp)');
+    expect(scriptContent).toContain('drawMotorMarkers(timestamp)');
+    expect(scriptContent).toContain("direction === 1 ? '↻' : '↺'");
+    expect(scriptContent).toContain('motorizedBodies.delete(b)');
+    expect(scriptContent).toContain('motorizedBodies.clear()');
+    expect(scriptContent).toContain("motor: '#ff66cc'");
   });
 });
 
