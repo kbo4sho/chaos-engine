@@ -127,6 +127,19 @@ canvas#game {
 #motor-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#flipper-feedback {
+  position:absolute; top:116px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#ff8800;
+  font-size:19px; letter-spacing:2px; line-height:1;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none;
+  transition:opacity .12s, transform .12s;
+}
+#flipper-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -268,6 +281,7 @@ canvas#game {
     <div id="resize-feedback" role="status" aria-live="polite"></div>
     <div id="clone-feedback" role="status" aria-live="polite"></div>
     <div id="motor-feedback" role="status" aria-live="polite"></div>
+    <div id="flipper-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -307,6 +321,7 @@ canvas#game {
     <button class="tool-btn" data-tool="resize" style="color:#66ff99;" title="Tap an object to grow it; tap this button again to switch to shrink" aria-label="Resize objects: grow mode"><span class="icon resize-icon">↕️</span><span class="resize-label">SIZE+</span></button>
     <button class="tool-btn" data-tool="clone" style="color:#cc99ff;" title="Tap a standalone object to duplicate it" aria-label="Clone a standalone object"><span class="icon">👯</span>Clone</button>
     <button class="tool-btn" data-tool="motor" style="color:#ff66cc;" title="Tap an object to cycle its motor clockwise, counter-clockwise, or off" aria-label="Motorize an object"><span class="icon">⚙️</span>Motor</button>
+    <button class="tool-btn" data-tool="flipper" style="color:#ff8800;" title="Tap empty canvas to place alternating flippers; tap a flipper to fire it" aria-label="Place or fire a pinball flipper"><span class="icon">🏓</span>Flip</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -509,6 +524,9 @@ let resizeFeedbackTimer = 0;
 let cloneFeedbackTimer = 0;
 let motorizedBodies = new Map(); // body -> direction: 1 clockwise, -1 counter-clockwise
 let motorFeedbackTimer = 0;
+let flippers = []; // {body, pivot, constraint, side, activeFrames}
+let nextFlipperSide = 'left';
+let flipperFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -1140,6 +1158,76 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
   });
 });
 
+const FLIPPER_WIDTH = 92;
+const FLIPPER_HEIGHT = 14;
+const FLIPPER_ACTIVE_FRAMES = 12;
+
+function getNextFlipperSide(side) {
+  return side === 'left' ? 'right' : 'left';
+}
+
+function getFlipperAngles(side) {
+  return side === 'left'
+    ? { rest: 0.18, active: -0.78 }
+    : { rest: -0.18, active: 0.78 };
+}
+
+function normalizeAngle(angle) {
+  while (angle > Math.PI) angle -= Math.PI * 2;
+  while (angle < -Math.PI) angle += Math.PI * 2;
+  return angle;
+}
+
+function getFlipperAngularVelocity(side, angle, active) {
+  const targets = getFlipperAngles(side);
+  const error = normalizeAngle((active ? targets.active : targets.rest) - angle);
+  return Math.max(-0.42, Math.min(0.42, error * 0.55));
+}
+
+function createFlipperAssembly(x, y, side) {
+  const angles = getFlipperAngles(side);
+  const marginX = FLIPPER_WIDTH / 2 + 14;
+  const centerX = Math.max(marginX, Math.min(canvas.width - marginX, x));
+  const centerY = Math.max(24, Math.min(canvas.height - 34, y));
+  const pointB = { x: side === 'left' ? -FLIPPER_WIDTH / 2 : FLIPPER_WIDTH / 2, y: 0 };
+  const rotatedPin = Vector.rotate(pointB, angles.rest);
+  const pivotX = centerX + rotatedPin.x;
+  const pivotY = centerY + rotatedPin.y;
+  const color = side === 'left' ? '#ff8800' : '#00ccff';
+  const body = Bodies.rectangle(centerX, centerY, FLIPPER_WIDTH, FLIPPER_HEIGHT, {
+    angle: angles.rest,
+    restitution: 0.8,
+    friction: 0.35,
+    frictionAir: 0.035,
+    density: 0.007,
+    label: 'flipper',
+    chamfer: { radius: 7 },
+    render: { type:'flipper', color, width:FLIPPER_WIDTH, height:FLIPPER_HEIGHT, side }
+  });
+  body.isFlipper = true;
+  body.flipperSide = side;
+  body.material = 'rubber';
+
+  const pivot = Bodies.circle(pivotX, pivotY, 7, {
+    isStatic: true,
+    label: 'flipper-pivot',
+    render: { type:'flipper-pivot', color, radius:7, side }
+  });
+  pivot.isFlipperPivot = true;
+
+  const constraint = Constraint.create({
+    bodyA: pivot,
+    bodyB: body,
+    pointA: { x:0, y:0 },
+    pointB,
+    length: 0,
+    stiffness: 1,
+    damping: 0.18,
+    render: { visible:false, type:'flipper-pin' }
+  });
+  return { body, pivot, constraint, side, activeFrames:0 };
+}
+
 // ── SPAWN OBJECTS ──
 function spawnObject(x, y, vx=0, vy=0) {
   let body;
@@ -1473,6 +1561,20 @@ function spawnObject(x, y, vx=0, vy=0) {
       body.chainConnections = 0;
       chainLinks.push(body);
       break;
+    }
+    case 'flipper': {
+      const assembly = createFlipperAssembly(x, y, nextFlipperSide);
+      flippers.push(assembly);
+      nextFlipperSide = getNextFlipperSide(nextFlipperSide);
+      markSpawnPop([assembly.body, assembly.pivot]);
+      Composite.add(world, [assembly.body, assembly.pivot, assembly.constraint]);
+      showFlipperFeedback(`FLIPPER ${assembly.side === 'left' ? 'L' : 'R'} READY`);
+      addFlipperBurst(assembly.body, false);
+      playSpawn();
+      playSound(280, 0.08, 'square', 0.07);
+      haptic([7]);
+      pointerDown = false;
+      return assembly.body;
     }
   }
 
@@ -2461,6 +2563,11 @@ function finishClear(playFeedback = true) {
   clearTimeout(motorFeedbackTimer);
   document.getElementById('motor-feedback').classList.remove('active');
   document.getElementById('motor-feedback').textContent = '';
+  flippers = [];
+  nextFlipperSide = 'left';
+  clearTimeout(flipperFeedbackTimer);
+  document.getElementById('flipper-feedback').classList.remove('active');
+  document.getElementById('flipper-feedback').textContent = '';
   bodyTrails.clear();
   shatterDebounce.clear();
   if (oceanMode) {
@@ -2596,7 +2703,8 @@ function getToolAccentColor(tool) {
     anchor: '#00e5ff',
     resize: '#66ff99',
     clone: '#cc99ff',
-    motor: '#ff66cc'
+    motor: '#ff66cc',
+    flipper: '#ff8800'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -2673,6 +2781,16 @@ function eraseBodyAt(pos) {
       bodiesToRemove.add(wb.anchor);
       bodiesToRemove.add(wb.ball);
       addConstraint(wb.chain);
+      return false;
+    }
+    return true;
+  });
+
+  flippers = flippers.filter(f => {
+    if (f.body === target || f.pivot === target) {
+      bodiesToRemove.add(f.body);
+      bodiesToRemove.add(f.pivot);
+      addConstraint(f.constraint);
       return false;
     }
     return true;
@@ -3079,6 +3197,75 @@ function toggleMotorAt(pos) {
   return true;
 }
 
+function showFlipperFeedback(message) {
+  const feedback = document.getElementById('flipper-feedback');
+  feedback.textContent = message;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(flipperFeedbackTimer);
+  flipperFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 850);
+}
+
+function addFlipperBurst(body, firing) {
+  const color = body.render?.color || '#ff8800';
+  const direction = body.flipperSide === 'left' ? -1 : 1;
+  for (let i = 0; i < (firing ? 16 : 8); i++) {
+    const along = (Math.random() - 0.5) * FLIPPER_WIDTH * 0.8;
+    particles.push({
+      x: body.position.x + Math.cos(body.angle) * along,
+      y: body.position.y + Math.sin(body.angle) * along,
+      vx: direction * (0.8 + Math.random() * 2.4),
+      vy: firing ? -1.5 - Math.random() * 3.5 : -0.5 - Math.random() * 1.5,
+      size: 2 + Math.random() * 2.5,
+      life: 0.25 + Math.random() * 0.25,
+      color
+    });
+  }
+}
+
+function findFlipperAt(pos) {
+  flippers = flippers.filter(f => Composite.get(world, f.body.id, 'body'));
+  const bodies = flippers.map(f => f.body);
+  let target = Matter.Query.point(bodies, pos).pop();
+
+  if (!target) {
+    let nearestDist = 46;
+    bodies.forEach(b => {
+      const dx = b.position.x - pos.x;
+      const dy = b.position.y - pos.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < nearestDist) {
+        target = b;
+        nearestDist = dist;
+      }
+    });
+  }
+  return flippers.find(f => f.body === target) || null;
+}
+
+function activateFlipperAt(pos) {
+  const flipper = findFlipperAt(pos);
+  if (!flipper) return false;
+  flipper.activeFrames = FLIPPER_ACTIVE_FRAMES;
+  Body.setAngularVelocity(
+    flipper.body,
+    getFlipperAngularVelocity(flipper.side, flipper.body.angle, true)
+  );
+  addFlipperBurst(flipper.body, true);
+  showFlipperFeedback(`THWACK ${flipper.side === 'left' ? 'L' : 'R'}!`);
+  haptic([12, 18, 8]);
+  playSound(flipper.side === 'left' ? 520 : 640, 0.06, 'square', 0.11);
+  playSound(180, 0.035, 'triangle', 0.06);
+  shakeIntensity = Math.max(shakeIntensity, 2.5);
+  return true;
+}
+
+function placeOrActivateFlipperAt(pos) {
+  if (activateFlipperAt(pos)) return 'activated';
+  return spawnObject(pos.x, pos.y) ? 'placed' : false;
+}
+
 let pointerDown = false;
 let pointerStartTime = 0;
 const TRAJECTORY_DOT_COUNT = 12;
@@ -3242,6 +3429,13 @@ function onDown(e) {
   // Motor tool — tap a body to cycle clockwise, counter-clockwise, and off.
   if (currentTool === 'motor') {
     toggleMotorAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Flipper tool — tap empty canvas to place one; tap a placed paddle to fire it.
+  if (currentTool === 'flipper') {
+    placeOrActivateFlipperAt(pos);
     pointerDown = false;
     return;
   }
@@ -4120,6 +4314,51 @@ function drawBody(b) {
       ctx.stroke();
       break;
     }
+    case 'flipper': {
+      const width = r.width || FLIPPER_WIDTH;
+      const height = r.height || FLIPPER_HEIGHT;
+      const isLeft = r.side === 'left';
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 14;
+      ctx.fillStyle = color + '55';
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.roundRect(-width/2, -height/2, width, height, height/2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      const tipX = isLeft ? width/2 - 10 : -width/2 + 10;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(tipX, 0, 3, 0, Math.PI*2);
+      ctx.fill();
+      ctx.fillStyle = color;
+      ctx.font = '12px VT323';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(isLeft ? 'L' : 'R', 0, 1);
+      break;
+    }
+    case 'flipper-pivot': {
+      const radius = r.radius || 7;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 10;
+      ctx.fillStyle = '#080c10';
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI*2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(0, 0, 2, 0, Math.PI*2);
+      ctx.fill();
+      break;
+    }
     case 'ragdoll-head': {
       const radius = r.radius || 8;
       // Glow
@@ -4471,6 +4710,7 @@ function drawConstraints() {
   const wreckingChains = new Set(wreckingBalls.map(wb => wb.chain));
   constraints.forEach(c => {
     if (!c.bodyA || !c.bodyB) return;
+    if (c.render?.type === 'flipper-pin') return;
     const pA = Vector.add(c.bodyA.position, Vector.rotate(c.pointA, c.bodyA.angle));
     const pB = Vector.add(c.bodyB.position, Vector.rotate(c.pointB, c.bodyB.angle));
     if (wreckingChains.has(c) || c.render?.type === 'chain-link-constraint') {
@@ -4855,6 +5095,16 @@ function loop(timestamp) {
       if (!b.isStatic) Body.applyForce(b, b.position, {x: windForce, y: 0});
     });
   }
+
+  // Flippers snap to their fired angle, then spring back to rest.
+  flippers = flippers.filter(f => {
+    if (!Composite.get(world, f.body.id, 'body')) return false;
+    const active = f.activeFrames > 0;
+    if (active && !paused) f.activeFrames--;
+    const targetVelocity = getFlipperAngularVelocity(f.side, f.body.angle, active);
+    Body.setAngularVelocity(f.body, targetVelocity);
+    return true;
+  });
 
   // Persistent per-object motors recover their target speed after collisions.
   motorizedBodies.forEach((direction, b) => {

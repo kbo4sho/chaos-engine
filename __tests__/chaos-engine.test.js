@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper'
   ];
 
   allTools.forEach(tool => {
@@ -40,16 +40,16 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 34 tool buttons', () => {
+  it('should have exactly 35 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(34);
+    expect(buttons.length).toBe(35);
   });
 
-  it('should append Motor after Clone at the end of the object toolbar', () => {
+  it('should append Flipper after Motor at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('motor');
-    expect(toolbar.lastElementChild?.textContent).toContain('Motor');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('clone');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('flipper');
+    expect(toolbar.lastElementChild?.textContent).toContain('Flip');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('motor');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
   });
 
@@ -61,6 +61,61 @@ describe('Tool Button Existence', () => {
   it('should have draw button with special class', () => {
     const drawBtn = document.querySelector('[data-tool="draw"]');
     expect(drawBtn.classList.contains('draw-btn')).toBe(true);
+  });
+});
+
+// ============================================
+// FLIPPER TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Flipper Tool', () => {
+  it('should expose Flipper as the final selectable toolbar tool', () => {
+    const flipperBtn = document.querySelector('[data-tool="flipper"]');
+    expect(flipperBtn).not.toBeNull();
+    expect(flipperBtn?.getAttribute('aria-label')).toContain('pinball flipper');
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'flipper'");
+    expect(scriptContent).toContain('placeOrActivateFlipperAt(pos)');
+  });
+
+  it('should alternate left and right placement with mirrored target angles', () => {
+    const nextSource = scriptContent.match(/function getNextFlipperSide\([\s\S]*?\n\}/)?.[0];
+    const angleSource = scriptContent.match(/function getFlipperAngles\([\s\S]*?\n\}/)?.[0];
+    expect(nextSource).toBeTruthy();
+    expect(angleSource).toBeTruthy();
+    const getNextFlipperSide = new Function(`${nextSource}; return getNextFlipperSide;`)();
+    const getFlipperAngles = new Function(`${angleSource}; return getFlipperAngles;`)();
+
+    expect(getNextFlipperSide('left')).toBe('right');
+    expect(getNextFlipperSide('right')).toBe('left');
+    expect(getFlipperAngles('left')).toEqual({ rest: 0.18, active: -0.78 });
+    expect(getFlipperAngles('right')).toEqual({ rest: -0.18, active: 0.78 });
+  });
+
+  it('should create a pinned paddle and fire it with touch-friendly targeting', () => {
+    expect(scriptContent).toContain('function createFlipperAssembly(x, y, side)');
+    expect(scriptContent).toContain("label: 'flipper'");
+    expect(scriptContent).toContain("label: 'flipper-pivot'");
+    expect(scriptContent).toContain('Constraint.create({');
+    expect(scriptContent).toContain("type:'flipper-pin'");
+    expect(scriptContent).toContain('let nextFlipperSide = \'left\'');
+    expect(scriptContent).toContain('function activateFlipperAt(pos)');
+    expect(scriptContent).toContain('Matter.Query.point(bodies, pos)');
+    expect(scriptContent).toContain('let nearestDist = 46');
+    expect(scriptContent).toContain('flipper.activeFrames = FLIPPER_ACTIVE_FRAMES');
+    expect(scriptContent).toContain('getFlipperAngularVelocity(flipper.side, flipper.body.angle, true)');
+  });
+
+  it('should spring back, render feedback, and clean up through Eraser or Clear', () => {
+    expect(document.getElementById('flipper-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain("case 'flipper':");
+    expect(scriptContent).toContain("case 'flipper-pivot':");
+    expect(scriptContent).toContain('const active = f.activeFrames > 0');
+    expect(scriptContent).toContain('Body.setAngularVelocity(f.body, targetVelocity)');
+    expect(scriptContent).toContain('if (f.body === target || f.pivot === target)');
+    expect(scriptContent).toContain('flippers = [];');
+    expect(scriptContent).toContain("nextFlipperSide = 'left';");
+    expect(scriptContent).toContain("flipper: '#ff8800'");
   });
 });
 

@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-08-16T14:08:02Z — Added: Pinball Flipper tool
+**Why:** The toolbar could place passive mechanisms and give objects persistent motors, but it had no player-timed part for batting objects through a scene. Flipper turns bumpers, pins, balls, and ramps into an improvised pinball table with a single compact control.
+**Goal alignment:** "more fun, more surprising, more satisfying" — alternate left/right paddles create a timing-and-skill interaction that is meaningfully different from spawning, transforming, or continuously powering an object.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (282/282 passing); browser smoke ✓ (Ball selected and placed, Flipper selected at toolbar end, left paddle placed and fired to its active angle before springing back, right paddle placed/fired at 390×844, final 52×50px button reachable, 0 console errors/warnings); live ✓ (http://192.168.68.59:3003)
+**Status:** shipped
+
 ## 2026-08-15T14:11:41Z — Added: Motor tool
 **Why:** The toolbar could place, move, connect, anchor, resize, clone, and remove objects, but it had no persistent way to power an individual part. Motor turns existing bodies—including constrained parts—into reusable clockwise or counter-clockwise rotors.
 **Goal alignment:** "more fun, more surprising, more satisfying" — powered seesaws, spinning dominoes, and improvised machines add a new active-building verb while keeping the one-button, one-row desktop and mobile flow.

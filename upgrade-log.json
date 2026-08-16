@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-08-16",
+      "ideas": [
+        "New tool: Player-fired pinball flippers"
+      ],
+      "summary": "Implemented Flipper tool (🏓) — the final button in the existing object toolbar now places alternating left and right pinned paddles on empty canvas and fires a tapped paddle through a timed active angle before it springs back to rest; mirrored neon rendering, a 46px touch fallback, status/sound/haptic feedback, canvas-safe placement, and Eraser/Clear cleanup make it practical on desktop and mobile."
+    },
+    {
       "date": "2026-08-15",
       "ideas": [
         "New tool: Motorize individual canvas objects"
