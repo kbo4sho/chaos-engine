@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-08-20T14:08:45Z — Added: Swap tool
+**Why:** The toolbar could create, connect, move, duplicate, resize, anchor, power, and remove objects, but it could not directly rearrange a pair. Swap turns two deliberately chosen standalone bodies into a quick spatial remix without disturbing their motion.
+**Goal alignment:** "more fun, more surprising, more satisfying" — a two-step targeted exchange adds a distinct scene-composition verb while preserving the compact scrolling toolbar and one-tap touch flow.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (287/287 passing); browser smoke ✓ (Ball and Block placed with existing tools, Swap selected at toolbar end, first-body marker/status shown, second tap completed the exchange with `SWAPPED!`, OBJ remained 2, 0 console errors/warnings); responsive CSS ✓ (52×50px mobile tool target and horizontal end reachability retained); live ✓ (http://192.168.68.59:3003)
+**Status:** shipped
+
 ## 2026-08-16T14:08:02Z — Added: Pinball Flipper tool
 **Why:** The toolbar could place passive mechanisms and give objects persistent motors, but it had no player-timed part for batting objects through a scene. Flipper turns bumpers, pins, balls, and ramps into an improvised pinball table with a single compact control.
 **Goal alignment:** "more fun, more surprising, more satisfying" — alternate left/right paddles create a timing-and-skill interaction that is meaningfully different from spawning, transforming, or continuously powering an object.

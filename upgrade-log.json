@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-08-20",
+      "ideas": [
+        "New tool: Swap two standalone canvas objects"
+      ],
+      "summary": "Implemented Swap tool (🔀) — the final button in the existing object toolbar now selects two standalone dynamic bodies and exchanges their canvas-safe positions while each keeps its own motion; a pulsing first-selection marker, cyan/magenta teleport bursts, status/audio/haptic feedback, 46px touch targeting, protected connected/static bodies, and Eraser/Clear/tool-change cleanup keep the two-step interaction readable on desktop and mobile."
+    },
+    {
       "date": "2026-08-16",
       "ideas": [
         "New tool: Player-fired pinball flippers"

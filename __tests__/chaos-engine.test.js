@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,18 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 35 tool buttons', () => {
+  it('should have exactly 36 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(35);
+    expect(buttons.length).toBe(36);
   });
 
-  it('should append Flipper after Motor at the end of the object toolbar', () => {
+  it('should append Swap after Flipper at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('flipper');
-    expect(toolbar.lastElementChild?.textContent).toContain('Flip');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('motor');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('swap');
+    expect(toolbar.lastElementChild?.textContent).toContain('Swap');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('flipper');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
+    expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
 
   it('should have ball as default active tool', () => {
@@ -61,6 +62,55 @@ describe('Tool Button Existence', () => {
   it('should have draw button with special class', () => {
     const drawBtn = document.querySelector('[data-tool="draw"]');
     expect(drawBtn.classList.contains('draw-btn')).toBe(true);
+  });
+});
+
+// ============================================
+// SWAP TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Swap Tool', () => {
+  it('should expose Swap as the final selectable toolbar tool', () => {
+    const swapBtn = document.querySelector('[data-tool="swap"]');
+    expect(swapBtn).not.toBeNull();
+    expect(swapBtn?.getAttribute('aria-label')).toContain('two standalone objects');
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'swap'");
+    expect(scriptContent).toContain('swapBodiesAt(pos)');
+  });
+
+  it('should clamp differently sized bodies to canvas-safe destinations', () => {
+    const source = scriptContent.match(/function getSafeSwapPosition\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getSafeSwapPosition = new Function(`${source}; return getSafeSwapPosition;`)();
+    const body = { bounds: { min: { x: 0, y: 0 }, max: { x: 80, y: 60 } } };
+
+    expect(getSafeSwapPosition(body, { x: 5, y: 5 }, 500, 300)).toEqual({ x: 50, y: 40 });
+    expect(getSafeSwapPosition(body, { x: 495, y: 295 }, 500, 300)).toEqual({ x: 450, y: 242 });
+    expect(getSafeSwapPosition(body, { x: 250, y: 140 }, 500, 300)).toEqual({ x: 250, y: 140 });
+  });
+
+  it('should select two standalone dynamic bodies and exchange their positions', () => {
+    expect(scriptContent).toContain('function isSwappableBody(b)');
+    expect(scriptContent).toContain("b.label === 'wall'");
+    expect(scriptContent).toContain('b.isStatic || b.isFragment || b.parent !== b');
+    expect(scriptContent).toContain('Composite.allConstraints(world).some');
+    expect(scriptContent).toContain('Matter.Query.point(swappableBodies, pos)');
+    expect(scriptContent).toContain('let nearestDist = 46');
+    expect(scriptContent).toContain('swapFirstBody = target');
+    expect(scriptContent).toContain('Body.setPosition(first, firstDestination)');
+    expect(scriptContent).toContain('Body.setPosition(target, secondDestination)');
+    expect(scriptContent).toContain("return 'swapped'");
+  });
+
+  it('should render selection feedback and clean state on tool change, Eraser, or Clear', () => {
+    expect(document.getElementById('swap-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('function drawSwapMarker(timestamp)');
+    expect(scriptContent).toContain('drawSwapMarker(timestamp)');
+    expect(scriptContent).toContain("if (tool !== 'swap') resetSwapSelection(true)");
+    expect(scriptContent).toContain('if (swapFirstBody && removedBodyIds.has(swapFirstBody.id)) swapFirstBody = null');
+    expect(scriptContent).toContain("document.getElementById('swap-feedback').textContent = ''");
+    expect(scriptContent).toContain("swap: '#00ffee'");
   });
 });
 

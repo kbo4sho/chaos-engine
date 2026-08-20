@@ -140,6 +140,19 @@ canvas#game {
 #flipper-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#swap-feedback {
+  position:absolute; top:150px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#00ffee;
+  font-size:19px; letter-spacing:2px; line-height:1;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none;
+  transition:opacity .12s, transform .12s;
+}
+#swap-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -282,6 +295,7 @@ canvas#game {
     <div id="clone-feedback" role="status" aria-live="polite"></div>
     <div id="motor-feedback" role="status" aria-live="polite"></div>
     <div id="flipper-feedback" role="status" aria-live="polite"></div>
+    <div id="swap-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -322,6 +336,7 @@ canvas#game {
     <button class="tool-btn" data-tool="clone" style="color:#cc99ff;" title="Tap a standalone object to duplicate it" aria-label="Clone a standalone object"><span class="icon">👯</span>Clone</button>
     <button class="tool-btn" data-tool="motor" style="color:#ff66cc;" title="Tap an object to cycle its motor clockwise, counter-clockwise, or off" aria-label="Motorize an object"><span class="icon">⚙️</span>Motor</button>
     <button class="tool-btn" data-tool="flipper" style="color:#ff8800;" title="Tap empty canvas to place alternating flippers; tap a flipper to fire it" aria-label="Place or fire a pinball flipper"><span class="icon">🏓</span>Flip</button>
+    <button class="tool-btn" data-tool="swap" style="color:#00ffee;" title="Tap two standalone objects to swap their positions" aria-label="Swap the positions of two standalone objects"><span class="icon">🔀</span>Swap</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -527,6 +542,8 @@ let motorFeedbackTimer = 0;
 let flippers = []; // {body, pivot, constraint, side, activeFrames}
 let nextFlipperSide = 'left';
 let flipperFeedbackTimer = 0;
+let swapFirstBody = null;
+let swapFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -1149,6 +1166,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       document.querySelectorAll('.tool-btn:not(.draw-btn):not(.slomo-btn)').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       currentTool = tool;
+      if (tool !== 'swap') resetSwapSelection(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -2568,6 +2586,10 @@ function finishClear(playFeedback = true) {
   clearTimeout(flipperFeedbackTimer);
   document.getElementById('flipper-feedback').classList.remove('active');
   document.getElementById('flipper-feedback').textContent = '';
+  swapFirstBody = null;
+  clearTimeout(swapFeedbackTimer);
+  document.getElementById('swap-feedback').classList.remove('active');
+  document.getElementById('swap-feedback').textContent = '';
   bodyTrails.clear();
   shatterDebounce.clear();
   if (oceanMode) {
@@ -2704,7 +2726,8 @@ function getToolAccentColor(tool) {
     resize: '#66ff99',
     clone: '#cc99ff',
     motor: '#ff66cc',
-    flipper: '#ff8800'
+    flipper: '#ff8800',
+    swap: '#00ffee'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -2837,6 +2860,7 @@ function eraseBodyAt(pos) {
     grabBody = null;
     grabHistory = [];
   }
+  if (swapFirstBody && removedBodyIds.has(swapFirstBody.id)) swapFirstBody = null;
 
   haptic([8]);
   playSound(650, 0.1, 'sine', 0.08);
@@ -3266,6 +3290,116 @@ function placeOrActivateFlipperAt(pos) {
   return spawnObject(pos.x, pos.y) ? 'placed' : false;
 }
 
+function isSwappableBody(b) {
+  if (!b || b.label === 'wall' || b.isTarget || b.isStatic || b.isFragment || b.parent !== b) return false;
+  return !Composite.allConstraints(world).some(c => c.bodyA === b || c.bodyB === b);
+}
+
+function getSafeSwapPosition(body, destination, canvasWidth, canvasHeight) {
+  const halfW = (body.bounds.max.x - body.bounds.min.x) / 2;
+  const halfH = (body.bounds.max.y - body.bounds.min.y) / 2;
+  return {
+    x: Math.max(halfW + 10, Math.min(canvasWidth - halfW - 10, destination.x)),
+    y: Math.max(halfH + 10, Math.min(canvasHeight - halfH - 28, destination.y))
+  };
+}
+
+function resetSwapSelection(clearFeedback = false) {
+  swapFirstBody = null;
+  if (!clearFeedback) return;
+  clearTimeout(swapFeedbackTimer);
+  const feedback = document.getElementById('swap-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
+function showSwapFeedback(message, color = '#00ffee') {
+  const feedback = document.getElementById('swap-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(swapFeedbackTimer);
+  swapFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 850);
+}
+
+function addSwapBurst(position, color, direction) {
+  for (let i = 0; i < 14; i++) {
+    const angle = (Math.PI * 2 * i) / 14;
+    const speed = 1.8 + Math.random() * 3;
+    particles.push({
+      x: position.x,
+      y: position.y,
+      vx: Math.cos(angle) * speed + direction * 0.8,
+      vy: Math.sin(angle) * speed,
+      size: 2 + Math.random() * 2.5,
+      life: 0.28 + Math.random() * 0.28,
+      color
+    });
+  }
+  explosions.push({ x: position.x, y: position.y, r: 5, maxR: 50, alpha: 0.7, isBirthRing: true });
+}
+
+function findSwappableBodyAt(pos) {
+  const swappableBodies = Composite.allBodies(world).filter(isSwappableBody);
+  let target = Matter.Query.point(swappableBodies, pos).filter(isSwappableBody).pop();
+
+  if (!target) {
+    let nearestDist = 46;
+    swappableBodies.forEach(b => {
+      const dx = b.position.x - pos.x;
+      const dy = b.position.y - pos.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < nearestDist) {
+        target = b;
+        nearestDist = dist;
+      }
+    });
+  }
+  return target || null;
+}
+
+function swapBodiesAt(pos) {
+  if (swapFirstBody && !Composite.get(world, swapFirstBody.id, 'body')) swapFirstBody = null;
+  const target = findSwappableBodyAt(pos);
+  if (!target) return false;
+
+  if (!swapFirstBody) {
+    swapFirstBody = target;
+    addSwapBurst(target.position, '#00ffee', 1);
+    showSwapFeedback('SWAP A SET • PICK B');
+    haptic([7]);
+    playSound(680, 0.08, 'square', 0.06);
+    return 'selected';
+  }
+
+  if (target === swapFirstBody) {
+    resetSwapSelection();
+    showSwapFeedback('SWAP CANCELLED', '#aaaaaa');
+    haptic([4]);
+    playSound(240, 0.08, 'square', 0.05);
+    return 'cancelled';
+  }
+
+  const first = swapFirstBody;
+  const firstStart = { x: first.position.x, y: first.position.y };
+  const secondStart = { x: target.position.x, y: target.position.y };
+  const firstDestination = getSafeSwapPosition(first, secondStart, canvas.width, canvas.height);
+  const secondDestination = getSafeSwapPosition(target, firstStart, canvas.width, canvas.height);
+  Body.setPosition(first, firstDestination);
+  Body.setPosition(target, secondDestination);
+  addSwapBurst(firstDestination, '#00ffee', -1);
+  addSwapBurst(secondDestination, '#ff66cc', 1);
+  resetSwapSelection();
+  showSwapFeedback('SWAPPED!');
+  haptic([9, 16, 9]);
+  playSound(520, 0.08, 'square', 0.07);
+  playSound(820, 0.12, 'sine', 0.08);
+  shakeIntensity = Math.max(shakeIntensity, 2.5);
+  return 'swapped';
+}
+
 let pointerDown = false;
 let pointerStartTime = 0;
 const TRAJECTORY_DOT_COUNT = 12;
@@ -3436,6 +3570,13 @@ function onDown(e) {
   // Flipper tool — tap empty canvas to place one; tap a placed paddle to fire it.
   if (currentTool === 'flipper') {
     placeOrActivateFlipperAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Swap tool — select two standalone bodies to exchange canvas-safe positions.
+  if (currentTool === 'swap') {
+    swapBodiesAt(pos);
     pointerDown = false;
     return;
   }
@@ -5073,6 +5214,39 @@ function drawMotorMarkers(timestamp) {
   });
 }
 
+function drawSwapMarker(timestamp) {
+  if (!swapFirstBody || currentTool !== 'swap') return;
+  if (!Composite.get(world, swapFirstBody.id, 'body')) {
+    swapFirstBody = null;
+    return;
+  }
+
+  const halfW = (swapFirstBody.bounds.max.x - swapFirstBody.bounds.min.x) / 2;
+  const halfH = (swapFirstBody.bounds.max.y - swapFirstBody.bounds.min.y) / 2;
+  const radius = Math.max(23, Math.min(66, Math.sqrt(halfW*halfW + halfH*halfH) + 11));
+  const spin = timestamp / 420;
+
+  ctx.save();
+  ctx.translate(swapFirstBody.position.x, swapFirstBody.position.y);
+  ctx.rotate(spin);
+  ctx.lineWidth = 3;
+  ctx.shadowBlur = 12;
+  ['#00ffee', '#ff66cc'].forEach((color, i) => {
+    ctx.strokeStyle = color;
+    ctx.shadowColor = color;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, i * Math.PI, i * Math.PI + Math.PI * 0.72);
+    ctx.stroke();
+  });
+  ctx.rotate(-spin);
+  ctx.fillStyle = '#00ffee';
+  ctx.font = '18px VT323';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('A', 0, 1);
+  ctx.restore();
+}
+
 // ── MAIN LOOP ──
 let lastTime = 0;
 
@@ -5870,6 +6044,7 @@ function loop(timestamp) {
   });
   drawAnchorMarkers(timestamp);
   drawMotorMarkers(timestamp);
+  drawSwapMarker(timestamp);
 
   // Effects
   drawRopes();
