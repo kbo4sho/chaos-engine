@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip'
   ];
 
   allTools.forEach(tool => {
@@ -40,16 +40,16 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 36 tool buttons', () => {
+  it('should have exactly 37 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(36);
+    expect(buttons.length).toBe(37);
   });
 
-  it('should append Swap after Flipper at the end of the object toolbar', () => {
+  it('should append Snip after Swap at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('swap');
-    expect(toolbar.lastElementChild?.textContent).toContain('Swap');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('flipper');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('snip');
+    expect(toolbar.lastElementChild?.textContent).toContain('Snip');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('swap');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -62,6 +62,62 @@ describe('Tool Button Existence', () => {
   it('should have draw button with special class', () => {
     const drawBtn = document.querySelector('[data-tool="draw"]');
     expect(drawBtn.classList.contains('draw-btn')).toBe(true);
+  });
+});
+
+// ============================================
+// SNIP TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Snip Tool', () => {
+  it('should expose Snip as the final selectable toolbar tool', () => {
+    const snipBtn = document.querySelector('[data-tool="snip"]');
+    expect(snipBtn).not.toBeNull();
+    expect(snipBtn?.getAttribute('aria-label')).toContain('physical connection');
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'snip'");
+    expect(scriptContent).toContain('snipConstraintAt(pos)');
+  });
+
+  it('should measure taps against a connection segment', () => {
+    const source = scriptContent.match(/function distancePointToSegment\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const distancePointToSegment = new Function(`${source}; return distancePointToSegment;`)();
+
+    expect(distancePointToSegment({ x:50, y:20 }, { x:0, y:0 }, { x:100, y:0 })).toBe(20);
+    expect(distancePointToSegment({ x:-10, y:0 }, { x:0, y:0 }, { x:100, y:0 })).toBe(10);
+    expect(distancePointToSegment({ x:3, y:4 }, { x:0, y:0 }, { x:0, y:0 })).toBe(5);
+  });
+
+  it('should find only visible body-to-body constraints with forgiving touch targeting', () => {
+    expect(scriptContent).toContain('function isSnippableConstraint(constraint)');
+    expect(scriptContent).toContain('constraint.bodyA &&');
+    expect(scriptContent).toContain('constraint.bodyB &&');
+    expect(scriptContent).toContain("constraint.render?.visible !== false");
+    expect(scriptContent).toContain("constraint.render?.type !== 'flipper-pin'");
+    expect(scriptContent).toContain('function findSnippableConstraintAt(pos, maxDistance = 28)');
+    expect(scriptContent).toContain('Composite.allConstraints(world).forEach');
+    expect(scriptContent).toContain('distancePointToSegment(pos, start, end)');
+  });
+
+  it('should remove only the tapped constraint and clean its tracked connection state', () => {
+    expect(scriptContent).toContain('function snipConstraintAt(pos)');
+    expect(scriptContent).toContain('Composite.remove(world, constraint, true)');
+    expect(scriptContent).toContain('ropes = ropes.filter(rope => rope !== constraint)');
+    expect(scriptContent).toContain('wreckingBalls = wreckingBalls.filter');
+    expect(scriptContent).toContain('body.chainConnections = Math.max(0, body.chainConnections - 1)');
+    expect(scriptContent).not.toContain('Composite.remove(world, constraint.bodyA)');
+    expect(scriptContent).not.toContain('Composite.remove(world, constraint.bodyB)');
+  });
+
+  it('should render feedback and clear transient state on scene reset', () => {
+    expect(document.getElementById('snip-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('function addSnipBurst(point)');
+    expect(scriptContent).toContain("showSnipFeedback('CONNECTION CUT!')");
+    expect(scriptContent).toContain("showSnipFeedback('NO LINK', '#888888')");
+    expect(scriptContent).toContain('clearTimeout(snipFeedbackTimer)');
+    expect(scriptContent).toContain("document.getElementById('snip-feedback').textContent = ''");
+    expect(scriptContent).toContain("snip: '#ffdd55'");
   });
 });
 

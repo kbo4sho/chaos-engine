@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-08-21",
+      "ideas": [
+        "New tool: Snip one visible physical connection"
+      ],
+      "summary": "Implemented Snip tool (✂️) — the final button in the existing object toolbar now cuts a tapped visible rope, chain, joint, axle, or wrecking connection while leaving both connected bodies on the canvas; 28px segment targeting supports touch, tracked connection state stays clean, neon particles plus status/audio/haptic feedback make each cut readable, and Clear resets transient feedback."
+    },
+    {
       "date": "2026-08-20",
       "ideas": [
         "New tool: Swap two standalone canvas objects"

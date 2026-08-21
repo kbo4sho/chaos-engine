@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-08-21T14:08:49Z — Added: Snip tool
+**Why:** The toolbar could build connections with ropes, chains, joints, and axles, and Eraser could remove whole assemblies, but there was no precise way to release a connection while keeping its objects in play. Snip adds that missing destructive construction verb.
+**Goal alignment:** "more fun, more surprising, more satisfying" — players can now turn connected builds into timed releases, falling ragdolls, loose wrecking balls, and deliberately broken machines without deleting their parts.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (293/293 passing); browser smoke ✓ on isolated local preview (Ball and Block placed, Rope connected them, Snip selected at toolbar end and cut the connection with `CONNECTION CUT!`, OBJ remained 2, 0 console errors/warnings); mobile ✓ (390×844, final Snip button reachable/selectable at 52×50px); live blocked (documented http://192.168.68.59:3003 currently serves the unrelated KBO Software Factory)
+**Status:** verified; live deployment blocked by documented URL/port ownership
+
 ## 2026-08-20T14:08:45Z — Added: Swap tool
 **Why:** The toolbar could create, connect, move, duplicate, resize, anchor, power, and remove objects, but it could not directly rearrange a pair. Swap turns two deliberately chosen standalone bodies into a quick spatial remix without disturbing their motion.
 **Goal alignment:** "more fun, more surprising, more satisfying" — a two-step targeted exchange adds a distinct scene-composition verb while preserving the compact scrolling toolbar and one-tap touch flow.

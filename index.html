@@ -153,6 +153,19 @@ canvas#game {
 #swap-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#snip-feedback {
+  position:absolute; top:184px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#ffdd55;
+  font-size:19px; letter-spacing:2px; line-height:1;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none;
+  transition:opacity .12s, transform .12s;
+}
+#snip-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -296,6 +309,7 @@ canvas#game {
     <div id="motor-feedback" role="status" aria-live="polite"></div>
     <div id="flipper-feedback" role="status" aria-live="polite"></div>
     <div id="swap-feedback" role="status" aria-live="polite"></div>
+    <div id="snip-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -337,6 +351,7 @@ canvas#game {
     <button class="tool-btn" data-tool="motor" style="color:#ff66cc;" title="Tap an object to cycle its motor clockwise, counter-clockwise, or off" aria-label="Motorize an object"><span class="icon">⚙️</span>Motor</button>
     <button class="tool-btn" data-tool="flipper" style="color:#ff8800;" title="Tap empty canvas to place alternating flippers; tap a flipper to fire it" aria-label="Place or fire a pinball flipper"><span class="icon">🏓</span>Flip</button>
     <button class="tool-btn" data-tool="swap" style="color:#00ffee;" title="Tap two standalone objects to swap their positions" aria-label="Swap the positions of two standalone objects"><span class="icon">🔀</span>Swap</button>
+    <button class="tool-btn" data-tool="snip" style="color:#ffdd55;" title="Tap a visible physical connection to cut it" aria-label="Snip a visible physical connection"><span class="icon">✂️</span>Snip</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -544,6 +559,7 @@ let nextFlipperSide = 'left';
 let flipperFeedbackTimer = 0;
 let swapFirstBody = null;
 let swapFeedbackTimer = 0;
+let snipFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -2590,6 +2606,9 @@ function finishClear(playFeedback = true) {
   clearTimeout(swapFeedbackTimer);
   document.getElementById('swap-feedback').classList.remove('active');
   document.getElementById('swap-feedback').textContent = '';
+  clearTimeout(snipFeedbackTimer);
+  document.getElementById('snip-feedback').classList.remove('active');
+  document.getElementById('snip-feedback').textContent = '';
   bodyTrails.clear();
   shatterDebounce.clear();
   if (oceanMode) {
@@ -2727,7 +2746,8 @@ function getToolAccentColor(tool) {
     clone: '#cc99ff',
     motor: '#ff66cc',
     flipper: '#ff8800',
-    swap: '#00ffee'
+    swap: '#00ffee',
+    snip: '#ffdd55'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -3400,6 +3420,123 @@ function swapBodiesAt(pos) {
   return 'swapped';
 }
 
+function getConstraintWorldPoint(constraint, side) {
+  const body = side === 'A' ? constraint.bodyA : constraint.bodyB;
+  const point = (side === 'A' ? constraint.pointA : constraint.pointB) || { x:0, y:0 };
+  if (!body) return { x:point.x, y:point.y };
+  const cos = Math.cos(body.angle || 0);
+  const sin = Math.sin(body.angle || 0);
+  return {
+    x: body.position.x + point.x * cos - point.y * sin,
+    y: body.position.y + point.x * sin + point.y * cos
+  };
+}
+
+function distancePointToSegment(point, start, end) {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const lengthSquared = dx * dx + dy * dy;
+  if (lengthSquared === 0) return Math.hypot(point.x - start.x, point.y - start.y);
+  const t = Math.max(0, Math.min(1,
+    ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared
+  ));
+  const closestX = start.x + t * dx;
+  const closestY = start.y + t * dy;
+  return Math.hypot(point.x - closestX, point.y - closestY);
+}
+
+function getConstraintCutPoint(point, start, end) {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const lengthSquared = dx * dx + dy * dy;
+  if (lengthSquared === 0) return { x:start.x, y:start.y };
+  const t = Math.max(0, Math.min(1,
+    ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared
+  ));
+  return { x:start.x + t * dx, y:start.y + t * dy };
+}
+
+function isSnippableConstraint(constraint) {
+  return Boolean(
+    constraint &&
+    constraint.bodyA &&
+    constraint.bodyB &&
+    constraint.render?.visible !== false &&
+    constraint.render?.type !== 'flipper-pin'
+  );
+}
+
+function findSnippableConstraintAt(pos, maxDistance = 28) {
+  let match = null;
+  Composite.allConstraints(world).forEach(constraint => {
+    if (!isSnippableConstraint(constraint)) return;
+    const start = getConstraintWorldPoint(constraint, 'A');
+    const end = getConstraintWorldPoint(constraint, 'B');
+    const distance = distancePointToSegment(pos, start, end);
+    if (distance > maxDistance || (match && distance >= match.distance)) return;
+    match = {
+      constraint,
+      distance,
+      point: getConstraintCutPoint(pos, start, end)
+    };
+  });
+  return match;
+}
+
+function showSnipFeedback(message, color = '#ffdd55') {
+  const feedback = document.getElementById('snip-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(snipFeedbackTimer);
+  snipFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 800);
+}
+
+function addSnipBurst(point) {
+  for (let i = 0; i < 16; i++) {
+    const angle = (Math.PI * 2 * i) / 16;
+    const speed = 1.5 + Math.random() * 3.5;
+    particles.push({
+      x: point.x,
+      y: point.y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      size: 2 + Math.random() * 2,
+      life: 0.25 + Math.random() * 0.3,
+      color: i % 2 === 0 ? '#ffdd55' : '#ff5577'
+    });
+  }
+  explosions.push({ x:point.x, y:point.y, r:4, maxR:38, alpha:0.65, isBirthRing:true });
+}
+
+function snipConstraintAt(pos) {
+  const match = findSnippableConstraintAt(pos);
+  if (!match) {
+    showSnipFeedback('NO LINK', '#888888');
+    haptic([3]);
+    return false;
+  }
+
+  const { constraint, point } = match;
+  [constraint.bodyA, constraint.bodyB].forEach(body => {
+    if (body?.chainConnections) body.chainConnections = Math.max(0, body.chainConnections - 1);
+  });
+  ropes = ropes.filter(rope => rope !== constraint);
+  wreckingBalls = wreckingBalls.filter(wrecking => wrecking.chain !== constraint);
+  seesaws = seesaws.filter(seesaw => seesaw.constraint !== constraint);
+  flippers = flippers.filter(flipper => flipper.constraint !== constraint);
+  Composite.remove(world, constraint, true);
+  addSnipBurst(point);
+  showSnipFeedback('CONNECTION CUT!');
+  haptic([8, 12, 8]);
+  playSound(980, 0.05, 'square', 0.08);
+  playSound(340, 0.1, 'triangle', 0.06);
+  shakeIntensity = Math.max(shakeIntensity, 2);
+  return true;
+}
+
 let pointerDown = false;
 let pointerStartTime = 0;
 const TRAJECTORY_DOT_COUNT = 12;
@@ -3504,6 +3641,13 @@ function onDown(e) {
         ropeFirstBody = null;
       }
     }
+    pointerDown = false;
+    return;
+  }
+
+  // Snip tool — cut one visible physical connection without removing its bodies.
+  if (currentTool === 'snip') {
+    snipConstraintAt(pos);
     pointerDown = false;
     return;
   }
