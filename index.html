@@ -166,6 +166,19 @@ canvas#game {
 #snip-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#fission-feedback {
+  position:absolute; top:218px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#b266ff;
+  font-size:19px; letter-spacing:2px; line-height:1;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none;
+  transition:opacity .12s, transform .12s;
+}
+#fission-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -310,6 +323,7 @@ canvas#game {
     <div id="flipper-feedback" role="status" aria-live="polite"></div>
     <div id="swap-feedback" role="status" aria-live="polite"></div>
     <div id="snip-feedback" role="status" aria-live="polite"></div>
+    <div id="fission-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -352,6 +366,7 @@ canvas#game {
     <button class="tool-btn" data-tool="flipper" style="color:#ff8800;" title="Tap empty canvas to place alternating flippers; tap a flipper to fire it" aria-label="Place or fire a pinball flipper"><span class="icon">🏓</span>Flip</button>
     <button class="tool-btn" data-tool="swap" style="color:#00ffee;" title="Tap two standalone objects to swap their positions" aria-label="Swap the positions of two standalone objects"><span class="icon">🔀</span>Swap</button>
     <button class="tool-btn" data-tool="snip" style="color:#ffdd55;" title="Tap a visible physical connection to cut it" aria-label="Snip a visible physical connection"><span class="icon">✂️</span>Snip</button>
+    <button class="tool-btn" data-tool="fission" style="color:#b266ff;" title="Tap a standalone object to split it into two smaller twins" aria-label="Fission a standalone object into two smaller twins"><span class="icon">⚛️</span>Fission</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -560,6 +575,7 @@ let flipperFeedbackTimer = 0;
 let swapFirstBody = null;
 let swapFeedbackTimer = 0;
 let snipFeedbackTimer = 0;
+let fissionFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -2609,6 +2625,9 @@ function finishClear(playFeedback = true) {
   clearTimeout(snipFeedbackTimer);
   document.getElementById('snip-feedback').classList.remove('active');
   document.getElementById('snip-feedback').textContent = '';
+  clearTimeout(fissionFeedbackTimer);
+  document.getElementById('fission-feedback').classList.remove('active');
+  document.getElementById('fission-feedback').textContent = '';
   bodyTrails.clear();
   shatterDebounce.clear();
   if (oceanMode) {
@@ -2747,7 +2766,8 @@ function getToolAccentColor(tool) {
     motor: '#ff66cc',
     flipper: '#ff8800',
     swap: '#00ffee',
-    snip: '#ffdd55'
+    snip: '#ffdd55',
+    fission: '#b266ff'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -3159,6 +3179,129 @@ function cloneBodyAt(pos) {
   playSound(780, 0.14, 'sine', 0.08);
   shakeIntensity = Math.max(shakeIntensity, 2.5);
   return true;
+}
+
+const FISSION_SCALE = Math.SQRT1_2;
+const MAX_FISSION_DEPTH = 3;
+
+function isFissionableBody(b) {
+  if (!b || b.label === 'wall' || b.label === 'chain-link' || b.isTarget || b.isStatic || b.isFragment || b.parent !== b) return false;
+  const width = b.bounds.max.x - b.bounds.min.x;
+  const height = b.bounds.max.y - b.bounds.min.y;
+  if (Math.min(width, height) < 12 || (b.fissionDepth || 0) >= MAX_FISSION_DEPTH) return false;
+  return !Composite.allConstraints(world).some(c => c.bodyA === b || c.bodyB === b);
+}
+
+function getFissionLayout(source, canvasWidth, canvasHeight, scale = Math.SQRT1_2) {
+  const width = source.bounds.max.x - source.bounds.min.x;
+  const height = source.bounds.max.y - source.bounds.min.y;
+  const axisAngle = (source.angle || 0) + (height > width ? Math.PI / 2 : 0);
+  const direction = { x: Math.cos(axisAngle), y: Math.sin(axisAngle) };
+  const offset = Math.max(14, Math.max(width, height) * 0.42);
+  const halfWidth = width * scale / 2;
+  const halfHeight = height * scale / 2;
+  const clamp = sign => ({
+    x: Math.max(halfWidth + 8, Math.min(canvasWidth - halfWidth - 8, source.position.x + direction.x * offset * sign)),
+    y: Math.max(halfHeight + 8, Math.min(canvasHeight - halfHeight - 28, source.position.y + direction.y * offset * sign))
+  });
+  return { first: clamp(-1), second: clamp(1), direction };
+}
+
+function showFissionFeedback(message = 'FISSION ×2', color = '#b266ff') {
+  const feedback = document.getElementById('fission-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(fissionFeedbackTimer);
+  fissionFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 850);
+}
+
+function addFissionBurst(position, color) {
+  for (let i = 0; i < 22; i++) {
+    const angle = Math.PI * 2 * i / 22;
+    const speed = 2.2 + Math.random() * 4.2;
+    particles.push({
+      x: position.x,
+      y: position.y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      size: 2 + Math.random() * 3,
+      life: 0.3 + Math.random() * 0.3,
+      color: i % 3 === 0 ? '#ffffff' : color
+    });
+  }
+  explosions.push({ x:position.x, y:position.y, r:6, maxR:64, alpha:0.8, isBirthRing:true });
+}
+
+function fissionBodyAt(pos) {
+  const fissionableBodies = Composite.allBodies(world).filter(isFissionableBody);
+  let source = Matter.Query.point(fissionableBodies, pos).filter(isFissionableBody).pop();
+
+  // A fingertip-sized fallback keeps narrow dominoes and pins practical on phones.
+  if (!source) {
+    let nearestDist = 46;
+    fissionableBodies.forEach(b => {
+      const dx = b.position.x - pos.x;
+      const dy = b.position.y - pos.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < nearestDist) {
+        source = b;
+        nearestDist = dist;
+      }
+    });
+  }
+
+  if (!source) {
+    showFissionFeedback('NO SPLIT', '#888888');
+    playSound(180, 0.08, 'square', 0.04);
+    haptic([4]);
+    return false;
+  }
+
+  const layout = getFissionLayout(source, canvas.width, canvas.height, FISSION_SCALE);
+  const sourceVelocity = { x:source.velocity.x, y:source.velocity.y };
+  const sourceAngularVelocity = source.angularVelocity;
+  const sourceDepth = source.fissionDepth || 0;
+  const sourceColor = source.render?.color || '#b266ff';
+  const sourceMegaBounceRestitution = megaBounceOriginal.get(source);
+  const halves = [layout.first, layout.second].map((position, index) => {
+    const sign = index === 0 ? -1 : 1;
+    const half = createBodyClone(source, position);
+    Body.scale(half, FISSION_SCALE, FISSION_SCALE);
+    half.resizeScale = (source.resizeScale || 1) * FISSION_SCALE;
+    half.fissionDepth = sourceDepth + 1;
+    Body.setVelocity(half, {
+      x: sourceVelocity.x * 0.7 + layout.direction.x * sign * 4.2,
+      y: sourceVelocity.y * 0.7 + layout.direction.y * sign * 4.2 - 1.2
+    });
+    Body.setAngularVelocity(half, sourceAngularVelocity * 0.65 + sign * 0.1);
+    markSpawnPop(half);
+    return half;
+  });
+
+  Composite.remove(world, source, true);
+  Composite.add(world, halves);
+  bodyTrails.delete(source.id);
+  shatterDebounce.delete(source.id);
+  portalCooldowns.delete(source.id);
+  anchoredBodies.delete(source);
+  motorizedBodies.delete(source);
+  megaBounceOriginal.delete(source);
+  if (sourceMegaBounceRestitution !== undefined) {
+    halves.forEach(half => megaBounceOriginal.set(half, sourceMegaBounceRestitution));
+  }
+  rocketBodies = rocketBodies.filter(body => body !== source);
+  if (source.render?.type === 'rocket') rocketBodies.push(...halves);
+
+  addFissionBurst(source.position, sourceColor);
+  showFissionFeedback();
+  haptic([10, 18, 10]);
+  playSound(300, 0.08, 'square', 0.07);
+  playSound(820, 0.15, 'sine', 0.08);
+  shakeIntensity = Math.max(shakeIntensity, 3);
+  return halves;
 }
 
 function getNextMotorDirection(currentDirection) {
@@ -3648,6 +3791,13 @@ function onDown(e) {
   // Snip tool — cut one visible physical connection without removing its bodies.
   if (currentTool === 'snip') {
     snipConstraintAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Fission tool — replace one standalone body with two smaller, separating twins.
+  if (currentTool === 'fission') {
+    fissionBodyAt(pos);
     pointerDown = false;
     return;
   }

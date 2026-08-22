@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission'
   ];
 
   allTools.forEach(tool => {
@@ -40,16 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 37 tool buttons', () => {
+  it('should have exactly 38 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(37);
+    expect(buttons.length).toBe(38);
   });
 
-  it('should append Snip after Swap at the end of the object toolbar', () => {
+  it('should append Fission after Snip at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('snip');
-    expect(toolbar.lastElementChild?.textContent).toContain('Snip');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('swap');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('fission');
+    expect(toolbar.lastElementChild?.textContent).toContain('Fission');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('snip');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('swap');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -62,6 +63,75 @@ describe('Tool Button Existence', () => {
   it('should have draw button with special class', () => {
     const drawBtn = document.querySelector('[data-tool="draw"]');
     expect(drawBtn.classList.contains('draw-btn')).toBe(true);
+  });
+});
+
+// ============================================
+// FISSION TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Fission Tool', () => {
+  it('should expose Fission as the final selectable toolbar tool', () => {
+    const fissionBtn = document.querySelector('[data-tool="fission"]');
+    expect(fissionBtn).not.toBeNull();
+    expect(fissionBtn?.getAttribute('aria-label')).toContain('two smaller twins');
+    expect(document.getElementById('toolbar')?.lastElementChild).toBe(fissionBtn);
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'fission'");
+    expect(scriptContent).toContain('fissionBodyAt(pos)');
+  });
+
+  it('should calculate separated, canvas-safe twin positions', () => {
+    const source = scriptContent.match(/function getFissionLayout\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getFissionLayout = new Function(`${source}; return getFissionLayout;`)();
+    const body = {
+      angle: 0,
+      position: { x: 100, y: 100 },
+      bounds: { min: { x: 80, y: 90 }, max: { x: 120, y: 110 } }
+    };
+    const layout = getFissionLayout(body, 500, 300, Math.SQRT1_2);
+
+    expect(layout.first.x).toBeCloseTo(83.2);
+    expect(layout.second.x).toBeCloseTo(116.8);
+    expect(layout.first.y).toBe(100);
+    expect(layout.second.y).toBe(100);
+    expect(layout.direction.x).toBe(1);
+    expect(layout.direction.y).toBe(0);
+  });
+
+  it('should protect assemblies and tiny descendants while supporting touch targeting', () => {
+    expect(scriptContent).toContain('function isFissionableBody(b)');
+    expect(scriptContent).toContain("b.label === 'chain-link'");
+    expect(scriptContent).toContain('b.isStatic || b.isFragment || b.parent !== b');
+    expect(scriptContent).toContain('Math.min(width, height) < 12');
+    expect(scriptContent).toContain('(b.fissionDepth || 0) >= MAX_FISSION_DEPTH');
+    expect(scriptContent).toContain('Composite.allConstraints(world).some');
+    expect(scriptContent).toContain('Matter.Query.point(fissionableBodies, pos)');
+    expect(scriptContent).toContain('let nearestDist = 46');
+  });
+
+  it('should replace one body with two mass-conserving, outward-moving twins', () => {
+    expect(scriptContent).toContain('const FISSION_SCALE = Math.SQRT1_2');
+    expect(scriptContent).toContain('const halves = [layout.first, layout.second].map');
+    expect(scriptContent).toContain('const half = createBodyClone(source, position)');
+    expect(scriptContent).toContain('Body.scale(half, FISSION_SCALE, FISSION_SCALE)');
+    expect(scriptContent).toContain('half.resizeScale = (source.resizeScale || 1) * FISSION_SCALE');
+    expect(scriptContent).toContain('half.fissionDepth = sourceDepth + 1');
+    expect(scriptContent).toContain('Body.setVelocity(half, {');
+    expect(scriptContent).toContain('Composite.remove(world, source, true)');
+    expect(scriptContent).toContain('Composite.add(world, halves)');
+    expect(scriptContent).toContain("if (source.render?.type === 'rocket') rocketBodies.push(...halves)");
+  });
+
+  it('should provide visible feedback and reset transient state on Clear', () => {
+    expect(document.getElementById('fission-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('function addFissionBurst(position, color)');
+    expect(scriptContent).toContain("showFissionFeedback('NO SPLIT', '#888888')");
+    expect(scriptContent).toContain("message = 'FISSION ×2'");
+    expect(scriptContent).toContain('clearTimeout(fissionFeedbackTimer)');
+    expect(scriptContent).toContain("document.getElementById('fission-feedback').textContent = ''");
+    expect(scriptContent).toContain("fission: '#b266ff'");
   });
 });
 

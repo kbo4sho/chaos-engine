@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-08-22",
+      "ideas": [
+        "New tool: Fission a standalone object into two smaller twins"
+      ],
+      "summary": "Implemented Fission tool (⚛️) — the final button in the existing object toolbar now replaces a tapped standalone dynamic body with two half-mass, smaller twins that burst apart while preserving geometry, appearance, material, motion, and special object behavior; 46px touch targeting, canvas-safe placement, depth and size limits, protected assemblies, neon status/particle/audio/haptic feedback, and Clear cleanup keep repeated splitting playful and controlled on desktop and mobile."
+    },
+    {
       "date": "2026-08-21",
       "ideas": [
         "New tool: Snip one visible physical connection"

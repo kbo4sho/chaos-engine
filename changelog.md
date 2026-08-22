@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-08-22T14:09:00Z — Added: Fission tool
+**Why:** The toolbar could preserve-copy, resize, rearrange, connect, and remove objects, but it had no one-to-two transformation that converted one existing object into new moving parts. Fission adds a compact destructive transform without overlapping Snip's connection cutting or Eraser's deletion.
+**Goal alignment:** "more fun, more surprising, more satisfying" — one tap turns a standalone build piece into two half-mass twins that burst apart, enabling cascading splits and unexpected motion while protecting assemblies and tiny descendants.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (299/299 passing); browser smoke ✓ (existing Ball placed, Fission selected at toolbar end, one ball became two visibly smaller separating twins with `FISSION ×2`, OBJ changed 1→2, 0 console errors/warnings); mobile ✓ (390×844, final Fission button fully reachable/selectable at 52×50px); live ✓ (http://192.168.68.59:3003)
+**Status:** shipped
+
 ## 2026-08-21T14:08:49Z — Added: Snip tool
 **Why:** The toolbar could build connections with ropes, chains, joints, and axles, and Eraser could remove whole assemblies, but there was no precise way to release a connection while keeping its objects in play. Snip adds that missing destructive construction verb.
 **Goal alignment:** "more fun, more surprising, more satisfying" — players can now turn connected builds into timed releases, falling ragdolls, loose wrecking balls, and deliberately broken machines without deleting their parts.
