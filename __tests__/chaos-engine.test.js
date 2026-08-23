@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 38 tool buttons', () => {
+  it('should have exactly 39 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(38);
+    expect(buttons.length).toBe(39);
   });
 
-  it('should append Fission after Snip at the end of the object toolbar', () => {
+  it('should append Alchemy after Fission at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('fission');
-    expect(toolbar.lastElementChild?.textContent).toContain('Fission');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('snip');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('swap');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('alchemy');
+    expect(toolbar.lastElementChild?.textContent).toContain('Alchemy');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('fission');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('snip');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,15 +67,90 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// ALCHEMY TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Alchemy Tool', () => {
+  it('should expose Alchemy as the final selectable toolbar tool', () => {
+    const alchemyBtn = document.querySelector('[data-tool="alchemy"]');
+    expect(alchemyBtn).not.toBeNull();
+    expect(alchemyBtn?.getAttribute('aria-label')).toContain("object's physics");
+    expect(document.getElementById('toolbar')?.lastElementChild).toBe(alchemyBtn);
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'alchemy'");
+    expect(scriptContent).toContain('transmuteBodyAt(pos)');
+  });
+
+  it('should cycle bouncy, heavy, slippery, then normal', () => {
+    const source = scriptContent.match(/function getNextAlchemyMode\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getNextAlchemyMode = new Function(`${source}; return getNextAlchemyMode;`)();
+
+    expect(getNextAlchemyMode()).toBe('bouncy');
+    expect(getNextAlchemyMode('bouncy')).toBe('heavy');
+    expect(getNextAlchemyMode('heavy')).toBe('slippery');
+    expect(getNextAlchemyMode('slippery')).toBe('normal');
+  });
+
+  it('should alter real physics and restore the original material values', () => {
+    const source = scriptContent.match(/function getAlchemyPhysics\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getAlchemyPhysics = new Function(`${source}; return getAlchemyPhysics;`)();
+    const original = { density:0.001, restitution:0.5, friction:0.3, frictionStatic:0.5, frictionAir:0.01 };
+
+    const bouncy = getAlchemyPhysics('bouncy', original);
+    const heavy = getAlchemyPhysics('heavy', original);
+    const slippery = getAlchemyPhysics('slippery', original);
+    expect(bouncy.density).toBeCloseTo(0.00072);
+    expect(bouncy).toMatchObject({ restitution:1.05, friction:0.04 });
+    expect(heavy.density).toBeCloseTo(0.0032);
+    expect(heavy).toMatchObject({ restitution:0.06, friction:0.9 });
+    expect(slippery.density).toBeCloseTo(0.0009);
+    expect(slippery).toMatchObject({ restitution:0.16, friction:0.001 });
+    expect(getAlchemyPhysics('normal', original)).toEqual(original);
+    expect(scriptContent).toContain('function getAlchemyOriginal(body)');
+    expect(scriptContent).toContain('function getAlchemyPhysics(mode, original)');
+    expect(scriptContent).toContain("restitution:1.05");
+    expect(scriptContent).toContain('density:original.density * 3.2');
+    expect(scriptContent).toContain('friction:0.001');
+    expect(scriptContent).toContain('function applyAlchemyMode(body, mode)');
+    expect(scriptContent).toContain('Body.setDensity(body, physics.density)');
+    expect(scriptContent).toContain('body.friction = physics.friction');
+    expect(scriptContent).toContain("if (mode === 'normal')");
+    expect(scriptContent).toContain('delete body.alchemyOriginal');
+  });
+
+  it('should protect assemblies while keeping touch targeting forgiving', () => {
+    expect(scriptContent).toContain('function isAlchemyBody(b)');
+    expect(scriptContent).toContain("b.label === 'chain-link'");
+    expect(scriptContent).toContain('b.isStatic || b.isFragment || b.parent !== b');
+    expect(scriptContent).toContain('Composite.allConstraints(world).some');
+    expect(scriptContent).toContain('Matter.Query.point(alchemyBodies, pos)');
+    expect(scriptContent).toContain('let nearestDist = 46');
+  });
+
+  it('should render persistent state and clear transient feedback on reset', () => {
+    expect(document.getElementById('alchemy-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('function addAlchemyBurst(body, mode)');
+    expect(scriptContent).toContain('function drawAlchemyMarkers(timestamp)');
+    expect(scriptContent).toContain('drawAlchemyMarkers(timestamp)');
+    expect(scriptContent).toContain("showAlchemyFeedback('normal', 'NO SUBJECT')");
+    expect(scriptContent).toContain('clearTimeout(alchemyFeedbackTimer)');
+    expect(scriptContent).toContain("document.getElementById('alchemy-feedback').textContent = ''");
+    expect(scriptContent).toContain("alchemy: '#44ffcc'");
+  });
+});
+
+// ============================================
 // FISSION TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Fission Tool', () => {
-  it('should expose Fission as the final selectable toolbar tool', () => {
+  it('should keep Fission selectable immediately before Alchemy', () => {
     const fissionBtn = document.querySelector('[data-tool="fission"]');
     expect(fissionBtn).not.toBeNull();
     expect(fissionBtn?.getAttribute('aria-label')).toContain('two smaller twins');
-    expect(document.getElementById('toolbar')?.lastElementChild).toBe(fissionBtn);
+    expect(fissionBtn?.nextElementSibling?.dataset.tool).toBe('alchemy');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'fission'");
     expect(scriptContent).toContain('fissionBodyAt(pos)');

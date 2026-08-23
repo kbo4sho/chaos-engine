@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-08-23",
+      "ideas": [
+        "New tool: Alchemy cycles an object's physics material"
+      ],
+      "summary": "Implemented Alchemy tool (🧪) — the final button in the existing object toolbar now cycles a tapped standalone dynamic body through Bouncy, Heavy, Slippery, and restored Normal physics by changing density, restitution, and friction; persistent B/H/S neon badges, 46px touch targeting, protected assemblies, clone/fission state preservation, status/particle/audio/haptic feedback, and Clear cleanup keep the reversible transform readable on desktop and mobile."
+    },
+    {
       "date": "2026-08-22",
       "ideas": [
         "New tool: Fission a standalone object into two smaller twins"

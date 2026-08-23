@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-08-23T15:26:18Z — Added: Alchemy tool
+**Why:** The toolbar could change an object's size, count, position, rotation, and fixed state, but it could not directly rewrite how that object behaves on impact and contact. Alchemy adds a reversible physics-material transform without overlapping Resize, Motor, Anchor, Fission, or the creation tools.
+**Goal alignment:** "more fun, more surprising, more satisfying" — one object can become springy, weighty, or nearly frictionless in successive taps, turning familiar builds into new experiments while a persistent neon badge keeps each altered state readable.
+**Files changed:** .agent.md, index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (305/305 passing); browser smoke ✓ (existing Ball placed, Alchemy selected at toolbar end, Bouncy → Heavy → Slippery → Normal changed live Matter.js density/restitution/friction and restored the originals, persistent state badge visible, OBJ remained 1, 0 console errors/warnings); mobile ✓ (390×844, final Alchemy button fully reachable/selectable at 52×50px); live ✓ (http://192.168.68.54:3003)
+**Status:** shipped
+
 ## 2026-08-22T14:09:00Z — Added: Fission tool
 **Why:** The toolbar could preserve-copy, resize, rearrange, connect, and remove objects, but it had no one-to-two transformation that converted one existing object into new moving parts. Fission adds a compact destructive transform without overlapping Snip's connection cutting or Eraser's deletion.
 **Goal alignment:** "more fun, more surprising, more satisfying" — one tap turns a standalone build piece into two half-mass twins that burst apart, enabling cascading splits and unexpected motion while protecting assemblies and tiny descendants.

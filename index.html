@@ -179,6 +179,19 @@ canvas#game {
 #fission-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#alchemy-feedback {
+  position:absolute; top:252px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#44ffcc;
+  font-size:19px; letter-spacing:2px; line-height:1;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none;
+  transition:opacity .12s, transform .12s;
+}
+#alchemy-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -324,6 +337,7 @@ canvas#game {
     <div id="swap-feedback" role="status" aria-live="polite"></div>
     <div id="snip-feedback" role="status" aria-live="polite"></div>
     <div id="fission-feedback" role="status" aria-live="polite"></div>
+    <div id="alchemy-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -367,6 +381,7 @@ canvas#game {
     <button class="tool-btn" data-tool="swap" style="color:#00ffee;" title="Tap two standalone objects to swap their positions" aria-label="Swap the positions of two standalone objects"><span class="icon">🔀</span>Swap</button>
     <button class="tool-btn" data-tool="snip" style="color:#ffdd55;" title="Tap a visible physical connection to cut it" aria-label="Snip a visible physical connection"><span class="icon">✂️</span>Snip</button>
     <button class="tool-btn" data-tool="fission" style="color:#b266ff;" title="Tap a standalone object to split it into two smaller twins" aria-label="Fission a standalone object into two smaller twins"><span class="icon">⚛️</span>Fission</button>
+    <button class="tool-btn" data-tool="alchemy" style="color:#44ffcc;" title="Tap a standalone object to cycle bouncy, heavy, slippery, and normal physics" aria-label="Transmute a standalone object's physics"><span class="icon">🧪</span>Alchemy</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -576,6 +591,7 @@ let swapFirstBody = null;
 let swapFeedbackTimer = 0;
 let snipFeedbackTimer = 0;
 let fissionFeedbackTimer = 0;
+let alchemyFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -2628,6 +2644,9 @@ function finishClear(playFeedback = true) {
   clearTimeout(fissionFeedbackTimer);
   document.getElementById('fission-feedback').classList.remove('active');
   document.getElementById('fission-feedback').textContent = '';
+  clearTimeout(alchemyFeedbackTimer);
+  document.getElementById('alchemy-feedback').classList.remove('active');
+  document.getElementById('alchemy-feedback').textContent = '';
   bodyTrails.clear();
   shatterDebounce.clear();
   if (oceanMode) {
@@ -2767,7 +2786,8 @@ function getToolAccentColor(tool) {
     flipper: '#ff8800',
     swap: '#00ffee',
     snip: '#ffdd55',
-    fission: '#b266ff'
+    fission: '#b266ff',
+    alchemy: '#44ffcc'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -3110,6 +3130,8 @@ function createBodyClone(source, position) {
   clone.isBomb = Boolean(source.isBomb);
   clone.isBalloon = Boolean(source.isBalloon);
   clone.isDuck = Boolean(source.isDuck);
+  if (source.alchemyMode) clone.alchemyMode = source.alchemyMode;
+  if (source.alchemyOriginal) clone.alchemyOriginal = { ...source.alchemyOriginal };
   return clone;
 }
 
@@ -3302,6 +3324,142 @@ function fissionBodyAt(pos) {
   playSound(820, 0.15, 'sine', 0.08);
   shakeIntensity = Math.max(shakeIntensity, 3);
   return halves;
+}
+
+const ALCHEMY_STYLES = {
+  bouncy: { label:'BOUNCY', badge:'B', color:'#66ff99' },
+  heavy: { label:'HEAVY', badge:'H', color:'#ff8844' },
+  slippery: { label:'SLIPPERY', badge:'S', color:'#66ddff' },
+  normal: { label:'NORMAL', badge:'N', color:'#aaaaaa' }
+};
+
+function getNextAlchemyMode(currentMode = 'normal') {
+  const order = ['normal', 'bouncy', 'heavy', 'slippery'];
+  const index = order.indexOf(currentMode);
+  return order[(index + 1) % order.length];
+}
+
+function isAlchemyBody(b) {
+  if (!b || b.label === 'wall' || b.label === 'chain-link' || b.isTarget || b.isStatic || b.isFragment || b.parent !== b) return false;
+  return !Composite.allConstraints(world).some(c => c.bodyA === b || c.bodyB === b);
+}
+
+function getAlchemyOriginal(body) {
+  if (body.alchemyOriginal) return body.alchemyOriginal;
+  return {
+    density: body.density,
+    restitution: megaBounceOriginal.has(body.id) ? megaBounceOriginal.get(body.id) : body.restitution,
+    friction: body.friction,
+    frictionStatic: body.frictionStatic,
+    frictionAir: body.frictionAir
+  };
+}
+
+function getAlchemyPhysics(mode, original) {
+  if (mode === 'bouncy') {
+    return { density:original.density * 0.72, restitution:1.05, friction:0.04, frictionStatic:0.08, frictionAir:0.003 };
+  }
+  if (mode === 'heavy') {
+    return { density:original.density * 3.2, restitution:0.06, friction:0.9, frictionStatic:1.1, frictionAir:original.frictionAir };
+  }
+  if (mode === 'slippery') {
+    return { density:original.density * 0.9, restitution:0.16, friction:0.001, frictionStatic:0, frictionAir:0.001 };
+  }
+  return { ...original };
+}
+
+function showAlchemyFeedback(mode, message = null) {
+  const style = ALCHEMY_STYLES[mode] || ALCHEMY_STYLES.normal;
+  const feedback = document.getElementById('alchemy-feedback');
+  feedback.textContent = message || `ALCHEMY: ${style.label}`;
+  feedback.style.color = style.color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(alchemyFeedbackTimer);
+  alchemyFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 850);
+}
+
+function addAlchemyBurst(body, mode) {
+  const color = (ALCHEMY_STYLES[mode] || ALCHEMY_STYLES.normal).color;
+  const radius = Math.max(18, Math.min(58, Math.max(
+    body.bounds.max.x - body.bounds.min.x,
+    body.bounds.max.y - body.bounds.min.y
+  ) * 0.62));
+  for (let i = 0; i < 16; i++) {
+    const angle = Math.PI * 2 * i / 16;
+    const speed = 1.8 + Math.random() * 3.2;
+    particles.push({
+      x:body.position.x + Math.cos(angle) * radius * 0.45,
+      y:body.position.y + Math.sin(angle) * radius * 0.45,
+      vx:Math.cos(angle) * speed,
+      vy:Math.sin(angle) * speed - 0.6,
+      size:2 + Math.random() * 2.5,
+      life:0.3 + Math.random() * 0.28,
+      color:i % 4 === 0 ? '#ffffff' : color
+    });
+  }
+  explosions.push({ x:body.position.x, y:body.position.y, r:5, maxR:radius * 1.35, alpha:0.65, isBirthRing:true });
+}
+
+function applyAlchemyMode(body, mode) {
+  const original = getAlchemyOriginal(body);
+  const physics = getAlchemyPhysics(mode, original);
+  body.alchemyOriginal = original;
+  Body.setDensity(body, physics.density);
+  body.friction = physics.friction;
+  body.frictionStatic = physics.frictionStatic;
+  body.frictionAir = physics.frictionAir;
+  if (megaBounceActive && megaBounceOriginal.has(body.id)) {
+    megaBounceOriginal.set(body.id, physics.restitution);
+    body.restitution = 1.2;
+  } else {
+    body.restitution = physics.restitution;
+  }
+  if (mode === 'normal') {
+    delete body.alchemyMode;
+    delete body.alchemyOriginal;
+  } else {
+    body.alchemyMode = mode;
+  }
+  return physics;
+}
+
+function transmuteBodyAt(pos) {
+  const alchemyBodies = Composite.allBodies(world).filter(isAlchemyBody);
+  let target = Matter.Query.point(alchemyBodies, pos).filter(isAlchemyBody).pop();
+
+  // A fingertip-sized fallback keeps narrow objects easy to transmute on phones.
+  if (!target) {
+    let nearestDist = 46;
+    alchemyBodies.forEach(b => {
+      const dx = b.position.x - pos.x;
+      const dy = b.position.y - pos.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < nearestDist) {
+        target = b;
+        nearestDist = dist;
+      }
+    });
+  }
+
+  if (!target) {
+    showAlchemyFeedback('normal', 'NO SUBJECT');
+    playSound(180, 0.08, 'square', 0.04);
+    haptic([4]);
+    return false;
+  }
+
+  const mode = getNextAlchemyMode(target.alchemyMode || 'normal');
+  applyAlchemyMode(target, mode);
+  addAlchemyBurst(target, mode);
+  showAlchemyFeedback(mode);
+  haptic(mode === 'heavy' ? [12, 16, 12] : [8, 12, 8]);
+  const pitch = mode === 'bouncy' ? 820 : mode === 'heavy' ? 240 : mode === 'slippery' ? 620 : 460;
+  playSound(pitch, 0.12, 'square', 0.06);
+  playSound(pitch * 1.5, 0.1, 'sine', 0.05);
+  shakeIntensity = Math.max(shakeIntensity, mode === 'heavy' ? 3 : 1.8);
+  return mode;
 }
 
 function getNextMotorDirection(currentDirection) {
@@ -3798,6 +3956,13 @@ function onDown(e) {
   // Fission tool — replace one standalone body with two smaller, separating twins.
   if (currentTool === 'fission') {
     fissionBodyAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Alchemy tool — cycle a standalone body's real physics material.
+  if (currentTool === 'alchemy') {
+    transmuteBodyAt(pos);
     pointerDown = false;
     return;
   }
@@ -5508,6 +5673,42 @@ function drawMotorMarkers(timestamp) {
   });
 }
 
+function drawAlchemyMarkers(timestamp) {
+  Composite.allBodies(world).forEach(b => {
+    if (!b.alchemyMode || b.label === 'wall') return;
+    const style = ALCHEMY_STYLES[b.alchemyMode];
+    if (!style) return;
+    const halfW = (b.bounds.max.x - b.bounds.min.x) / 2;
+    const halfH = (b.bounds.max.y - b.bounds.min.y) / 2;
+    const radius = Math.max(20, Math.min(64, Math.sqrt(halfW*halfW + halfH*halfH) + 9));
+    const pulse = 0.68 + Math.sin(timestamp / 150 + b.id) * 0.22;
+
+    ctx.save();
+    ctx.translate(b.position.x, b.position.y);
+    ctx.strokeStyle = style.color;
+    ctx.fillStyle = style.color;
+    ctx.globalAlpha = pulse;
+    ctx.shadowColor = style.color;
+    ctx.shadowBlur = 12;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([3, 5]);
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    ctx.arc(radius * 0.68, -radius * 0.68, 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#071014';
+    ctx.font = 'bold 14px VT323';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(style.badge, radius * 0.68, -radius * 0.68 + 1);
+    ctx.restore();
+  });
+}
+
 function drawSwapMarker(timestamp) {
   if (!swapFirstBody || currentTool !== 'swap') return;
   if (!Composite.get(world, swapFirstBody.id, 'body')) {
@@ -6338,6 +6539,7 @@ function loop(timestamp) {
   });
   drawAnchorMarkers(timestamp);
   drawMotorMarkers(timestamp);
+  drawAlchemyMarkers(timestamp);
   drawSwapMarker(timestamp);
 
   // Effects
