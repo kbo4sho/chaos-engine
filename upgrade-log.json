@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-08-24",
+      "ideas": [
+        "New tool: Brace two objects with a stiff structural Strut"
+      ],
+      "summary": "Implemented Strut tool (📐) — the final button in the existing object toolbar now selects two dynamic or anchored build parts and joins them with a stiff fixed-length Matter.js constraint; 46px touch targeting, duplicate/cancel protection, neon brace and first-selection rendering, status/audio/haptic feedback, orphan pruning, Snip compatibility, and Eraser/Clear/tool-change cleanup keep structural building readable and reliable on desktop and mobile."
+    },
+    {
       "date": "2026-08-23",
       "ideas": [
         "New tool: Alchemy cycles an object's physics material"

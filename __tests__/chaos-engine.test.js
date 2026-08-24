@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 39 tool buttons', () => {
+  it('should have exactly 40 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(39);
+    expect(buttons.length).toBe(40);
   });
 
-  it('should append Alchemy after Fission at the end of the object toolbar', () => {
+  it('should append Strut after Alchemy at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('alchemy');
-    expect(toolbar.lastElementChild?.textContent).toContain('Alchemy');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('fission');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('snip');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('strut');
+    expect(toolbar.lastElementChild?.textContent).toContain('Strut');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('alchemy');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('fission');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,15 +67,83 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// STRUT TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Strut Tool', () => {
+  it('should expose Strut as the final selectable toolbar tool', () => {
+    const strutBtn = document.querySelector('[data-tool="strut"]');
+    expect(strutBtn).not.toBeNull();
+    expect(strutBtn?.getAttribute('aria-label')).toContain('stiff structural strut');
+    expect(document.getElementById('toolbar')?.lastElementChild).toBe(strutBtn);
+    expect(strutBtn?.previousElementSibling?.dataset.tool).toBe('alchemy');
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'strut'");
+    expect(scriptContent).toContain('strutBodiesAt(pos)');
+  });
+
+  it('should preserve the selected bodies current distance as the brace length', () => {
+    const source = scriptContent.match(/function getStrutLength\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getStrutLength = new Function(`${source}; return getStrutLength;`)();
+    const a = { position:{ x:10, y:20 } };
+    const b = { position:{ x:40, y:60 } };
+
+    expect(getStrutLength(a, b)).toBe(50);
+    expect(getStrutLength(b, a)).toBe(50);
+  });
+
+  it('should select two touch-friendly build parts and create one stiff constraint', () => {
+    expect(scriptContent).toContain('function isStruttableBody(b)');
+    expect(scriptContent).toContain("b.label === 'chain-link'");
+    expect(scriptContent).toContain('b.isFragment || b.parent !== b');
+    expect(scriptContent).toContain('return !b.isStatic || b.isAnchored');
+    expect(scriptContent).toContain('Matter.Query.point(candidates, pos)');
+    expect(scriptContent).toContain('let nearestDist = 46');
+    expect(scriptContent).toContain('strutFirstBody = target');
+    expect(scriptContent).toContain('const strut = Constraint.create({');
+    expect(scriptContent).toContain('length:getStrutLength(first, target)');
+    expect(scriptContent).toContain('stiffness:0.92');
+    expect(scriptContent).toContain("render:{ type:'strut' }");
+    expect(scriptContent).toContain('struts.push(strut)');
+  });
+
+  it('should reject duplicate braces and allow tapping A again to cancel', () => {
+    expect(scriptContent).toContain('function hasStrutBetween(bodyA, bodyB)');
+    expect(scriptContent).toContain('target === strutFirstBody');
+    expect(scriptContent).toContain("showStrutFeedback('STRUT CANCELLED'");
+    expect(scriptContent).toContain("showStrutFeedback('ALREADY BRACED'");
+  });
+
+  it('should render persistent brace and selection feedback with complete cleanup', () => {
+    expect(document.getElementById('strut-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain("c.render?.type === 'strut'");
+    expect(scriptContent).toContain('function drawStrutMarker(timestamp)');
+    expect(scriptContent).toContain('drawStrutMarker(timestamp)');
+    expect(scriptContent).toContain("if (tool !== 'strut') resetStrutSelection(true)");
+    expect(scriptContent).toContain('struts = struts.filter(strut => !constraintsToRemove.has(strut))');
+    expect(scriptContent).toContain('struts = struts.filter(strut => strut !== constraint)');
+    expect(scriptContent).toContain('function pruneStruts()');
+    expect(scriptContent).toContain('liveBodies.has(strut.bodyA) && liveBodies.has(strut.bodyB)');
+    expect(scriptContent).toContain('if (inWorld && !hasBothEnds) Composite.remove(world, strut, true)');
+    expect(scriptContent).toContain('pruneStruts()');
+    expect(scriptContent).toContain('struts = []');
+    expect(scriptContent).toContain('clearTimeout(strutFeedbackTimer)');
+    expect(scriptContent).toContain("document.getElementById('strut-feedback').textContent = ''");
+    expect(scriptContent).toContain("strut: '#66ffff'");
+  });
+});
+
+// ============================================
 // ALCHEMY TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Alchemy Tool', () => {
-  it('should expose Alchemy as the final selectable toolbar tool', () => {
+  it('should keep Alchemy selectable immediately before Strut', () => {
     const alchemyBtn = document.querySelector('[data-tool="alchemy"]');
     expect(alchemyBtn).not.toBeNull();
     expect(alchemyBtn?.getAttribute('aria-label')).toContain("object's physics");
-    expect(document.getElementById('toolbar')?.lastElementChild).toBe(alchemyBtn);
+    expect(alchemyBtn?.nextElementSibling?.dataset.tool).toBe('strut');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'alchemy'");
     expect(scriptContent).toContain('transmuteBodyAt(pos)');

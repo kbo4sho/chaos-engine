@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-08-24T14:11:30Z — Added: Strut tool
+**Why:** The toolbar could make soft ropes and self-linking chains, but it had no deliberate rigid connection for building frames, braces, or improvised machines. Strut adds a stiff fixed-length structural link without overlapping Rope's flexible tether or Chain's spawned physical links.
+**Goal alignment:** "more fun, more surprising, more satisfying" — two taps turn loose objects into a readable neon structure that can fall, swing, and collide as one build, while the existing Snip tool can release any brace on demand.
+**Files changed:** .agent.md, index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (311/311 passing); browser smoke ✓ (existing Ball and Beach Ball placed, Strut selected at toolbar end, two bodies joined by one 0.92-stiffness fixed-length constraint, 300px spacing held under live physics, `STRUT LOCKED` visible, OBJ remained 2, 0 console errors/warnings); mobile ✓ (390×844, final Strut button fully reachable/selectable at 52×50px); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-08-23T15:26:18Z — Added: Alchemy tool
 **Why:** The toolbar could change an object's size, count, position, rotation, and fixed state, but it could not directly rewrite how that object behaves on impact and contact. Alchemy adds a reversible physics-material transform without overlapping Resize, Motor, Anchor, Fission, or the creation tools.
 **Goal alignment:** "more fun, more surprising, more satisfying" — one object can become springy, weighty, or nearly frictionless in successive taps, turning familiar builds into new experiments while a persistent neon badge keeps each altered state readable.

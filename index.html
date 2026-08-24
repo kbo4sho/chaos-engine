@@ -192,6 +192,19 @@ canvas#game {
 #alchemy-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#strut-feedback {
+  position:absolute; top:286px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#66ffff;
+  font-size:19px; letter-spacing:2px; line-height:1;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none;
+  transition:opacity .12s, transform .12s;
+}
+#strut-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -338,6 +351,7 @@ canvas#game {
     <div id="snip-feedback" role="status" aria-live="polite"></div>
     <div id="fission-feedback" role="status" aria-live="polite"></div>
     <div id="alchemy-feedback" role="status" aria-live="polite"></div>
+    <div id="strut-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -382,6 +396,7 @@ canvas#game {
     <button class="tool-btn" data-tool="snip" style="color:#ffdd55;" title="Tap a visible physical connection to cut it" aria-label="Snip a visible physical connection"><span class="icon">✂️</span>Snip</button>
     <button class="tool-btn" data-tool="fission" style="color:#b266ff;" title="Tap a standalone object to split it into two smaller twins" aria-label="Fission a standalone object into two smaller twins"><span class="icon">⚛️</span>Fission</button>
     <button class="tool-btn" data-tool="alchemy" style="color:#44ffcc;" title="Tap a standalone object to cycle bouncy, heavy, slippery, and normal physics" aria-label="Transmute a standalone object's physics"><span class="icon">🧪</span>Alchemy</button>
+    <button class="tool-btn" data-tool="strut" style="color:#66ffff;" title="Tap two objects to brace them with a stiff structural strut" aria-label="Brace two objects with a stiff structural strut"><span class="icon">📐</span>Strut</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -592,6 +607,9 @@ let swapFeedbackTimer = 0;
 let snipFeedbackTimer = 0;
 let fissionFeedbackTimer = 0;
 let alchemyFeedbackTimer = 0;
+let strutFirstBody = null;
+let struts = []; // stiff body-to-body constraints created by the Strut tool
+let strutFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -1215,6 +1233,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       btn.classList.add('active');
       currentTool = tool;
       if (tool !== 'swap') resetSwapSelection(true);
+      if (tool !== 'strut') resetStrutSelection(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -2613,6 +2632,8 @@ function finishClear(playFeedback = true) {
   ropes = [];
   chainLinks = [];
   ropeFirstBody = null;
+  struts = [];
+  strutFirstBody = null;
   grabActive = false;
   grabBody = null;
   grabHistory = [];
@@ -2647,6 +2668,9 @@ function finishClear(playFeedback = true) {
   clearTimeout(alchemyFeedbackTimer);
   document.getElementById('alchemy-feedback').classList.remove('active');
   document.getElementById('alchemy-feedback').textContent = '';
+  clearTimeout(strutFeedbackTimer);
+  document.getElementById('strut-feedback').classList.remove('active');
+  document.getElementById('strut-feedback').textContent = '';
   bodyTrails.clear();
   shatterDebounce.clear();
   if (oceanMode) {
@@ -2787,7 +2811,8 @@ function getToolAccentColor(tool) {
     swap: '#00ffee',
     snip: '#ffdd55',
     fission: '#b266ff',
-    alchemy: '#44ffcc'
+    alchemy: '#44ffcc',
+    strut: '#66ffff'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -2914,6 +2939,7 @@ function eraseBodyAt(pos) {
   magnets = magnets.filter(m => !removedBodyIds.has(m.body.id));
   chainLinks = chainLinks.filter(b => !removedBodyIds.has(b.id));
   ropes = ropes.filter(r => !constraintsToRemove.has(r));
+  struts = struts.filter(strut => !constraintsToRemove.has(strut));
   if (ropeFirstBody && removedBodyIds.has(ropeFirstBody.id)) ropeFirstBody = null;
   if (grabBody && removedBodyIds.has(grabBody.id)) {
     grabActive = false;
@@ -2921,6 +2947,7 @@ function eraseBodyAt(pos) {
     grabHistory = [];
   }
   if (swapFirstBody && removedBodyIds.has(swapFirstBody.id)) swapFirstBody = null;
+  if (strutFirstBody && removedBodyIds.has(strutFirstBody.id)) strutFirstBody = null;
 
   haptic([8]);
   playSound(650, 0.1, 'sine', 0.08);
@@ -3462,6 +3489,146 @@ function transmuteBodyAt(pos) {
   return mode;
 }
 
+function isStruttableBody(b) {
+  if (!b || b.label === 'wall' || b.label === 'chain-link' || b.isTarget || b.isFragment || b.parent !== b) return false;
+  return !b.isStatic || b.isAnchored;
+}
+
+function getStrutLength(bodyA, bodyB) {
+  return Math.hypot(
+    bodyB.position.x - bodyA.position.x,
+    bodyB.position.y - bodyA.position.y
+  );
+}
+
+function findStrutBodyAt(pos) {
+  const candidates = Composite.allBodies(world).filter(isStruttableBody);
+  let target = Matter.Query.point(candidates, pos).filter(isStruttableBody).pop();
+
+  // A fingertip-sized fallback keeps narrow build parts practical on phones.
+  if (!target) {
+    let nearestDist = 46;
+    candidates.forEach(b => {
+      const dx = b.position.x - pos.x;
+      const dy = b.position.y - pos.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < nearestDist) {
+        target = b;
+        nearestDist = dist;
+      }
+    });
+  }
+  return target;
+}
+
+function hasStrutBetween(bodyA, bodyB) {
+  struts = struts.filter(strut => Composite.get(world, strut.id, 'constraint'));
+  return struts.some(strut =>
+    (strut.bodyA === bodyA && strut.bodyB === bodyB) ||
+    (strut.bodyA === bodyB && strut.bodyB === bodyA)
+  );
+}
+
+function pruneStruts() {
+  const liveBodies = new Set(Composite.allBodies(world));
+  struts = struts.filter(strut => {
+    const inWorld = Composite.get(world, strut.id, 'constraint');
+    const hasBothEnds = liveBodies.has(strut.bodyA) && liveBodies.has(strut.bodyB);
+    if (inWorld && !hasBothEnds) Composite.remove(world, strut, true);
+    return Boolean(inWorld && hasBothEnds);
+  });
+  if (strutFirstBody && !liveBodies.has(strutFirstBody)) resetStrutSelection(true);
+}
+
+function showStrutFeedback(message, color = '#66ffff') {
+  const feedback = document.getElementById('strut-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(strutFeedbackTimer);
+  strutFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 850);
+}
+
+function resetStrutSelection(silent = false) {
+  strutFirstBody = null;
+  if (!silent) return;
+  clearTimeout(strutFeedbackTimer);
+  const feedback = document.getElementById('strut-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
+function addStrutBurst(body, color) {
+  for (let i = 0; i < 10; i++) {
+    const angle = Math.PI * 2 * i / 10;
+    particles.push({
+      x:body.position.x,
+      y:body.position.y,
+      vx:Math.cos(angle) * (1.5 + Math.random() * 2.5),
+      vy:Math.sin(angle) * (1.5 + Math.random() * 2.5),
+      size:2 + Math.random() * 2,
+      life:0.25 + Math.random() * 0.25,
+      color
+    });
+  }
+}
+
+function strutBodiesAt(pos) {
+  const target = findStrutBodyAt(pos);
+  if (!target) {
+    showStrutFeedback('NO PART', '#888888');
+    haptic([3]);
+    return false;
+  }
+
+  if (!strutFirstBody || !Composite.get(world, strutFirstBody.id, 'body')) {
+    strutFirstBody = target;
+    addStrutBurst(target, '#66ffff');
+    showStrutFeedback('STRUT: PICK B');
+    haptic([6]);
+    playSound(720, 0.08, 'sine', 0.06);
+    return 'selected';
+  }
+
+  if (target === strutFirstBody) {
+    resetStrutSelection();
+    showStrutFeedback('STRUT CANCELLED', '#aaaaaa');
+    haptic([4]);
+    playSound(240, 0.08, 'square', 0.05);
+    return 'cancelled';
+  }
+
+  const first = strutFirstBody;
+  if (hasStrutBetween(first, target)) {
+    resetStrutSelection();
+    showStrutFeedback('ALREADY BRACED', '#ffdd55');
+    haptic([4, 18, 4]);
+    return false;
+  }
+
+  const strut = Constraint.create({
+    bodyA:first,
+    bodyB:target,
+    length:getStrutLength(first, target),
+    stiffness:0.92,
+    damping:0.18,
+    render:{ type:'strut' }
+  });
+  Composite.add(world, strut);
+  struts.push(strut);
+  addStrutBurst(first, '#66ffff');
+  addStrutBurst(target, '#00ff88');
+  resetStrutSelection();
+  showStrutFeedback('STRUT LOCKED');
+  haptic([8, 12, 8]);
+  playSound(520, 0.08, 'square', 0.07);
+  playSound(920, 0.12, 'sine', 0.06);
+  shakeIntensity = Math.max(shakeIntensity, 2);
+  return strut;
+}
+
 function getNextMotorDirection(currentDirection) {
   if (currentDirection === 1) return -1;
   if (currentDirection === -1) return 0;
@@ -3825,6 +3992,7 @@ function snipConstraintAt(pos) {
     if (body?.chainConnections) body.chainConnections = Math.max(0, body.chainConnections - 1);
   });
   ropes = ropes.filter(rope => rope !== constraint);
+  struts = struts.filter(strut => strut !== constraint);
   wreckingBalls = wreckingBalls.filter(wrecking => wrecking.chain !== constraint);
   seesaws = seesaws.filter(seesaw => seesaw.constraint !== constraint);
   flippers = flippers.filter(flipper => flipper.constraint !== constraint);
@@ -3942,6 +4110,13 @@ function onDown(e) {
         ropeFirstBody = null;
       }
     }
+    pointerDown = false;
+    return;
+  }
+
+  // Strut tool — tap two build parts to brace them at a fixed distance.
+  if (currentTool === 'strut') {
+    strutBodiesAt(pos);
     pointerDown = false;
     return;
   }
@@ -5313,7 +5488,52 @@ function drawConstraints() {
     if (c.render?.type === 'flipper-pin') return;
     const pA = Vector.add(c.bodyA.position, Vector.rotate(c.pointA, c.bodyA.angle));
     const pB = Vector.add(c.bodyB.position, Vector.rotate(c.pointB, c.bodyB.angle));
-    if (wreckingChains.has(c) || c.render?.type === 'chain-link-constraint') {
+    if (c.render?.type === 'strut') {
+      const dx = pB.x - pA.x;
+      const dy = pB.y - pA.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const nx = -dy / dist;
+      const ny = dx / dist;
+      ctx.save();
+      ctx.lineCap = 'round';
+      ctx.shadowColor = '#66ffff';
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.moveTo(pA.x, pA.y);
+      ctx.lineTo(pB.x, pB.y);
+      ctx.strokeStyle = '#123f4a';
+      ctx.lineWidth = 9;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(pA.x, pA.y);
+      ctx.lineTo(pB.x, pB.y);
+      ctx.strokeStyle = '#66ffff';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      const braceCount = Math.max(1, Math.floor(dist / 34));
+      for (let i = 1; i <= braceCount; i++) {
+        const t = i / (braceCount + 1);
+        const x = pA.x + dx * t;
+        const y = pA.y + dy * t;
+        ctx.beginPath();
+        ctx.moveTo(x - nx * 5, y - ny * 5);
+        ctx.lineTo(x + nx * 5, y + ny * 5);
+        ctx.strokeStyle = '#00ff88';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+      [pA, pB].forEach(point => {
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = '#071014';
+        ctx.fill();
+        ctx.strokeStyle = '#00ff88';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      });
+      ctx.restore();
+    } else if (wreckingChains.has(c) || c.render?.type === 'chain-link-constraint') {
       // Draw chain links
       const dx = pB.x - pA.x, dy = pB.y - pA.y;
       const dist = Math.sqrt(dx*dx + dy*dy);
@@ -5742,6 +5962,39 @@ function drawSwapMarker(timestamp) {
   ctx.restore();
 }
 
+function drawStrutMarker(timestamp) {
+  if (!strutFirstBody || currentTool !== 'strut') return;
+  if (!Composite.get(world, strutFirstBody.id, 'body')) {
+    strutFirstBody = null;
+    return;
+  }
+
+  const halfW = (strutFirstBody.bounds.max.x - strutFirstBody.bounds.min.x) / 2;
+  const halfH = (strutFirstBody.bounds.max.y - strutFirstBody.bounds.min.y) / 2;
+  const radius = Math.max(24, Math.min(68, Math.sqrt(halfW*halfW + halfH*halfH) + 12));
+  const pulse = 0.72 + Math.sin(timestamp / 120 + strutFirstBody.id) * 0.2;
+
+  ctx.save();
+  ctx.translate(strutFirstBody.position.x, strutFirstBody.position.y);
+  ctx.globalAlpha = pulse;
+  ctx.strokeStyle = '#66ffff';
+  ctx.shadowColor = '#66ffff';
+  ctx.shadowBlur = 12;
+  ctx.lineWidth = 3;
+  ctx.setLineDash([7, 5]);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = '#66ffff';
+  ctx.font = '18px VT323';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('A', 0, 1);
+  ctx.restore();
+}
+
 // ── MAIN LOOP ──
 let lastTime = 0;
 
@@ -5749,6 +6002,7 @@ function loop(timestamp) {
   requestAnimationFrame(loop);
   const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
   lastTime = timestamp;
+  pruneStruts();
 
   // Smooth gravity transition (skip during anti-grav pulse and gravity flip)
   if (!antiGravActive && gravityAngle === 0) {
@@ -6541,6 +6795,7 @@ function loop(timestamp) {
   drawMotorMarkers(timestamp);
   drawAlchemyMarkers(timestamp);
   drawSwapMarker(timestamp);
+  drawStrutMarker(timestamp);
 
   // Effects
   drawRopes();
