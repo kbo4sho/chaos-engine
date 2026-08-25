@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-08-25T14:08:31Z — Added: Rotate tool
+**Why:** The toolbar could continuously motorize objects but had no precise way to reorient a placed build part. Rotate adds a deliberate reversible quarter-turn transform without overlapping Motor's powered spin, Grab's free movement, or Swap's position exchange.
+**Goal alignment:** "more fun, more surprising, more satisfying" — blocks, dominoes, anvils, and other standalone parts can be snapped into useful new orientations with one tap, while reselection reverses direction for quick layout corrections.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (317/317 passing); browser smoke ✓ (existing Block placed, Rotate selected at toolbar end, clockwise tap changed its angle 0→π/2 and stopped spin, reselection changed to `TURN CCW`, counter-clockwise tap restored angle exactly to 0, OBJ remained 1, 0 console errors/warnings); mobile ✓ (390×844, final Rotate button fully reachable/selectable at 52×50px); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-08-24T14:11:30Z — Added: Strut tool
 **Why:** The toolbar could make soft ropes and self-linking chains, but it had no deliberate rigid connection for building frames, braces, or improvised machines. Strut adds a stiff fixed-length structural link without overlapping Rope's flexible tether or Chain's spawned physical links.
 **Goal alignment:** "more fun, more surprising, more satisfying" — two taps turn loose objects into a readable neon structure that can fall, swing, and collide as one build, while the existing Snip tool can release any brace on demand.

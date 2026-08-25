@@ -205,6 +205,19 @@ canvas#game {
 #strut-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#rotate-feedback {
+  position:absolute; top:320px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#ff99ff;
+  font-size:19px; letter-spacing:2px; line-height:1;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none;
+  transition:opacity .12s, transform .12s;
+}
+#rotate-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -352,6 +365,7 @@ canvas#game {
     <div id="fission-feedback" role="status" aria-live="polite"></div>
     <div id="alchemy-feedback" role="status" aria-live="polite"></div>
     <div id="strut-feedback" role="status" aria-live="polite"></div>
+    <div id="rotate-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -397,6 +411,7 @@ canvas#game {
     <button class="tool-btn" data-tool="fission" style="color:#b266ff;" title="Tap a standalone object to split it into two smaller twins" aria-label="Fission a standalone object into two smaller twins"><span class="icon">⚛️</span>Fission</button>
     <button class="tool-btn" data-tool="alchemy" style="color:#44ffcc;" title="Tap a standalone object to cycle bouncy, heavy, slippery, and normal physics" aria-label="Transmute a standalone object's physics"><span class="icon">🧪</span>Alchemy</button>
     <button class="tool-btn" data-tool="strut" style="color:#66ffff;" title="Tap two objects to brace them with a stiff structural strut" aria-label="Brace two objects with a stiff structural strut"><span class="icon">📐</span>Strut</button>
+    <button class="tool-btn" data-tool="rotate" style="color:#ff99ff;" title="Tap a standalone object to rotate it 90 degrees clockwise; tap this button again for counter-clockwise" aria-label="Rotate standalone objects 90 degrees clockwise"><span class="icon rotate-icon">↻</span><span class="rotate-label">TURN CW</span></button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -610,6 +625,9 @@ let alchemyFeedbackTimer = 0;
 let strutFirstBody = null;
 let struts = []; // stiff body-to-body constraints created by the Strut tool
 let strutFeedbackTimer = 0;
+let rotateDirection = 1; // 1 clockwise, -1 counter-clockwise
+let rotateFeedbackTimer = 0;
+let rotateFlash = null; // {body, direction, startedAt}
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -1204,6 +1222,28 @@ function updateResizeButton() {
   btn.setAttribute('aria-label', `Resize objects: ${resizeMode} mode`);
 }
 
+function updateRotateButton() {
+  const btn = document.querySelector('[data-tool="rotate"]');
+  if (!btn) return;
+  const clockwise = rotateDirection === 1;
+  btn.querySelector('.rotate-icon').textContent = clockwise ? '↻' : '↺';
+  btn.querySelector('.rotate-label').textContent = clockwise ? 'TURN CW' : 'TURN CCW';
+  btn.style.color = clockwise ? '#ff99ff' : '#99ccff';
+  btn.title = `Tap a standalone object to rotate it 90 degrees ${clockwise ? 'clockwise' : 'counter-clockwise'}; tap this button again to reverse direction`;
+  btn.setAttribute('aria-label', `Rotate standalone objects 90 degrees ${clockwise ? 'clockwise' : 'counter-clockwise'}`);
+}
+
+function resetRotateTool(silent = false) {
+  rotateDirection = 1;
+  rotateFlash = null;
+  updateRotateButton();
+  if (!silent) return;
+  clearTimeout(rotateFeedbackTimer);
+  const feedback = document.getElementById('rotate-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -1211,6 +1251,13 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       resizeMode = resizeMode === 'grow' ? 'shrink' : 'grow';
       updateResizeButton();
       playSound(resizeMode === 'grow' ? 720 : 380, 0.08, 'square', 0.06);
+      haptic([6]);
+      return;
+    }
+    if (tool === 'rotate' && currentTool === 'rotate' && btn.classList.contains('active')) {
+      rotateDirection = getNextRotateDirection(rotateDirection);
+      updateRotateButton();
+      playSound(rotateDirection === 1 ? 760 : 520, 0.08, 'square', 0.06);
       haptic([6]);
       return;
     }
@@ -1234,9 +1281,14 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       currentTool = tool;
       if (tool !== 'swap') resetSwapSelection(true);
       if (tool !== 'strut') resetStrutSelection(true);
+      if (tool !== 'rotate') resetRotateTool(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
+      }
+      if (tool === 'rotate') {
+        rotateDirection = 1;
+        updateRotateButton();
       }
     }
     playSound(1000, 0.05, 'square', 0.05);
@@ -2671,6 +2723,7 @@ function finishClear(playFeedback = true) {
   clearTimeout(strutFeedbackTimer);
   document.getElementById('strut-feedback').classList.remove('active');
   document.getElementById('strut-feedback').textContent = '';
+  resetRotateTool(true);
   bodyTrails.clear();
   shatterDebounce.clear();
   if (oceanMode) {
@@ -2812,7 +2865,8 @@ function getToolAccentColor(tool) {
     snip: '#ffdd55',
     fission: '#b266ff',
     alchemy: '#44ffcc',
-    strut: '#66ffff'
+    strut: '#66ffff',
+    rotate: '#ff99ff'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -2948,6 +3002,7 @@ function eraseBodyAt(pos) {
   }
   if (swapFirstBody && removedBodyIds.has(swapFirstBody.id)) swapFirstBody = null;
   if (strutFirstBody && removedBodyIds.has(strutFirstBody.id)) strutFirstBody = null;
+  if (rotateFlash && removedBodyIds.has(rotateFlash.body.id)) rotateFlash = null;
 
   haptic([8]);
   playSound(650, 0.1, 'sine', 0.08);
@@ -3629,6 +3684,105 @@ function strutBodiesAt(pos) {
   return strut;
 }
 
+const ROTATE_STEP = Math.PI / 2;
+
+function getNextRotateDirection(direction = 1) {
+  return direction === 1 ? -1 : 1;
+}
+
+function getQuarterTurnAngle(angle, direction = 1) {
+  return angle + direction * ROTATE_STEP;
+}
+
+function getCanvasSafeBodyPosition(body, canvasWidth, canvasHeight) {
+  const halfWidth = (body.bounds.max.x - body.bounds.min.x) / 2;
+  const halfHeight = (body.bounds.max.y - body.bounds.min.y) / 2;
+  return {
+    x: Math.max(halfWidth + 8, Math.min(canvasWidth - halfWidth - 8, body.position.x)),
+    y: Math.max(halfHeight + 8, Math.min(canvasHeight - halfHeight - 28, body.position.y))
+  };
+}
+
+function isRotatableBody(b) {
+  if (!b || b.label === 'wall' || b.label === 'chain-link' || b.isTarget || b.isFragment || b.parent !== b) return false;
+  if (b.isStatic && !b.isAnchored) return false;
+  return !Composite.allConstraints(world).some(c => c.bodyA === b || c.bodyB === b);
+}
+
+function findRotatableBodyAt(pos) {
+  const candidates = Composite.allBodies(world).filter(isRotatableBody);
+  let target = Matter.Query.point(candidates, pos).filter(isRotatableBody).pop();
+
+  // A fingertip-sized fallback keeps thin blocks and dominoes easy to turn.
+  if (!target) {
+    let nearestDist = 46;
+    candidates.forEach(b => {
+      const dx = b.position.x - pos.x;
+      const dy = b.position.y - pos.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < nearestDist) {
+        target = b;
+        nearestDist = dist;
+      }
+    });
+  }
+  return target;
+}
+
+function showRotateFeedback(message, color = '#ff99ff') {
+  const feedback = document.getElementById('rotate-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(rotateFeedbackTimer);
+  rotateFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 800);
+}
+
+function addRotateBurst(body, direction) {
+  const radius = Math.max(20, Math.min(58, Math.max(
+    body.bounds.max.x - body.bounds.min.x,
+    body.bounds.max.y - body.bounds.min.y
+  ) * 0.62));
+  for (let i = 0; i < 16; i++) {
+    const angle = Math.PI * 2 * i / 16;
+    const tangent = angle + direction * Math.PI / 2;
+    particles.push({
+      x:body.position.x + Math.cos(angle) * radius,
+      y:body.position.y + Math.sin(angle) * radius,
+      vx:Math.cos(tangent) * (1.5 + Math.random() * 2.2),
+      vy:Math.sin(tangent) * (1.5 + Math.random() * 2.2),
+      size:2 + Math.random() * 2,
+      life:0.28 + Math.random() * 0.24,
+      color:direction === 1 ? '#ff99ff' : '#99ccff'
+    });
+  }
+}
+
+function rotateBodyAt(pos) {
+  const target = findRotatableBodyAt(pos);
+  if (!target) {
+    showRotateFeedback('NO TURN', '#888888');
+    playSound(180, 0.08, 'square', 0.04);
+    haptic([4]);
+    return false;
+  }
+
+  const direction = rotateDirection;
+  Body.setAngle(target, getQuarterTurnAngle(target.angle, direction));
+  Body.setPosition(target, getCanvasSafeBodyPosition(target, canvas.width, canvas.height));
+  Body.setAngularVelocity(target, 0);
+  rotateFlash = { body:target, direction, startedAt:performance.now() };
+  addRotateBurst(target, direction);
+  showRotateFeedback(`ROTATED 90° ${direction === 1 ? '↻' : '↺'}`, direction === 1 ? '#ff99ff' : '#99ccff');
+  haptic([8, 12, 8]);
+  playSound(direction === 1 ? 640 : 540, 0.09, 'square', 0.07);
+  playSound(direction === 1 ? 960 : 810, 0.1, 'sine', 0.05);
+  shakeIntensity = Math.max(shakeIntensity, 1.8);
+  return { body:target, direction };
+}
+
 function getNextMotorDirection(currentDirection) {
   if (currentDirection === 1) return -1;
   if (currentDirection === -1) return 0;
@@ -4117,6 +4271,13 @@ function onDown(e) {
   // Strut tool — tap two build parts to brace them at a fixed distance.
   if (currentTool === 'strut') {
     strutBodiesAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Rotate tool — snap a standalone object through a deliberate quarter-turn.
+  if (currentTool === 'rotate') {
+    rotateBodyAt(pos);
     pointerDown = false;
     return;
   }
@@ -5995,6 +6156,46 @@ function drawStrutMarker(timestamp) {
   ctx.restore();
 }
 
+function drawRotateFlash(timestamp) {
+  if (!rotateFlash) return;
+  const { body, direction, startedAt } = rotateFlash;
+  if (!Composite.get(world, body.id, 'body')) {
+    rotateFlash = null;
+    return;
+  }
+
+  const progress = Math.max(0, (timestamp - startedAt) / 650);
+  if (progress >= 1) {
+    rotateFlash = null;
+    return;
+  }
+
+  const halfW = (body.bounds.max.x - body.bounds.min.x) / 2;
+  const halfH = (body.bounds.max.y - body.bounds.min.y) / 2;
+  const radius = Math.max(24, Math.min(68, Math.sqrt(halfW*halfW + halfH*halfH) + 12)) + progress * 12;
+  const color = direction === 1 ? '#ff99ff' : '#99ccff';
+  const alpha = 1 - progress;
+
+  ctx.save();
+  ctx.translate(body.position.x, body.position.y);
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 14;
+  ctx.lineWidth = 3;
+  ctx.setLineDash([8, 4]);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.font = '24px VT323';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(direction === 1 ? '↻' : '↺', 0, 1);
+  ctx.restore();
+}
+
 // ── MAIN LOOP ──
 let lastTime = 0;
 
@@ -6796,6 +6997,7 @@ function loop(timestamp) {
   drawAlchemyMarkers(timestamp);
   drawSwapMarker(timestamp);
   drawStrutMarker(timestamp);
+  drawRotateFlash(timestamp);
 
   // Effects
   drawRopes();

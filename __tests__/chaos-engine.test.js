@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 40 tool buttons', () => {
+  it('should have exactly 41 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(40);
+    expect(buttons.length).toBe(41);
   });
 
-  it('should append Strut after Alchemy at the end of the object toolbar', () => {
+  it('should append Rotate after Strut at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('strut');
-    expect(toolbar.lastElementChild?.textContent).toContain('Strut');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('alchemy');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('fission');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('rotate');
+    expect(toolbar.lastElementChild?.textContent).toContain('TURN CW');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('strut');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('alchemy');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,15 +67,85 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// ROTATE TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Rotate Tool', () => {
+  it('should expose Rotate as the final selectable toolbar tool', () => {
+    const rotateBtn = document.querySelector('[data-tool="rotate"]');
+    expect(rotateBtn).not.toBeNull();
+    expect(rotateBtn?.getAttribute('aria-label')).toContain('90 degrees clockwise');
+    expect(document.getElementById('toolbar')?.lastElementChild).toBe(rotateBtn);
+    expect(rotateBtn?.previousElementSibling?.dataset.tool).toBe('strut');
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'rotate'");
+    expect(scriptContent).toContain('rotateBodyAt(pos)');
+  });
+
+  it('should toggle clockwise and counter-clockwise modes on reselection', () => {
+    const source = scriptContent.match(/function getNextRotateDirection\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getNextRotateDirection = new Function(`${source}; return getNextRotateDirection;`)();
+
+    expect(getNextRotateDirection()).toBe(-1);
+    expect(getNextRotateDirection(-1)).toBe(1);
+    expect(scriptContent).toContain("tool === 'rotate' && currentTool === 'rotate'");
+    expect(scriptContent).toContain('rotateDirection = getNextRotateDirection(rotateDirection)');
+    expect(scriptContent).toContain("btn.querySelector('.rotate-label').textContent = clockwise ? 'TURN CW' : 'TURN CCW'");
+  });
+
+  it('should calculate exact quarter turns and canvas-safe positions', () => {
+    const angleSource = scriptContent.match(/function getQuarterTurnAngle\([\s\S]*?\n\}/)?.[0];
+    const positionSource = scriptContent.match(/function getCanvasSafeBodyPosition\([\s\S]*?\n\}/)?.[0];
+    expect(angleSource).toBeTruthy();
+    expect(positionSource).toBeTruthy();
+    const getQuarterTurnAngle = new Function(`const ROTATE_STEP = Math.PI / 2; ${angleSource}; return getQuarterTurnAngle;`)();
+    const getCanvasSafeBodyPosition = new Function(`${positionSource}; return getCanvasSafeBodyPosition;`)();
+
+    expect(getQuarterTurnAngle(0, 1)).toBeCloseTo(Math.PI / 2);
+    expect(getQuarterTurnAngle(Math.PI / 2, -1)).toBeCloseTo(0);
+    const body = {
+      position:{ x:495, y:295 },
+      bounds:{ min:{ x:455, y:265 }, max:{ x:535, y:325 } }
+    };
+    expect(getCanvasSafeBodyPosition(body, 500, 300)).toEqual({ x:452, y:242 });
+  });
+
+  it('should target only standalone build parts with forgiving touch support', () => {
+    expect(scriptContent).toContain('function isRotatableBody(b)');
+    expect(scriptContent).toContain("b.label === 'chain-link'");
+    expect(scriptContent).toContain('b.isFragment || b.parent !== b');
+    expect(scriptContent).toContain('b.isStatic && !b.isAnchored');
+    expect(scriptContent).toContain('Composite.allConstraints(world).some');
+    expect(scriptContent).toContain('Matter.Query.point(candidates, pos)');
+    expect(scriptContent).toContain('let nearestDist = 46');
+  });
+
+  it('should apply one snapped turn with visible feedback and complete cleanup', () => {
+    expect(document.getElementById('rotate-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('Body.setAngle(target, getQuarterTurnAngle(target.angle, direction))');
+    expect(scriptContent).toContain('Body.setPosition(target, getCanvasSafeBodyPosition(target, canvas.width, canvas.height))');
+    expect(scriptContent).toContain('Body.setAngularVelocity(target, 0)');
+    expect(scriptContent).toContain('function addRotateBurst(body, direction)');
+    expect(scriptContent).toContain('function drawRotateFlash(timestamp)');
+    expect(scriptContent).toContain('drawRotateFlash(timestamp)');
+    expect(scriptContent).toContain("showRotateFeedback('NO TURN', '#888888')");
+    expect(scriptContent).toContain('resetRotateTool(true)');
+    expect(scriptContent).toContain('if (rotateFlash && removedBodyIds.has(rotateFlash.body.id)) rotateFlash = null');
+    expect(scriptContent).toContain("rotate: '#ff99ff'");
+  });
+});
+
+// ============================================
 // STRUT TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Strut Tool', () => {
-  it('should expose Strut as the final selectable toolbar tool', () => {
+  it('should keep Strut selectable immediately before Rotate', () => {
     const strutBtn = document.querySelector('[data-tool="strut"]');
     expect(strutBtn).not.toBeNull();
     expect(strutBtn?.getAttribute('aria-label')).toContain('stiff structural strut');
-    expect(document.getElementById('toolbar')?.lastElementChild).toBe(strutBtn);
+    expect(strutBtn?.nextElementSibling?.dataset.tool).toBe('rotate');
     expect(strutBtn?.previousElementSibling?.dataset.tool).toBe('alchemy');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'strut'");

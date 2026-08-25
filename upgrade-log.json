@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-08-25",
+      "ideas": [
+        "New tool: Rotate standalone objects through precise quarter-turns"
+      ],
+      "summary": "Implemented Rotate tool (↻) — the final button in the existing object toolbar now turns a tapped standalone dynamic or anchored build part exactly 90 degrees, stops residual spin, clamps the rotated body inside the canvas, and toggles clockwise/counter-clockwise mode when reselected; 46px touch targeting, protected assemblies, neon direction feedback, and Eraser/Clear/tool-change cleanup keep precise reorientation reliable on desktop and mobile."
+    },
+    {
       "date": "2026-08-24",
       "ideas": [
         "New tool: Brace two objects with a stiff structural Strut"
