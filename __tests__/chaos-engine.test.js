@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 41 tool buttons', () => {
+  it('should have exactly 42 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(41);
+    expect(buttons.length).toBe(42);
   });
 
-  it('should append Rotate after Strut at the end of the object toolbar', () => {
+  it('should append Fusion after Rotate at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('rotate');
-    expect(toolbar.lastElementChild?.textContent).toContain('TURN CW');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('strut');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('alchemy');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('fusion');
+    expect(toolbar.lastElementChild?.textContent).toContain('Fusion');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('rotate');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('strut');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,15 +67,82 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// FUSION TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Fusion Tool', () => {
+  it('should expose Fusion as the final selectable toolbar tool', () => {
+    const fusionBtn = document.querySelector('[data-tool="fusion"]');
+    expect(fusionBtn).not.toBeNull();
+    expect(fusionBtn?.getAttribute('aria-label')).toContain('Fuse two standalone objects');
+    expect(document.getElementById('toolbar')?.lastElementChild).toBe(fusionBtn);
+    expect(fusionBtn?.previousElementSibling?.dataset.tool).toBe('rotate');
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'fusion'");
+    expect(scriptContent).toContain('fuseBodiesAt(pos)');
+  });
+
+  it('should conserve mass-weighted position and momentum in a canvas-safe core', () => {
+    const source = scriptContent.match(/function getFusionKinematics\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getFusionKinematics = new Function(`${source}; return getFusionKinematics;`)();
+    const a = { mass:2, area:Math.PI * 100, position:{ x:20, y:40 }, velocity:{ x:6, y:0 }, angularVelocity:0.3 };
+    const b = { mass:1, area:Math.PI * 300, position:{ x:80, y:70 }, velocity:{ x:0, y:9 }, angularVelocity:-0.3 };
+    const result = getFusionKinematics(a, b, 500, 300);
+
+    expect(result.mass).toBe(3);
+    expect(result.radius).toBeCloseTo(20);
+    expect(result.position).toEqual({ x:40, y:50 });
+    expect(result.velocity).toEqual({ x:4, y:3 });
+    expect(result.angularVelocity).toBeCloseTo(0.1);
+  });
+
+  it('should target two standalone bodies with forgiving touch support', () => {
+    expect(scriptContent).toContain('function isFusionableBody(b)');
+    expect(scriptContent).toContain("b.label === 'chain-link'");
+    expect(scriptContent).toContain('b.isStatic || b.isFragment || b.parent !== b');
+    expect(scriptContent).toContain('Composite.allConstraints(world).some');
+    expect(scriptContent).toContain('Matter.Query.point(candidates, pos)');
+    expect(scriptContent).toContain('let nearestDist = 46');
+    expect(scriptContent).toContain('fusionFirstBody = target');
+    expect(scriptContent).toContain("return 'selected'");
+  });
+
+  it('should replace two bodies with one visibly distinct fusion core', () => {
+    expect(document.getElementById('fusion-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain("label:'fusion-core'");
+    expect(scriptContent).toContain("render:{ type:'fusion-core'");
+    expect(scriptContent).toContain('Body.setMass(fusionCore, kinematics.mass)');
+    expect(scriptContent).toContain('Body.setVelocity(fusionCore, kinematics.velocity)');
+    expect(scriptContent).toContain('megaBounceOriginal.has(first.id)');
+    expect(scriptContent).toContain('megaBounceOriginal.set(fusionCore.id, restitution)');
+    expect(scriptContent).toContain('Composite.remove(world, first, true)');
+    expect(scriptContent).toContain('Composite.remove(world, target, true)');
+    expect(scriptContent).toContain('Composite.add(world, fusionCore)');
+    expect(scriptContent).toContain("case 'fusion-core':");
+    expect(scriptContent).toContain("showFusionFeedback('FUSION COMPLETE')");
+  });
+
+  it('should render selection feedback and clean state on tool change, Eraser, or Clear', () => {
+    expect(scriptContent).toContain('function drawFusionMarker(timestamp)');
+    expect(scriptContent).toContain('drawFusionMarker(timestamp)');
+    expect(scriptContent).toContain("if (tool !== 'fusion') resetFusionSelection(true)");
+    expect(scriptContent).toContain('if (fusionFirstBody && removedBodyIds.has(fusionFirstBody.id)) fusionFirstBody = null');
+    expect(scriptContent).toContain('resetFusionSelection(true)');
+    expect(scriptContent).toContain("fusion: '#ff66ff'");
+  });
+});
+
+// ============================================
 // ROTATE TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Rotate Tool', () => {
-  it('should expose Rotate as the final selectable toolbar tool', () => {
+  it('should keep Rotate selectable immediately before Fusion', () => {
     const rotateBtn = document.querySelector('[data-tool="rotate"]');
     expect(rotateBtn).not.toBeNull();
     expect(rotateBtn?.getAttribute('aria-label')).toContain('90 degrees clockwise');
-    expect(document.getElementById('toolbar')?.lastElementChild).toBe(rotateBtn);
+    expect(rotateBtn?.nextElementSibling?.dataset.tool).toBe('fusion');
     expect(rotateBtn?.previousElementSibling?.dataset.tool).toBe('strut');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'rotate'");

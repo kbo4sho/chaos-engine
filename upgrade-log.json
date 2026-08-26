@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-08-26",
+      "ideas": [
+        "New tool: Fuse two standalone objects into one momentum-preserving core"
+      ],
+      "summary": "Implemented Fusion tool (🧬) — the final button in the existing object toolbar now selects two standalone dynamic objects and replaces them with one larger pulsing fusion core that conserves their total mass and mass-weighted linear/angular motion; 46px touch targeting, canvas-safe placement, cancel/invalid-subject handling, neon selection and completion feedback, source-state cleanup, and Eraser/Clear/tool-change cleanup keep the two-to-one transform readable and reliable on desktop and mobile."
+    },
+    {
       "date": "2026-08-25",
       "ideas": [
         "New tool: Rotate standalone objects through precise quarter-turns"

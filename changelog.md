@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-08-26T14:11:45Z — Added: Fusion tool
+**Why:** The toolbar could split, clone, swap, connect, and transform objects, but it had no deliberate way to combine two existing parts into one new physical object. Fusion adds a two-to-one transform that is meaningfully distinct from Fission's one-to-two split and preserves the selected pair's total mass and momentum.
+**Goal alignment:** "more fun, more surprising, more satisfying" — two familiar objects collapse into a larger pulsing neon fusion core whose size, movement, and weight emerge from both inputs, enabling repeatable mashups and heavier projectiles.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (323/323 passing); browser smoke ✓ (existing Ball and Block placed, Fusion selected at toolbar end, first subject marker/status shown, second tap replaced 2 objects with one visibly distinct momentum-preserving fusion core and `FUSION COMPLETE`, 0 console errors/warnings); mobile ✓ (390×844, final Fusion button fully reachable/selectable at 52×50px); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-08-25T14:08:31Z — Added: Rotate tool
 **Why:** The toolbar could continuously motorize objects but had no precise way to reorient a placed build part. Rotate adds a deliberate reversible quarter-turn transform without overlapping Motor's powered spin, Grab's free movement, or Swap's position exchange.
 **Goal alignment:** "more fun, more surprising, more satisfying" — blocks, dominoes, anvils, and other standalone parts can be snapped into useful new orientations with one tap, while reselection reverses direction for quick layout corrections.
