@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-08-27T14:11:48Z — Added: Hinge tool
+**Why:** The toolbar could make flexible ropes and stiff distance braces, but it had no precise rotational joint for building articulated mechanisms. Hinge pins two deliberately tapped body points together while leaving both parts free to rotate independently around the shared joint.
+**Goal alignment:** "more fun, more surprising, more satisfying" — adjacent blocks become doors, arms, folding chains, pendulums, and improvised machines with one readable two-tap connection that remains compatible with Anchor, Grab, Snip, Eraser, and Clear.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (329/329 passing); browser smoke ✓ (existing Block and Anchor tools placed and fixed two parts, Hinge selected at toolbar end, two facing tap points created one visible zero-length pin joint with `HINGE LOCKED`, existing Grab rotated the free block through roughly one full turn while the hinge and OBJ 2 remained intact, 0 console errors/warnings); mobile ✓ (390×844, final Hinge button fully reachable/selectable at 52×50px); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-08-26T14:11:45Z — Added: Fusion tool
 **Why:** The toolbar could split, clone, swap, connect, and transform objects, but it had no deliberate way to combine two existing parts into one new physical object. Fusion adds a two-to-one transform that is meaningfully distinct from Fission's one-to-two split and preserves the selected pair's total mass and momentum.
 **Goal alignment:** "more fun, more surprising, more satisfying" — two familiar objects collapse into a larger pulsing neon fusion core whose size, movement, and weight emerge from both inputs, enabling repeatable mashups and heavier projectiles.

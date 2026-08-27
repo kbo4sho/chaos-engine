@@ -231,6 +231,19 @@ canvas#game {
 #fusion-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#hinge-feedback {
+  position:absolute; top:48px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#ffcc66;
+  font-size:19px; letter-spacing:2px; line-height:1;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none;
+  transition:opacity .12s, transform .12s;
+}
+#hinge-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -380,6 +393,7 @@ canvas#game {
     <div id="strut-feedback" role="status" aria-live="polite"></div>
     <div id="rotate-feedback" role="status" aria-live="polite"></div>
     <div id="fusion-feedback" role="status" aria-live="polite"></div>
+    <div id="hinge-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -427,6 +441,7 @@ canvas#game {
     <button class="tool-btn" data-tool="strut" style="color:#66ffff;" title="Tap two objects to brace them with a stiff structural strut" aria-label="Brace two objects with a stiff structural strut"><span class="icon">📐</span>Strut</button>
     <button class="tool-btn" data-tool="rotate" style="color:#ff99ff;" title="Tap a standalone object to rotate it 90 degrees clockwise; tap this button again for counter-clockwise" aria-label="Rotate standalone objects 90 degrees clockwise"><span class="icon rotate-icon">↻</span><span class="rotate-label">TURN CW</span></button>
     <button class="tool-btn" data-tool="fusion" style="color:#ff66ff;" title="Tap two standalone objects to combine them into one momentum-preserving fusion core" aria-label="Fuse two standalone objects into one fusion core"><span class="icon">🧬</span>Fusion</button>
+    <button class="tool-btn" data-tool="hinge" style="color:#ffcc66;" title="Tap two build parts to pin their tapped points together with a rotating hinge" aria-label="Hinge two build parts together at their tapped points"><span class="icon">🔩</span>Hinge</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -645,6 +660,9 @@ let rotateFeedbackTimer = 0;
 let rotateFlash = null; // {body, direction, startedAt}
 let fusionFirstBody = null;
 let fusionFeedbackTimer = 0;
+let hingeSelection = null; // {body, point} first tapped body and its body-local pivot
+let hinges = []; // zero-length pin constraints created by the Hinge tool
+let hingeFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -1300,6 +1318,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'strut') resetStrutSelection(true);
       if (tool !== 'rotate') resetRotateTool(true);
       if (tool !== 'fusion') resetFusionSelection(true);
+      if (tool !== 'hinge') resetHingeSelection(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -2704,6 +2723,8 @@ function finishClear(playFeedback = true) {
   ropeFirstBody = null;
   struts = [];
   strutFirstBody = null;
+  hinges = [];
+  hingeSelection = null;
   grabActive = false;
   grabBody = null;
   grabHistory = [];
@@ -2743,6 +2764,7 @@ function finishClear(playFeedback = true) {
   document.getElementById('strut-feedback').textContent = '';
   resetRotateTool(true);
   resetFusionSelection(true);
+  resetHingeSelection(true);
   bodyTrails.clear();
   shatterDebounce.clear();
   if (oceanMode) {
@@ -2886,7 +2908,8 @@ function getToolAccentColor(tool) {
     alchemy: '#44ffcc',
     strut: '#66ffff',
     rotate: '#ff99ff',
-    fusion: '#ff66ff'
+    fusion: '#ff66ff',
+    hinge: '#ffcc66'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -3014,6 +3037,7 @@ function eraseBodyAt(pos) {
   chainLinks = chainLinks.filter(b => !removedBodyIds.has(b.id));
   ropes = ropes.filter(r => !constraintsToRemove.has(r));
   struts = struts.filter(strut => !constraintsToRemove.has(strut));
+  hinges = hinges.filter(hinge => !constraintsToRemove.has(hinge));
   if (ropeFirstBody && removedBodyIds.has(ropeFirstBody.id)) ropeFirstBody = null;
   if (grabBody && removedBodyIds.has(grabBody.id)) {
     grabActive = false;
@@ -3024,6 +3048,7 @@ function eraseBodyAt(pos) {
   if (strutFirstBody && removedBodyIds.has(strutFirstBody.id)) strutFirstBody = null;
   if (rotateFlash && removedBodyIds.has(rotateFlash.body.id)) rotateFlash = null;
   if (fusionFirstBody && removedBodyIds.has(fusionFirstBody.id)) fusionFirstBody = null;
+  if (hingeSelection && removedBodyIds.has(hingeSelection.body.id)) hingeSelection = null;
 
   haptic([8]);
   playSound(650, 0.1, 'sine', 0.08);
@@ -3705,6 +3730,147 @@ function strutBodiesAt(pos) {
   return strut;
 }
 
+function getHingeLocalPoint(body, worldPoint) {
+  const dx = worldPoint.x - body.position.x;
+  const dy = worldPoint.y - body.position.y;
+  const cos = Math.cos(-body.angle);
+  const sin = Math.sin(-body.angle);
+  return {
+    x:dx * cos - dy * sin,
+    y:dx * sin + dy * cos
+  };
+}
+
+function isHingeableBody(b) {
+  if (!b || b.label === 'wall' || b.label === 'chain-link' || b.isTarget || b.isFragment || b.parent !== b) return false;
+  return !b.isStatic || b.isAnchored;
+}
+
+function findHingeBodyAt(pos) {
+  const candidates = Composite.allBodies(world).filter(isHingeableBody);
+  let target = Matter.Query.point(candidates, pos).filter(isHingeableBody).pop();
+  if (!target) {
+    let nearestDist = 46;
+    candidates.forEach(b => {
+      const dist = Math.hypot(b.position.x - pos.x, b.position.y - pos.y);
+      if (dist < nearestDist) {
+        target = b;
+        nearestDist = dist;
+      }
+    });
+  }
+  return target;
+}
+
+function hasHingeBetween(bodyA, bodyB) {
+  hinges = hinges.filter(hinge => Composite.get(world, hinge.id, 'constraint'));
+  return hinges.some(hinge =>
+    (hinge.bodyA === bodyA && hinge.bodyB === bodyB) ||
+    (hinge.bodyA === bodyB && hinge.bodyB === bodyA)
+  );
+}
+
+function pruneHinges() {
+  const liveBodies = new Set(Composite.allBodies(world));
+  hinges = hinges.filter(hinge => {
+    const inWorld = Composite.get(world, hinge.id, 'constraint');
+    const hasBothEnds = liveBodies.has(hinge.bodyA) && liveBodies.has(hinge.bodyB);
+    if (inWorld && !hasBothEnds) Composite.remove(world, hinge, true);
+    return Boolean(inWorld && hasBothEnds);
+  });
+  if (hingeSelection && !liveBodies.has(hingeSelection.body)) resetHingeSelection(true);
+}
+
+function showHingeFeedback(message, color = '#ffcc66') {
+  const feedback = document.getElementById('hinge-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(hingeFeedbackTimer);
+  hingeFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 850);
+}
+
+function resetHingeSelection(silent = false) {
+  hingeSelection = null;
+  if (!silent) return;
+  clearTimeout(hingeFeedbackTimer);
+  const feedback = document.getElementById('hinge-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
+function addHingeBurst(worldPoint, color) {
+  for (let i = 0; i < 12; i++) {
+    const angle = Math.PI * 2 * i / 12;
+    particles.push({
+      x:worldPoint.x,
+      y:worldPoint.y,
+      vx:Math.cos(angle) * (1.5 + Math.random() * 2.5),
+      vy:Math.sin(angle) * (1.5 + Math.random() * 2.5),
+      size:2 + Math.random() * 2,
+      life:0.25 + Math.random() * 0.25,
+      color
+    });
+  }
+}
+
+function hingeBodiesAt(pos) {
+  const target = findHingeBodyAt(pos);
+  if (!target) {
+    showHingeFeedback('NO PART', '#888888');
+    haptic([3]);
+    return false;
+  }
+
+  if (!hingeSelection || !Composite.get(world, hingeSelection.body.id, 'body')) {
+    hingeSelection = { body:target, point:getHingeLocalPoint(target, pos) };
+    addHingeBurst(pos, '#ffcc66');
+    showHingeFeedback('HINGE: PICK B');
+    haptic([6]);
+    playSound(680, 0.08, 'sine', 0.06);
+    return 'selected';
+  }
+
+  if (target === hingeSelection.body) {
+    resetHingeSelection();
+    showHingeFeedback('HINGE CANCELLED', '#aaaaaa');
+    haptic([4]);
+    playSound(240, 0.08, 'square', 0.05);
+    return 'cancelled';
+  }
+
+  const first = hingeSelection;
+  if (hasHingeBetween(first.body, target)) {
+    resetHingeSelection();
+    showHingeFeedback('ALREADY HINGED', '#ffdd55');
+    haptic([4, 18, 4]);
+    return false;
+  }
+
+  const hinge = Constraint.create({
+    bodyA:first.body,
+    pointA:first.point,
+    bodyB:target,
+    pointB:getHingeLocalPoint(target, pos),
+    length:0,
+    stiffness:1,
+    damping:0.16,
+    render:{ type:'hinge' }
+  });
+  Composite.add(world, hinge);
+  hinges.push(hinge);
+  addHingeBurst(pos, '#ffcc66');
+  resetHingeSelection();
+  showHingeFeedback('HINGE LOCKED');
+  haptic([8, 12, 8]);
+  playSound(420, 0.08, 'square', 0.07);
+  playSound(840, 0.12, 'sine', 0.06);
+  shakeIntensity = Math.max(shakeIntensity, 2);
+  return hinge;
+}
+
 const ROTATE_STEP = Math.PI / 2;
 
 function getNextRotateDirection(direction = 1) {
@@ -4332,6 +4498,7 @@ function snipConstraintAt(pos) {
   });
   ropes = ropes.filter(rope => rope !== constraint);
   struts = struts.filter(strut => strut !== constraint);
+  hinges = hinges.filter(hinge => hinge !== constraint);
   wreckingBalls = wreckingBalls.filter(wrecking => wrecking.chain !== constraint);
   seesaws = seesaws.filter(seesaw => seesaw.constraint !== constraint);
   flippers = flippers.filter(flipper => flipper.constraint !== constraint);
@@ -4470,6 +4637,13 @@ function onDown(e) {
   // Fusion tool — combine two standalone bodies into one momentum-preserving core.
   if (currentTool === 'fusion') {
     fuseBodiesAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Hinge tool — pin two tapped body points together while preserving free rotation.
+  if (currentTool === 'hinge') {
+    hingeBodiesAt(pos);
     pointerDown = false;
     return;
   }
@@ -5918,6 +6092,24 @@ function drawConstraints() {
         ctx.stroke();
       });
       ctx.restore();
+    } else if (c.render?.type === 'hinge') {
+      const joint = { x:(pA.x + pB.x) / 2, y:(pA.y + pB.y) / 2 };
+      ctx.save();
+      ctx.shadowColor = '#ffcc66';
+      ctx.shadowBlur = 12;
+      ctx.strokeStyle = '#ffcc66';
+      ctx.fillStyle = '#101820';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(joint.x, joint.y, 9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#fff2b3';
+      ctx.beginPath();
+      ctx.arc(joint.x, joint.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
     } else if (wreckingChains.has(c) || c.render?.type === 'chain-link-constraint') {
       // Draw chain links
       const dx = pB.x - pA.x, dy = pB.y - pA.y;
@@ -6415,6 +6607,35 @@ function drawFusionMarker(timestamp) {
   ctx.restore();
 }
 
+function drawHingeMarker(timestamp) {
+  if (!hingeSelection || currentTool !== 'hinge') return;
+  if (!Composite.get(world, hingeSelection.body.id, 'body')) {
+    hingeSelection = null;
+    return;
+  }
+  const body = hingeSelection.body;
+  const worldPoint = Vector.add(body.position, Vector.rotate(hingeSelection.point, body.angle));
+  const pulse = 0.72 + Math.sin(timestamp / 115 + body.id) * 0.2;
+  ctx.save();
+  ctx.globalAlpha = pulse;
+  ctx.strokeStyle = '#ffcc66';
+  ctx.fillStyle = '#ffcc66';
+  ctx.shadowColor = '#ffcc66';
+  ctx.shadowBlur = 12;
+  ctx.lineWidth = 3;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath();
+  ctx.arc(worldPoint.x, worldPoint.y, 16, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 1;
+  ctx.font = '18px VT323';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('A', worldPoint.x, worldPoint.y + 1);
+  ctx.restore();
+}
+
 function drawRotateFlash(timestamp) {
   if (!rotateFlash) return;
   const { body, direction, startedAt } = rotateFlash;
@@ -6463,6 +6684,7 @@ function loop(timestamp) {
   const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
   lastTime = timestamp;
   pruneStruts();
+  pruneHinges();
 
   // Smooth gravity transition (skip during anti-grav pulse and gravity flip)
   if (!antiGravActive && gravityAngle === 0) {
@@ -7258,6 +7480,7 @@ function loop(timestamp) {
   drawStrutMarker(timestamp);
   drawRotateFlash(timestamp);
   drawFusionMarker(timestamp);
+  drawHingeMarker(timestamp);
 
   // Effects
   drawRopes();

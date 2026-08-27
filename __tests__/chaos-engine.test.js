@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 42 tool buttons', () => {
+  it('should have exactly 43 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(42);
+    expect(buttons.length).toBe(43);
   });
 
-  it('should append Fusion after Rotate at the end of the object toolbar', () => {
+  it('should append Hinge after Fusion at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('fusion');
-    expect(toolbar.lastElementChild?.textContent).toContain('Fusion');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('rotate');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('strut');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('hinge');
+    expect(toolbar.lastElementChild?.textContent).toContain('Hinge');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('fusion');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('rotate');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,15 +67,81 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// HINGE TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Hinge Tool', () => {
+  it('should expose Hinge as the final selectable toolbar tool', () => {
+    const hingeBtn = document.querySelector('[data-tool="hinge"]');
+    expect(hingeBtn).not.toBeNull();
+    expect(hingeBtn?.getAttribute('aria-label')).toContain('Hinge two build parts');
+    expect(document.getElementById('toolbar')?.lastElementChild).toBe(hingeBtn);
+    expect(hingeBtn?.previousElementSibling?.dataset.tool).toBe('fusion');
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'hinge'");
+    expect(scriptContent).toContain('hingeBodiesAt(pos)');
+  });
+
+  it('should convert a tapped world pivot into stable body-local coordinates', () => {
+    const source = scriptContent.match(/function getHingeLocalPoint\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getHingeLocalPoint = new Function(`${source}; return getHingeLocalPoint;`)();
+
+    expect(getHingeLocalPoint({ position:{ x:10, y:20 }, angle:0 }, { x:14, y:27 }))
+      .toEqual({ x:4, y:7 });
+    const rotated = getHingeLocalPoint({ position:{ x:10, y:20 }, angle:Math.PI / 2 }, { x:10, y:30 });
+    expect(rotated.x).toBeCloseTo(10);
+    expect(rotated.y).toBeCloseTo(0);
+  });
+
+  it('should select two touch-friendly parts and create a true pin joint', () => {
+    expect(scriptContent).toContain('function isHingeableBody(b)');
+    expect(scriptContent).toContain("b.label === 'chain-link'");
+    expect(scriptContent).toContain('Matter.Query.point(candidates, pos)');
+    expect(scriptContent).toContain('let nearestDist = 46');
+    expect(scriptContent).toContain('hingeSelection = { body:target, point:getHingeLocalPoint(target, pos) }');
+    expect(scriptContent).toContain('const hinge = Constraint.create({');
+    expect(scriptContent).toContain('pointA:first.point');
+    expect(scriptContent).toContain('pointB:getHingeLocalPoint(target, pos)');
+    expect(scriptContent).toContain('length:0');
+    expect(scriptContent).toContain('stiffness:1');
+    expect(scriptContent).toContain("render:{ type:'hinge' }");
+    expect(scriptContent).toContain('hinges.push(hinge)');
+  });
+
+  it('should reject duplicate hinges and allow tapping A again to cancel', () => {
+    expect(scriptContent).toContain('function hasHingeBetween(bodyA, bodyB)');
+    expect(scriptContent).toContain('target === hingeSelection.body');
+    expect(scriptContent).toContain("showHingeFeedback('HINGE CANCELLED'");
+    expect(scriptContent).toContain("showHingeFeedback('ALREADY HINGED'");
+  });
+
+  it('should render persistent joint and selection feedback with complete cleanup', () => {
+    expect(document.getElementById('hinge-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain("c.render?.type === 'hinge'");
+    expect(scriptContent).toContain('function drawHingeMarker(timestamp)');
+    expect(scriptContent).toContain('drawHingeMarker(timestamp)');
+    expect(scriptContent).toContain("if (tool !== 'hinge') resetHingeSelection(true)");
+    expect(scriptContent).toContain('hinges = hinges.filter(hinge => !constraintsToRemove.has(hinge))');
+    expect(scriptContent).toContain('hinges = hinges.filter(hinge => hinge !== constraint)');
+    expect(scriptContent).toContain('function pruneHinges()');
+    expect(scriptContent).toContain('pruneHinges()');
+    expect(scriptContent).toContain('hinges = []');
+    expect(scriptContent).toContain('resetHingeSelection(true)');
+    expect(scriptContent).toContain("hinge: '#ffcc66'");
+  });
+});
+
+// ============================================
 // FUSION TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Fusion Tool', () => {
-  it('should expose Fusion as the final selectable toolbar tool', () => {
+  it('should keep Fusion selectable immediately before Hinge', () => {
     const fusionBtn = document.querySelector('[data-tool="fusion"]');
     expect(fusionBtn).not.toBeNull();
     expect(fusionBtn?.getAttribute('aria-label')).toContain('Fuse two standalone objects');
-    expect(document.getElementById('toolbar')?.lastElementChild).toBe(fusionBtn);
+    expect(fusionBtn?.nextElementSibling?.dataset.tool).toBe('hinge');
     expect(fusionBtn?.previousElementSibling?.dataset.tool).toBe('rotate');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'fusion'");

@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-08-27",
+      "ideas": [
+        "New tool: Pin two tapped build-part points together with a rotating Hinge"
+      ],
+      "summary": "Implemented Hinge tool (🔩) — the final button in the existing object toolbar now selects two dynamic or anchored build parts and joins their exact tapped points with a visible zero-length Matter.js pin constraint, leaving both bodies free to rotate around the joint; 46px touch targeting, duplicate/cancel protection, neon pivot and first-selection feedback, Anchor/Grab/Snip interoperability, orphan pruning, and Eraser/Clear/tool-change cleanup keep articulated builds readable and reliable on desktop and mobile."
+    },
+    {
       "date": "2026-08-26",
       "ideas": [
         "New tool: Fuse two standalone objects into one momentum-preserving core"
