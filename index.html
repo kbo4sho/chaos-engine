@@ -244,6 +244,19 @@ canvas#game {
 #hinge-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#spring-feedback {
+  position:absolute; top:82px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#b6ff4a;
+  font-size:19px; letter-spacing:2px; line-height:1;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none;
+  transition:opacity .12s, transform .12s;
+}
+#spring-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -394,6 +407,7 @@ canvas#game {
     <div id="rotate-feedback" role="status" aria-live="polite"></div>
     <div id="fusion-feedback" role="status" aria-live="polite"></div>
     <div id="hinge-feedback" role="status" aria-live="polite"></div>
+    <div id="spring-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -442,6 +456,7 @@ canvas#game {
     <button class="tool-btn" data-tool="rotate" style="color:#ff99ff;" title="Tap a standalone object to rotate it 90 degrees clockwise; tap this button again for counter-clockwise" aria-label="Rotate standalone objects 90 degrees clockwise"><span class="icon rotate-icon">↻</span><span class="rotate-label">TURN CW</span></button>
     <button class="tool-btn" data-tool="fusion" style="color:#ff66ff;" title="Tap two standalone objects to combine them into one momentum-preserving fusion core" aria-label="Fuse two standalone objects into one fusion core"><span class="icon">🧬</span>Fusion</button>
     <button class="tool-btn" data-tool="hinge" style="color:#ffcc66;" title="Tap two build parts to pin their tapped points together with a rotating hinge" aria-label="Hinge two build parts together at their tapped points"><span class="icon">🔩</span>Hinge</button>
+    <button class="tool-btn" data-tool="spring" style="color:#b6ff4a;" title="Tap two build parts to connect them with an energy-storing spring" aria-label="Spring two build parts together with an elastic connection"><span class="icon">〰️</span>Spring</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -663,6 +678,9 @@ let fusionFeedbackTimer = 0;
 let hingeSelection = null; // {body, point} first tapped body and its body-local pivot
 let hinges = []; // zero-length pin constraints created by the Hinge tool
 let hingeFeedbackTimer = 0;
+let springFirstBody = null;
+let springs = []; // shortened low-stiffness constraints created by the Spring tool
+let springFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -1319,6 +1337,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'rotate') resetRotateTool(true);
       if (tool !== 'fusion') resetFusionSelection(true);
       if (tool !== 'hinge') resetHingeSelection(true);
+      if (tool !== 'spring') resetSpringSelection(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -2725,6 +2744,8 @@ function finishClear(playFeedback = true) {
   strutFirstBody = null;
   hinges = [];
   hingeSelection = null;
+  springs = [];
+  springFirstBody = null;
   grabActive = false;
   grabBody = null;
   grabHistory = [];
@@ -2765,6 +2786,7 @@ function finishClear(playFeedback = true) {
   resetRotateTool(true);
   resetFusionSelection(true);
   resetHingeSelection(true);
+  resetSpringSelection(true);
   bodyTrails.clear();
   shatterDebounce.clear();
   if (oceanMode) {
@@ -2909,7 +2931,8 @@ function getToolAccentColor(tool) {
     strut: '#66ffff',
     rotate: '#ff99ff',
     fusion: '#ff66ff',
-    hinge: '#ffcc66'
+    hinge: '#ffcc66',
+    spring: '#b6ff4a'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -3038,6 +3061,7 @@ function eraseBodyAt(pos) {
   ropes = ropes.filter(r => !constraintsToRemove.has(r));
   struts = struts.filter(strut => !constraintsToRemove.has(strut));
   hinges = hinges.filter(hinge => !constraintsToRemove.has(hinge));
+  springs = springs.filter(spring => !constraintsToRemove.has(spring));
   if (ropeFirstBody && removedBodyIds.has(ropeFirstBody.id)) ropeFirstBody = null;
   if (grabBody && removedBodyIds.has(grabBody.id)) {
     grabActive = false;
@@ -3049,6 +3073,7 @@ function eraseBodyAt(pos) {
   if (rotateFlash && removedBodyIds.has(rotateFlash.body.id)) rotateFlash = null;
   if (fusionFirstBody && removedBodyIds.has(fusionFirstBody.id)) fusionFirstBody = null;
   if (hingeSelection && removedBodyIds.has(hingeSelection.body.id)) hingeSelection = null;
+  if (springFirstBody && removedBodyIds.has(springFirstBody.id)) springFirstBody = null;
 
   haptic([8]);
   playSound(650, 0.1, 'sine', 0.08);
@@ -3871,6 +3896,145 @@ function hingeBodiesAt(pos) {
   return hinge;
 }
 
+const SPRING_REST_RATIO = 0.72;
+const SPRING_MIN_LENGTH = 32;
+const SPRING_MAX_LENGTH = 220;
+
+function getSpringRestLength(distance) {
+  return Math.max(SPRING_MIN_LENGTH, Math.min(SPRING_MAX_LENGTH, distance * SPRING_REST_RATIO));
+}
+
+function isSpringableBody(b) {
+  if (!b || b.label === 'wall' || b.label === 'chain-link' || b.isTarget || b.isFragment || b.parent !== b) return false;
+  return !b.isStatic || b.isAnchored;
+}
+
+function findSpringBodyAt(pos) {
+  const candidates = Composite.allBodies(world).filter(isSpringableBody);
+  let target = Matter.Query.point(candidates, pos).filter(isSpringableBody).pop();
+  if (!target) {
+    let nearestDist = 46;
+    candidates.forEach(b => {
+      const dist = Math.hypot(b.position.x - pos.x, b.position.y - pos.y);
+      if (dist < nearestDist) {
+        target = b;
+        nearestDist = dist;
+      }
+    });
+  }
+  return target;
+}
+
+function hasSpringBetween(bodyA, bodyB) {
+  springs = springs.filter(spring => Composite.get(world, spring.id, 'constraint'));
+  return springs.some(spring =>
+    (spring.bodyA === bodyA && spring.bodyB === bodyB) ||
+    (spring.bodyA === bodyB && spring.bodyB === bodyA)
+  );
+}
+
+function pruneSprings() {
+  const liveBodies = new Set(Composite.allBodies(world));
+  springs = springs.filter(spring => {
+    const inWorld = Composite.get(world, spring.id, 'constraint');
+    const hasBothEnds = liveBodies.has(spring.bodyA) && liveBodies.has(spring.bodyB);
+    if (inWorld && !hasBothEnds) Composite.remove(world, spring, true);
+    return Boolean(inWorld && hasBothEnds);
+  });
+  if (springFirstBody && !liveBodies.has(springFirstBody)) resetSpringSelection(true);
+}
+
+function showSpringFeedback(message, color = '#b6ff4a') {
+  const feedback = document.getElementById('spring-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(springFeedbackTimer);
+  springFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 850);
+}
+
+function resetSpringSelection(silent = false) {
+  springFirstBody = null;
+  if (!silent) return;
+  clearTimeout(springFeedbackTimer);
+  const feedback = document.getElementById('spring-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
+function addSpringBurst(body, color) {
+  for (let i = 0; i < 12; i++) {
+    const angle = Math.PI * 2 * i / 12;
+    const speed = 1.4 + Math.random() * 2.8;
+    particles.push({
+      x:body.position.x,
+      y:body.position.y,
+      vx:Math.cos(angle) * speed,
+      vy:Math.sin(angle) * speed,
+      size:2 + Math.random() * 2,
+      life:0.25 + Math.random() * 0.25,
+      color
+    });
+  }
+}
+
+function springBodiesAt(pos) {
+  const target = findSpringBodyAt(pos);
+  if (!target) {
+    showSpringFeedback('NO PART', '#888888');
+    haptic([3]);
+    return false;
+  }
+
+  if (!springFirstBody || !Composite.get(world, springFirstBody.id, 'body')) {
+    springFirstBody = target;
+    addSpringBurst(target, '#b6ff4a');
+    showSpringFeedback('SPRING: PICK B');
+    haptic([6]);
+    playSound(760, 0.08, 'sine', 0.06);
+    return 'selected';
+  }
+
+  if (target === springFirstBody) {
+    resetSpringSelection();
+    showSpringFeedback('SPRING CANCELLED', '#aaaaaa');
+    haptic([4]);
+    playSound(240, 0.08, 'square', 0.05);
+    return 'cancelled';
+  }
+
+  const first = springFirstBody;
+  if (hasSpringBetween(first, target)) {
+    resetSpringSelection();
+    showSpringFeedback('ALREADY SPRUNG', '#ffdd55');
+    haptic([4, 18, 4]);
+    return false;
+  }
+
+  const distance = Math.hypot(target.position.x - first.position.x, target.position.y - first.position.y);
+  const spring = Constraint.create({
+    bodyA:first,
+    bodyB:target,
+    length:getSpringRestLength(distance),
+    stiffness:0.01,
+    damping:0.08,
+    render:{ type:'spring' }
+  });
+  Composite.add(world, spring);
+  springs.push(spring);
+  addSpringBurst(first, '#b6ff4a');
+  addSpringBurst(target, '#ffdd55');
+  resetSpringSelection();
+  showSpringFeedback('SPRING CHARGED');
+  haptic([8, 10, 8]);
+  playSound(360, 0.1, 'triangle', 0.07);
+  playSound(760, 0.16, 'sine', 0.06);
+  shakeIntensity = Math.max(shakeIntensity, 2);
+  return spring;
+}
+
 const ROTATE_STEP = Math.PI / 2;
 
 function getNextRotateDirection(direction = 1) {
@@ -4499,6 +4663,7 @@ function snipConstraintAt(pos) {
   ropes = ropes.filter(rope => rope !== constraint);
   struts = struts.filter(strut => strut !== constraint);
   hinges = hinges.filter(hinge => hinge !== constraint);
+  springs = springs.filter(spring => spring !== constraint);
   wreckingBalls = wreckingBalls.filter(wrecking => wrecking.chain !== constraint);
   seesaws = seesaws.filter(seesaw => seesaw.constraint !== constraint);
   flippers = flippers.filter(flipper => flipper.constraint !== constraint);
@@ -4644,6 +4809,13 @@ function onDown(e) {
   // Hinge tool — pin two tapped body points together while preserving free rotation.
   if (currentTool === 'hinge') {
     hingeBodiesAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Spring tool — connect two parts with a shortened elastic constraint.
+  if (currentTool === 'spring') {
+    springBodiesAt(pos);
     pointerDown = false;
     return;
   }
@@ -6110,6 +6282,44 @@ function drawConstraints() {
       ctx.arc(joint.x, joint.y, 3, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
+    } else if (c.render?.type === 'spring') {
+      const dx = pB.x - pA.x;
+      const dy = pB.y - pA.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const nx = -dy / dist;
+      const ny = dx / dist;
+      const turns = Math.max(5, Math.min(14, Math.round(dist / 14)));
+      const points = turns * 2;
+      ctx.save();
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = '#b6ff4a';
+      ctx.shadowColor = '#b6ff4a';
+      ctx.shadowBlur = 10;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(pA.x, pA.y);
+      for (let i = 1; i < points; i++) {
+        const t = i / points;
+        const amplitude = i % 2 === 0 ? -8 : 8;
+        ctx.lineTo(
+          pA.x + dx * t + nx * amplitude,
+          pA.y + dy * t + ny * amplitude
+        );
+      }
+      ctx.lineTo(pB.x, pB.y);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      [pA, pB].forEach(point => {
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = '#071014';
+        ctx.fill();
+        ctx.strokeStyle = '#ffdd55';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      });
+      ctx.restore();
     } else if (wreckingChains.has(c) || c.render?.type === 'chain-link-constraint') {
       // Draw chain links
       const dx = pB.x - pA.x, dy = pB.y - pA.y;
@@ -6636,6 +6846,37 @@ function drawHingeMarker(timestamp) {
   ctx.restore();
 }
 
+function drawSpringMarker(timestamp) {
+  if (!springFirstBody || currentTool !== 'spring') return;
+  if (!Composite.get(world, springFirstBody.id, 'body')) {
+    springFirstBody = null;
+    return;
+  }
+  const halfW = (springFirstBody.bounds.max.x - springFirstBody.bounds.min.x) / 2;
+  const halfH = (springFirstBody.bounds.max.y - springFirstBody.bounds.min.y) / 2;
+  const radius = Math.max(24, Math.min(68, Math.hypot(halfW, halfH) + 12));
+  const pulse = 0.72 + Math.sin(timestamp / 100 + springFirstBody.id) * 0.2;
+  ctx.save();
+  ctx.translate(springFirstBody.position.x, springFirstBody.position.y);
+  ctx.globalAlpha = pulse;
+  ctx.strokeStyle = '#b6ff4a';
+  ctx.fillStyle = '#b6ff4a';
+  ctx.shadowColor = '#b6ff4a';
+  ctx.shadowBlur = 12;
+  ctx.lineWidth = 3;
+  ctx.setLineDash([3, 5]);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 1;
+  ctx.font = '18px VT323';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('A', 0, 1);
+  ctx.restore();
+}
+
 function drawRotateFlash(timestamp) {
   if (!rotateFlash) return;
   const { body, direction, startedAt } = rotateFlash;
@@ -6685,6 +6926,7 @@ function loop(timestamp) {
   lastTime = timestamp;
   pruneStruts();
   pruneHinges();
+  pruneSprings();
 
   // Smooth gravity transition (skip during anti-grav pulse and gravity flip)
   if (!antiGravActive && gravityAngle === 0) {
@@ -7481,6 +7723,7 @@ function loop(timestamp) {
   drawRotateFlash(timestamp);
   drawFusionMarker(timestamp);
   drawHingeMarker(timestamp);
+  drawSpringMarker(timestamp);
 
   // Effects
   drawRopes();

@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-08-28T14:10:15Z — Added: Spring tool
+**Why:** The toolbar could tether parts with a slack rope, brace them with a rigid strut, or pin them with a hinge, but it had no elastic connection that stores and releases energy. Spring adds a deliberately preloaded, damped link without overlapping those existing construction tools.
+**Goal alignment:** "more fun, more surprising, more satisfying" — two taps turn ordinary objects into bouncing pairs, suspension rigs, springy pendulums, and energy-storing machines, with a bright coil that visibly compresses and stretches during play.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (335/335 passing); browser smoke ✓ (existing Ball tool placed two subjects, Spring selected at toolbar end, two taps created one visible preloaded coil with `SPRING CHARGED`, distance contracted from 300px to its 216px rest length while OBJ 2 and the connection remained intact, 0 console errors/warnings); mobile ✓ (390×844, final Spring button fully reachable/selectable at 52×50px); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-08-27T14:11:48Z — Added: Hinge tool
 **Why:** The toolbar could make flexible ropes and stiff distance braces, but it had no precise rotational joint for building articulated mechanisms. Hinge pins two deliberately tapped body points together while leaving both parts free to rotate independently around the shared joint.
 **Goal alignment:** "more fun, more surprising, more satisfying" — adjacent blocks become doors, arms, folding chains, pendulums, and improvised machines with one readable two-tap connection that remains compatible with Anchor, Grab, Snip, Eraser, and Clear.

@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 43 tool buttons', () => {
+  it('should have exactly 44 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(43);
+    expect(buttons.length).toBe(44);
   });
 
-  it('should append Hinge after Fusion at the end of the object toolbar', () => {
+  it('should append Spring after Hinge at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('hinge');
-    expect(toolbar.lastElementChild?.textContent).toContain('Hinge');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('fusion');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('rotate');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('spring');
+    expect(toolbar.lastElementChild?.textContent).toContain('Spring');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('hinge');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('fusion');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,15 +67,84 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// SPRING TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Spring Tool', () => {
+  it('should expose Spring as the final selectable toolbar tool', () => {
+    const springBtn = document.querySelector('[data-tool="spring"]');
+    expect(springBtn).not.toBeNull();
+    expect(springBtn?.getAttribute('aria-label')).toContain('elastic connection');
+    expect(document.getElementById('toolbar')?.lastElementChild).toBe(springBtn);
+    expect(springBtn?.previousElementSibling?.dataset.tool).toBe('hinge');
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'spring'");
+    expect(scriptContent).toContain('springBodiesAt(pos)');
+  });
+
+  it('should calculate a shortened, safely bounded rest length', () => {
+    const source = scriptContent.match(/function getSpringRestLength\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getSpringRestLength = new Function(`
+      const SPRING_REST_RATIO = 0.72;
+      const SPRING_MIN_LENGTH = 32;
+      const SPRING_MAX_LENGTH = 220;
+      ${source};
+      return getSpringRestLength;
+    `)();
+
+    expect(getSpringRestLength(200)).toBeCloseTo(144);
+    expect(getSpringRestLength(20)).toBe(32);
+    expect(getSpringRestLength(400)).toBe(220);
+  });
+
+  it('should select two touch-friendly parts and create an elastic constraint', () => {
+    expect(scriptContent).toContain('function isSpringableBody(b)');
+    expect(scriptContent).toContain("b.label === 'chain-link'");
+    expect(scriptContent).toContain('Matter.Query.point(candidates, pos)');
+    expect(scriptContent).toContain('let nearestDist = 46');
+    expect(scriptContent).toContain('springFirstBody = target');
+    expect(scriptContent).toContain('const spring = Constraint.create({');
+    expect(scriptContent).toContain('length:getSpringRestLength(distance)');
+    expect(scriptContent).toContain('stiffness:0.01');
+    expect(scriptContent).toContain('damping:0.08');
+    expect(scriptContent).toContain("render:{ type:'spring' }");
+    expect(scriptContent).toContain('springs.push(spring)');
+  });
+
+  it('should reject duplicates and allow tapping A again to cancel', () => {
+    expect(scriptContent).toContain('function hasSpringBetween(bodyA, bodyB)');
+    expect(scriptContent).toContain('target === springFirstBody');
+    expect(scriptContent).toContain("showSpringFeedback('SPRING CANCELLED'");
+    expect(scriptContent).toContain("showSpringFeedback('ALREADY SPRUNG'");
+  });
+
+  it('should render and clean spring state across tool changes, Snip, Eraser, and Clear', () => {
+    expect(document.getElementById('spring-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain("c.render?.type === 'spring'");
+    expect(scriptContent).toContain('function drawSpringMarker(timestamp)');
+    expect(scriptContent).toContain('drawSpringMarker(timestamp)');
+    expect(scriptContent).toContain("if (tool !== 'spring') resetSpringSelection(true)");
+    expect(scriptContent).toContain('springs = springs.filter(spring => !constraintsToRemove.has(spring))');
+    expect(scriptContent).toContain('springs = springs.filter(spring => spring !== constraint)');
+    expect(scriptContent).toContain('function pruneSprings()');
+    expect(scriptContent).toContain('pruneSprings()');
+    expect(scriptContent).toContain('springs = []');
+    expect(scriptContent).toContain('resetSpringSelection(true)');
+    expect(scriptContent).toContain("spring: '#b6ff4a'");
+  });
+});
+
+// ============================================
 // HINGE TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Hinge Tool', () => {
-  it('should expose Hinge as the final selectable toolbar tool', () => {
+  it('should keep Hinge selectable immediately before Spring', () => {
     const hingeBtn = document.querySelector('[data-tool="hinge"]');
     expect(hingeBtn).not.toBeNull();
     expect(hingeBtn?.getAttribute('aria-label')).toContain('Hinge two build parts');
-    expect(document.getElementById('toolbar')?.lastElementChild).toBe(hingeBtn);
+    expect(hingeBtn?.nextElementSibling?.dataset.tool).toBe('spring');
     expect(hingeBtn?.previousElementSibling?.dataset.tool).toBe('fusion');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'hinge'");

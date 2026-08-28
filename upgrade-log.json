@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-08-28",
+      "ideas": [
+        "New tool: Connect two build parts with an energy-storing Spring"
+      ],
+      "summary": "Implemented Spring tool (〰️) — the final button in the existing object toolbar now selects two dynamic or anchored build parts and joins them with a visibly coiled, shortened low-stiffness constraint that pulls, overshoots, and settles at its elastic rest length; 46px touch targeting, tuned damping, duplicate/cancel protection, neon selection/status feedback, orphan pruning, and Snip/Eraser/Clear/tool-change cleanup keep spring-powered builds readable and reliable on desktop and mobile."
+    },
+    {
       "date": "2026-08-27",
       "ideas": [
         "New tool: Pin two tapped build-part points together with a rotating Hinge"
