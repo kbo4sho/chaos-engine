@@ -257,6 +257,19 @@ canvas#game {
 #spring-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#launch-feedback {
+  position:absolute; top:116px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#ff5c8a;
+  font-size:19px; letter-spacing:2px; line-height:1;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none;
+  transition:opacity .12s, transform .12s;
+}
+#launch-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -408,6 +421,7 @@ canvas#game {
     <div id="fusion-feedback" role="status" aria-live="polite"></div>
     <div id="hinge-feedback" role="status" aria-live="polite"></div>
     <div id="spring-feedback" role="status" aria-live="polite"></div>
+    <div id="launch-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -457,6 +471,7 @@ canvas#game {
     <button class="tool-btn" data-tool="fusion" style="color:#ff66ff;" title="Tap two standalone objects to combine them into one momentum-preserving fusion core" aria-label="Fuse two standalone objects into one fusion core"><span class="icon">🧬</span>Fusion</button>
     <button class="tool-btn" data-tool="hinge" style="color:#ffcc66;" title="Tap two build parts to pin their tapped points together with a rotating hinge" aria-label="Hinge two build parts together at their tapped points"><span class="icon">🔩</span>Hinge</button>
     <button class="tool-btn" data-tool="spring" style="color:#b6ff4a;" title="Tap two build parts to connect them with an energy-storing spring" aria-label="Spring two build parts together with an elastic connection"><span class="icon">〰️</span>Spring</button>
+    <button class="tool-btn" data-tool="launch" style="color:#ff5c8a;" title="Tap an object, then tap a destination to launch it there" aria-label="Launch an existing object toward a tapped destination"><span class="icon">🏹</span>Launch</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -681,6 +696,10 @@ let hingeFeedbackTimer = 0;
 let springFirstBody = null;
 let springs = []; // shortened low-stiffness constraints created by the Spring tool
 let springFeedbackTimer = 0;
+let launchBody = null;
+let launchAimPoint = null;
+let launchFlash = null; // {from, to, startedAt} vector feedback after a launch
+let launchFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -1338,6 +1357,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'fusion') resetFusionSelection(true);
       if (tool !== 'hinge') resetHingeSelection(true);
       if (tool !== 'spring') resetSpringSelection(true);
+      if (tool !== 'launch') resetLaunchSelection(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -2746,6 +2766,9 @@ function finishClear(playFeedback = true) {
   hingeSelection = null;
   springs = [];
   springFirstBody = null;
+  launchBody = null;
+  launchAimPoint = null;
+  launchFlash = null;
   grabActive = false;
   grabBody = null;
   grabHistory = [];
@@ -2787,6 +2810,7 @@ function finishClear(playFeedback = true) {
   resetFusionSelection(true);
   resetHingeSelection(true);
   resetSpringSelection(true);
+  resetLaunchSelection(true);
   bodyTrails.clear();
   shatterDebounce.clear();
   if (oceanMode) {
@@ -2932,7 +2956,8 @@ function getToolAccentColor(tool) {
     rotate: '#ff99ff',
     fusion: '#ff66ff',
     hinge: '#ffcc66',
-    spring: '#b6ff4a'
+    spring: '#b6ff4a',
+    launch: '#ff5c8a'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -3074,6 +3099,7 @@ function eraseBodyAt(pos) {
   if (fusionFirstBody && removedBodyIds.has(fusionFirstBody.id)) fusionFirstBody = null;
   if (hingeSelection && removedBodyIds.has(hingeSelection.body.id)) hingeSelection = null;
   if (springFirstBody && removedBodyIds.has(springFirstBody.id)) springFirstBody = null;
+  if (launchBody && removedBodyIds.has(launchBody.id)) resetLaunchSelection(true);
 
   haptic([8]);
   playSound(650, 0.1, 'sine', 0.08);
@@ -4035,6 +4061,119 @@ function springBodiesAt(pos) {
   return spring;
 }
 
+const LAUNCH_MIN_DISTANCE = 36;
+const LAUNCH_MIN_SPEED = 8;
+const LAUNCH_MAX_SPEED = 24;
+const LAUNCH_DISTANCE_PER_SPEED = 12;
+
+function getLaunchVelocity(origin, target) {
+  const dx = target.x - origin.x;
+  const dy = target.y - origin.y;
+  const distance = Math.hypot(dx, dy);
+  const speed = distance < LAUNCH_MIN_DISTANCE ? 0 : Math.max(LAUNCH_MIN_SPEED, Math.min(LAUNCH_MAX_SPEED, distance / LAUNCH_DISTANCE_PER_SPEED));
+  const scale = distance > 0 ? speed / distance : 0;
+  return { x:dx * scale, y:dy * scale, speed, distance };
+}
+
+function isLaunchableBody(b) {
+  return Boolean(b && !b.isStatic && b.label !== 'wall' && b.label !== 'chain-link' && !b.isTarget && !b.isFragment && b.parent === b);
+}
+
+function findLaunchBodyAt(pos) {
+  const candidates = Composite.allBodies(world).filter(isLaunchableBody);
+  let target = Matter.Query.point(candidates, pos).filter(isLaunchableBody).pop();
+  if (!target) {
+    let nearestDist = 46;
+    candidates.forEach(b => {
+      const dist = Math.hypot(b.position.x - pos.x, b.position.y - pos.y);
+      if (dist < nearestDist) {
+        target = b;
+        nearestDist = dist;
+      }
+    });
+  }
+  return target;
+}
+
+function showLaunchFeedback(message, color = '#ff5c8a') {
+  const feedback = document.getElementById('launch-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(launchFeedbackTimer);
+  launchFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 900);
+}
+
+function resetLaunchSelection(silent = false) {
+  launchBody = null;
+  launchAimPoint = null;
+  if (silent) launchFlash = null;
+  if (!silent) return;
+  clearTimeout(launchFeedbackTimer);
+  const feedback = document.getElementById('launch-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
+function addLaunchBurst(point, color, count = 12) {
+  for (let i = 0; i < count; i++) {
+    const angle = Math.PI * 2 * i / count;
+    const speed = 1.5 + Math.random() * 3;
+    particles.push({
+      x:point.x,
+      y:point.y,
+      vx:Math.cos(angle) * speed,
+      vy:Math.sin(angle) * speed,
+      size:2 + Math.random() * 2,
+      life:0.25 + Math.random() * 0.3,
+      color
+    });
+  }
+}
+
+function launchBodyAt(pos) {
+  if (!launchBody || !Composite.get(world, launchBody.id, 'body')) {
+    const target = findLaunchBodyAt(pos);
+    if (!target) {
+      showLaunchFeedback('NO OBJECT', '#888888');
+      haptic([3]);
+      return false;
+    }
+    launchBody = target;
+    launchAimPoint = null;
+    addLaunchBurst(target.position, '#ff5c8a', 10);
+    showLaunchFeedback('LAUNCH: TAP TARGET');
+    playSound(620, 0.08, 'sine', 0.06);
+    haptic([6]);
+    return 'selected';
+  }
+
+  const selected = launchBody;
+  const velocity = getLaunchVelocity(selected.position, pos);
+  if (velocity.speed === 0) {
+    resetLaunchSelection();
+    showLaunchFeedback('LAUNCH CANCELLED', '#aaaaaa');
+    playSound(240, 0.08, 'square', 0.05);
+    haptic([4]);
+    return 'cancelled';
+  }
+
+  const from = { x:selected.position.x, y:selected.position.y };
+  Body.setVelocity(selected, { x:velocity.x, y:velocity.y });
+  Body.setAngularVelocity(selected, Math.max(-0.2, Math.min(0.2, velocity.x * 0.012)));
+  launchFlash = { from, to:{ x:pos.x, y:pos.y }, startedAt:performance.now() };
+  addLaunchBurst(from, '#ff5c8a', 16);
+  resetLaunchSelection();
+  showLaunchFeedback(`LAUNCHED PWR ${Math.round(velocity.speed)}`, '#ffdd55');
+  playWhoosh(velocity.speed);
+  playSound(880, 0.1, 'square', 0.06);
+  haptic([10, 12, 18]);
+  shakeIntensity = Math.max(shakeIntensity, 3);
+  return { body:selected, velocity };
+}
+
 const ROTATE_STEP = Math.PI / 2;
 
 function getNextRotateDirection(direction = 1) {
@@ -4820,6 +4959,13 @@ function onDown(e) {
     return;
   }
 
+  // Launch tool — select one object, then fire it toward a tapped destination.
+  if (currentTool === 'launch') {
+    launchBodyAt(pos);
+    pointerDown = false;
+    return;
+  }
+
   // Snip tool — cut one visible physical connection without removing its bodies.
   if (currentTool === 'snip') {
     snipConstraintAt(pos);
@@ -4935,6 +5081,8 @@ function onDown(e) {
 function onMove(e) {
   e.preventDefault();
   const pos = getPointerPos(e);
+
+  if (currentTool === 'launch' && launchBody) launchAimPoint = pos;
 
   // Handle grab drag (doesn't need pointerDown)
   if (grabActive && grabBody) {
@@ -6877,6 +7025,80 @@ function drawSpringMarker(timestamp) {
   ctx.restore();
 }
 
+function drawLaunchMarker(timestamp) {
+  if (launchBody && currentTool === 'launch') {
+    if (!Composite.get(world, launchBody.id, 'body')) {
+      resetLaunchSelection(true);
+    } else {
+      const pulse = 0.72 + Math.sin(timestamp / 100 + launchBody.id) * 0.2;
+      const halfW = (launchBody.bounds.max.x - launchBody.bounds.min.x) / 2;
+      const halfH = (launchBody.bounds.max.y - launchBody.bounds.min.y) / 2;
+      const radius = Math.max(25, Math.min(70, Math.hypot(halfW, halfH) + 13));
+      ctx.save();
+      ctx.globalAlpha = pulse;
+      ctx.strokeStyle = '#ff5c8a';
+      ctx.fillStyle = '#ff5c8a';
+      ctx.shadowColor = '#ff5c8a';
+      ctx.shadowBlur = 14;
+      ctx.lineWidth = 3;
+      ctx.setLineDash([7, 5]);
+      ctx.beginPath();
+      ctx.arc(launchBody.position.x, launchBody.position.y, radius, 0, Math.PI * 2);
+      ctx.stroke();
+      if (launchAimPoint) {
+        ctx.beginPath();
+        ctx.moveTo(launchBody.position.x, launchBody.position.y);
+        ctx.lineTo(launchAimPoint.x, launchAimPoint.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.arc(launchAimPoint.x, launchAimPoint.y, 11, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+      ctx.font = '18px VT323';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('AIM', launchBody.position.x, launchBody.position.y + 1);
+      ctx.restore();
+    }
+  }
+
+  if (!launchFlash) return;
+  const progress = Math.max(0, (timestamp - launchFlash.startedAt) / 550);
+  if (progress >= 1) {
+    launchFlash = null;
+    return;
+  }
+  const alpha = 1 - progress;
+  const dx = launchFlash.to.x - launchFlash.from.x;
+  const dy = launchFlash.to.y - launchFlash.from.y;
+  const angle = Math.atan2(dy, dx);
+  const tipX = launchFlash.from.x + dx * Math.min(1, progress * 2.2);
+  const tipY = launchFlash.from.y + dy * Math.min(1, progress * 2.2);
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = '#ff5c8a';
+  ctx.fillStyle = '#ffdd55';
+  ctx.shadowColor = '#ff5c8a';
+  ctx.shadowBlur = 14;
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(launchFlash.from.x, launchFlash.from.y);
+  ctx.lineTo(tipX, tipY);
+  ctx.stroke();
+  ctx.translate(tipX, tipY);
+  ctx.rotate(angle);
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(-14, -7);
+  ctx.lineTo(-14, 7);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
 function drawRotateFlash(timestamp) {
   if (!rotateFlash) return;
   const { body, direction, startedAt } = rotateFlash;
@@ -7724,6 +7946,7 @@ function loop(timestamp) {
   drawFusionMarker(timestamp);
   drawHingeMarker(timestamp);
   drawSpringMarker(timestamp);
+  drawLaunchMarker(timestamp);
 
   // Effects
   drawRopes();

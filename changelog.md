@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-08-29T14:09:05Z — Added: Launch tool
+**Why:** The toolbar could drag and throw objects freehand, but it had no precise, touch-friendly way to aim an existing object at a chosen point. Launch adds a two-tap velocity tool without overlapping Grab's continuous gesture or the spawn-time slingshot.
+**Goal alignment:** "more fun, more surprising, more satisfying" — any loose object becomes an aimed projectile for targets, domino runs, bumpers, bombs, and improvised machines, with a readable vector sight before firing and a neon arrow burst afterward.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (341/341 passing); browser smoke ✓ (existing Ball tool placed one paused subject, Launch selected at toolbar end, first tap showed `LAUNCH: TAP TARGET` plus a live dashed aim vector, second tap produced `LAUNCHED PWR 24`, then unpausing visibly fired the ball across the canvas while OBJ remained 1, 0 console errors/warnings); mobile ✓ (390×844, final Launch button fully reachable/selectable at 52×50px); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-08-28T14:10:15Z — Added: Spring tool
 **Why:** The toolbar could tether parts with a slack rope, brace them with a rigid strut, or pin them with a hinge, but it had no elastic connection that stores and releases energy. Spring adds a deliberately preloaded, damped link without overlapping those existing construction tools.
 **Goal alignment:** "more fun, more surprising, more satisfying" — two taps turn ordinary objects into bouncing pairs, suspension rigs, springy pendulums, and energy-storing machines, with a bright coil that visibly compresses and stretches during play.

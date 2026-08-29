@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 44 tool buttons', () => {
+  it('should have exactly 45 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(44);
+    expect(buttons.length).toBe(45);
   });
 
-  it('should append Spring after Hinge at the end of the object toolbar', () => {
+  it('should append Launch after Spring at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('spring');
-    expect(toolbar.lastElementChild?.textContent).toContain('Spring');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('hinge');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('fusion');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('launch');
+    expect(toolbar.lastElementChild?.textContent).toContain('Launch');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('spring');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('hinge');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,15 +67,79 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// LAUNCH TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Launch Tool', () => {
+  it('should expose Launch as the final selectable toolbar tool', () => {
+    const launchBtn = document.querySelector('[data-tool="launch"]');
+    expect(launchBtn).not.toBeNull();
+    expect(launchBtn?.getAttribute('aria-label')).toContain('tapped destination');
+    expect(document.getElementById('toolbar')?.lastElementChild).toBe(launchBtn);
+    expect(launchBtn?.previousElementSibling?.dataset.tool).toBe('spring');
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'launch'");
+    expect(scriptContent).toContain('launchBodyAt(pos)');
+  });
+
+  it('should calculate a bounded velocity toward the chosen destination', () => {
+    const source = scriptContent.match(/function getLaunchVelocity\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getLaunchVelocity = new Function(`
+      const LAUNCH_MIN_DISTANCE = 36;
+      const LAUNCH_MIN_SPEED = 8;
+      const LAUNCH_MAX_SPEED = 24;
+      const LAUNCH_DISTANCE_PER_SPEED = 12;
+      ${source};
+      return getLaunchVelocity;
+    `)();
+
+    expect(getLaunchVelocity({ x:0, y:0 }, { x:120, y:0 }))
+      .toMatchObject({ x:10, y:0, speed:10, distance:120 });
+    expect(getLaunchVelocity({ x:0, y:0 }, { x:30, y:0 }).speed).toBe(0);
+    expect(getLaunchVelocity({ x:0, y:0 }, { x:300, y:0 }).speed).toBe(24);
+  });
+
+  it('should select dynamic bodies with touch-friendly fallback targeting', () => {
+    expect(scriptContent).toContain('function isLaunchableBody(b)');
+    expect(scriptContent).toContain("b.label !== 'chain-link'");
+    expect(scriptContent).toContain('Matter.Query.point(candidates, pos)');
+    expect(scriptContent).toContain('let nearestDist = 46');
+    expect(scriptContent).toContain('launchBody = target');
+    expect(scriptContent).toContain("showLaunchFeedback('LAUNCH: TAP TARGET')");
+  });
+
+  it('should launch the selected body and show visible vector feedback', () => {
+    expect(scriptContent).toContain('const velocity = getLaunchVelocity(selected.position, pos)');
+    expect(scriptContent).toContain('Body.setVelocity(selected, { x:velocity.x, y:velocity.y })');
+    expect(scriptContent).toContain('launchFlash = { from, to:{ x:pos.x, y:pos.y }, startedAt:performance.now() }');
+    expect(scriptContent).toContain('function drawLaunchMarker(timestamp)');
+    expect(scriptContent).toContain('drawLaunchMarker(timestamp)');
+    expect(scriptContent).toContain('LAUNCHED PWR');
+  });
+
+  it('should cancel short vectors and clean selection across tool changes, Eraser, and Clear', () => {
+    expect(document.getElementById('launch-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain("showLaunchFeedback('LAUNCH CANCELLED'");
+    expect(scriptContent).toContain("if (tool !== 'launch') resetLaunchSelection(true)");
+    expect(scriptContent).toContain('if (launchBody && removedBodyIds.has(launchBody.id)) resetLaunchSelection(true)');
+    expect(scriptContent).toContain('launchBody = null');
+    expect(scriptContent).toContain('launchAimPoint = null');
+    expect(scriptContent).toContain('launchFlash = null');
+    expect(scriptContent).toContain("launch: '#ff5c8a'");
+  });
+});
+
+// ============================================
 // SPRING TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Spring Tool', () => {
-  it('should expose Spring as the final selectable toolbar tool', () => {
+  it('should keep Spring selectable immediately before Launch', () => {
     const springBtn = document.querySelector('[data-tool="spring"]');
     expect(springBtn).not.toBeNull();
     expect(springBtn?.getAttribute('aria-label')).toContain('elastic connection');
-    expect(document.getElementById('toolbar')?.lastElementChild).toBe(springBtn);
+    expect(springBtn?.nextElementSibling?.dataset.tool).toBe('launch');
     expect(springBtn?.previousElementSibling?.dataset.tool).toBe('hinge');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'spring'");

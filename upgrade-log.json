@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-08-29",
+      "ideas": [
+        "New tool: Aim and launch an existing object toward a tapped destination"
+      ],
+      "summary": "Implemented Launch tool (🏹) — the final button in the existing object toolbar now selects one dynamic object, shows a live neon aim vector, and fires it toward a second tapped destination with distance-scaled velocity capped for stable physics; 46px touch targeting, short-vector cancel handling, selection/status/arrow feedback, and Eraser/Clear/tool-change cleanup keep precision launches readable and reliable on desktop and mobile."
+    },
+    {
       "date": "2026-08-28",
       "ideas": [
         "New tool: Connect two build parts with an energy-storing Spring"
