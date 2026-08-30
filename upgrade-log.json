@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-08-30",
+      "ideas": [
+        "New tool: Toggle local zero gravity on one standalone object"
+      ],
+      "summary": "Implemented Float tool (🛸) — the final button in the existing object toolbar now toggles gravity cancellation on one standalone dynamic body while preserving collisions, momentum, rotation, and other forces; exact gravity-vector counterforce, 46px touch targeting, reversible status/particle/audio/haptic feedback, a persistent cyan 0G levitation marker, clone-state preservation, and Clear cleanup keep floating builds readable and reliable on desktop and mobile."
+    },
+    {
       "date": "2026-08-29",
       "ideas": [
         "New tool: Aim and launch an existing object toward a tapped destination"

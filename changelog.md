@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-08-30T14:08:49Z — Added: Float tool
+**Why:** The toolbar could anchor an object in place or alter gravity for the whole scene, but it had no way to remove gravity from one object while keeping that object dynamic. Float adds a reversible local zero-gravity transform without overlapping Anchor, global anti-gravity, or Alchemy's material changes.
+**Goal alignment:** "more fun, more surprising, more satisfying" — balls, blocks, anvils, and other loose parts can hover as moving targets, airborne building pieces, or suspended obstacles while continuing to collide, spin, launch, and respond to other forces.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (346/346 passing); browser smoke ✓ (existing Ball tool placed one subject, Float selected at toolbar end, first tap showed `FLOAT: ZERO-G` and a persistent cyan `0G` levitation marker, the dynamic ball held position for 1.2s under live Earth gravity, second tap showed `FLOAT: GRAVITY ON` and the ball visibly fell, 0 console errors/warnings); mobile ✓ (390×844, final Float button fully reachable/selectable at 52×50px and toggled the object successfully); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-08-29T14:09:05Z — Added: Launch tool
 **Why:** The toolbar could drag and throw objects freehand, but it had no precise, touch-friendly way to aim an existing object at a chosen point. Launch adds a two-tap velocity tool without overlapping Grab's continuous gesture or the spawn-time slingshot.
 **Goal alignment:** "more fun, more surprising, more satisfying" — any loose object becomes an aimed projectile for targets, domino runs, bumpers, bombs, and improvised machines, with a readable vector sight before firing and a neon arrow burst afterward.

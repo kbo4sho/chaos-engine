@@ -270,6 +270,19 @@ canvas#game {
 #launch-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#float-feedback {
+  position:absolute; top:116px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#7df9ff;
+  font-size:19px; letter-spacing:2px; line-height:1;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none;
+  transition:opacity .12s, transform .12s;
+}
+#float-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -422,6 +435,7 @@ canvas#game {
     <div id="hinge-feedback" role="status" aria-live="polite"></div>
     <div id="spring-feedback" role="status" aria-live="polite"></div>
     <div id="launch-feedback" role="status" aria-live="polite"></div>
+    <div id="float-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -472,6 +486,7 @@ canvas#game {
     <button class="tool-btn" data-tool="hinge" style="color:#ffcc66;" title="Tap two build parts to pin their tapped points together with a rotating hinge" aria-label="Hinge two build parts together at their tapped points"><span class="icon">🔩</span>Hinge</button>
     <button class="tool-btn" data-tool="spring" style="color:#b6ff4a;" title="Tap two build parts to connect them with an energy-storing spring" aria-label="Spring two build parts together with an elastic connection"><span class="icon">〰️</span>Spring</button>
     <button class="tool-btn" data-tool="launch" style="color:#ff5c8a;" title="Tap an object, then tap a destination to launch it there" aria-label="Launch an existing object toward a tapped destination"><span class="icon">🏹</span>Launch</button>
+    <button class="tool-btn" data-tool="float" style="color:#7df9ff;" title="Tap a standalone object to toggle local zero gravity" aria-label="Toggle local zero gravity for a standalone object"><span class="icon">🛸</span>Float</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -700,6 +715,7 @@ let launchBody = null;
 let launchAimPoint = null;
 let launchFlash = null; // {from, to, startedAt} vector feedback after a launch
 let launchFeedbackTimer = 0;
+let floatFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -2811,6 +2827,9 @@ function finishClear(playFeedback = true) {
   resetHingeSelection(true);
   resetSpringSelection(true);
   resetLaunchSelection(true);
+  clearTimeout(floatFeedbackTimer);
+  document.getElementById('float-feedback').classList.remove('active');
+  document.getElementById('float-feedback').textContent = '';
   bodyTrails.clear();
   shatterDebounce.clear();
   if (oceanMode) {
@@ -2957,7 +2976,8 @@ function getToolAccentColor(tool) {
     fusion: '#ff66ff',
     hinge: '#ffcc66',
     spring: '#b6ff4a',
-    launch: '#ff5c8a'
+    launch: '#ff5c8a',
+    float: '#7df9ff'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -3309,6 +3329,7 @@ function createBodyClone(source, position) {
   clone.isBomb = Boolean(source.isBomb);
   clone.isBalloon = Boolean(source.isBalloon);
   clone.isDuck = Boolean(source.isDuck);
+  clone.isFloating = Boolean(source.isFloating);
   if (source.alchemyMode) clone.alchemyMode = source.alchemyMode;
   if (source.alchemyOriginal) clone.alchemyOriginal = { ...source.alchemyOriginal };
   return clone;
@@ -4174,6 +4195,97 @@ function launchBodyAt(pos) {
   return { body:selected, velocity };
 }
 
+function getFloatCounterForce(body, gravity, gravityScale = 0.001) {
+  return {
+    x:-(gravity.x || 0) * body.mass * gravityScale,
+    y:-(gravity.y || 0) * body.mass * gravityScale
+  };
+}
+
+function isFloatableBody(b) {
+  if (!b || b.label === 'wall' || b.label === 'chain-link' || b.isTarget || b.isFragment || b.parent !== b) return false;
+  if (b.isFloating) return true;
+  if (b.isStatic) return false;
+  return !Composite.allConstraints(world).some(c => c.bodyA === b || c.bodyB === b);
+}
+
+function findFloatableBodyAt(pos) {
+  const candidates = Composite.allBodies(world).filter(isFloatableBody);
+  let target = Matter.Query.point(candidates, pos).filter(isFloatableBody).pop();
+  if (!target) {
+    let nearestDist = 46;
+    candidates.forEach(b => {
+      const dist = Math.hypot(b.position.x - pos.x, b.position.y - pos.y);
+      if (dist < nearestDist) {
+        target = b;
+        nearestDist = dist;
+      }
+    });
+  }
+  return target;
+}
+
+function showFloatFeedback(floating) {
+  const feedback = document.getElementById('float-feedback');
+  feedback.textContent = floating ? 'FLOAT: ZERO-G' : 'FLOAT: GRAVITY ON';
+  feedback.style.color = floating ? '#7df9ff' : '#ffdd55';
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(floatFeedbackTimer);
+  floatFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 850);
+}
+
+function addFloatBurst(body, floating) {
+  const color = floating ? '#7df9ff' : '#ffdd55';
+  for (let i = 0; i < 14; i++) {
+    const angle = Math.PI * 2 * i / 14;
+    const speed = 1.2 + Math.random() * 2.4;
+    particles.push({
+      x:body.position.x,
+      y:body.position.y,
+      vx:Math.cos(angle) * speed,
+      vy:Math.sin(angle) * speed + (floating ? -1.2 : 1.2),
+      size:2 + Math.random() * 2,
+      life:0.3 + Math.random() * 0.25,
+      color
+    });
+  }
+}
+
+function toggleFloatAt(pos) {
+  const target = findFloatableBodyAt(pos);
+  if (!target) {
+    const feedback = document.getElementById('float-feedback');
+    feedback.textContent = 'FLOAT: NO OBJECT';
+    feedback.style.color = '#888888';
+    feedback.classList.remove('active');
+    void feedback.offsetWidth;
+    feedback.classList.add('active');
+    clearTimeout(floatFeedbackTimer);
+    floatFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 850);
+    haptic([3]);
+    return false;
+  }
+
+  target.isFloating = !target.isFloating;
+  Matter.Sleeping.set(target, false);
+  addFloatBurst(target, target.isFloating);
+  showFloatFeedback(target.isFloating);
+  haptic(target.isFloating ? [8, 14, 8] : [8]);
+  playSound(target.isFloating ? 760 : 320, 0.12, 'sine', 0.07);
+  playSound(target.isFloating ? 980 : 220, 0.08, 'triangle', 0.04);
+  shakeIntensity = Math.max(shakeIntensity, target.isFloating ? 1.5 : 2.5);
+  return target.isFloating ? 'floating' : 'gravity';
+}
+
+function applyFloatForces() {
+  Composite.allBodies(world).forEach(b => {
+    if (!b.isFloating || b.isStatic) return;
+    Body.applyForce(b, b.position, getFloatCounterForce(b, engine.gravity, engine.gravity.scale));
+  });
+}
+
 const ROTATE_STEP = Math.PI / 2;
 
 function getNextRotateDirection(direction = 1) {
@@ -4962,6 +5074,13 @@ function onDown(e) {
   // Launch tool — select one object, then fire it toward a tapped destination.
   if (currentTool === 'launch') {
     launchBodyAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Float tool — toggle local gravity cancellation on a standalone body.
+  if (currentTool === 'float') {
+    toggleFloatAt(pos);
     pointerDown = false;
     return;
   }
@@ -6864,6 +6983,45 @@ function drawAlchemyMarkers(timestamp) {
   });
 }
 
+function drawFloatMarkers(timestamp) {
+  Composite.allBodies(world).forEach(b => {
+    if (!b.isFloating || b.label === 'wall') return;
+    const halfW = (b.bounds.max.x - b.bounds.min.x) / 2;
+    const halfH = (b.bounds.max.y - b.bounds.min.y) / 2;
+    const radius = Math.max(21, Math.min(65, Math.hypot(halfW, halfH) + 10));
+    const pulse = 0.7 + Math.sin(timestamp / 135 + b.id) * 0.2;
+    const bob = Math.sin(timestamp / 260 + b.id) * 3;
+
+    ctx.save();
+    ctx.translate(b.position.x, b.position.y);
+    ctx.globalAlpha = pulse;
+    ctx.strokeStyle = '#7df9ff';
+    ctx.fillStyle = '#7df9ff';
+    ctx.shadowColor = '#7df9ff';
+    ctx.shadowBlur = 13;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([2, 5]);
+    ctx.beginPath();
+    ctx.ellipse(0, radius * 0.78 + bob, radius * 0.72, 7, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    for (let i = 0; i < 3; i++) {
+      const y = -radius - 8 - i * 8 + bob;
+      ctx.beginPath();
+      ctx.moveTo(-6, y + 5);
+      ctx.lineTo(0, y);
+      ctx.lineTo(6, y + 5);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    ctx.font = '15px VT323';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('0G', 0, radius * 0.78 + bob + 1);
+    ctx.restore();
+  });
+}
+
 function drawSwapMarker(timestamp) {
   if (!swapFirstBody || currentTool !== 'swap') return;
   if (!Composite.get(world, swapFirstBody.id, 'body')) {
@@ -7763,6 +7921,7 @@ function loop(timestamp) {
   // Physics step
   if (!paused) {
     const timeScale = (timeWarpActive || sloMoActive) ? 0.2 : 1;
+    applyFloatForces();
     Engine.update(engine, (1000/60) * timeScale);
   }
 
@@ -7940,6 +8099,7 @@ function loop(timestamp) {
   drawAnchorMarkers(timestamp);
   drawMotorMarkers(timestamp);
   drawAlchemyMarkers(timestamp);
+  drawFloatMarkers(timestamp);
   drawSwapMarker(timestamp);
   drawStrutMarker(timestamp);
   drawRotateFlash(timestamp);

@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 45 tool buttons', () => {
+  it('should have exactly 46 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(45);
+    expect(buttons.length).toBe(46);
   });
 
-  it('should append Launch after Spring at the end of the object toolbar', () => {
+  it('should append Float after Launch at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('launch');
-    expect(toolbar.lastElementChild?.textContent).toContain('Launch');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('spring');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('hinge');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('float');
+    expect(toolbar.lastElementChild?.textContent).toContain('Float');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('launch');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('spring');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,15 +67,65 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// FLOAT TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Float Tool', () => {
+  it('should expose Float as the final selectable toolbar tool', () => {
+    const floatBtn = document.querySelector('[data-tool="float"]');
+    expect(floatBtn).not.toBeNull();
+    expect(floatBtn?.getAttribute('aria-label')).toContain('local zero gravity');
+    expect(document.getElementById('toolbar')?.lastElementChild).toBe(floatBtn);
+    expect(floatBtn?.previousElementSibling?.dataset.tool).toBe('launch');
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'float'");
+    expect(scriptContent).toContain('toggleFloatAt(pos)');
+  });
+
+  it('should calculate exact gravity cancellation for any gravity direction', () => {
+    const source = scriptContent.match(/function getFloatCounterForce\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getFloatCounterForce = new Function(`${source}; return getFloatCounterForce;`)();
+
+    expect(getFloatCounterForce({ mass:4 }, { x:0, y:1 }, 0.001))
+      .toEqual({ x:-0, y:-0.004 });
+    expect(getFloatCounterForce({ mass:2 }, { x:-0.5, y:0.25 }, 0.002))
+      .toEqual({ x:0.002, y:-0.001 });
+  });
+
+  it('should toggle only standalone dynamic bodies with touch-friendly targeting', () => {
+    expect(scriptContent).toContain('function isFloatableBody(b)');
+    expect(scriptContent).toContain("b.label === 'chain-link'");
+    expect(scriptContent).toContain('Composite.allConstraints(world).some(c => c.bodyA === b || c.bodyB === b)');
+    expect(scriptContent).toContain('Matter.Query.point(candidates, pos)');
+    expect(scriptContent).toContain('let nearestDist = 46');
+    expect(scriptContent).toContain('target.isFloating = !target.isFloating');
+    expect(scriptContent).toContain("return target.isFloating ? 'floating' : 'gravity'");
+  });
+
+  it('should apply counter-force during physics and show persistent zero-g feedback', () => {
+    expect(document.getElementById('float-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('Body.applyForce(b, b.position, getFloatCounterForce(b, engine.gravity, engine.gravity.scale))');
+    expect(scriptContent).toContain('applyFloatForces();\n    Engine.update(engine');
+    expect(scriptContent).toContain('function drawFloatMarkers(timestamp)');
+    expect(scriptContent).toContain('drawFloatMarkers(timestamp)');
+    expect(scriptContent).toContain("ctx.fillText('0G'");
+    expect(scriptContent).toContain('clone.isFloating = Boolean(source.isFloating)');
+    expect(scriptContent).toContain("float: '#7df9ff'");
+    expect(scriptContent).toContain("document.getElementById('float-feedback').textContent = ''");
+  });
+});
+
+// ============================================
 // LAUNCH TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Launch Tool', () => {
-  it('should expose Launch as the final selectable toolbar tool', () => {
+  it('should keep Launch selectable immediately before Float', () => {
     const launchBtn = document.querySelector('[data-tool="launch"]');
     expect(launchBtn).not.toBeNull();
     expect(launchBtn?.getAttribute('aria-label')).toContain('tapped destination');
-    expect(document.getElementById('toolbar')?.lastElementChild).toBe(launchBtn);
+    expect(launchBtn?.nextElementSibling?.dataset.tool).toBe('float');
     expect(launchBtn?.previousElementSibling?.dataset.tool).toBe('spring');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'launch'");
