@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 46 tool buttons', () => {
+  it('should have exactly 47 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(46);
+    expect(buttons.length).toBe(47);
   });
 
-  it('should append Float after Launch at the end of the object toolbar', () => {
+  it('should append Pivot after Float at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('float');
-    expect(toolbar.lastElementChild?.textContent).toContain('Float');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('launch');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('spring');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('pivot');
+    expect(toolbar.lastElementChild?.textContent).toContain('Pivot');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('float');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('launch');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,15 +67,77 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// PIVOT TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Pivot Tool', () => {
+  it('should expose Pivot as the final selectable toolbar tool', () => {
+    const pivotBtn = document.querySelector('[data-tool="pivot"]');
+    expect(pivotBtn).not.toBeNull();
+    expect(pivotBtn?.getAttribute('aria-label')).toContain('rotating world pivot');
+    expect(document.getElementById('toolbar')?.lastElementChild).toBe(pivotBtn);
+    expect(pivotBtn?.previousElementSibling?.dataset.tool).toBe('float');
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'pivot'");
+    expect(scriptContent).toContain('togglePivotAt(pos)');
+  });
+
+  it('should convert the exact tapped world point into body-local coordinates', () => {
+    const source = scriptContent.match(/function getPivotLocalPoint\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getPivotLocalPoint = new Function(`${source}; return getPivotLocalPoint;`)();
+    const point = getPivotLocalPoint(
+      { position:{ x:100, y:80 }, angle:Math.PI / 2 },
+      { x:100, y:100 }
+    );
+    expect(point.x).toBeCloseTo(20);
+    expect(point.y).toBeCloseTo(0);
+  });
+
+  it('should target dynamic build parts with a touch-friendly fallback', () => {
+    expect(scriptContent).toContain('function isPivotableBody(body)');
+    expect(scriptContent).toContain('Matter.Query.point(candidates, pos)');
+    expect(scriptContent).toContain('let nearestDist = 46');
+    expect(scriptContent).toContain("showPivotFeedback('PIVOT: NO OBJECT'");
+    expect(scriptContent).toContain("return Boolean(getPivotForBody(body)) || !body.isStatic");
+  });
+
+  it('should create and toggle a zero-length world pivot without freezing rotation', () => {
+    expect(scriptContent).toContain('const constraint = Constraint.create({');
+    expect(scriptContent).toContain('pointA:worldPoint');
+    expect(scriptContent).toContain('bodyB:hit.body');
+    expect(scriptContent).toContain('pointB:localPoint');
+    expect(scriptContent).toContain('length:0');
+    expect(scriptContent).toContain('stiffness:1');
+    expect(scriptContent).toContain("render:{ visible:false, type:'pivot' }");
+    expect(scriptContent).toContain("showPivotFeedback('PIVOT PINNED')");
+    expect(scriptContent).toContain("return 'released'");
+    expect(scriptContent).not.toContain('Body.setStatic(hit.body, true)');
+  });
+
+  it('should render and clean Pivot state across Eraser and Clear', () => {
+    expect(document.getElementById('pivot-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('function drawPivotMarkers(timestamp)');
+    expect(scriptContent).toContain('drawPivotMarkers(timestamp)');
+    expect(scriptContent).toContain('function prunePivots()');
+    expect(scriptContent).toContain('prunePivots()');
+    expect(scriptContent).toContain('pivots = pivots.filter(pivot => !constraintsToRemove.has(pivot.constraint))');
+    expect(scriptContent).toContain('pivots = []');
+    expect(scriptContent).toContain("document.getElementById('pivot-feedback').textContent = ''");
+    expect(scriptContent).toContain("pivot: '#ffd166'");
+  });
+});
+
+// ============================================
 // FLOAT TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Float Tool', () => {
-  it('should expose Float as the final selectable toolbar tool', () => {
+  it('should keep Float selectable immediately before Pivot', () => {
     const floatBtn = document.querySelector('[data-tool="float"]');
     expect(floatBtn).not.toBeNull();
     expect(floatBtn?.getAttribute('aria-label')).toContain('local zero gravity');
-    expect(document.getElementById('toolbar')?.lastElementChild).toBe(floatBtn);
+    expect(floatBtn?.nextElementSibling?.dataset.tool).toBe('pivot');
     expect(floatBtn?.previousElementSibling?.dataset.tool).toBe('launch');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'float'");

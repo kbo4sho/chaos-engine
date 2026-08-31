@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-08-31",
+      "ideas": [
+        "New tool: Pin one exact point of a dynamic build part to a rotating world pivot"
+      ],
+      "summary": "Implemented Pivot tool (📌) — the final button in the existing object toolbar now pins the exact tapped point of one dynamic build part to the world with a zero-length Matter.js constraint while preserving free rotation, then releases it on a second tap; 46px touch targeting, persistent gold pin feedback, reversible audio/haptics, orphan pruning, and Eraser/Clear cleanup keep pendulums, spinner arms, hanging obstacles, and fixed axles readable and reliable on desktop and mobile."
+    },
+    {
       "date": "2026-08-30",
       "ideas": [
         "New tool: Toggle local zero gravity on one standalone object"

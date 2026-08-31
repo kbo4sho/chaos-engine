@@ -283,6 +283,19 @@ canvas#game {
 #float-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#pivot-feedback {
+  position:absolute; top:150px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#ffd166;
+  font-size:19px; letter-spacing:2px; line-height:1;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none;
+  transition:opacity .12s, transform .12s;
+}
+#pivot-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -436,6 +449,7 @@ canvas#game {
     <div id="spring-feedback" role="status" aria-live="polite"></div>
     <div id="launch-feedback" role="status" aria-live="polite"></div>
     <div id="float-feedback" role="status" aria-live="polite"></div>
+    <div id="pivot-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -487,6 +501,7 @@ canvas#game {
     <button class="tool-btn" data-tool="spring" style="color:#b6ff4a;" title="Tap two build parts to connect them with an energy-storing spring" aria-label="Spring two build parts together with an elastic connection"><span class="icon">〰️</span>Spring</button>
     <button class="tool-btn" data-tool="launch" style="color:#ff5c8a;" title="Tap an object, then tap a destination to launch it there" aria-label="Launch an existing object toward a tapped destination"><span class="icon">🏹</span>Launch</button>
     <button class="tool-btn" data-tool="float" style="color:#7df9ff;" title="Tap a standalone object to toggle local zero gravity" aria-label="Toggle local zero gravity for a standalone object"><span class="icon">🛸</span>Float</button>
+    <button class="tool-btn" data-tool="pivot" style="color:#ffd166;" title="Tap a dynamic build part to pin it at that point while preserving rotation; tap again to release" aria-label="Pin or release a dynamic build part at a rotating world pivot"><span class="icon">📌</span>Pivot</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -716,6 +731,8 @@ let launchAimPoint = null;
 let launchFlash = null; // {from, to, startedAt} vector feedback after a launch
 let launchFeedbackTimer = 0;
 let floatFeedbackTimer = 0;
+let pivots = []; // {body, constraint, worldPoint, localPoint} world pins created by the Pivot tool
+let pivotFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -2785,6 +2802,7 @@ function finishClear(playFeedback = true) {
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
+  pivots = [];
   grabActive = false;
   grabBody = null;
   grabHistory = [];
@@ -2830,6 +2848,9 @@ function finishClear(playFeedback = true) {
   clearTimeout(floatFeedbackTimer);
   document.getElementById('float-feedback').classList.remove('active');
   document.getElementById('float-feedback').textContent = '';
+  clearTimeout(pivotFeedbackTimer);
+  document.getElementById('pivot-feedback').classList.remove('active');
+  document.getElementById('pivot-feedback').textContent = '';
   bodyTrails.clear();
   shatterDebounce.clear();
   if (oceanMode) {
@@ -2977,7 +2998,8 @@ function getToolAccentColor(tool) {
     hinge: '#ffcc66',
     spring: '#b6ff4a',
     launch: '#ff5c8a',
-    float: '#7df9ff'
+    float: '#7df9ff',
+    pivot: '#ffd166'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -3107,6 +3129,7 @@ function eraseBodyAt(pos) {
   struts = struts.filter(strut => !constraintsToRemove.has(strut));
   hinges = hinges.filter(hinge => !constraintsToRemove.has(hinge));
   springs = springs.filter(spring => !constraintsToRemove.has(spring));
+  pivots = pivots.filter(pivot => !constraintsToRemove.has(pivot.constraint));
   if (ropeFirstBody && removedBodyIds.has(ropeFirstBody.id)) ropeFirstBody = null;
   if (grabBody && removedBodyIds.has(grabBody.id)) {
     grabActive = false;
@@ -4286,6 +4309,123 @@ function applyFloatForces() {
   });
 }
 
+function getPivotLocalPoint(body, worldPoint) {
+  const dx = worldPoint.x - body.position.x;
+  const dy = worldPoint.y - body.position.y;
+  const cos = Math.cos(-body.angle);
+  const sin = Math.sin(-body.angle);
+  return {
+    x:dx * cos - dy * sin,
+    y:dx * sin + dy * cos
+  };
+}
+
+function getPivotForBody(body) {
+  return pivots.find(pivot => pivot.body === body);
+}
+
+function isPivotableBody(body) {
+  if (!body || body.label === 'wall' || body.isTarget || body.isFragment || body.parent !== body) return false;
+  return Boolean(getPivotForBody(body)) || !body.isStatic;
+}
+
+function findPivotableBodyAt(pos) {
+  const candidates = Composite.allBodies(world).filter(isPivotableBody);
+  const exact = Matter.Query.point(candidates, pos).filter(isPivotableBody).pop();
+  if (exact) return { body:exact, point:{ x:pos.x, y:pos.y } };
+
+  let target = null;
+  let nearestDist = 46;
+  candidates.forEach(body => {
+    const distance = Math.hypot(body.position.x - pos.x, body.position.y - pos.y);
+    if (distance < nearestDist) {
+      target = body;
+      nearestDist = distance;
+    }
+  });
+  return target ? { body:target, point:{ x:target.position.x, y:target.position.y } } : null;
+}
+
+function showPivotFeedback(message, color = '#ffd166') {
+  const feedback = document.getElementById('pivot-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(pivotFeedbackTimer);
+  pivotFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 850);
+}
+
+function addPivotBurst(point, pinned) {
+  const color = pinned ? '#ffd166' : '#7df9ff';
+  for (let i = 0; i < 14; i++) {
+    const angle = Math.PI * 2 * i / 14;
+    const speed = 1.2 + Math.random() * 2.8;
+    particles.push({
+      x:point.x,
+      y:point.y,
+      vx:Math.cos(angle) * speed,
+      vy:Math.sin(angle) * speed,
+      size:2 + Math.random() * 2,
+      life:0.3 + Math.random() * 0.25,
+      color
+    });
+  }
+}
+
+function togglePivotAt(pos) {
+  const hit = findPivotableBodyAt(pos);
+  if (!hit) {
+    showPivotFeedback('PIVOT: NO OBJECT', '#888888');
+    haptic([3]);
+    return false;
+  }
+
+  const existing = getPivotForBody(hit.body);
+  if (existing) {
+    Composite.remove(world, existing.constraint, true);
+    pivots = pivots.filter(pivot => pivot !== existing);
+    Matter.Sleeping.set(hit.body, false);
+    addPivotBurst(existing.worldPoint, false);
+    showPivotFeedback('PIVOT RELEASED', '#7df9ff');
+    haptic([8]);
+    playSound(360, 0.1, 'triangle', 0.07);
+    return 'released';
+  }
+
+  const worldPoint = { x:hit.point.x, y:hit.point.y };
+  const localPoint = getPivotLocalPoint(hit.body, worldPoint);
+  const constraint = Constraint.create({
+    pointA:worldPoint,
+    bodyB:hit.body,
+    pointB:localPoint,
+    length:0,
+    stiffness:1,
+    damping:0.16,
+    render:{ visible:false, type:'pivot' }
+  });
+  Composite.add(world, constraint);
+  pivots.push({ body:hit.body, constraint, worldPoint, localPoint });
+  Matter.Sleeping.set(hit.body, false);
+  addPivotBurst(worldPoint, true);
+  showPivotFeedback('PIVOT PINNED');
+  haptic([8, 14, 8]);
+  playSound(620, 0.06, 'square', 0.08);
+  playSound(980, 0.12, 'sine', 0.05);
+  shakeIntensity = Math.max(shakeIntensity, 1.8);
+  return constraint;
+}
+
+function prunePivots() {
+  const liveBodies = new Set(Composite.allBodies(world));
+  pivots = pivots.filter(pivot => {
+    const inWorld = Composite.get(world, pivot.constraint.id, 'constraint');
+    if (inWorld && !liveBodies.has(pivot.body)) Composite.remove(world, pivot.constraint, true);
+    return Boolean(inWorld && liveBodies.has(pivot.body));
+  });
+}
+
 const ROTATE_STEP = Math.PI / 2;
 
 function getNextRotateDirection(direction = 1) {
@@ -5081,6 +5221,13 @@ function onDown(e) {
   // Float tool — toggle local gravity cancellation on a standalone body.
   if (currentTool === 'float') {
     toggleFloatAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Pivot tool — pin one dynamic part to the world while preserving rotation.
+  if (currentTool === 'pivot') {
+    togglePivotAt(pos);
     pointerDown = false;
     return;
   }
@@ -7022,6 +7169,46 @@ function drawFloatMarkers(timestamp) {
   });
 }
 
+function drawPivotMarkers(timestamp) {
+  pivots.forEach(pivot => {
+    if (!Composite.get(world, pivot.constraint.id, 'constraint')) return;
+    const point = getConstraintWorldPoint(pivot.constraint, 'B');
+    const pulse = 0.72 + Math.sin(timestamp / 120 + pivot.body.id) * 0.2;
+    const spin = timestamp / 500;
+
+    ctx.save();
+    ctx.translate(point.x, point.y);
+    ctx.rotate(spin);
+    ctx.globalAlpha = pulse;
+    ctx.strokeStyle = '#ffd166';
+    ctx.fillStyle = '#ffd166';
+    ctx.shadowColor = '#ffd166';
+    ctx.shadowBlur = 14;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, 0, 10, 0, Math.PI * 2);
+    ctx.stroke();
+    for (let i = 0; i < 4; i++) {
+      const angle = i * Math.PI / 2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(angle) * 13, Math.sin(angle) * 13);
+      ctx.lineTo(Math.cos(angle) * 18, Math.sin(angle) * 18);
+      ctx.stroke();
+    }
+    ctx.rotate(-spin);
+    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    ctx.arc(0, 0, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#071014';
+    ctx.font = 'bold 12px VT323';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('P', 0, 1);
+    ctx.restore();
+  });
+}
+
 function drawSwapMarker(timestamp) {
   if (!swapFirstBody || currentTool !== 'swap') return;
   if (!Composite.get(world, swapFirstBody.id, 'body')) {
@@ -7307,6 +7494,7 @@ function loop(timestamp) {
   pruneStruts();
   pruneHinges();
   pruneSprings();
+  prunePivots();
 
   // Smooth gravity transition (skip during anti-grav pulse and gravity flip)
   if (!antiGravActive && gravityAngle === 0) {
@@ -8100,6 +8288,7 @@ function loop(timestamp) {
   drawMotorMarkers(timestamp);
   drawAlchemyMarkers(timestamp);
   drawFloatMarkers(timestamp);
+  drawPivotMarkers(timestamp);
   drawSwapMarker(timestamp);
   drawStrutMarker(timestamp);
   drawRotateFlash(timestamp);

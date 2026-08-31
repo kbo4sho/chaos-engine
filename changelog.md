@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-08-31T14:13:40Z — Added: Pivot tool
+**Why:** The toolbar could freeze a whole object with Anchor or join two objects with Hinge, but it had no way to fasten one exact point of a dynamic part to the world while leaving that part free to rotate. Pivot adds a reversible world joint without overlapping either existing construction tool.
+**Goal alignment:** "more fun, more surprising, more satisfying" — blocks, dominoes, anvils, and powered parts become pendulums, spinner arms, hanging obstacles, and fixed axles with one precise tap, then return to free motion with a second tap.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (352/352 passing); browser smoke ✓ (existing Block tool placed one paused subject, Pivot selected at toolbar end, an off-center tap showed `PIVOT PINNED` plus a persistent gold pin marker, unpausing visibly rotated the still-dynamic block around the exact world point, a second tap showed `PIVOT RELEASED` and let it fall, 0 console errors/warnings); mobile ✓ (390×844, final Pivot button fully reachable/selectable at 52×50px and pinned a block successfully); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-08-30T14:08:49Z — Added: Float tool
 **Why:** The toolbar could anchor an object in place or alter gravity for the whole scene, but it had no way to remove gravity from one object while keeping that object dynamic. Float adds a reversible local zero-gravity transform without overlapping Anchor, global anti-gravity, or Alchemy's material changes.
 **Goal alignment:** "more fun, more surprising, more satisfying" — balls, blocks, anvils, and other loose parts can hover as moving targets, airborne building pieces, or suspended obstacles while continuing to collide, spin, launch, and respond to other forces.
