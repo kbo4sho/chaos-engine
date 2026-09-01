@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-09-01",
+      "ideas": [
+        "New tool: Reverse one dynamic part's linear and angular motion"
+      ],
+      "summary": "Implemented Reverse tool (⏪) — the final button in the existing object toolbar now inverts one tapped dynamic part's current linear velocity and angular velocity in a single step; exact hit detection plus a 46px touch fallback, wake-up handling, magenta/cyan particles, a spinning rewind arrow, status/audio/haptic feedback, and Eraser/Clear cleanup keep sudden rebounds and unwinding mechanisms readable and reliable on desktop and mobile."
+    },
+    {
       "date": "2026-08-31",
       "ideas": [
         "New tool: Pin one exact point of a dynamic build part to a rotating world pivot"

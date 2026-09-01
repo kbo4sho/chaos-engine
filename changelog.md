@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-09-01T14:14:30Z — Added: Reverse tool
+**Why:** The toolbar could aim an object with Launch or continuously spin it with Motor, but it had no instant way to turn an object’s existing movement back against itself. Reverse adds a one-tap motion transform without overlapping either control.
+**Goal alignment:** "more fun, more surprising, more satisfying" — falling parts rebound upward, projectiles snap back toward their source, and spinning mechanisms immediately unwind while keeping their current position, shape, and connections.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (357/357 passing); browser smoke ✓ (existing Block placed and existing Launch aimed it right while paused, final Reverse button inverted its motion and showed `MOTION REVERSED`, then live physics sent it left into a visible impact/shatter, 0 console errors/warnings); mobile ✓ (390×844, final Reverse button fully reachable/selectable at 52×50px and reversed the paused block successfully); live ✓ (http://192.168.68.52:3003, served index SHA-256 matched the checkout)
+**Status:** shipped
+
 ## 2026-08-31T14:13:40Z — Added: Pivot tool
 **Why:** The toolbar could freeze a whole object with Anchor or join two objects with Hinge, but it had no way to fasten one exact point of a dynamic part to the world while leaving that part free to rotate. Pivot adds a reversible world joint without overlapping either existing construction tool.
 **Goal alignment:** "more fun, more surprising, more satisfying" — blocks, dominoes, anvils, and powered parts become pendulums, spinner arms, hanging obstacles, and fixed axles with one precise tap, then return to free motion with a second tap.

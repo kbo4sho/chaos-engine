@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 47 tool buttons', () => {
+  it('should have exactly 48 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(47);
+    expect(buttons.length).toBe(48);
   });
 
-  it('should append Pivot after Float at the end of the object toolbar', () => {
+  it('should append Reverse after Pivot at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('pivot');
-    expect(toolbar.lastElementChild?.textContent).toContain('Pivot');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('float');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('launch');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('reverse');
+    expect(toolbar.lastElementChild?.textContent).toContain('Reverse');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('pivot');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('float');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,15 +67,63 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// REVERSE TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Reverse Tool', () => {
+  it('should expose Reverse as the final selectable toolbar tool', () => {
+    const reverseBtn = document.querySelector('[data-tool="reverse"]');
+    expect(reverseBtn).not.toBeNull();
+    expect(reverseBtn?.getAttribute('aria-label')).toContain('linear and angular motion');
+    expect(document.getElementById('toolbar')?.lastElementChild).toBe(reverseBtn);
+    expect(reverseBtn?.previousElementSibling?.dataset.tool).toBe('pivot');
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'reverse'");
+    expect(scriptContent).toContain('reverseBodyAt(pos)');
+  });
+
+  it('should invert linear and angular velocity exactly', () => {
+    const source = scriptContent.match(/function getReversedMotion\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getReversedMotion = new Function(`${source}; return getReversedMotion;`)();
+
+    expect(getReversedMotion({ velocity:{ x:7.5, y:-3 }, angularVelocity:0.24 }))
+      .toEqual({ velocity:{ x:-7.5, y:3 }, angularVelocity:-0.24 });
+  });
+
+  it('should target dynamic parts with a touch-friendly fallback and wake them', () => {
+    expect(scriptContent).toContain('function isReversibleBody(body)');
+    expect(scriptContent).toContain("body.label !== 'wall'");
+    expect(scriptContent).toContain('!body.isStatic');
+    expect(scriptContent).toContain('Matter.Query.point(candidates, pos)');
+    expect(scriptContent).toContain('let nearestDist = 46');
+    expect(scriptContent).toContain('Matter.Sleeping.set(target, false)');
+    expect(scriptContent).toContain('Body.setVelocity(target, motion.velocity)');
+    expect(scriptContent).toContain('Body.setAngularVelocity(target, motion.angularVelocity)');
+  });
+
+  it('should provide visible feedback and clean transient state on Eraser or Clear', () => {
+    expect(document.getElementById('reverse-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain("showReverseFeedback('MOTION REVERSED')");
+    expect(scriptContent).toContain("showReverseFeedback('REVERSE: NO OBJECT'");
+    expect(scriptContent).toContain('function drawReverseFlash(timestamp)');
+    expect(scriptContent).toContain('drawReverseFlash(timestamp)');
+    expect(scriptContent).toContain('if (reverseFlash && removedBodyIds.has(reverseFlash.body.id)) reverseFlash = null');
+    expect(scriptContent).toContain("document.getElementById('reverse-feedback').textContent = ''");
+    expect(scriptContent).toContain("reverse: '#ff6bff'");
+  });
+});
+
+// ============================================
 // PIVOT TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Pivot Tool', () => {
-  it('should expose Pivot as the final selectable toolbar tool', () => {
+  it('should keep Pivot selectable immediately before Reverse', () => {
     const pivotBtn = document.querySelector('[data-tool="pivot"]');
     expect(pivotBtn).not.toBeNull();
     expect(pivotBtn?.getAttribute('aria-label')).toContain('rotating world pivot');
-    expect(document.getElementById('toolbar')?.lastElementChild).toBe(pivotBtn);
+    expect(pivotBtn?.nextElementSibling?.dataset.tool).toBe('reverse');
     expect(pivotBtn?.previousElementSibling?.dataset.tool).toBe('float');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'pivot'");

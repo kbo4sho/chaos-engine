@@ -296,6 +296,19 @@ canvas#game {
 #pivot-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#reverse-feedback {
+  position:absolute; top:184px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#ff6bff;
+  font-size:19px; letter-spacing:2px; line-height:1;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none;
+  transition:opacity .12s, transform .12s;
+}
+#reverse-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -450,6 +463,7 @@ canvas#game {
     <div id="launch-feedback" role="status" aria-live="polite"></div>
     <div id="float-feedback" role="status" aria-live="polite"></div>
     <div id="pivot-feedback" role="status" aria-live="polite"></div>
+    <div id="reverse-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -502,6 +516,7 @@ canvas#game {
     <button class="tool-btn" data-tool="launch" style="color:#ff5c8a;" title="Tap an object, then tap a destination to launch it there" aria-label="Launch an existing object toward a tapped destination"><span class="icon">🏹</span>Launch</button>
     <button class="tool-btn" data-tool="float" style="color:#7df9ff;" title="Tap a standalone object to toggle local zero gravity" aria-label="Toggle local zero gravity for a standalone object"><span class="icon">🛸</span>Float</button>
     <button class="tool-btn" data-tool="pivot" style="color:#ffd166;" title="Tap a dynamic build part to pin it at that point while preserving rotation; tap again to release" aria-label="Pin or release a dynamic build part at a rotating world pivot"><span class="icon">📌</span>Pivot</button>
+    <button class="tool-btn" data-tool="reverse" style="color:#ff6bff;" title="Tap a moving dynamic part to reverse its linear and angular motion" aria-label="Reverse a dynamic part's linear and angular motion"><span class="icon">⏪</span>Reverse</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -733,6 +748,8 @@ let launchFeedbackTimer = 0;
 let floatFeedbackTimer = 0;
 let pivots = []; // {body, constraint, worldPoint, localPoint} world pins created by the Pivot tool
 let pivotFeedbackTimer = 0;
+let reverseFlash = null; // {body, fromVelocity, startedAt} transient rewind feedback
+let reverseFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -2851,6 +2868,10 @@ function finishClear(playFeedback = true) {
   clearTimeout(pivotFeedbackTimer);
   document.getElementById('pivot-feedback').classList.remove('active');
   document.getElementById('pivot-feedback').textContent = '';
+  reverseFlash = null;
+  clearTimeout(reverseFeedbackTimer);
+  document.getElementById('reverse-feedback').classList.remove('active');
+  document.getElementById('reverse-feedback').textContent = '';
   bodyTrails.clear();
   shatterDebounce.clear();
   if (oceanMode) {
@@ -2999,7 +3020,8 @@ function getToolAccentColor(tool) {
     spring: '#b6ff4a',
     launch: '#ff5c8a',
     float: '#7df9ff',
-    pivot: '#ffd166'
+    pivot: '#ffd166',
+    reverse: '#ff6bff'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -3130,6 +3152,7 @@ function eraseBodyAt(pos) {
   hinges = hinges.filter(hinge => !constraintsToRemove.has(hinge));
   springs = springs.filter(spring => !constraintsToRemove.has(spring));
   pivots = pivots.filter(pivot => !constraintsToRemove.has(pivot.constraint));
+  if (reverseFlash && removedBodyIds.has(reverseFlash.body.id)) reverseFlash = null;
   if (ropeFirstBody && removedBodyIds.has(ropeFirstBody.id)) ropeFirstBody = null;
   if (grabBody && removedBodyIds.has(grabBody.id)) {
     grabActive = false;
@@ -4426,6 +4449,84 @@ function prunePivots() {
   });
 }
 
+function getReversedMotion(body) {
+  return {
+    velocity:{ x:-body.velocity.x, y:-body.velocity.y },
+    angularVelocity:-body.angularVelocity
+  };
+}
+
+function isReversibleBody(body) {
+  return Boolean(body && body.label !== 'wall' && !body.isTarget && !body.isStatic);
+}
+
+function findReversibleBodyAt(pos) {
+  const candidates = Composite.allBodies(world).filter(isReversibleBody);
+  const exact = Matter.Query.point(candidates, pos).filter(isReversibleBody).pop();
+  if (exact) return exact;
+
+  let target = null;
+  let nearestDist = 46;
+  candidates.forEach(body => {
+    const distance = Math.hypot(body.position.x - pos.x, body.position.y - pos.y);
+    if (distance < nearestDist) {
+      target = body;
+      nearestDist = distance;
+    }
+  });
+  return target;
+}
+
+function showReverseFeedback(message, color = '#ff6bff') {
+  const feedback = document.getElementById('reverse-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(reverseFeedbackTimer);
+  reverseFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 850);
+}
+
+function addReverseBurst(body, fromVelocity) {
+  const speed = Math.max(2, Math.min(6, Math.hypot(fromVelocity.x, fromVelocity.y) * 0.6));
+  for (let i = 0; i < 16; i++) {
+    const angle = Math.PI * 2 * i / 16;
+    particles.push({
+      x:body.position.x,
+      y:body.position.y,
+      vx:Math.cos(angle) * speed - fromVelocity.x * 0.12,
+      vy:Math.sin(angle) * speed - fromVelocity.y * 0.12,
+      size:2 + Math.random() * 2,
+      life:0.3 + Math.random() * 0.25,
+      color:i % 2 ? '#ff6bff' : '#7df9ff'
+    });
+  }
+}
+
+function reverseBodyAt(pos) {
+  const target = findReversibleBodyAt(pos);
+  if (!target) {
+    showReverseFeedback('REVERSE: NO OBJECT', '#888888');
+    haptic([3]);
+    return false;
+  }
+
+  const fromVelocity = { x:target.velocity.x, y:target.velocity.y };
+  const motion = getReversedMotion(target);
+  Matter.Sleeping.set(target, false);
+  Body.setVelocity(target, motion.velocity);
+  Body.setAngularVelocity(target, motion.angularVelocity);
+  reverseFlash = { body:target, fromVelocity, startedAt:performance.now() };
+  addReverseBurst(target, fromVelocity);
+  showReverseFeedback('MOTION REVERSED');
+  haptic([8, 10, 8]);
+  playSound(820, 0.07, 'square', 0.07);
+  playSound(360, 0.14, 'sawtooth', 0.05);
+  shakeIntensity = Math.max(shakeIntensity, 2);
+  return motion;
+}
+
 const ROTATE_STEP = Math.PI / 2;
 
 function getNextRotateDirection(direction = 1) {
@@ -5228,6 +5329,13 @@ function onDown(e) {
   // Pivot tool — pin one dynamic part to the world while preserving rotation.
   if (currentTool === 'pivot') {
     togglePivotAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Reverse tool — instantly invert one moving part's linear and angular motion.
+  if (currentTool === 'reverse') {
+    reverseBodyAt(pos);
     pointerDown = false;
     return;
   }
@@ -7209,6 +7317,49 @@ function drawPivotMarkers(timestamp) {
   });
 }
 
+function drawReverseFlash(timestamp) {
+  if (!reverseFlash) return;
+  if (!Composite.get(world, reverseFlash.body.id, 'body')) {
+    reverseFlash = null;
+    return;
+  }
+
+  const elapsed = timestamp - reverseFlash.startedAt;
+  if (elapsed >= 520) {
+    reverseFlash = null;
+    return;
+  }
+
+  const body = reverseFlash.body;
+  const progress = elapsed / 520;
+  const radius = Math.max(
+    24,
+    Math.min(58, Math.max(body.bounds.max.x - body.bounds.min.x, body.bounds.max.y - body.bounds.min.y) * 0.68)
+  );
+  ctx.save();
+  ctx.translate(body.position.x, body.position.y);
+  ctx.rotate(-progress * Math.PI * 1.6);
+  ctx.globalAlpha = 1 - progress;
+  ctx.strokeStyle = '#ff6bff';
+  ctx.fillStyle = '#ff6bff';
+  ctx.shadowColor = '#ff6bff';
+  ctx.shadowBlur = 16;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(0, 0, radius, -Math.PI * 0.1, Math.PI * 1.45);
+  ctx.stroke();
+  const arrowAngle = Math.PI * 1.45;
+  ctx.translate(Math.cos(arrowAngle) * radius, Math.sin(arrowAngle) * radius);
+  ctx.rotate(arrowAngle + Math.PI / 2);
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(-7, -11);
+  ctx.lineTo(7, -11);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
 function drawSwapMarker(timestamp) {
   if (!swapFirstBody || currentTool !== 'swap') return;
   if (!Composite.get(world, swapFirstBody.id, 'body')) {
@@ -8289,6 +8440,7 @@ function loop(timestamp) {
   drawAlchemyMarkers(timestamp);
   drawFloatMarkers(timestamp);
   drawPivotMarkers(timestamp);
+  drawReverseFlash(timestamp);
   drawSwapMarker(timestamp);
   drawStrutMarker(timestamp);
   drawRotateFlash(timestamp);
