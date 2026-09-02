@@ -8,8 +8,8 @@ Improvement history for this project. Each entry logs one cycle's work.
 **Why:** The toolbar could precisely launch an object toward a destination or reverse motion it already had, but it had no immediate way to strike one exact point and turn placement into torque. Punch adds a one-tap impulse without overlapping Launch, Grab, Motor, or Reverse.
 **Goal alignment:** "more fun, more surprising, more satisfying" — center hits pop parts upward, while left- and right-edge hits kick them sideways with opposite spin for juggling, pinball saves, and chaotic mid-flight redirects.
 **Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
-**Verified:** tests ✓ (362/362 passing); browser smoke ✓ (existing Block and Ball tools exercised, final Punch button selected, left-edge punch changed a resting ball to velocity +3.0/−7.9 with `POW!`, off-center torque reached angular velocity +0.185, 0 console errors/warnings); mobile ✓ (390×844, final Punch button fully reachable/selectable at 52×50px and a right-edge punch changed velocity to −5.1/−8.3); live verification pending commit
-**Status:** verified; shipping pending
+**Verified:** tests ✓ (362/362 passing); browser smoke ✓ (existing Block and Ball tools exercised, final Punch button selected, left-edge punch changed a resting ball to velocity +3.0/−7.9 with `POW!`, off-center torque reached angular velocity +0.185, 0 console errors/warnings); mobile ✓ (390×844, final Punch button fully reachable/selectable at 52×50px and a right-edge punch changed velocity to −5.1/−8.3); live ✓ (http://192.168.68.52:3003, served index SHA-256 matched committed `f9543cd` and a fresh Punch interaction changed velocity and angular motion with 0 console errors/warnings)
+**Status:** shipped
 
 ## 2026-09-01T14:14:30Z — Added: Reverse tool
 **Why:** The toolbar could aim an object with Launch or continuously spin it with Motor, but it had no instant way to turn an object’s existing movement back against itself. Reverse adds a one-tap motion transform without overlapping either control.
