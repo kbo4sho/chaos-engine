@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-09-02",
+      "ideas": [
+        "New tool: Punch one dynamic part with point-sensitive knockback and spin"
+      ],
+      "summary": "Implemented Punch tool (👊) — the final button in the existing object toolbar now strikes one tapped dynamic part upward with a mass-scaled impulse applied at the exact contact point; left and right hits add opposite sideways kick and torque, while 46px touch targeting, orange impact particles, a comic burst/arrow flash, status/audio/haptic feedback, and Eraser/Clear cleanup keep one-tap juggling and redirects readable and reliable on desktop and mobile."
+    },
+    {
       "date": "2026-09-01",
       "ideas": [
         "New tool: Reverse one dynamic part's linear and angular motion"

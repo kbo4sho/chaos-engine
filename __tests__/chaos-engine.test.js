@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 48 tool buttons', () => {
+  it('should have exactly 49 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(48);
+    expect(buttons.length).toBe(49);
   });
 
-  it('should append Reverse after Pivot at the end of the object toolbar', () => {
+  it('should append Punch after Reverse at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('reverse');
-    expect(toolbar.lastElementChild?.textContent).toContain('Reverse');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('pivot');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('float');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('punch');
+    expect(toolbar.lastElementChild?.textContent).toContain('Punch');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('reverse');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('pivot');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,15 +67,78 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// PUNCH TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Punch Tool', () => {
+  it('should expose Punch as the final selectable toolbar tool', () => {
+    const punchBtn = document.querySelector('[data-tool="punch"]');
+    expect(punchBtn).not.toBeNull();
+    expect(punchBtn?.getAttribute('aria-label')).toContain('off-center spin');
+    expect(document.getElementById('toolbar')?.lastElementChild).toBe(punchBtn);
+    expect(punchBtn?.previousElementSibling?.dataset.tool).toBe('reverse');
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'punch'");
+    expect(scriptContent).toContain('punchBodyAt(pos)');
+  });
+
+  it('should create an upward mass-scaled impulse and opposite spin from left/right hits', () => {
+    const source = scriptContent.match(/function getPunchImpulse\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getPunchImpulse = new Function(`${source}; return getPunchImpulse;`)();
+    const body = {
+      position:{ x:100, y:100 },
+      bounds:{ min:{ x:80, y:80 }, max:{ x:120, y:120 } },
+      mass:2
+    };
+    const left = getPunchImpulse(body, { x:82, y:100 });
+    const right = getPunchImpulse(body, { x:118, y:100 });
+    const center = getPunchImpulse(body, { x:100, y:100 });
+    const leftTorque = (left.point.x - body.position.x) * left.force.y;
+    const rightTorque = (right.point.x - body.position.x) * right.force.y;
+
+    expect(center.force.x).toBeCloseTo(0);
+    expect(center.force.y).toBeLessThan(0);
+    expect(left.force.x).toBeGreaterThan(0);
+    expect(right.force.x).toBeLessThan(0);
+    expect(leftTorque).toBeGreaterThan(0);
+    expect(rightTorque).toBeLessThan(0);
+    expect(Math.hypot(left.force.x, left.force.y)).toBeCloseTo(0.09);
+  });
+
+  it('should target dynamic parts with a touch fallback, wake them, and apply force at the tap point', () => {
+    expect(scriptContent).toContain('function isPunchableBody(body)');
+    expect(scriptContent).toContain("body.label !== 'wall'");
+    expect(scriptContent).toContain('!body.isStatic');
+    expect(scriptContent).toContain('function findPunchableBodyAt(pos)');
+    expect(scriptContent).toContain('Matter.Query.point(candidates, pos)');
+    expect(scriptContent).toContain('let nearestDist = 46');
+    expect(scriptContent).toContain('Matter.Sleeping.set(target, false)');
+    expect(scriptContent).toContain('Body.applyForce(target, impulse.point, impulse.force)');
+  });
+
+  it('should provide impact feedback and clean transient state on Eraser or Clear', () => {
+    expect(document.getElementById('punch-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain("showPunchFeedback('POW!')");
+    expect(scriptContent).toContain("showPunchFeedback('PUNCH: NO OBJECT'");
+    expect(scriptContent).toContain('function drawPunchFlash(timestamp)');
+    expect(scriptContent).toContain('drawPunchFlash(timestamp)');
+    expect(scriptContent).toContain('if (punchFlash && removedBodyIds.has(punchFlash.body.id)) punchFlash = null');
+    expect(scriptContent).toContain("document.getElementById('punch-feedback').textContent = ''");
+    expect(scriptContent).toContain("punch: '#ff8c42'");
+  });
+});
+
+// ============================================
 // REVERSE TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Reverse Tool', () => {
-  it('should expose Reverse as the final selectable toolbar tool', () => {
+  it('should keep Reverse selectable immediately before Punch', () => {
     const reverseBtn = document.querySelector('[data-tool="reverse"]');
     expect(reverseBtn).not.toBeNull();
     expect(reverseBtn?.getAttribute('aria-label')).toContain('linear and angular motion');
-    expect(document.getElementById('toolbar')?.lastElementChild).toBe(reverseBtn);
+    expect(reverseBtn?.nextElementSibling?.dataset.tool).toBe('punch');
     expect(reverseBtn?.previousElementSibling?.dataset.tool).toBe('pivot');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'reverse'");

@@ -309,6 +309,19 @@ canvas#game {
 #reverse-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#punch-feedback {
+  position:absolute; top:218px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#ff8c42;
+  font-size:19px; letter-spacing:2px; line-height:1;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none;
+  transition:opacity .12s, transform .12s;
+}
+#punch-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -464,6 +477,7 @@ canvas#game {
     <div id="float-feedback" role="status" aria-live="polite"></div>
     <div id="pivot-feedback" role="status" aria-live="polite"></div>
     <div id="reverse-feedback" role="status" aria-live="polite"></div>
+    <div id="punch-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -517,6 +531,7 @@ canvas#game {
     <button class="tool-btn" data-tool="float" style="color:#7df9ff;" title="Tap a standalone object to toggle local zero gravity" aria-label="Toggle local zero gravity for a standalone object"><span class="icon">🛸</span>Float</button>
     <button class="tool-btn" data-tool="pivot" style="color:#ffd166;" title="Tap a dynamic build part to pin it at that point while preserving rotation; tap again to release" aria-label="Pin or release a dynamic build part at a rotating world pivot"><span class="icon">📌</span>Pivot</button>
     <button class="tool-btn" data-tool="reverse" style="color:#ff6bff;" title="Tap a moving dynamic part to reverse its linear and angular motion" aria-label="Reverse a dynamic part's linear and angular motion"><span class="icon">⏪</span>Reverse</button>
+    <button class="tool-btn" data-tool="punch" style="color:#ff8c42;" title="Tap a dynamic part to punch it upward; strike off-center to add spin" aria-label="Punch a dynamic part upward with off-center spin"><span class="icon">👊</span>Punch</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -750,6 +765,8 @@ let pivots = []; // {body, constraint, worldPoint, localPoint} world pins create
 let pivotFeedbackTimer = 0;
 let reverseFlash = null; // {body, fromVelocity, startedAt} transient rewind feedback
 let reverseFeedbackTimer = 0;
+let punchFlash = null; // {body, point, force, startedAt} transient impact feedback
+let punchFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -2872,6 +2889,10 @@ function finishClear(playFeedback = true) {
   clearTimeout(reverseFeedbackTimer);
   document.getElementById('reverse-feedback').classList.remove('active');
   document.getElementById('reverse-feedback').textContent = '';
+  punchFlash = null;
+  clearTimeout(punchFeedbackTimer);
+  document.getElementById('punch-feedback').classList.remove('active');
+  document.getElementById('punch-feedback').textContent = '';
   bodyTrails.clear();
   shatterDebounce.clear();
   if (oceanMode) {
@@ -3021,7 +3042,8 @@ function getToolAccentColor(tool) {
     launch: '#ff5c8a',
     float: '#7df9ff',
     pivot: '#ffd166',
-    reverse: '#ff6bff'
+    reverse: '#ff6bff',
+    punch: '#ff8c42'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -3153,6 +3175,7 @@ function eraseBodyAt(pos) {
   springs = springs.filter(spring => !constraintsToRemove.has(spring));
   pivots = pivots.filter(pivot => !constraintsToRemove.has(pivot.constraint));
   if (reverseFlash && removedBodyIds.has(reverseFlash.body.id)) reverseFlash = null;
+  if (punchFlash && removedBodyIds.has(punchFlash.body.id)) punchFlash = null;
   if (ropeFirstBody && removedBodyIds.has(ropeFirstBody.id)) ropeFirstBody = null;
   if (grabBody && removedBodyIds.has(grabBody.id)) {
     grabActive = false;
@@ -4527,6 +4550,104 @@ function reverseBodyAt(pos) {
   return motion;
 }
 
+function getPunchImpulse(body, pos) {
+  const halfWidth = Math.max(8, (body.bounds.max.x - body.bounds.min.x) / 2);
+  const halfHeight = Math.max(8, (body.bounds.max.y - body.bounds.min.y) / 2);
+  const rawOffset = {
+    x:pos.x - body.position.x,
+    y:pos.y - body.position.y
+  };
+  const offsetScale = Math.min(1, 1 / Math.max(
+    Math.abs(rawOffset.x) / halfWidth,
+    Math.abs(rawOffset.y) / halfHeight,
+    1
+  ));
+  const point = {
+    x:body.position.x + rawOffset.x * offsetScale,
+    y:body.position.y + rawOffset.y * offsetScale
+  };
+  const horizontal = Math.max(-0.45, Math.min(0.45, (body.position.x - point.x) / halfWidth));
+  const length = Math.hypot(horizontal, 1);
+  const magnitude = Math.max(0.035, Math.min(0.12, (Number.isFinite(body.mass) ? body.mass : 1) * 0.045));
+  return {
+    point,
+    force:{
+      x:(horizontal / length) * magnitude,
+      y:(-1 / length) * magnitude
+    }
+  };
+}
+
+function isPunchableBody(body) {
+  return Boolean(body && body.label !== 'wall' && !body.isTarget && !body.isStatic);
+}
+
+function findPunchableBodyAt(pos) {
+  const candidates = Composite.allBodies(world).filter(isPunchableBody);
+  const exact = Matter.Query.point(candidates, pos).filter(isPunchableBody).pop();
+  if (exact) return exact;
+
+  let target = null;
+  let nearestDist = 46;
+  candidates.forEach(body => {
+    const distance = Math.hypot(body.position.x - pos.x, body.position.y - pos.y);
+    if (distance < nearestDist) {
+      target = body;
+      nearestDist = distance;
+    }
+  });
+  return target;
+}
+
+function showPunchFeedback(message, color = '#ff8c42') {
+  const feedback = document.getElementById('punch-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(punchFeedbackTimer);
+  punchFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 850);
+}
+
+function addPunchBurst(point, force) {
+  const direction = Math.atan2(force.y, force.x);
+  for (let i = 0; i < 18; i++) {
+    const angle = direction + Math.PI + (Math.random() - 0.5) * 1.7;
+    const speed = 2 + Math.random() * 5;
+    particles.push({
+      x:point.x,
+      y:point.y,
+      vx:Math.cos(angle) * speed,
+      vy:Math.sin(angle) * speed,
+      size:2 + Math.random() * 3,
+      life:0.25 + Math.random() * 0.3,
+      color:i % 3 === 0 ? '#fff4cc' : (i % 2 ? '#ff8c42' : '#ffdd55')
+    });
+  }
+}
+
+function punchBodyAt(pos) {
+  const target = findPunchableBodyAt(pos);
+  if (!target) {
+    showPunchFeedback('PUNCH: NO OBJECT', '#888888');
+    haptic([3]);
+    return false;
+  }
+
+  const impulse = getPunchImpulse(target, pos);
+  Matter.Sleeping.set(target, false);
+  Body.applyForce(target, impulse.point, impulse.force);
+  punchFlash = { body:target, point:impulse.point, force:impulse.force, startedAt:performance.now() };
+  addPunchBurst(impulse.point, impulse.force);
+  showPunchFeedback('POW!');
+  haptic([12, 8, 18]);
+  playSound(160, 0.08, 'square', 0.09);
+  playSound(520, 0.06, 'sawtooth', 0.05);
+  shakeIntensity = Math.max(shakeIntensity, 4);
+  return impulse;
+}
+
 const ROTATE_STEP = Math.PI / 2;
 
 function getNextRotateDirection(direction = 1) {
@@ -5336,6 +5457,13 @@ function onDown(e) {
   // Reverse tool — instantly invert one moving part's linear and angular motion.
   if (currentTool === 'reverse') {
     reverseBodyAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Punch tool — strike one dynamic part upward; off-center hits add torque.
+  if (currentTool === 'punch') {
+    punchBodyAt(pos);
     pointerDown = false;
     return;
   }
@@ -7360,6 +7488,55 @@ function drawReverseFlash(timestamp) {
   ctx.restore();
 }
 
+function drawPunchFlash(timestamp) {
+  if (!punchFlash) return;
+  if (!Composite.get(world, punchFlash.body.id, 'body')) {
+    punchFlash = null;
+    return;
+  }
+
+  const elapsed = timestamp - punchFlash.startedAt;
+  if (elapsed >= 420) {
+    punchFlash = null;
+    return;
+  }
+
+  const progress = elapsed / 420;
+  const angle = Math.atan2(punchFlash.force.y, punchFlash.force.x);
+  const radius = 10 + progress * 34;
+  ctx.save();
+  ctx.translate(punchFlash.point.x, punchFlash.point.y);
+  ctx.rotate(angle);
+  ctx.globalAlpha = 1 - progress;
+  ctx.strokeStyle = '#ff8c42';
+  ctx.fillStyle = '#fff4cc';
+  ctx.shadowColor = '#ff8c42';
+  ctx.shadowBlur = 18;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  for (let i = 0; i < 16; i++) {
+    const a = i * Math.PI / 8;
+    const r = i % 2 === 0 ? radius : radius * 0.45;
+    const x = Math.cos(a) * r;
+    const y = Math.sin(a) * r;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(-8, 0);
+  ctx.lineTo(-34 - progress * 18, 0);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(-40 - progress * 18, 0);
+  ctx.lineTo(-29 - progress * 18, -7);
+  ctx.lineTo(-29 - progress * 18, 7);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
 function drawSwapMarker(timestamp) {
   if (!swapFirstBody || currentTool !== 'swap') return;
   if (!Composite.get(world, swapFirstBody.id, 'body')) {
@@ -8441,6 +8618,7 @@ function loop(timestamp) {
   drawFloatMarkers(timestamp);
   drawPivotMarkers(timestamp);
   drawReverseFlash(timestamp);
+  drawPunchFlash(timestamp);
   drawSwapMarker(timestamp);
   drawStrutMarker(timestamp);
   drawRotateFlash(timestamp);
