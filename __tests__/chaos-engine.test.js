@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 49 tool buttons', () => {
+  it('should have exactly 50 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(49);
+    expect(buttons.length).toBe(50);
   });
 
-  it('should append Punch after Reverse at the end of the object toolbar', () => {
+  it('should append Blink after Punch at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('punch');
-    expect(toolbar.lastElementChild?.textContent).toContain('Punch');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('reverse');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('pivot');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('blink');
+    expect(toolbar.lastElementChild?.textContent).toContain('Blink');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('punch');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('reverse');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,15 +67,68 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// BLINK TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Blink Tool', () => {
+  it('should expose Blink as the final selectable toolbar tool', () => {
+    const blinkBtn = document.querySelector('[data-tool="blink"]');
+    expect(blinkBtn).not.toBeNull();
+    expect(blinkBtn?.getAttribute('aria-label')).toContain('preserving motion');
+    expect(document.getElementById('toolbar')?.lastElementChild).toBe(blinkBtn);
+    expect(blinkBtn?.previousElementSibling?.dataset.tool).toBe('punch');
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'blink'");
+    expect(scriptContent).toContain('blinkBodyAt(pos)');
+  });
+
+  it('should clamp teleport destinations so the whole object stays on canvas', () => {
+    const source = scriptContent.match(/function getSafeBlinkPosition\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getSafeBlinkPosition = new Function(`${source}; return getSafeBlinkPosition;`)();
+    const body = { bounds:{ min:{ x:80, y:70 }, max:{ x:120, y:130 } } };
+
+    expect(getSafeBlinkPosition(body, { x:-20, y:-40 }, 500, 400)).toEqual({ x:30, y:40 });
+    expect(getSafeBlinkPosition(body, { x:900, y:900 }, 500, 400)).toEqual({ x:470, y:342 });
+    expect(getSafeBlinkPosition(body, { x:250, y:180 }, 500, 400)).toEqual({ x:250, y:180 });
+  });
+
+  it('should target standalone dynamic bodies with a touch fallback and preserve motion', () => {
+    expect(scriptContent).toContain('function isBlinkableBody(body)');
+    expect(scriptContent).toContain('!Composite.allConstraints(world).some');
+    expect(scriptContent).toContain('function findBlinkableBodyAt(pos)');
+    expect(scriptContent).toContain('Matter.Query.point(candidates, pos)');
+    expect(scriptContent).toContain('let nearestDist = 46');
+    expect(scriptContent).toContain('const velocity = { x:selected.velocity.x, y:selected.velocity.y }');
+    expect(scriptContent).toContain('Body.setPosition(selected, destination)');
+    expect(scriptContent).toContain('Body.setVelocity(selected, velocity)');
+    expect(scriptContent).toContain('Body.setAngularVelocity(selected, angularVelocity)');
+    expect(scriptContent).toContain('Matter.Sleeping.set(selected, false)');
+  });
+
+  it('should render selection/teleport feedback and clean state on tool change, Eraser, or Clear', () => {
+    expect(document.getElementById('blink-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain("showBlinkFeedback('BLINK: TAP DESTINATION')");
+    expect(scriptContent).toContain("showBlinkFeedback('BLINKED!')");
+    expect(scriptContent).toContain('function drawBlinkMarker(timestamp)');
+    expect(scriptContent).toContain('drawBlinkMarker(timestamp)');
+    expect(scriptContent).toContain("if (tool !== 'blink') resetBlinkSelection(true)");
+    expect(scriptContent).toContain('if (blinkBody && removedBodyIds.has(blinkBody.id)) resetBlinkSelection(true)');
+    expect(scriptContent).toContain('resetBlinkSelection(true)');
+    expect(scriptContent).toContain("blink: '#66ffff'");
+  });
+});
+
+// ============================================
 // PUNCH TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Punch Tool', () => {
-  it('should expose Punch as the final selectable toolbar tool', () => {
+  it('should keep Punch selectable immediately before Blink', () => {
     const punchBtn = document.querySelector('[data-tool="punch"]');
     expect(punchBtn).not.toBeNull();
     expect(punchBtn?.getAttribute('aria-label')).toContain('off-center spin');
-    expect(document.getElementById('toolbar')?.lastElementChild).toBe(punchBtn);
+    expect(punchBtn?.nextElementSibling?.dataset.tool).toBe('blink');
     expect(punchBtn?.previousElementSibling?.dataset.tool).toBe('reverse');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'punch'");

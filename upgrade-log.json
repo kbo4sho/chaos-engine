@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-09-03",
+      "ideas": [
+        "New tool: Blink one standalone object to a tapped destination while preserving motion"
+      ],
+      "summary": "Implemented Blink tool (⚡) — the final button in the existing object toolbar now selects one standalone dynamic object and teleports it to a second tapped destination while preserving linear and angular motion; canvas-safe clamping, 46px touch targeting, a live destination sight, cyan/magenta warp rings, status/audio/haptic feedback, short-distance cancellation, and Eraser/Clear/tool-change cleanup keep spatial tricks readable and reliable on desktop and mobile."
+    },
+    {
       "date": "2026-09-02",
       "ideas": [
         "New tool: Punch one dynamic part with point-sensitive knockback and spin"

@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-09-03T14:08:38Z — Added: Blink tool
+**Why:** The toolbar could exchange two objects with Swap, aim one with Launch, or route motion through placed Portals, but it had no direct way to relocate one existing object without changing its momentum. Blink adds a two-tap spatial transform without overlapping those tools.
+**Goal alignment:** "more fun, more surprising, more satisfying" — moving props, projectiles, and falling hazards can instantly jump across the scene while keeping their velocity and spin, enabling mid-flight saves, ambushes, and momentum-preserving physics tricks.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (367/367 passing); browser smoke ✓ (existing Block tool placed one paused subject, final Blink button selected it and teleported it to a second canvas point with `BLINKED!`, object count remained 1, 0 console errors/warnings); mobile ✓ (390×844, final Blink button fully reachable at 52×50px and completed a teleport with visible status feedback); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-09-02T14:13:54Z — Added: Punch tool
 **Why:** The toolbar could precisely launch an object toward a destination or reverse motion it already had, but it had no immediate way to strike one exact point and turn placement into torque. Punch adds a one-tap impulse without overlapping Launch, Grab, Motor, or Reverse.
 **Goal alignment:** "more fun, more surprising, more satisfying" — center hits pop parts upward, while left- and right-edge hits kick them sideways with opposite spin for juggling, pinball saves, and chaotic mid-flight redirects.
