@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-09-04T14:11:10Z — Added: Squash tool
+**Why:** The toolbar could uniformly resize or quarter-turn an object, but it had no way to reshape its silhouette and collision geometry while preserving its overall area. Squash adds a reversible non-uniform transform without overlapping Resize or Rotate.
+**Goal alignment:** "more fun, more surprising, more satisfying" — balls become rolling pancakes, blocks become planks or pillars, and props can squeeze into new roles through a tactile wide → tall → original cycle.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (372/372 passing); browser smoke ✓ (existing Block tool placed one paused subject, final Squash button cycled it through visibly wide, tall, and original geometry with matching status/flash feedback while OBJ remained 1, 0 console errors/warnings); mobile ✓ (390×844, final Squash button fully reachable at 52×50px and reshaped an existing Ball with visible narrow-screen feedback); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-09-03T14:08:38Z — Added: Blink tool
 **Why:** The toolbar could exchange two objects with Swap, aim one with Launch, or route motion through placed Portals, but it had no direct way to relocate one existing object without changing its momentum. Blink adds a two-tap spatial transform without overlapping those tools.
 **Goal alignment:** "more fun, more surprising, more satisfying" — moving props, projectiles, and falling hazards can instantly jump across the scene while keeping their velocity and spin, enabling mid-flight saves, ambushes, and momentum-preserving physics tricks.

@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-09-04",
+      "ideas": [
+        "New tool: Squash one standalone object through wide, tall, and original proportions"
+      ],
+      "summary": "Implemented Squash tool (🗜️) — the final button in the existing object toolbar now cycles one standalone dynamic object through wide, tall, and original proportions using reciprocal non-uniform scaling that preserves area, position, linear motion, and angular motion; canvas-safe clamping, 46px touch targeting, custom-art scaling, clone compatibility, neon directional feedback, status/audio/haptic responses, and Eraser/Clear/tool-change cleanup keep shape experiments readable and reliable on desktop and mobile."
+    },
+    {
       "date": "2026-09-03",
       "ideas": [
         "New tool: Blink one standalone object to a tapped destination while preserving motion"

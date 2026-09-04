@@ -334,6 +334,18 @@ canvas#game {
 #blink-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#squash-feedback {
+  position:absolute; top:286px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  opacity:0; pointer-events:none;
+  color:#9cff57; font-size:22px; letter-spacing:2px;
+  text-shadow:0 0 8px currentColor, 0 0 18px currentColor;
+  white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#squash-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -438,6 +450,7 @@ canvas#game {
   .tool-btn { min-width:52px; height:50px; font-size:11px; }
   .tool-btn .icon { font-size:20px; }
   .chaos-btn { min-width:56px; height:46px; font-size:11px; }
+  #squash-feedback { top:14px; font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -491,6 +504,7 @@ canvas#game {
     <div id="reverse-feedback" role="status" aria-live="polite"></div>
     <div id="punch-feedback" role="status" aria-live="polite"></div>
     <div id="blink-feedback" role="status" aria-live="polite"></div>
+    <div id="squash-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -546,6 +560,7 @@ canvas#game {
     <button class="tool-btn" data-tool="reverse" style="color:#ff6bff;" title="Tap a moving dynamic part to reverse its linear and angular motion" aria-label="Reverse a dynamic part's linear and angular motion"><span class="icon">⏪</span>Reverse</button>
     <button class="tool-btn" data-tool="punch" style="color:#ff8c42;" title="Tap a dynamic part to punch it upward; strike off-center to add spin" aria-label="Punch a dynamic part upward with off-center spin"><span class="icon">👊</span>Punch</button>
     <button class="tool-btn" data-tool="blink" style="color:#66ffff;" title="Tap a standalone object, then tap a destination to teleport it while preserving motion" aria-label="Blink a standalone object to a tapped destination while preserving motion"><span class="icon">⚡</span>Blink</button>
+    <button class="tool-btn" data-tool="squash" style="color:#9cff57;" title="Tap a standalone object to cycle wide, tall, and original proportions" aria-label="Squash a standalone object through wide, tall, and original proportions"><span class="icon">🗜️</span>Squash</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -785,6 +800,8 @@ let blinkBody = null;
 let blinkAimPoint = null;
 let blinkFlash = null; // {from, to, startedAt} transient teleport feedback
 let blinkFeedbackTimer = 0;
+let squashFlash = null; // {body, mode, startedAt} transient reshape feedback
+let squashFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -1444,6 +1461,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'spring') resetSpringSelection(true);
       if (tool !== 'launch') resetLaunchSelection(true);
       if (tool !== 'blink') resetBlinkSelection(true);
+      if (tool !== 'squash') resetSquashFeedback(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -2902,6 +2920,7 @@ function finishClear(playFeedback = true) {
   resetSpringSelection(true);
   resetLaunchSelection(true);
   resetBlinkSelection(true);
+  resetSquashFeedback(true);
   clearTimeout(floatFeedbackTimer);
   document.getElementById('float-feedback').classList.remove('active');
   document.getElementById('float-feedback').textContent = '';
@@ -3067,7 +3086,8 @@ function getToolAccentColor(tool) {
     pivot: '#ffd166',
     reverse: '#ff6bff',
     punch: '#ff8c42',
-    blink: '#66ffff'
+    blink: '#66ffff',
+    squash: '#9cff57'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -3214,6 +3234,7 @@ function eraseBodyAt(pos) {
   if (springFirstBody && removedBodyIds.has(springFirstBody.id)) springFirstBody = null;
   if (launchBody && removedBodyIds.has(launchBody.id)) resetLaunchSelection(true);
   if (blinkBody && removedBodyIds.has(blinkBody.id)) resetBlinkSelection(true);
+  if (squashFlash && removedBodyIds.has(squashFlash.body.id)) squashFlash = null;
 
   haptic([8]);
   playSound(650, 0.1, 'sine', 0.08);
@@ -3420,6 +3441,9 @@ function createBodyClone(source, position) {
   Body.setAngle(clone, source.angle);
   clone.material = source.material;
   clone.resizeScale = source.resizeScale || 1;
+  clone.squashMode = source.squashMode || 'normal';
+  clone.squashScaleX = source.squashScaleX || 1;
+  clone.squashScaleY = source.squashScaleY || 1;
   clone.isBomb = Boolean(source.isBomb);
   clone.isBalloon = Boolean(source.isBalloon);
   clone.isDuck = Boolean(source.isDuck);
@@ -4404,6 +4428,112 @@ function blinkBodyAt(pos) {
   haptic([8, 10, 14]);
   shakeIntensity = Math.max(shakeIntensity, 2);
   return { body:selected, from, to:destination, velocity, angularVelocity };
+}
+
+function getSquashTransition(currentMode = 'normal') {
+  const ratio = 1.55;
+  if (currentMode === 'normal') {
+    return { mode:'wide', factorX:ratio, factorY:1 / ratio, scaleX:ratio, scaleY:1 / ratio, label:'WIDE' };
+  }
+  if (currentMode === 'wide') {
+    return { mode:'tall', factorX:1 / (ratio * ratio), factorY:ratio * ratio, scaleX:1 / ratio, scaleY:ratio, label:'TALL' };
+  }
+  return { mode:'normal', factorX:ratio, factorY:1 / ratio, scaleX:1, scaleY:1, label:'ORIGINAL' };
+}
+
+function isSquashableBody(body) {
+  if (!body || body.isStatic || body.label === 'wall' || body.label === 'chain-link' || body.isTarget || body.isFragment || body.parent !== body) return false;
+  return !Composite.allConstraints(world).some(constraint => constraint.bodyA === body || constraint.bodyB === body);
+}
+
+function findSquashableBodyAt(pos) {
+  const candidates = Composite.allBodies(world).filter(isSquashableBody);
+  let target = Matter.Query.point(candidates, pos).filter(isSquashableBody).pop();
+  if (!target) {
+    let nearestDist = 46;
+    candidates.forEach(body => {
+      const distance = Math.hypot(body.position.x - pos.x, body.position.y - pos.y);
+      if (distance < nearestDist) {
+        target = body;
+        nearestDist = distance;
+      }
+    });
+  }
+  return target || null;
+}
+
+function showSquashFeedback(message, color = '#9cff57') {
+  const feedback = document.getElementById('squash-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(squashFeedbackTimer);
+  squashFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 850);
+}
+
+function resetSquashFeedback(silent = false) {
+  squashFlash = null;
+  if (!silent) return;
+  clearTimeout(squashFeedbackTimer);
+  const feedback = document.getElementById('squash-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
+function addSquashBurst(body, mode) {
+  const horizontal = mode !== 'tall';
+  const color = mode === 'normal' ? '#ffffff' : (horizontal ? '#9cff57' : '#ff9cf7');
+  const halfWidth = Math.max(10, (body.bounds.max.x - body.bounds.min.x) / 2);
+  const halfHeight = Math.max(10, (body.bounds.max.y - body.bounds.min.y) / 2);
+  for (let i = 0; i < 18; i++) {
+    const side = i % 2 === 0 ? -1 : 1;
+    const along = (Math.random() - 0.5) * 1.6;
+    const direction = horizontal ? { x:side, y:along } : { x:along, y:side };
+    const speed = 2 + Math.random() * 3.5;
+    particles.push({
+      x:body.position.x + (horizontal ? side * halfWidth : along * halfWidth * 0.35),
+      y:body.position.y + (horizontal ? along * halfHeight * 0.35 : side * halfHeight),
+      vx:direction.x * speed,
+      vy:direction.y * speed,
+      size:2 + Math.random() * 2.5,
+      life:0.28 + Math.random() * 0.28,
+      color:i % 4 === 0 ? '#ffffff' : color
+    });
+  }
+}
+
+function squashBodyAt(pos) {
+  const target = findSquashableBodyAt(pos);
+  if (!target) {
+    showSquashFeedback('SQUASH: NO OBJECT', '#888888');
+    haptic([3]);
+    return false;
+  }
+
+  const transition = getSquashTransition(target.squashMode || 'normal');
+  const angle = target.angle;
+  const velocity = { x:target.velocity.x, y:target.velocity.y };
+  const angularVelocity = target.angularVelocity;
+  Body.setAngle(target, 0);
+  Body.scale(target, transition.factorX, transition.factorY);
+  Body.setAngle(target, angle);
+  target.squashMode = transition.mode;
+  target.squashScaleX = transition.scaleX;
+  target.squashScaleY = transition.scaleY;
+  Body.setPosition(target, getCanvasSafeBodyPosition(target, canvas.width, canvas.height));
+  Body.setVelocity(target, velocity);
+  Body.setAngularVelocity(target, angularVelocity);
+  Matter.Sleeping.set(target, false);
+  squashFlash = { body:target, mode:transition.mode, startedAt:performance.now() };
+  addSquashBurst(target, transition.mode);
+  showSquashFeedback(`SQUASH: ${transition.label}`, transition.mode === 'tall' ? '#ff9cf7' : '#9cff57');
+  haptic(transition.mode === 'normal' ? [8] : [8, 12, 8]);
+  playSound(transition.mode === 'tall' ? 720 : 420, 0.1, 'square', 0.07);
+  playSound(transition.mode === 'normal' ? 900 : 260, 0.08, 'sine', 0.05);
+  shakeIntensity = Math.max(shakeIntensity, 2);
+  return transition;
 }
 
 function getFloatCounterForce(body, gravity, gravityScale = 0.001) {
@@ -5617,6 +5747,13 @@ function onDown(e) {
     return;
   }
 
+  // Squash tool — cycle one standalone object's proportions through wide, tall, and original.
+  if (currentTool === 'squash') {
+    squashBodyAt(pos);
+    pointerDown = false;
+    return;
+  }
+
   // Snip tool — cut one visible physical connection without removing its bodies.
   if (currentTool === 'snip') {
     snipConstraintAt(pos);
@@ -6087,8 +6224,13 @@ function drawBody(b) {
   ctx.translate(b.position.x, b.position.y);
   ctx.rotate(b.angle);
   const resizeScale = b.resizeScale || 1;
-  if (spawnScale !== 1 || clearScale !== 1 || resizeScale !== 1) {
-    ctx.scale(spawnScale * clearScale * resizeScale, spawnScale * clearScale * resizeScale);
+  const squashScaleX = b.squashScaleX || 1;
+  const squashScaleY = b.squashScaleY || 1;
+  if (spawnScale !== 1 || clearScale !== 1 || resizeScale !== 1 || squashScaleX !== 1 || squashScaleY !== 1) {
+    ctx.scale(
+      spawnScale * clearScale * resizeScale * squashScaleX,
+      spawnScale * clearScale * resizeScale * squashScaleY
+    );
   }
 
   switch(type) {
@@ -7998,6 +8140,55 @@ function drawBlinkMarker(timestamp) {
   ctx.restore();
 }
 
+function drawSquashFlash(timestamp) {
+  if (!squashFlash) return;
+  const { body, mode, startedAt } = squashFlash;
+  if (!Composite.get(world, body.id, 'body')) {
+    squashFlash = null;
+    return;
+  }
+
+  const progress = Math.max(0, (timestamp - startedAt) / 650);
+  if (progress >= 1) {
+    squashFlash = null;
+    return;
+  }
+
+  const halfWidth = (body.bounds.max.x - body.bounds.min.x) / 2 + 8 + progress * 8;
+  const halfHeight = (body.bounds.max.y - body.bounds.min.y) / 2 + 8 + progress * 8;
+  const horizontal = mode !== 'tall';
+  const color = mode === 'normal' ? '#ffffff' : (horizontal ? '#9cff57' : '#ff9cf7');
+  const arrow = 10 + progress * 8;
+  ctx.save();
+  ctx.translate(body.position.x, body.position.y);
+  ctx.globalAlpha = 1 - progress;
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 16;
+  ctx.lineWidth = 3;
+  ctx.setLineDash([6, 4]);
+  ctx.strokeRect(-halfWidth, -halfHeight, halfWidth * 2, halfHeight * 2);
+  ctx.setLineDash([]);
+  [-1, 1].forEach(side => {
+    ctx.save();
+    ctx.translate(horizontal ? side * halfWidth : 0, horizontal ? 0 : side * halfHeight);
+    ctx.rotate(horizontal ? (side < 0 ? Math.PI : 0) : (side < 0 ? -Math.PI / 2 : Math.PI / 2));
+    ctx.beginPath();
+    ctx.moveTo(arrow, 0);
+    ctx.lineTo(0, -6);
+    ctx.lineTo(0, 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  });
+  ctx.font = 'bold 16px VT323';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(mode === 'wide' ? 'W' : (mode === 'tall' ? 'T' : '1:1'), 0, 1);
+  ctx.restore();
+}
+
 function drawRotateFlash(timestamp) {
   if (!rotateFlash) return;
   const { body, direction, startedAt } = rotateFlash;
@@ -8853,6 +9044,7 @@ function loop(timestamp) {
   drawSpringMarker(timestamp);
   drawLaunchMarker(timestamp);
   drawBlinkMarker(timestamp);
+  drawSquashFlash(timestamp);
 
   // Effects
   drawRopes();

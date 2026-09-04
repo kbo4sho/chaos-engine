@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 50 tool buttons', () => {
+  it('should have exactly 51 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(50);
+    expect(buttons.length).toBe(51);
   });
 
-  it('should append Blink after Punch at the end of the object toolbar', () => {
+  it('should append Squash after Blink at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('blink');
-    expect(toolbar.lastElementChild?.textContent).toContain('Blink');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('punch');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('reverse');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('squash');
+    expect(toolbar.lastElementChild?.textContent).toContain('Squash');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('blink');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('punch');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,15 +67,77 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// SQUASH TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Squash Tool', () => {
+  it('should expose Squash as the final selectable toolbar tool', () => {
+    const squashBtn = document.querySelector('[data-tool="squash"]');
+    expect(squashBtn).not.toBeNull();
+    expect(squashBtn?.getAttribute('aria-label')).toContain('wide, tall, and original');
+    expect(document.getElementById('toolbar')?.lastElementChild).toBe(squashBtn);
+    expect(squashBtn?.previousElementSibling?.dataset.tool).toBe('blink');
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'squash'");
+    expect(scriptContent).toContain('squashBodyAt(pos)');
+  });
+
+  it('should cycle wide, tall, and original proportions while preserving area', () => {
+    const source = scriptContent.match(/function getSquashTransition\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getSquashTransition = new Function(`${source}; return getSquashTransition;`)();
+    const wide = getSquashTransition('normal');
+    const tall = getSquashTransition(wide.mode);
+    const original = getSquashTransition(tall.mode);
+
+    expect([wide.mode, tall.mode, original.mode]).toEqual(['wide', 'tall', 'normal']);
+    expect(wide.factorX * wide.factorY).toBeCloseTo(1);
+    expect(tall.factorX * tall.factorY).toBeCloseTo(1);
+    expect(original.factorX * original.factorY).toBeCloseTo(1);
+    expect(wide.factorX * tall.factorX * original.factorX).toBeCloseTo(1);
+    expect(wide.factorY * tall.factorY * original.factorY).toBeCloseTo(1);
+  });
+
+  it('should reshape only standalone dynamic bodies with touch targeting and preserved motion', () => {
+    expect(scriptContent).toContain('function isSquashableBody(body)');
+    expect(scriptContent).toContain("body.label === 'chain-link'");
+    expect(scriptContent).toContain('body.isStatic');
+    expect(scriptContent).toContain('body.parent !== body');
+    expect(scriptContent).toContain('!Composite.allConstraints(world).some');
+    expect(scriptContent).toContain('Matter.Query.point(candidates, pos)');
+    expect(scriptContent).toContain('let nearestDist = 46');
+    expect(scriptContent).toContain('Body.setAngle(target, 0)');
+    expect(scriptContent).toContain('Body.scale(target, transition.factorX, transition.factorY)');
+    expect(scriptContent).toContain('Body.setPosition(target, getCanvasSafeBodyPosition');
+    expect(scriptContent).toContain('Body.setVelocity(target, velocity)');
+    expect(scriptContent).toContain('Body.setAngularVelocity(target, angularVelocity)');
+  });
+
+  it('should render reshaped custom art, show feedback, and clean transient state', () => {
+    expect(document.getElementById('squash-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain("showSquashFeedback(`SQUASH: ${transition.label}`");
+    expect(scriptContent).toContain('const squashScaleX = b.squashScaleX || 1');
+    expect(scriptContent).toContain('spawnScale * clearScale * resizeScale * squashScaleX');
+    expect(scriptContent).toContain('function drawSquashFlash(timestamp)');
+    expect(scriptContent).toContain('drawSquashFlash(timestamp)');
+    expect(scriptContent).toContain('clone.squashMode = source.squashMode');
+    expect(scriptContent).toContain("if (tool !== 'squash') resetSquashFeedback(true)");
+    expect(scriptContent).toContain('if (squashFlash && removedBodyIds.has(squashFlash.body.id)) squashFlash = null');
+    expect(scriptContent).toContain('resetSquashFeedback(true)');
+    expect(scriptContent).toContain("squash: '#9cff57'");
+  });
+});
+
+// ============================================
 // BLINK TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Blink Tool', () => {
-  it('should expose Blink as the final selectable toolbar tool', () => {
+  it('should keep Blink selectable immediately before Squash', () => {
     const blinkBtn = document.querySelector('[data-tool="blink"]');
     expect(blinkBtn).not.toBeNull();
     expect(blinkBtn?.getAttribute('aria-label')).toContain('preserving motion');
-    expect(document.getElementById('toolbar')?.lastElementChild).toBe(blinkBtn);
+    expect(blinkBtn?.nextElementSibling?.dataset.tool).toBe('squash');
     expect(blinkBtn?.previousElementSibling?.dataset.tool).toBe('punch');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'blink'");
@@ -2218,7 +2280,8 @@ describe('Visual Effects', () => {
     expect(scriptContent).toContain('b.spawnTime = now');
     expect(scriptContent).toContain('b.spawnScale = 0.05');
     expect(scriptContent).toContain('b.spawnScale = getSpawnPopScale(elapsed)');
-    expect(scriptContent).toContain('ctx.scale(spawnScale * clearScale * resizeScale, spawnScale * clearScale * resizeScale)');
+    expect(scriptContent).toContain('spawnScale * clearScale * resizeScale * squashScaleX');
+    expect(scriptContent).toContain('spawnScale * clearScale * resizeScale * squashScaleY');
   });
 
   it('should mark simple and composite spawns for pop animation', () => {
@@ -2237,7 +2300,8 @@ describe('Visual Effects', () => {
     expect(scriptContent).toContain('function finishClear(playFeedback = true)');
     expect(scriptContent).toContain('playClearVortexSound()');
     expect(scriptContent).toContain('r.clearScale || 1');
-    expect(scriptContent).toContain('ctx.scale(spawnScale * clearScale * resizeScale, spawnScale * clearScale * resizeScale)');
+    expect(scriptContent).toContain('spawnScale * clearScale * resizeScale * squashScaleX');
+    expect(scriptContent).toContain('spawnScale * clearScale * resizeScale * squashScaleY');
     expect(scriptContent).toContain('updateClearVortex(timestamp)');
     expect(scriptContent).toContain('drawClearVortex(timestamp)');
   });
