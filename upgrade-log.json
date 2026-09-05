@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-09-05",
+      "ideas": [
+        "New tool: Pulse nearby dynamic objects outward from a tapped canvas point"
+      ],
+      "summary": "Implemented Pulse tool (📡) — the final button in the existing object toolbar now emits a localized 200px radial impulse that wakes and pushes every nearby dynamic body outward with quadratic distance falloff while preserving object count and connections; capped velocity, subtle spin, cyan/magenta particles, an expanding CRT shock ring, hit-count status, audio/haptic feedback, and tool-change/Clear cleanup keep cluster scattering readable and reliable on desktop and mobile."
+    },
+    {
       "date": "2026-09-04",
       "ideas": [
         "New tool: Squash one standalone object through wide, tall, and original proportions"

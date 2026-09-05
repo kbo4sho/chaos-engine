@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-09-05T14:08:47Z — Added: Pulse tool
+**Why:** The toolbar could strike one exact body with Punch or spawn a timed Bomb, but it had no direct, reusable way to move a whole nearby cluster from a chosen canvas point. Pulse adds a localized multi-object radial impulse without overlapping either tool or the global chaos actions.
+**Goal alignment:** "more fun, more surprising, more satisfying" — one tap can scatter a stack, part a crowd of props, rescue several falling pieces, or inject energy into a connected machine while leaving every object and connection intact.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (377/377 passing); browser smoke ✓ (existing Block tool placed two paused subjects, final Pulse button pushed both outward at −5/+5 velocity with `PULSE ×2`, a visible expanding cyan/magenta ring, preserved OBJ 2, and sent the blocks visibly apart when play resumed, 0 console errors/warnings); mobile ✓ (390×844, final Pulse button fully reachable at 52×50px and pushed two blocks outward at −6.3/+6.3 with visible narrow-screen feedback); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-09-04T14:11:10Z — Added: Squash tool
 **Why:** The toolbar could uniformly resize or quarter-turn an object, but it had no way to reshape its silhouette and collision geometry while preserving its overall area. Squash adds a reversible non-uniform transform without overlapping Resize or Rotate.
 **Goal alignment:** "more fun, more surprising, more satisfying" — balls become rolling pancakes, blocks become planks or pillars, and props can squeeze into new roles through a tactile wide → tall → original cycle.

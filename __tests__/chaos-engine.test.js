@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 51 tool buttons', () => {
+  it('should have exactly 52 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(51);
+    expect(buttons.length).toBe(52);
   });
 
-  it('should append Squash after Blink at the end of the object toolbar', () => {
+  it('should append Pulse after Squash at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('squash');
-    expect(toolbar.lastElementChild?.textContent).toContain('Squash');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('blink');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('punch');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('pulse');
+    expect(toolbar.lastElementChild?.textContent).toContain('Pulse');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('squash');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('blink');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,15 +67,69 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// PULSE TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Pulse Tool', () => {
+  it('should expose Pulse as the final selectable toolbar tool', () => {
+    const pulseBtn = document.querySelector('[data-tool="pulse"]');
+    expect(pulseBtn).not.toBeNull();
+    expect(pulseBtn?.getAttribute('aria-label')).toContain('nearby dynamic objects');
+    expect(document.getElementById('toolbar')?.lastElementChild).toBe(pulseBtn);
+    expect(pulseBtn?.previousElementSibling?.dataset.tool).toBe('squash');
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'pulse'");
+    expect(scriptContent).toContain('pulseAt(pos)');
+  });
+
+  it('should calculate an outward radial impulse with quadratic distance falloff', () => {
+    const source = scriptContent.match(/function getPulseVelocityDelta\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getPulseVelocityDelta = new Function(`${source}; return getPulseVelocityDelta;`)();
+
+    expect(getPulseVelocityDelta({ x:0, y:0 }, { x:0, y:0 }, 200, 15)).toMatchObject({ x:0, y:-15, magnitude:15, falloff:1 });
+    expect(getPulseVelocityDelta({ x:100, y:0 }, { x:0, y:0 }, 200, 15)).toMatchObject({ x:3.75, y:0, magnitude:3.75, falloff:0.5 });
+    expect(getPulseVelocityDelta({ x:-50, y:0 }, { x:0, y:0 }, 200, 16)?.x).toBeLessThan(0);
+    expect(getPulseVelocityDelta({ x:200, y:0 }, { x:0, y:0 }, 200, 15)).toBeNull();
+  });
+
+  it('should wake and push only nearby dynamic canvas bodies while preserving objects', () => {
+    const pulseSource = scriptContent.slice(
+      scriptContent.indexOf('function pulseAt(origin)'),
+      scriptContent.indexOf('const ROTATE_STEP')
+    );
+    expect(scriptContent).toContain('const PULSE_RADIUS = 200');
+    expect(pulseSource).toContain("body.label === 'wall' || body.isTarget || body.isStatic");
+    expect(pulseSource).toContain('getPulseVelocityDelta(body.position, origin)');
+    expect(pulseSource).toContain('Matter.Sleeping.set(body, false)');
+    expect(pulseSource).toContain('Body.setVelocity(body');
+    expect(pulseSource).toContain('Body.setAngularVelocity(body');
+    expect(pulseSource).toContain('const scale = speed > 34 ? 34 / speed : 1');
+    expect(pulseSource).not.toContain('Composite.remove(world, body)');
+  });
+
+  it('should render readable feedback and clean it on tool change or Clear', () => {
+    expect(document.getElementById('pulse-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('pulseBursts.push({ x:origin.x, y:origin.y, hitCount:affected.length');
+    expect(scriptContent).toContain('function drawPulseBursts(timestamp)');
+    expect(scriptContent).toContain('drawPulseBursts(timestamp)');
+    expect(scriptContent).toContain("showPulseFeedback(`PULSE ×${affected.length}`)");
+    expect(scriptContent).toContain("if (tool !== 'pulse') resetPulseFeedback(true)");
+    expect(scriptContent.match(/resetPulseFeedback\(true\)/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(scriptContent).toContain("pulse: '#35f2ff'");
+  });
+});
+
+// ============================================
 // SQUASH TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Squash Tool', () => {
-  it('should expose Squash as the final selectable toolbar tool', () => {
+  it('should keep Squash selectable immediately before Pulse', () => {
     const squashBtn = document.querySelector('[data-tool="squash"]');
     expect(squashBtn).not.toBeNull();
     expect(squashBtn?.getAttribute('aria-label')).toContain('wide, tall, and original');
-    expect(document.getElementById('toolbar')?.lastElementChild).toBe(squashBtn);
+    expect(squashBtn?.nextElementSibling?.dataset.tool).toBe('pulse');
     expect(squashBtn?.previousElementSibling?.dataset.tool).toBe('blink');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'squash'");
