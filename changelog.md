@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-09-06T14:08:45Z — Added: Relay tool
+**Why:** The toolbar could swap two objects' positions, reverse one object's motion, or apply new force, but it had no way to move an existing velocity and spin pattern from one object to another. Relay adds a two-body motion transform without overlapping Swap, Reverse, Launch, Punch, Pulse, or Motor.
+**Goal alignment:** "more fun, more surprising, more satisfying" — motion appears to jump between stationary and moving props, enabling mid-flight handoffs, momentum puzzles, sudden stops, and unexpected chain reactions while both objects stay exactly where they were tapped.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (383/383 passing); browser smoke ✓ (existing Block tool placed two paused subjects, final Relay button exchanged velocity +11/−4 and spin +0.32 with velocity −2/+7 and spin −0.48 while both positions and OBJ 2 stayed unchanged, visible `MOTION RELAYED!` status and neon two-way transfer feedback, 0 console errors/warnings); mobile ✓ (390×844, final Relay button fully reachable at 52×50px and exchanged a second pair of linear/angular velocities); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-09-05T14:08:47Z — Added: Pulse tool
 **Why:** The toolbar could strike one exact body with Punch or spawn a timed Bomb, but it had no direct, reusable way to move a whole nearby cluster from a chosen canvas point. Pulse adds a localized multi-object radial impulse without overlapping either tool or the global chaos actions.
 **Goal alignment:** "more fun, more surprising, more satisfying" — one tap can scatter a stack, part a crowd of props, rescue several falling pieces, or inject energy into a connected machine while leaving every object and connection intact.

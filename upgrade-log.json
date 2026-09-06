@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-09-06",
+      "ideas": [
+        "New tool: Relay linear and angular motion between two standalone objects"
+      ],
+      "summary": "Implemented Relay tool (🔁) — the final button in the existing object toolbar now selects two standalone dynamic objects and exchanges their exact linear velocity and angular velocity while keeping both positions, shapes, and object count unchanged; 46px touch targeting, protected assemblies, cancel handling, wake-up behavior, neon two-way transfer particles/animation, status/audio/haptic feedback, and Eraser/Clear/tool-change cleanup keep motion handoffs readable and reliable on desktop and mobile."
+    },
+    {
       "date": "2026-09-05",
       "ideas": [
         "New tool: Pulse nearby dynamic objects outward from a tapped canvas point"

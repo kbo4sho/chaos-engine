@@ -358,6 +358,18 @@ canvas#game {
 #pulse-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#relay-feedback {
+  position:absolute; top:354px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  opacity:0; pointer-events:none;
+  color:#ffcf40; font-size:22px; letter-spacing:2px;
+  text-shadow:0 0 8px currentColor, 0 0 18px currentColor;
+  white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#relay-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -464,6 +476,7 @@ canvas#game {
   .chaos-btn { min-width:56px; height:46px; font-size:11px; }
   #squash-feedback { top:14px; font-size:19px; }
   #pulse-feedback { top:14px; font-size:19px; }
+  #relay-feedback { top:14px; font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -519,6 +532,7 @@ canvas#game {
     <div id="blink-feedback" role="status" aria-live="polite"></div>
     <div id="squash-feedback" role="status" aria-live="polite"></div>
     <div id="pulse-feedback" role="status" aria-live="polite"></div>
+    <div id="relay-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -576,6 +590,7 @@ canvas#game {
     <button class="tool-btn" data-tool="blink" style="color:#66ffff;" title="Tap a standalone object, then tap a destination to teleport it while preserving motion" aria-label="Blink a standalone object to a tapped destination while preserving motion"><span class="icon">⚡</span>Blink</button>
     <button class="tool-btn" data-tool="squash" style="color:#9cff57;" title="Tap a standalone object to cycle wide, tall, and original proportions" aria-label="Squash a standalone object through wide, tall, and original proportions"><span class="icon">🗜️</span>Squash</button>
     <button class="tool-btn" data-tool="pulse" style="color:#35f2ff;" title="Tap the canvas to blast nearby dynamic objects outward" aria-label="Pulse nearby dynamic objects outward from a tapped point"><span class="icon">📡</span>Pulse</button>
+    <button class="tool-btn" data-tool="relay" style="color:#ffcf40;" title="Tap two standalone objects to exchange their movement and spin" aria-label="Relay motion between two standalone objects"><span class="icon">🔁</span>Relay</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -819,6 +834,9 @@ let squashFlash = null; // {body, mode, startedAt} transient reshape feedback
 let squashFeedbackTimer = 0;
 let pulseBursts = []; // {x, y, hitCount, startedAt} transient radial impulse feedback
 let pulseFeedbackTimer = 0;
+let relayFirstBody = null;
+let relayFlash = null; // {firstPosition, secondPosition, startedAt} transient two-way transfer feedback
+let relayFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -1480,6 +1498,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'blink') resetBlinkSelection(true);
       if (tool !== 'squash') resetSquashFeedback(true);
       if (tool !== 'pulse') resetPulseFeedback(true);
+      if (tool !== 'relay') resetRelaySelection(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -2920,6 +2939,7 @@ function finishClear(playFeedback = true) {
   clearTimeout(swapFeedbackTimer);
   document.getElementById('swap-feedback').classList.remove('active');
   document.getElementById('swap-feedback').textContent = '';
+  resetRelaySelection(true);
   clearTimeout(snipFeedbackTimer);
   document.getElementById('snip-feedback').classList.remove('active');
   document.getElementById('snip-feedback').textContent = '';
@@ -3107,7 +3127,8 @@ function getToolAccentColor(tool) {
     punch: '#ff8c42',
     blink: '#66ffff',
     squash: '#9cff57',
-    pulse: '#35f2ff'
+    pulse: '#35f2ff',
+    relay: '#ffcf40'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -3247,6 +3268,7 @@ function eraseBodyAt(pos) {
     grabHistory = [];
   }
   if (swapFirstBody && removedBodyIds.has(swapFirstBody.id)) swapFirstBody = null;
+  if (relayFirstBody && removedBodyIds.has(relayFirstBody.id)) resetRelaySelection(true);
   if (strutFirstBody && removedBodyIds.has(strutFirstBody.id)) strutFirstBody = null;
   if (rotateFlash && removedBodyIds.has(rotateFlash.body.id)) rotateFlash = null;
   if (fusionFirstBody && removedBodyIds.has(fusionFirstBody.id)) fusionFirstBody = null;
@@ -5552,6 +5574,125 @@ function swapBodiesAt(pos) {
   return 'swapped';
 }
 
+function isRelayableBody(body) {
+  if (!body || body.label === 'wall' || body.label === 'chain-link' || body.isTarget || body.isStatic || body.isFragment || body.parent !== body) return false;
+  return !Composite.allConstraints(world).some(constraint => constraint.bodyA === body || constraint.bodyB === body);
+}
+
+function getRelayedMotion(firstVelocity, firstAngularVelocity, secondVelocity, secondAngularVelocity) {
+  return {
+    first: {
+      velocity: { x:secondVelocity.x, y:secondVelocity.y },
+      angularVelocity: secondAngularVelocity
+    },
+    second: {
+      velocity: { x:firstVelocity.x, y:firstVelocity.y },
+      angularVelocity: firstAngularVelocity
+    }
+  };
+}
+
+function resetRelaySelection(clearFeedback = false) {
+  relayFirstBody = null;
+  if (!clearFeedback) return;
+  relayFlash = null;
+  clearTimeout(relayFeedbackTimer);
+  const feedback = document.getElementById('relay-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
+function showRelayFeedback(message, color = '#ffcf40') {
+  const feedback = document.getElementById('relay-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(relayFeedbackTimer);
+  relayFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 900);
+}
+
+function addRelayBurst(position, color, velocity) {
+  const speed = Math.hypot(velocity.x, velocity.y);
+  const direction = speed > 0.01
+    ? { x:velocity.x / speed, y:velocity.y / speed }
+    : { x:0, y:-1 };
+  for (let i = 0; i < 14; i++) {
+    const spread = (i - 6.5) / 6.5;
+    particles.push({
+      x: position.x,
+      y: position.y,
+      vx: direction.x * (2 + Math.random() * 3) - direction.y * spread * 2,
+      vy: direction.y * (2 + Math.random() * 3) + direction.x * spread * 2,
+      size: 2 + Math.random() * 2.5,
+      life: 0.3 + Math.random() * 0.28,
+      color
+    });
+  }
+}
+
+function findRelayableBodyAt(pos) {
+  const relayableBodies = Composite.allBodies(world).filter(isRelayableBody);
+  let target = Matter.Query.point(relayableBodies, pos).filter(isRelayableBody).pop();
+
+  if (!target) {
+    let nearestDist = 46;
+    relayableBodies.forEach(body => {
+      const distance = Math.hypot(body.position.x - pos.x, body.position.y - pos.y);
+      if (distance < nearestDist) {
+        target = body;
+        nearestDist = distance;
+      }
+    });
+  }
+  return target || null;
+}
+
+function relayBodiesAt(pos) {
+  if (relayFirstBody && !Composite.get(world, relayFirstBody.id, 'body')) relayFirstBody = null;
+  const target = findRelayableBodyAt(pos);
+  if (!target) return false;
+
+  if (!relayFirstBody) {
+    relayFirstBody = target;
+    addRelayBurst(target.position, '#ffcf40', target.velocity);
+    showRelayFeedback('RELAY A SET • PICK B');
+    haptic([7]);
+    playSound(560, 0.08, 'square', 0.06);
+    return 'selected';
+  }
+
+  if (target === relayFirstBody) {
+    resetRelaySelection();
+    showRelayFeedback('RELAY CANCELLED', '#aaaaaa');
+    haptic([4]);
+    playSound(240, 0.08, 'square', 0.05);
+    return 'cancelled';
+  }
+
+  const first = relayFirstBody;
+  const firstPosition = { x:first.position.x, y:first.position.y };
+  const secondPosition = { x:target.position.x, y:target.position.y };
+  const motion = getRelayedMotion(first.velocity, first.angularVelocity, target.velocity, target.angularVelocity);
+  Matter.Sleeping.set(first, false);
+  Matter.Sleeping.set(target, false);
+  Body.setVelocity(first, motion.first.velocity);
+  Body.setAngularVelocity(first, motion.first.angularVelocity);
+  Body.setVelocity(target, motion.second.velocity);
+  Body.setAngularVelocity(target, motion.second.angularVelocity);
+  addRelayBurst(firstPosition, '#ffcf40', motion.first.velocity);
+  addRelayBurst(secondPosition, '#ff66cc', motion.second.velocity);
+  resetRelaySelection();
+  relayFlash = { firstPosition, secondPosition, startedAt:performance.now() };
+  showRelayFeedback('MOTION RELAYED!');
+  haptic([9, 14, 9]);
+  playSound(460, 0.08, 'square', 0.07);
+  playSound(760, 0.12, 'sine', 0.08);
+  shakeIntensity = Math.max(shakeIntensity, 2);
+  return 'relayed';
+}
+
 function getConstraintWorldPoint(constraint, side) {
   const body = side === 'A' ? constraint.bodyA : constraint.bodyB;
   const point = (side === 'A' ? constraint.pointA : constraint.pointB) || { x:0, y:0 };
@@ -5867,6 +6008,13 @@ function onDown(e) {
   // Pulse tool — blast every nearby dynamic body away from the tapped point.
   if (currentTool === 'pulse') {
     pulseAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Relay tool — select two standalone bodies to exchange motion without moving them.
+  if (currentTool === 'relay') {
+    relayBodiesAt(pos);
     pointerDown = false;
     return;
   }
@@ -7979,6 +8127,71 @@ function drawSwapMarker(timestamp) {
   ctx.restore();
 }
 
+function drawRelayMarker(timestamp) {
+  if (relayFirstBody && currentTool === 'relay') {
+    if (!Composite.get(world, relayFirstBody.id, 'body')) {
+      relayFirstBody = null;
+    } else {
+      const halfW = (relayFirstBody.bounds.max.x - relayFirstBody.bounds.min.x) / 2;
+      const halfH = (relayFirstBody.bounds.max.y - relayFirstBody.bounds.min.y) / 2;
+      const radius = Math.max(24, Math.min(68, Math.hypot(halfW, halfH) + 12));
+      const pulse = 0.75 + Math.sin(timestamp / 95) * 0.2;
+      ctx.save();
+      ctx.translate(relayFirstBody.position.x, relayFirstBody.position.y);
+      ctx.globalAlpha = pulse;
+      ctx.strokeStyle = '#ffcf40';
+      ctx.fillStyle = '#ffcf40';
+      ctx.shadowColor = '#ffcf40';
+      ctx.shadowBlur = 14;
+      ctx.lineWidth = 3;
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.font = '18px VT323';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('A', 0, 1);
+      ctx.restore();
+    }
+  }
+
+  if (!relayFlash) return;
+  const progress = (timestamp - relayFlash.startedAt) / 650;
+  if (progress >= 1) {
+    relayFlash = null;
+    return;
+  }
+  const { firstPosition, secondPosition } = relayFlash;
+  const alpha = 1 - progress;
+  const dx = secondPosition.x - firstPosition.x;
+  const dy = secondPosition.y - firstPosition.y;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.lineWidth = 3;
+  ctx.setLineDash([7, 5]);
+  ctx.strokeStyle = '#ffcf40';
+  ctx.shadowColor = '#ffcf40';
+  ctx.shadowBlur = 14;
+  ctx.beginPath();
+  ctx.moveTo(firstPosition.x, firstPosition.y);
+  ctx.lineTo(secondPosition.x, secondPosition.y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  [
+    { t:progress, color:'#ffcf40' },
+    { t:1 - progress, color:'#ff66cc' }
+  ].forEach(({ t, color }) => {
+    ctx.fillStyle = color;
+    ctx.shadowColor = color;
+    ctx.beginPath();
+    ctx.arc(firstPosition.x + dx * t, firstPosition.y + dy * t, 6, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.restore();
+}
+
 function drawStrutMarker(timestamp) {
   if (!strutFirstBody || currentTool !== 'strut') return;
   if (!Composite.get(world, strutFirstBody.id, 'body')) {
@@ -9199,6 +9412,7 @@ function loop(timestamp) {
   drawReverseFlash(timestamp);
   drawPunchFlash(timestamp);
   drawSwapMarker(timestamp);
+  drawRelayMarker(timestamp);
   drawStrutMarker(timestamp);
   drawRotateFlash(timestamp);
   drawFusionMarker(timestamp);

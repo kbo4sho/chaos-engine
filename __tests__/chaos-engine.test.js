@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 52 tool buttons', () => {
+  it('should have exactly 53 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(52);
+    expect(buttons.length).toBe(53);
   });
 
-  it('should append Pulse after Squash at the end of the object toolbar', () => {
+  it('should append Relay after Pulse at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('pulse');
-    expect(toolbar.lastElementChild?.textContent).toContain('Pulse');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('squash');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('blink');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('relay');
+    expect(toolbar.lastElementChild?.textContent).toContain('Relay');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('pulse');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('squash');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,15 +67,80 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// RELAY TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Relay Tool', () => {
+  it('should expose Relay as the final selectable toolbar tool', () => {
+    const relayBtn = document.querySelector('[data-tool="relay"]');
+    expect(relayBtn).not.toBeNull();
+    expect(relayBtn?.getAttribute('aria-label')).toContain('two standalone objects');
+    expect(document.getElementById('toolbar')?.lastElementChild).toBe(relayBtn);
+    expect(relayBtn?.previousElementSibling?.dataset.tool).toBe('pulse');
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'relay'");
+    expect(scriptContent).toContain('relayBodiesAt(pos)');
+  });
+
+  it('should exchange linear and angular motion exactly', () => {
+    const source = scriptContent.match(/function getRelayedMotion\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getRelayedMotion = new Function(`${source}; return getRelayedMotion;`)();
+    const firstVelocity = { x:12, y:-4 };
+    const secondVelocity = { x:-3, y:8 };
+    const motion = getRelayedMotion(firstVelocity, 0.35, secondVelocity, -0.6);
+
+    expect(motion.first).toEqual({ velocity:{ x:-3, y:8 }, angularVelocity:-0.6 });
+    expect(motion.second).toEqual({ velocity:{ x:12, y:-4 }, angularVelocity:0.35 });
+    expect(motion.first.velocity).not.toBe(secondVelocity);
+    expect(motion.second.velocity).not.toBe(firstVelocity);
+  });
+
+  it('should target only standalone dynamic bodies with a mobile-friendly fallback', () => {
+    expect(scriptContent).toContain('function isRelayableBody(body)');
+    expect(scriptContent).toContain("body.label === 'wall'");
+    expect(scriptContent).toContain("body.label === 'chain-link'");
+    expect(scriptContent).toContain('body.isStatic || body.isFragment || body.parent !== body');
+    expect(scriptContent).toContain('Composite.allConstraints(world).some');
+    expect(scriptContent).toContain('Matter.Query.point(relayableBodies, pos)');
+    expect(scriptContent).toContain('let nearestDist = 46');
+  });
+
+  it('should wake both bodies, exchange motion, and leave their positions untouched', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('function relayBodiesAt(pos)'),
+      scriptContent.indexOf('function getConstraintWorldPoint')
+    );
+    expect(source).toContain('relayFirstBody = target');
+    expect(source.match(/Matter\.Sleeping\.set\(/g)?.length).toBe(2);
+    expect(source.match(/Body\.setVelocity\(/g)?.length).toBe(2);
+    expect(source.match(/Body\.setAngularVelocity\(/g)?.length).toBe(2);
+    expect(source).not.toContain('Body.setPosition(');
+    expect(source).toContain("return 'relayed'");
+  });
+
+  it('should render readable transfer feedback and clean state on tool change, Eraser, or Clear', () => {
+    expect(document.getElementById('relay-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain("showRelayFeedback('MOTION RELAYED!')");
+    expect(scriptContent).toContain('relayFlash = { firstPosition, secondPosition');
+    expect(scriptContent).toContain('function drawRelayMarker(timestamp)');
+    expect(scriptContent).toContain('drawRelayMarker(timestamp)');
+    expect(scriptContent).toContain("if (tool !== 'relay') resetRelaySelection(true)");
+    expect(scriptContent.match(/resetRelaySelection\(true\)/g)?.length).toBeGreaterThanOrEqual(3);
+    expect(scriptContent).toContain("relay: '#ffcf40'");
+  });
+});
+
+// ============================================
 // PULSE TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Pulse Tool', () => {
-  it('should expose Pulse as the final selectable toolbar tool', () => {
+  it('should keep Pulse selectable immediately before Relay', () => {
     const pulseBtn = document.querySelector('[data-tool="pulse"]');
     expect(pulseBtn).not.toBeNull();
     expect(pulseBtn?.getAttribute('aria-label')).toContain('nearby dynamic objects');
-    expect(document.getElementById('toolbar')?.lastElementChild).toBe(pulseBtn);
+    expect(pulseBtn?.nextElementSibling?.dataset.tool).toBe('relay');
     expect(pulseBtn?.previousElementSibling?.dataset.tool).toBe('squash');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'pulse'");
