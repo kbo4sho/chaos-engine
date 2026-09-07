@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-09-07",
+      "ideas": [
+        "New tool: Curve one moving dynamic part's momentum 90 degrees left or right"
+      ],
+      "summary": "Implemented Curve tool (🏎️) — the final button in the existing object toolbar now turns one tapped dynamic part's current velocity exactly 90 degrees left or right while preserving its speed, position, shape, connections, and object count; reselection toggles direction, 46px touch targeting supports mobile, a capped spin kick plus neon curved-arrow/particle feedback makes each turn readable, and stationary-body handling plus tool-change/Clear cleanup keep momentum steering reliable on desktop and mobile."
+    },
+    {
       "date": "2026-09-06",
       "ideas": [
         "New tool: Relay linear and angular motion between two standalone objects"

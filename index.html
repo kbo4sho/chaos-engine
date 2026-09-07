@@ -370,6 +370,18 @@ canvas#game {
 #relay-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#curve-feedback {
+  position:absolute; top:388px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  opacity:0; pointer-events:none;
+  color:#59e3ff; font-size:22px; letter-spacing:2px;
+  text-shadow:0 0 8px currentColor, 0 0 18px currentColor;
+  white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#curve-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -477,6 +489,7 @@ canvas#game {
   #squash-feedback { top:14px; font-size:19px; }
   #pulse-feedback { top:14px; font-size:19px; }
   #relay-feedback { top:14px; font-size:19px; }
+  #curve-feedback { top:14px; font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -533,6 +546,7 @@ canvas#game {
     <div id="squash-feedback" role="status" aria-live="polite"></div>
     <div id="pulse-feedback" role="status" aria-live="polite"></div>
     <div id="relay-feedback" role="status" aria-live="polite"></div>
+    <div id="curve-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -591,6 +605,7 @@ canvas#game {
     <button class="tool-btn" data-tool="squash" style="color:#9cff57;" title="Tap a standalone object to cycle wide, tall, and original proportions" aria-label="Squash a standalone object through wide, tall, and original proportions"><span class="icon">🗜️</span>Squash</button>
     <button class="tool-btn" data-tool="pulse" style="color:#35f2ff;" title="Tap the canvas to blast nearby dynamic objects outward" aria-label="Pulse nearby dynamic objects outward from a tapped point"><span class="icon">📡</span>Pulse</button>
     <button class="tool-btn" data-tool="relay" style="color:#ffcf40;" title="Tap two standalone objects to exchange their movement and spin" aria-label="Relay motion between two standalone objects"><span class="icon">🔁</span>Relay</button>
+    <button class="tool-btn" data-tool="curve" style="color:#59e3ff;" title="Tap a moving dynamic part to curve its momentum right; tap this button again to curve left" aria-label="Curve a moving dynamic part's momentum 90 degrees right"><span class="icon">🏎️</span><span class="curve-label">CURVE ↱</span></button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -837,6 +852,9 @@ let pulseFeedbackTimer = 0;
 let relayFirstBody = null;
 let relayFlash = null; // {firstPosition, secondPosition, startedAt} transient two-way transfer feedback
 let relayFeedbackTimer = 0;
+let curveDirection = 1; // 1 right, -1 left
+let curveFlash = null; // {body, direction, fromVelocity, startedAt} transient momentum-steer feedback
+let curveFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -1453,6 +1471,27 @@ function resetRotateTool(silent = false) {
   feedback.textContent = '';
 }
 
+function updateCurveButton() {
+  const btn = document.querySelector('[data-tool="curve"]');
+  if (!btn) return;
+  const right = curveDirection === 1;
+  btn.querySelector('.curve-label').textContent = right ? 'CURVE ↱' : 'CURVE ↰';
+  btn.style.color = right ? '#59e3ff' : '#ff6bb5';
+  btn.title = `Tap a moving dynamic part to curve its momentum ${right ? 'right' : 'left'}; tap this button again to reverse direction`;
+  btn.setAttribute('aria-label', `Curve a moving dynamic part's momentum 90 degrees ${right ? 'right' : 'left'}`);
+}
+
+function resetCurveTool(silent = false) {
+  curveDirection = 1;
+  curveFlash = null;
+  updateCurveButton();
+  if (!silent) return;
+  clearTimeout(curveFeedbackTimer);
+  const feedback = document.getElementById('curve-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -1467,6 +1506,13 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       rotateDirection = getNextRotateDirection(rotateDirection);
       updateRotateButton();
       playSound(rotateDirection === 1 ? 760 : 520, 0.08, 'square', 0.06);
+      haptic([6]);
+      return;
+    }
+    if (tool === 'curve' && currentTool === 'curve' && btn.classList.contains('active')) {
+      curveDirection *= -1;
+      updateCurveButton();
+      playSound(curveDirection === 1 ? 720 : 480, 0.08, 'square', 0.06);
       haptic([6]);
       return;
     }
@@ -1499,6 +1545,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'squash') resetSquashFeedback(true);
       if (tool !== 'pulse') resetPulseFeedback(true);
       if (tool !== 'relay') resetRelaySelection(true);
+      if (tool !== 'curve') resetCurveTool(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -1506,6 +1553,10 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool === 'rotate') {
         rotateDirection = 1;
         updateRotateButton();
+      }
+      if (tool === 'curve') {
+        curveDirection = 1;
+        updateCurveButton();
       }
     }
     playSound(1000, 0.05, 'square', 0.05);
@@ -2960,6 +3011,7 @@ function finishClear(playFeedback = true) {
   resetBlinkSelection(true);
   resetSquashFeedback(true);
   resetPulseFeedback(true);
+  resetCurveTool(true);
   clearTimeout(floatFeedbackTimer);
   document.getElementById('float-feedback').classList.remove('active');
   document.getElementById('float-feedback').textContent = '';
@@ -3128,7 +3180,8 @@ function getToolAccentColor(tool) {
     blink: '#66ffff',
     squash: '#9cff57',
     pulse: '#35f2ff',
-    relay: '#ffcf40'
+    relay: '#ffcf40',
+    curve: '#59e3ff'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -5052,6 +5105,97 @@ function pulseAt(origin) {
   return affected;
 }
 
+function getCurvedVelocity(velocity, direction = 1, minimumSpeed = 0.75) {
+  const speed = Math.hypot(velocity.x, velocity.y);
+  if (speed < minimumSpeed) return null;
+  const turn = direction >= 0 ? 1 : -1;
+  return {
+    x:-velocity.y * turn,
+    y:velocity.x * turn,
+    speed
+  };
+}
+
+function showCurveFeedback(message, color = '#59e3ff') {
+  const feedback = document.getElementById('curve-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(curveFeedbackTimer);
+  curveFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 850);
+}
+
+function addCurveParticles(body, direction, velocity) {
+  const speed = Math.hypot(velocity.x, velocity.y) || 1;
+  const nx = velocity.x / speed;
+  const ny = velocity.y / speed;
+  for (let i = 0; i < 18; i++) {
+    const spread = (i - 8.5) / 8.5;
+    particles.push({
+      x:body.position.x - nx * (8 + Math.random() * 18),
+      y:body.position.y - ny * (8 + Math.random() * 18),
+      vx:-nx * (1.5 + Math.random() * 2.5) - ny * spread * direction,
+      vy:-ny * (1.5 + Math.random() * 2.5) + nx * spread * direction,
+      size:2 + Math.random() * 2.5,
+      life:0.3 + Math.random() * 0.28,
+      color:i % 3 === 0 ? '#ffffff' : (direction === 1 ? '#59e3ff' : '#ff6bb5')
+    });
+  }
+}
+
+function isCurvableBody(body) {
+  return body && body.label !== 'wall' && !body.isTarget && !body.isStatic && body.parent === body;
+}
+
+function findCurvableBodyAt(pos) {
+  const curvableBodies = Composite.allBodies(world).filter(isCurvableBody);
+  let target = Matter.Query.point(curvableBodies, pos).filter(isCurvableBody).pop();
+  if (!target) {
+    let nearestDist = 46;
+    curvableBodies.forEach(body => {
+      const distance = Math.hypot(body.position.x - pos.x, body.position.y - pos.y);
+      if (distance < nearestDist) {
+        target = body;
+        nearestDist = distance;
+      }
+    });
+  }
+  return target || null;
+}
+
+function curveBodyAt(pos) {
+  const target = findCurvableBodyAt(pos);
+  if (!target) {
+    showCurveFeedback('CURVE: NO OBJECT', '#888888');
+    haptic([3]);
+    return false;
+  }
+
+  const fromVelocity = { x:target.velocity.x, y:target.velocity.y };
+  const curved = getCurvedVelocity(fromVelocity, curveDirection);
+  if (!curved) {
+    showCurveFeedback('CURVE: NEED MOTION', '#888888');
+    playSound(190, 0.07, 'square', 0.035);
+    haptic([3]);
+    return 'stationary';
+  }
+
+  Matter.Sleeping.set(target, false);
+  Body.setVelocity(target, { x:curved.x, y:curved.y });
+  const spinKick = Math.min(0.28, curved.speed * 0.018) * curveDirection;
+  Body.setAngularVelocity(target, target.angularVelocity + spinKick);
+  addCurveParticles(target, curveDirection, fromVelocity);
+  curveFlash = { body:target, direction:curveDirection, fromVelocity, startedAt:performance.now() };
+  showCurveFeedback(`CURVED ${curveDirection === 1 ? 'RIGHT ↱' : 'LEFT ↰'}`);
+  playSound(curveDirection === 1 ? 680 : 520, 0.09, 'square', 0.07);
+  playSound(900, 0.08, 'sine', 0.045);
+  haptic([7, 5, 10]);
+  shakeIntensity = Math.max(shakeIntensity, 2);
+  return curved;
+}
+
 const ROTATE_STEP = Math.PI / 2;
 
 function getNextRotateDirection(direction = 1) {
@@ -6015,6 +6159,13 @@ function onDown(e) {
   // Relay tool — select two standalone bodies to exchange motion without moving them.
   if (currentTool === 'relay') {
     relayBodiesAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Curve tool — steer one moving body 90 degrees while preserving its speed.
+  if (currentTool === 'curve') {
+    curveBodyAt(pos);
     pointerDown = false;
     return;
   }
@@ -8564,6 +8715,51 @@ function drawPulseBursts(timestamp) {
   });
 }
 
+function drawCurveFlash(timestamp) {
+  if (!curveFlash) return;
+  const { body, direction, fromVelocity, startedAt } = curveFlash;
+  if (!Composite.get(world, body.id, 'body')) {
+    curveFlash = null;
+    return;
+  }
+  const progress = Math.max(0, (timestamp - startedAt) / 680);
+  if (progress >= 1) {
+    curveFlash = null;
+    return;
+  }
+
+  const fromAngle = Math.atan2(fromVelocity.y, fromVelocity.x);
+  const radius = Math.max(28, Math.min(64, Math.hypot(fromVelocity.x, fromVelocity.y) * 2.5 + 24));
+  const alpha = 1 - progress;
+  const color = direction === 1 ? '#59e3ff' : '#ff6bb5';
+  const sweep = direction * Math.PI / 2;
+  const endAngle = fromAngle + sweep;
+
+  ctx.save();
+  ctx.translate(body.position.x, body.position.y);
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 16;
+  ctx.lineWidth = 3;
+  ctx.setLineDash([7, 4]);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius + progress * 12, fromAngle, endAngle, direction < 0);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  const arrowRadius = radius + progress * 12;
+  ctx.translate(Math.cos(endAngle) * arrowRadius, Math.sin(endAngle) * arrowRadius);
+  ctx.rotate(endAngle + (direction === 1 ? Math.PI / 2 : -Math.PI / 2));
+  ctx.beginPath();
+  ctx.moveTo(8, 0);
+  ctx.lineTo(-5, -6);
+  ctx.lineTo(-5, 6);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
 function drawRotateFlash(timestamp) {
   if (!rotateFlash) return;
   const { body, direction, startedAt } = rotateFlash;
@@ -9422,6 +9618,7 @@ function loop(timestamp) {
   drawBlinkMarker(timestamp);
   drawSquashFlash(timestamp);
   drawPulseBursts(timestamp);
+  drawCurveFlash(timestamp);
 
   // Effects
   drawRopes();

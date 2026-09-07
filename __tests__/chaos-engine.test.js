@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 53 tool buttons', () => {
+  it('should have exactly 54 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(53);
+    expect(buttons.length).toBe(54);
   });
 
-  it('should append Relay after Pulse at the end of the object toolbar', () => {
+  it('should append Curve after Relay at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('relay');
-    expect(toolbar.lastElementChild?.textContent).toContain('Relay');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('pulse');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('squash');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('curve');
+    expect(toolbar.lastElementChild?.textContent).toContain('CURVE');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('relay');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('pulse');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,15 +67,70 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// CURVE TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Curve Tool', () => {
+  it('should expose Curve as the final selectable toolbar tool', () => {
+    const curveBtn = document.querySelector('[data-tool="curve"]');
+    expect(curveBtn).not.toBeNull();
+    expect(curveBtn?.getAttribute('aria-label')).toContain('90 degrees right');
+    expect(document.getElementById('toolbar')?.lastElementChild).toBe(curveBtn);
+    expect(curveBtn?.previousElementSibling?.dataset.tool).toBe('relay');
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'curve'");
+    expect(scriptContent).toContain('curveBodyAt(pos)');
+  });
+
+  it('should rotate momentum exactly 90 degrees left or right while preserving speed', () => {
+    const source = scriptContent.match(/function getCurvedVelocity\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getCurvedVelocity = new Function(`${source}; return getCurvedVelocity;`)();
+
+    expect(getCurvedVelocity({ x:12, y:-5 }, 1)).toEqual({ x:5, y:12, speed:13 });
+    expect(getCurvedVelocity({ x:12, y:-5 }, -1)).toEqual({ x:-5, y:-12, speed:13 });
+    expect(getCurvedVelocity({ x:0.2, y:0.1 }, 1)).toBeNull();
+  });
+
+  it('should use forgiving targeting and curve one dynamic body without replacing it', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('function isCurvableBody(body)'),
+      scriptContent.indexOf('const ROTATE_STEP')
+    );
+    expect(source).toContain("body.label !== 'wall'");
+    expect(source).toContain('body.parent === body');
+    expect(source).toContain('Matter.Query.point(curvableBodies, pos)');
+    expect(source).toContain('let nearestDist = 46');
+    expect(source).toContain('Matter.Sleeping.set(target, false)');
+    expect(source).toContain('Body.setVelocity(target');
+    expect(source).toContain('Body.setAngularVelocity(target');
+    expect(source).not.toContain('Composite.remove(world, target)');
+    expect(source).not.toContain('Body.setPosition(target');
+  });
+
+  it('should toggle direction on reselection and render readable cleanup-safe feedback', () => {
+    expect(document.getElementById('curve-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain("tool === 'curve' && currentTool === 'curve'");
+    expect(scriptContent).toContain('curveDirection *= -1');
+    expect(scriptContent).toContain('curveFlash = { body:target, direction:curveDirection');
+    expect(scriptContent).toContain('function drawCurveFlash(timestamp)');
+    expect(scriptContent).toContain('drawCurveFlash(timestamp)');
+    expect(scriptContent).toContain("if (tool !== 'curve') resetCurveTool(true)");
+    expect(scriptContent.match(/resetCurveTool\(true\)/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(scriptContent).toContain("curve: '#59e3ff'");
+  });
+});
+
+// ============================================
 // RELAY TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Relay Tool', () => {
-  it('should expose Relay as the final selectable toolbar tool', () => {
+  it('should keep Relay selectable immediately before Curve', () => {
     const relayBtn = document.querySelector('[data-tool="relay"]');
     expect(relayBtn).not.toBeNull();
     expect(relayBtn?.getAttribute('aria-label')).toContain('two standalone objects');
-    expect(document.getElementById('toolbar')?.lastElementChild).toBe(relayBtn);
+    expect(relayBtn?.nextElementSibling?.dataset.tool).toBe('curve');
     expect(relayBtn?.previousElementSibling?.dataset.tool).toBe('pulse');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'relay'");

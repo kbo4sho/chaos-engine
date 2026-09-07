@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-09-07T14:19:09Z — Added: Curve tool
+**Why:** The toolbar could reverse a moving object's momentum, aim it at a new destination, or exchange motion between two objects, but it had no one-tap way to bend existing movement sideways while preserving speed. Curve adds a deliberate 90-degree momentum transform without overlapping Reverse, Launch, Relay, Punch, or Motor.
+**Goal alignment:** "more fun, more surprising, more satisfying" — falling props can snap into sideways shots, racing parts can make impossible right-angle turns, and repeated left/right curves create skillful mid-flight steering without moving or replacing the object.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (388/388 passing); browser smoke ✓ (existing Block tool placed a paused subject, final Curve button transformed velocity +12/−5 into +5/+12 with `CURVED RIGHT ↱`, preserved speed 13, position, and OBJ 1, then reselection exposed left mode and visibly rendered its cyan/magenta curve arrow, 0 console errors/warnings); mobile ✓ (390×844, final Curve button fully reachable at 52×50px and transformed velocity −6/+8 into −8/−6 while preserving speed 10 and OBJ 1); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-09-06T14:08:45Z — Added: Relay tool
 **Why:** The toolbar could swap two objects' positions, reverse one object's motion, or apply new force, but it had no way to move an existing velocity and spin pattern from one object to another. Relay adds a two-body motion transform without overlapping Swap, Reverse, Launch, Punch, Pulse, or Motor.
 **Goal alignment:** "more fun, more surprising, more satisfying" — motion appears to jump between stationary and moving props, enabling mid-flight handoffs, momentum puzzles, sudden stops, and unexpected chain reactions while both objects stay exactly where they were tapped.
