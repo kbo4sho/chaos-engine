@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-09-08T14:11:48Z — Added: Swirl tool
+**Why:** The toolbar could blast nearby objects radially with Pulse or turn one moving body's momentum with Curve, but it had no localized way to give a whole cluster coordinated orbital motion. Swirl adds a tangential area impulse without overlapping those tools or the global Vortex chaos action.
+**Goal alignment:** "more fun, more surprising, more satisfying" — one tap can curl stacks, crowds, and connected machines around a chosen point, while clockwise/counter-clockwise reselection enables reversals and pinball-like setups without adding, moving, or removing objects.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (393/393 passing); browser smoke ✓ (existing Block tool placed two paused subjects, final Swirl button applied opposite tangential velocities −3.87/+3.87 with matching spin, `SWIRL CW ×2`, preserved both positions and OBJ 2, 0 console errors/warnings); mobile ✓ (390×844, final Swirl button fully reachable at 52×50px, reselection switched to counter-clockwise, and two blocks received opposite +6.04/−6.04 tangential velocities with `SWIRL CCW ×2`); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-09-07T14:19:09Z — Added: Curve tool
 **Why:** The toolbar could reverse a moving object's momentum, aim it at a new destination, or exchange motion between two objects, but it had no one-tap way to bend existing movement sideways while preserving speed. Curve adds a deliberate 90-degree momentum transform without overlapping Reverse, Launch, Relay, Punch, or Motor.
 **Goal alignment:** "more fun, more surprising, more satisfying" — falling props can snap into sideways shots, racing parts can make impossible right-angle turns, and repeated left/right curves create skillful mid-flight steering without moving or replacing the object.

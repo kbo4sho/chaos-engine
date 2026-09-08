@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-09-08",
+      "ideas": [
+        "New tool: Swirl nearby dynamic objects clockwise or counter-clockwise around a tapped point"
+      ],
+      "summary": "Implemented Swirl tool (💫) — the final button in the existing object toolbar now emits a localized 220px tangential impulse that wakes and curls every nearby dynamic body clockwise or counter-clockwise around a tapped point while preserving positions, object count, and connections; reselection toggles direction, capped velocity and spin keep physics stable, and spiral particles, expanding CRT arcs, hit-count status, audio/haptic feedback, plus tool-change/Clear cleanup keep cluster rotation readable and reliable on desktop and mobile."
+    },
+    {
       "date": "2026-09-07",
       "ideas": [
         "New tool: Curve one moving dynamic part's momentum 90 degrees left or right"

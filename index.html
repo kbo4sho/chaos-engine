@@ -382,6 +382,18 @@ canvas#game {
 #curve-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#swirl-feedback {
+  position:absolute; top:422px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  opacity:0; pointer-events:none;
+  color:#b86cff; font-size:22px; letter-spacing:2px;
+  text-shadow:0 0 8px currentColor, 0 0 18px currentColor;
+  white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#swirl-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -490,6 +502,7 @@ canvas#game {
   #pulse-feedback { top:14px; font-size:19px; }
   #relay-feedback { top:14px; font-size:19px; }
   #curve-feedback { top:14px; font-size:19px; }
+  #swirl-feedback { top:14px; font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -547,6 +560,7 @@ canvas#game {
     <div id="pulse-feedback" role="status" aria-live="polite"></div>
     <div id="relay-feedback" role="status" aria-live="polite"></div>
     <div id="curve-feedback" role="status" aria-live="polite"></div>
+    <div id="swirl-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -606,6 +620,7 @@ canvas#game {
     <button class="tool-btn" data-tool="pulse" style="color:#35f2ff;" title="Tap the canvas to blast nearby dynamic objects outward" aria-label="Pulse nearby dynamic objects outward from a tapped point"><span class="icon">📡</span>Pulse</button>
     <button class="tool-btn" data-tool="relay" style="color:#ffcf40;" title="Tap two standalone objects to exchange their movement and spin" aria-label="Relay motion between two standalone objects"><span class="icon">🔁</span>Relay</button>
     <button class="tool-btn" data-tool="curve" style="color:#59e3ff;" title="Tap a moving dynamic part to curve its momentum right; tap this button again to curve left" aria-label="Curve a moving dynamic part's momentum 90 degrees right"><span class="icon">🏎️</span><span class="curve-label">CURVE ↱</span></button>
+    <button class="tool-btn" data-tool="swirl" style="color:#b86cff;" title="Tap the canvas to curl nearby dynamic objects clockwise; tap this button again for counter-clockwise" aria-label="Swirl nearby dynamic objects clockwise around a tapped point"><span class="icon">💫</span><span class="swirl-label">SWIRL ↻</span></button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -855,6 +870,9 @@ let relayFeedbackTimer = 0;
 let curveDirection = 1; // 1 right, -1 left
 let curveFlash = null; // {body, direction, fromVelocity, startedAt} transient momentum-steer feedback
 let curveFeedbackTimer = 0;
+let swirlDirection = 1; // 1 clockwise, -1 counter-clockwise
+let swirlBursts = []; // {x, y, hitCount, direction, startedAt} transient local vortex feedback
+let swirlFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -1492,6 +1510,27 @@ function resetCurveTool(silent = false) {
   feedback.textContent = '';
 }
 
+function updateSwirlButton() {
+  const btn = document.querySelector('[data-tool="swirl"]');
+  if (!btn) return;
+  const clockwise = swirlDirection === 1;
+  btn.querySelector('.swirl-label').textContent = clockwise ? 'SWIRL ↻' : 'SWIRL ↺';
+  btn.style.color = clockwise ? '#b86cff' : '#ff9f43';
+  btn.title = `Tap the canvas to curl nearby dynamic objects ${clockwise ? 'clockwise' : 'counter-clockwise'}; tap this button again to reverse direction`;
+  btn.setAttribute('aria-label', `Swirl nearby dynamic objects ${clockwise ? 'clockwise' : 'counter-clockwise'} around a tapped point`);
+}
+
+function resetSwirlTool(silent = false) {
+  swirlDirection = 1;
+  swirlBursts = [];
+  updateSwirlButton();
+  if (!silent) return;
+  clearTimeout(swirlFeedbackTimer);
+  const feedback = document.getElementById('swirl-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -1513,6 +1552,13 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       curveDirection *= -1;
       updateCurveButton();
       playSound(curveDirection === 1 ? 720 : 480, 0.08, 'square', 0.06);
+      haptic([6]);
+      return;
+    }
+    if (tool === 'swirl' && currentTool === 'swirl' && btn.classList.contains('active')) {
+      swirlDirection *= -1;
+      updateSwirlButton();
+      playSound(swirlDirection === 1 ? 760 : 440, 0.08, 'square', 0.06);
       haptic([6]);
       return;
     }
@@ -1546,6 +1592,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'pulse') resetPulseFeedback(true);
       if (tool !== 'relay') resetRelaySelection(true);
       if (tool !== 'curve') resetCurveTool(true);
+      if (tool !== 'swirl') resetSwirlTool(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -1557,6 +1604,10 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool === 'curve') {
         curveDirection = 1;
         updateCurveButton();
+      }
+      if (tool === 'swirl') {
+        swirlDirection = 1;
+        updateSwirlButton();
       }
     }
     playSound(1000, 0.05, 'square', 0.05);
@@ -3012,6 +3063,7 @@ function finishClear(playFeedback = true) {
   resetSquashFeedback(true);
   resetPulseFeedback(true);
   resetCurveTool(true);
+  resetSwirlTool(true);
   clearTimeout(floatFeedbackTimer);
   document.getElementById('float-feedback').classList.remove('active');
   document.getElementById('float-feedback').textContent = '';
@@ -3181,7 +3233,8 @@ function getToolAccentColor(tool) {
     squash: '#9cff57',
     pulse: '#35f2ff',
     relay: '#ffcf40',
-    curve: '#59e3ff'
+    curve: '#59e3ff',
+    swirl: '#b86cff'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -5105,6 +5158,91 @@ function pulseAt(origin) {
   return affected;
 }
 
+const SWIRL_RADIUS = 220;
+const SWIRL_MAX_SPEED = 13;
+
+function getSwirlVelocityDelta(bodyPosition, origin, direction = 1, radius = SWIRL_RADIUS, maxSpeed = SWIRL_MAX_SPEED) {
+  const dx = bodyPosition.x - origin.x;
+  const dy = bodyPosition.y - origin.y;
+  const distance = Math.hypot(dx, dy);
+  if (distance >= radius) return null;
+  const turn = direction >= 0 ? 1 : -1;
+  const falloff = 1 - distance / radius;
+  const magnitude = maxSpeed * falloff * falloff;
+  const radial = distance > 0.001 ? { x:dx / distance, y:dy / distance } : { x:1, y:0 };
+  return {
+    x:-radial.y * magnitude * turn,
+    y:radial.x * magnitude * turn,
+    magnitude,
+    distance,
+    falloff
+  };
+}
+
+function showSwirlFeedback(message, color = swirlDirection === 1 ? '#b86cff' : '#ff9f43') {
+  const feedback = document.getElementById('swirl-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(swirlFeedbackTimer);
+  swirlFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 850);
+}
+
+function addSwirlParticles(origin, direction) {
+  for (let i = 0; i < 32; i++) {
+    const angle = Math.PI * 2 * i / 32;
+    const radius = 18 + (i % 4) * 12;
+    const tangentX = -Math.sin(angle) * direction;
+    const tangentY = Math.cos(angle) * direction;
+    const speed = 2.5 + Math.random() * 3.5;
+    particles.push({
+      x:origin.x + Math.cos(angle) * radius,
+      y:origin.y + Math.sin(angle) * radius,
+      vx:tangentX * speed - Math.cos(angle) * 0.7,
+      vy:tangentY * speed - Math.sin(angle) * 0.7,
+      size:2 + Math.random() * 2.5,
+      life:0.38 + Math.random() * 0.3,
+      color:i % 3 === 0 ? '#ffffff' : (direction === 1 ? '#b86cff' : '#ff9f43')
+    });
+  }
+}
+
+function swirlAt(origin) {
+  const affected = [];
+  Composite.allBodies(world).forEach(body => {
+    if (!body || body.label === 'wall' || body.isTarget || body.isStatic) return;
+    const delta = getSwirlVelocityDelta(body.position, origin, swirlDirection);
+    if (!delta || delta.magnitude < 0.15) return;
+    const next = {
+      x:body.velocity.x + delta.x,
+      y:body.velocity.y + delta.y
+    };
+    const speed = Math.hypot(next.x, next.y);
+    const scale = speed > 34 ? 34 / speed : 1;
+    Matter.Sleeping.set(body, false);
+    Body.setVelocity(body, { x:next.x * scale, y:next.y * scale });
+    Body.setAngularVelocity(body, body.angularVelocity + swirlDirection * delta.falloff * 0.1);
+    affected.push(body);
+  });
+
+  swirlBursts.push({ x:origin.x, y:origin.y, hitCount:affected.length, direction:swirlDirection, startedAt:performance.now() });
+  addSwirlParticles(origin, swirlDirection);
+  if (affected.length > 0) {
+    showSwirlFeedback(`SWIRL ${swirlDirection === 1 ? 'CW' : 'CCW'} ×${affected.length}`);
+    playSound(swirlDirection === 1 ? 260 : 210, 0.13, 'sawtooth', 0.075);
+    playSound(swirlDirection === 1 ? 820 : 620, 0.1, 'sine', 0.045);
+    haptic([8, 5, 8]);
+    shakeIntensity = Math.max(shakeIntensity, Math.min(6, 1.5 + affected.length * 0.6));
+  } else {
+    showSwirlFeedback('SWIRL: NO TARGETS', '#888888');
+    playSound(190, 0.07, 'square', 0.035);
+    haptic([3]);
+  }
+  return affected;
+}
+
 function getCurvedVelocity(velocity, direction = 1, minimumSpeed = 0.75) {
   const speed = Math.hypot(velocity.x, velocity.y);
   if (speed < minimumSpeed) return null;
@@ -6166,6 +6304,13 @@ function onDown(e) {
   // Curve tool — steer one moving body 90 degrees while preserving its speed.
   if (currentTool === 'curve') {
     curveBodyAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Swirl tool — curl every nearby dynamic body around the tapped point.
+  if (currentTool === 'swirl') {
+    swirlAt(pos);
     pointerDown = false;
     return;
   }
@@ -8760,6 +8905,45 @@ function drawCurveFlash(timestamp) {
   ctx.restore();
 }
 
+function drawSwirlBursts(timestamp) {
+  swirlBursts = swirlBursts.filter(swirl => {
+    const progress = Math.max(0, (timestamp - swirl.startedAt) / 760);
+    if (progress >= 1) return false;
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const alpha = 1 - progress;
+    const color = swirl.direction === 1 ? '#b86cff' : '#ff9f43';
+
+    ctx.save();
+    ctx.translate(swirl.x, swirl.y);
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = color;
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 18;
+    ctx.lineWidth = 3.5 - progress * 2;
+    ctx.setLineDash([8, 5]);
+    for (let ring = 0; ring < 3; ring++) {
+      const radius = 18 + eased * (SWIRL_RADIUS * (0.34 + ring * 0.23));
+      const start = swirl.direction * (progress * 2.8 + ring * 1.55);
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, start, start + swirl.direction * Math.PI * 1.28, swirl.direction < 0);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.rotate(swirl.direction * progress * Math.PI * 1.5);
+    ctx.font = 'bold 22px VT323';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(swirl.direction === 1 ? '↻' : '↺', 0, 1);
+    if (swirl.hitCount > 0 && progress < 0.55) {
+      ctx.font = 'bold 17px VT323';
+      ctx.fillText(`×${swirl.hitCount}`, 0, -27 - progress * 12);
+    }
+    ctx.restore();
+    return true;
+  });
+}
+
 function drawRotateFlash(timestamp) {
   if (!rotateFlash) return;
   const { body, direction, startedAt } = rotateFlash;
@@ -9619,6 +9803,7 @@ function loop(timestamp) {
   drawSquashFlash(timestamp);
   drawPulseBursts(timestamp);
   drawCurveFlash(timestamp);
+  drawSwirlBursts(timestamp);
 
   // Effects
   drawRopes();

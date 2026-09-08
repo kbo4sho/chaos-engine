@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 54 tool buttons', () => {
+  it('should have exactly 55 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(54);
+    expect(buttons.length).toBe(55);
   });
 
-  it('should append Curve after Relay at the end of the object toolbar', () => {
+  it('should append Swirl after Curve at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('curve');
-    expect(toolbar.lastElementChild?.textContent).toContain('CURVE');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('relay');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('pulse');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('swirl');
+    expect(toolbar.lastElementChild?.textContent).toContain('SWIRL');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('curve');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('relay');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,15 +67,72 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// SWIRL TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Swirl Tool', () => {
+  it('should expose Swirl as the final selectable toolbar tool', () => {
+    const swirlBtn = document.querySelector('[data-tool="swirl"]');
+    expect(swirlBtn).not.toBeNull();
+    expect(swirlBtn?.getAttribute('aria-label')).toContain('clockwise');
+    expect(document.getElementById('toolbar')?.lastElementChild).toBe(swirlBtn);
+    expect(swirlBtn?.previousElementSibling?.dataset.tool).toBe('curve');
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'swirl'");
+    expect(scriptContent).toContain('swirlAt(pos)');
+  });
+
+  it('should calculate perpendicular clockwise and counter-clockwise impulses with distance falloff', () => {
+    const source = scriptContent.match(/function getSwirlVelocityDelta\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getSwirlVelocityDelta = new Function(`${source}; return getSwirlVelocityDelta;`)();
+
+    expect(getSwirlVelocityDelta({ x:100, y:0 }, { x:0, y:0 }, 1, 200, 16)).toMatchObject({ x:-0, y:4, magnitude:4, falloff:0.5 });
+    expect(getSwirlVelocityDelta({ x:100, y:0 }, { x:0, y:0 }, -1, 200, 16)).toMatchObject({ x:0, y:-4, magnitude:4, falloff:0.5 });
+    expect(getSwirlVelocityDelta({ x:0, y:-50 }, { x:0, y:0 }, 1, 200, 16)?.x).toBeGreaterThan(0);
+    expect(getSwirlVelocityDelta({ x:200, y:0 }, { x:0, y:0 }, 1, 200, 16)).toBeNull();
+  });
+
+  it('should wake and curl nearby dynamic bodies without creating, moving, or removing them', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('function swirlAt(origin)'),
+      scriptContent.indexOf('function getCurvedVelocity')
+    );
+    expect(scriptContent).toContain('const SWIRL_RADIUS = 220');
+    expect(source).toContain("body.label === 'wall' || body.isTarget || body.isStatic");
+    expect(source).toContain('getSwirlVelocityDelta(body.position, origin, swirlDirection)');
+    expect(source).toContain('Matter.Sleeping.set(body, false)');
+    expect(source).toContain('Body.setVelocity(body');
+    expect(source).toContain('Body.setAngularVelocity(body');
+    expect(source).toContain('const scale = speed > 34 ? 34 / speed : 1');
+    expect(source).not.toContain('Composite.add(world');
+    expect(source).not.toContain('Composite.remove(world');
+    expect(source).not.toContain('Body.setPosition(body');
+  });
+
+  it('should toggle direction on reselection and render cleanup-safe feedback', () => {
+    expect(document.getElementById('swirl-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain("tool === 'swirl' && currentTool === 'swirl'");
+    expect(scriptContent).toContain('swirlDirection *= -1');
+    expect(scriptContent).toContain('swirlBursts.push({ x:origin.x, y:origin.y, hitCount:affected.length');
+    expect(scriptContent).toContain('function drawSwirlBursts(timestamp)');
+    expect(scriptContent).toContain('drawSwirlBursts(timestamp)');
+    expect(scriptContent).toContain("if (tool !== 'swirl') resetSwirlTool(true)");
+    expect(scriptContent.match(/resetSwirlTool\(true\)/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(scriptContent).toContain("swirl: '#b86cff'");
+  });
+});
+
+// ============================================
 // CURVE TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Curve Tool', () => {
-  it('should expose Curve as the final selectable toolbar tool', () => {
+  it('should keep Curve selectable immediately before Swirl', () => {
     const curveBtn = document.querySelector('[data-tool="curve"]');
     expect(curveBtn).not.toBeNull();
     expect(curveBtn?.getAttribute('aria-label')).toContain('90 degrees right');
-    expect(document.getElementById('toolbar')?.lastElementChild).toBe(curveBtn);
+    expect(curveBtn?.nextElementSibling?.dataset.tool).toBe('swirl');
     expect(curveBtn?.previousElementSibling?.dataset.tool).toBe('relay');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'curve'");
