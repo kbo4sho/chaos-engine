@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-09-09T14:11:15Z — Added: Brake tool
+**Why:** The toolbar could lock an object indefinitely with Anchor, invert motion with Reverse, or exchange motion with Relay, but it had no precise way to catch one moving part and let physics resume naturally from rest. Brake adds a one-tap zero-momentum transform without moving, anchoring, replacing, or disconnecting the target.
+**Goal alignment:** "more fun, more surprising, more satisfying" — flying props can be caught midair, wobbling builds can be settled, and chain reactions can be interrupted at exactly the right moment while gravity and future collisions remain active.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (398/398 passing); browser smoke ✓ (existing Block tool launched a paused subject at velocity +12/0, final Brake button stopped it at 0/0 with `MOTION BRAKED`, preserved its position and OBJ 12, and rendered the red/yellow collapsing stop ring); mobile ✓ (390×844, final Brake button fully reachable at 52×50px and stopped a launched Block from +6.7/0 to 0/0 while preserving its position and OBJ 1); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-09-08T14:11:48Z — Added: Swirl tool
 **Why:** The toolbar could blast nearby objects radially with Pulse or turn one moving body's momentum with Curve, but it had no localized way to give a whole cluster coordinated orbital motion. Swirl adds a tangential area impulse without overlapping those tools or the global Vortex chaos action.
 **Goal alignment:** "more fun, more surprising, more satisfying" — one tap can curl stacks, crowds, and connected machines around a chosen point, while clockwise/counter-clockwise reselection enables reversals and pinball-like setups without adding, moving, or removing objects.

@@ -394,6 +394,18 @@ canvas#game {
 #swirl-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#brake-feedback {
+  position:absolute; top:456px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  opacity:0; pointer-events:none;
+  color:#ff5f57; font-size:22px; letter-spacing:2px;
+  text-shadow:0 0 8px currentColor, 0 0 18px currentColor;
+  white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#brake-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -503,6 +515,7 @@ canvas#game {
   #relay-feedback { top:14px; font-size:19px; }
   #curve-feedback { top:14px; font-size:19px; }
   #swirl-feedback { top:14px; font-size:19px; }
+  #brake-feedback { top:14px; font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -561,6 +574,7 @@ canvas#game {
     <div id="relay-feedback" role="status" aria-live="polite"></div>
     <div id="curve-feedback" role="status" aria-live="polite"></div>
     <div id="swirl-feedback" role="status" aria-live="polite"></div>
+    <div id="brake-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -621,6 +635,7 @@ canvas#game {
     <button class="tool-btn" data-tool="relay" style="color:#ffcf40;" title="Tap two standalone objects to exchange their movement and spin" aria-label="Relay motion between two standalone objects"><span class="icon">🔁</span>Relay</button>
     <button class="tool-btn" data-tool="curve" style="color:#59e3ff;" title="Tap a moving dynamic part to curve its momentum right; tap this button again to curve left" aria-label="Curve a moving dynamic part's momentum 90 degrees right"><span class="icon">🏎️</span><span class="curve-label">CURVE ↱</span></button>
     <button class="tool-btn" data-tool="swirl" style="color:#b86cff;" title="Tap the canvas to curl nearby dynamic objects clockwise; tap this button again for counter-clockwise" aria-label="Swirl nearby dynamic objects clockwise around a tapped point"><span class="icon">💫</span><span class="swirl-label">SWIRL ↻</span></button>
+    <button class="tool-btn" data-tool="brake" style="color:#ff5f57;" title="Tap a moving dynamic part to stop its movement and spin without anchoring it" aria-label="Brake a moving dynamic part without anchoring it"><span class="icon">🛑</span>Brake</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -873,6 +888,8 @@ let curveFeedbackTimer = 0;
 let swirlDirection = 1; // 1 clockwise, -1 counter-clockwise
 let swirlBursts = []; // {x, y, hitCount, direction, startedAt} transient local vortex feedback
 let swirlFeedbackTimer = 0;
+let brakeFlash = null; // {body, fromVelocity, fromAngularVelocity, startedAt} transient stop feedback
+let brakeFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -1531,6 +1548,15 @@ function resetSwirlTool(silent = false) {
   feedback.textContent = '';
 }
 
+function resetBrakeFeedback(silent = false) {
+  brakeFlash = null;
+  if (!silent) return;
+  clearTimeout(brakeFeedbackTimer);
+  const feedback = document.getElementById('brake-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -1593,6 +1619,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'relay') resetRelaySelection(true);
       if (tool !== 'curve') resetCurveTool(true);
       if (tool !== 'swirl') resetSwirlTool(true);
+      if (tool !== 'brake') resetBrakeFeedback(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -3064,6 +3091,7 @@ function finishClear(playFeedback = true) {
   resetPulseFeedback(true);
   resetCurveTool(true);
   resetSwirlTool(true);
+  resetBrakeFeedback(true);
   clearTimeout(floatFeedbackTimer);
   document.getElementById('float-feedback').classList.remove('active');
   document.getElementById('float-feedback').textContent = '';
@@ -3234,7 +3262,8 @@ function getToolAccentColor(tool) {
     pulse: '#35f2ff',
     relay: '#ffcf40',
     curve: '#59e3ff',
-    swirl: '#b86cff'
+    swirl: '#b86cff',
+    brake: '#ff5f57'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -4970,6 +4999,97 @@ function reverseBodyAt(pos) {
   return motion;
 }
 
+function getBrakedMotion(velocity, angularVelocity, minimumMotion = 0.12) {
+  const speed = Math.hypot(velocity.x, velocity.y);
+  const spin = Math.abs(angularVelocity);
+  if (speed < minimumMotion && spin < minimumMotion) return null;
+  return {
+    velocity:{ x:0, y:0 },
+    angularVelocity:0,
+    speed,
+    spin
+  };
+}
+
+function isBrakeableBody(body) {
+  return Boolean(body && body.label !== 'wall' && !body.isTarget && !body.isStatic);
+}
+
+function findBrakeableBodyAt(pos) {
+  const candidates = Composite.allBodies(world).filter(isBrakeableBody);
+  const exact = Matter.Query.point(candidates, pos).filter(isBrakeableBody).pop();
+  if (exact) return exact;
+
+  let target = null;
+  let nearestDist = 46;
+  candidates.forEach(body => {
+    const distance = Math.hypot(body.position.x - pos.x, body.position.y - pos.y);
+    if (distance < nearestDist) {
+      target = body;
+      nearestDist = distance;
+    }
+  });
+  return target;
+}
+
+function showBrakeFeedback(message, color = '#ff5f57') {
+  const feedback = document.getElementById('brake-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(brakeFeedbackTimer);
+  brakeFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 850);
+}
+
+function addBrakeBurst(body, fromVelocity) {
+  const speed = Math.max(2, Math.min(7, Math.hypot(fromVelocity.x, fromVelocity.y) * 0.45));
+  for (let i = 0; i < 20; i++) {
+    const angle = Math.PI * 2 * i / 20;
+    particles.push({
+      x:body.position.x,
+      y:body.position.y,
+      vx:Math.cos(angle) * speed * 0.55 - fromVelocity.x * 0.1,
+      vy:Math.sin(angle) * speed * 0.55 - fromVelocity.y * 0.1,
+      size:2 + Math.random() * 2.5,
+      life:0.28 + Math.random() * 0.28,
+      color:i % 2 ? '#ff5f57' : '#ffe66d'
+    });
+  }
+}
+
+function brakeBodyAt(pos) {
+  const target = findBrakeableBodyAt(pos);
+  if (!target) {
+    showBrakeFeedback('BRAKE: NO OBJECT', '#888888');
+    haptic([3]);
+    return false;
+  }
+
+  const fromVelocity = { x:target.velocity.x, y:target.velocity.y };
+  const fromAngularVelocity = target.angularVelocity;
+  const braked = getBrakedMotion(fromVelocity, fromAngularVelocity);
+  if (!braked) {
+    showBrakeFeedback('BRAKE: ALREADY STILL', '#888888');
+    playSound(190, 0.07, 'square', 0.035);
+    haptic([3]);
+    return 'still';
+  }
+
+  Matter.Sleeping.set(target, false);
+  Body.setVelocity(target, braked.velocity);
+  Body.setAngularVelocity(target, braked.angularVelocity);
+  brakeFlash = { body:target, fromVelocity, fromAngularVelocity, startedAt:performance.now() };
+  addBrakeBurst(target, fromVelocity);
+  showBrakeFeedback('MOTION BRAKED');
+  playSound(520, 0.06, 'square', 0.075);
+  playSound(130, 0.13, 'sawtooth', 0.055);
+  haptic([10, 5, 14]);
+  shakeIntensity = Math.max(shakeIntensity, 2.5);
+  return braked;
+}
+
 function getPunchImpulse(body, pos) {
   const halfWidth = Math.max(8, (body.bounds.max.x - body.bounds.min.x) / 2);
   const halfHeight = Math.max(8, (body.bounds.max.y - body.bounds.min.y) / 2);
@@ -6311,6 +6431,13 @@ function onDown(e) {
   // Swirl tool — curl every nearby dynamic body around the tapped point.
   if (currentTool === 'swirl') {
     swirlAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Brake tool — remove one dynamic part's movement and spin without anchoring it.
+  if (currentTool === 'brake') {
+    brakeBodyAt(pos);
     pointerDown = false;
     return;
   }
@@ -8341,6 +8468,52 @@ function drawReverseFlash(timestamp) {
   ctx.restore();
 }
 
+function drawBrakeFlash(timestamp) {
+  if (!brakeFlash) return;
+  const { body, fromVelocity, startedAt } = brakeFlash;
+  if (!Composite.get(world, body.id, 'body')) {
+    brakeFlash = null;
+    return;
+  }
+  const progress = Math.max(0, (timestamp - startedAt) / 560);
+  if (progress >= 1) {
+    brakeFlash = null;
+    return;
+  }
+
+  const halfW = (body.bounds.max.x - body.bounds.min.x) / 2;
+  const halfH = (body.bounds.max.y - body.bounds.min.y) / 2;
+  const radius = Math.max(24, Math.min(62, Math.hypot(halfW, halfH) + 14));
+  const travelAngle = Math.atan2(fromVelocity.y, fromVelocity.x);
+  const collapse = 1 - progress;
+  ctx.save();
+  ctx.translate(body.position.x, body.position.y);
+  ctx.globalAlpha = collapse;
+  ctx.strokeStyle = '#ff5f57';
+  ctx.fillStyle = '#ffe66d';
+  ctx.shadowColor = '#ff5f57';
+  ctx.shadowBlur = 16;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * (0.72 + collapse * 0.28), 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.rotate(travelAngle);
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(side * (radius + 14) * collapse, -13);
+    ctx.lineTo(side * (radius + 2), -6);
+    ctx.lineTo(side * (radius + 2), 6);
+    ctx.lineTo(side * (radius + 14) * collapse, 13);
+    ctx.stroke();
+  }
+  ctx.rotate(-travelAngle);
+  ctx.font = 'bold 18px VT323';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('STOP', 0, 1);
+  ctx.restore();
+}
+
 function drawPunchFlash(timestamp) {
   if (!punchFlash) return;
   if (!Composite.get(world, punchFlash.body.id, 'body')) {
@@ -9790,6 +9963,7 @@ function loop(timestamp) {
   drawFloatMarkers(timestamp);
   drawPivotMarkers(timestamp);
   drawReverseFlash(timestamp);
+  drawBrakeFlash(timestamp);
   drawPunchFlash(timestamp);
   drawSwapMarker(timestamp);
   drawRelayMarker(timestamp);
