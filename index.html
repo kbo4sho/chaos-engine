@@ -406,6 +406,18 @@ canvas#game {
 #brake-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#thruster-feedback {
+  position:absolute; top:490px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  opacity:0; pointer-events:none;
+  color:#ff9f1c; font-size:22px; letter-spacing:2px;
+  text-shadow:0 0 8px currentColor, 0 0 18px currentColor;
+  white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#thruster-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -516,6 +528,7 @@ canvas#game {
   #curve-feedback { top:14px; font-size:19px; }
   #swirl-feedback { top:14px; font-size:19px; }
   #brake-feedback { top:14px; font-size:19px; }
+  #thruster-feedback { top:14px; font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -575,6 +588,7 @@ canvas#game {
     <div id="curve-feedback" role="status" aria-live="polite"></div>
     <div id="swirl-feedback" role="status" aria-live="polite"></div>
     <div id="brake-feedback" role="status" aria-live="polite"></div>
+    <div id="thruster-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -636,6 +650,7 @@ canvas#game {
     <button class="tool-btn" data-tool="curve" style="color:#59e3ff;" title="Tap a moving dynamic part to curve its momentum right; tap this button again to curve left" aria-label="Curve a moving dynamic part's momentum 90 degrees right"><span class="icon">🏎️</span><span class="curve-label">CURVE ↱</span></button>
     <button class="tool-btn" data-tool="swirl" style="color:#b86cff;" title="Tap the canvas to curl nearby dynamic objects clockwise; tap this button again for counter-clockwise" aria-label="Swirl nearby dynamic objects clockwise around a tapped point"><span class="icon">💫</span><span class="swirl-label">SWIRL ↻</span></button>
     <button class="tool-btn" data-tool="brake" style="color:#ff5f57;" title="Tap a moving dynamic part to stop its movement and spin without anchoring it" aria-label="Brake a moving dynamic part without anchoring it"><span class="icon">🛑</span>Brake</button>
+    <button class="tool-btn" data-tool="thruster" style="color:#ff9f1c;" title="Tap a dynamic part to toggle continuous thrust along its facing direction" aria-label="Toggle a continuous body-facing thruster on a dynamic part"><span class="icon">🔥</span>Thrust</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -890,6 +905,8 @@ let swirlBursts = []; // {x, y, hitCount, direction, startedAt} transient local 
 let swirlFeedbackTimer = 0;
 let brakeFlash = null; // {body, fromVelocity, fromAngularVelocity, startedAt} transient stop feedback
 let brakeFeedbackTimer = 0;
+let thrusterBodies = new Set(); // dynamic parts with continuous body-facing thrust enabled
+let thrusterFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -1557,6 +1574,14 @@ function resetBrakeFeedback(silent = false) {
   feedback.textContent = '';
 }
 
+function resetThrusterFeedback(silent = false) {
+  if (!silent) return;
+  clearTimeout(thrusterFeedbackTimer);
+  const feedback = document.getElementById('thruster-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -1620,6 +1645,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'curve') resetCurveTool(true);
       if (tool !== 'swirl') resetSwirlTool(true);
       if (tool !== 'brake') resetBrakeFeedback(true);
+      if (tool !== 'thruster') resetThrusterFeedback(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -3059,6 +3085,8 @@ function finishClear(playFeedback = true) {
   clearTimeout(motorFeedbackTimer);
   document.getElementById('motor-feedback').classList.remove('active');
   document.getElementById('motor-feedback').textContent = '';
+  thrusterBodies.clear();
+  resetThrusterFeedback(true);
   flippers = [];
   nextFlipperSide = 'left';
   clearTimeout(flipperFeedbackTimer);
@@ -3263,7 +3291,8 @@ function getToolAccentColor(tool) {
     relay: '#ffcf40',
     curve: '#59e3ff',
     swirl: '#b86cff',
-    brake: '#ff5f57'
+    brake: '#ff5f57',
+    thruster: '#ff9f1c'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -3382,6 +3411,7 @@ function eraseBodyAt(pos) {
     megaBounceOriginal.delete(b.id);
     anchoredBodies.delete(b);
     motorizedBodies.delete(b);
+    thrusterBodies.delete(b);
   });
 
   rocketBodies = rocketBodies.filter(b => !removedBodyIds.has(b.id));
@@ -3805,6 +3835,7 @@ function fissionBodyAt(pos) {
   portalCooldowns.delete(source.id);
   anchoredBodies.delete(source);
   motorizedBodies.delete(source);
+  thrusterBodies.delete(source);
   megaBounceOriginal.delete(source);
   if (sourceMegaBounceRestitution !== undefined) {
     halves.forEach(half => megaBounceOriginal.set(half, sourceMegaBounceRestitution));
@@ -5090,6 +5121,110 @@ function brakeBodyAt(pos) {
   return braked;
 }
 
+const THRUSTER_FORCE_PER_MASS = 0.00075;
+const THRUSTER_MAX_SPEED = 24;
+
+function getThrusterForce(angle, mass, forcePerMass = THRUSTER_FORCE_PER_MASS) {
+  const magnitude = Math.max(0, Number.isFinite(mass) ? mass : 0) * forcePerMass;
+  return {
+    x:Math.cos(angle || 0) * magnitude,
+    y:Math.sin(angle || 0) * magnitude
+  };
+}
+
+function isThrustableBody(body) {
+  return Boolean(body && body.label !== 'wall' && !body.isTarget && !body.isStatic && body.parent === body);
+}
+
+function findThrustableBodyAt(pos) {
+  const candidates = Composite.allBodies(world).filter(isThrustableBody);
+  const exact = Matter.Query.point(candidates, pos).filter(isThrustableBody).pop();
+  if (exact) return exact;
+
+  let target = null;
+  let nearestDist = 46;
+  candidates.forEach(body => {
+    const distance = Math.hypot(body.position.x - pos.x, body.position.y - pos.y);
+    if (distance < nearestDist) {
+      target = body;
+      nearestDist = distance;
+    }
+  });
+  return target;
+}
+
+function showThrusterFeedback(enabled, message = '') {
+  const feedback = document.getElementById('thruster-feedback');
+  feedback.textContent = message || (enabled ? 'THRUSTER ON' : 'THRUSTER OFF');
+  feedback.style.color = enabled ? '#ff9f1c' : '#aaaaaa';
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(thrusterFeedbackTimer);
+  thrusterFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 850);
+}
+
+function addThrusterBurst(body, enabled) {
+  const direction = { x:Math.cos(body.angle || 0), y:Math.sin(body.angle || 0) };
+  const rearDistance = Math.max(16, Math.min(48, (body.bounds.max.x - body.bounds.min.x) / 2 + 8));
+  for (let i = 0; i < 18; i++) {
+    const spread = (Math.random() - 0.5) * 1.1;
+    const speed = enabled ? 2.5 + Math.random() * 4 : 1 + Math.random() * 2;
+    particles.push({
+      x:body.position.x - direction.x * rearDistance,
+      y:body.position.y - direction.y * rearDistance,
+      vx:-direction.x * speed - direction.y * spread,
+      vy:-direction.y * speed + direction.x * spread,
+      size:2 + Math.random() * 3,
+      life:0.25 + Math.random() * 0.3,
+      color:i % 3 === 0 ? '#ffffff' : i % 2 ? '#ff9f1c' : '#ff3d00'
+    });
+  }
+}
+
+function toggleThrusterAt(pos) {
+  const target = findThrustableBodyAt(pos);
+  if (!target) {
+    showThrusterFeedback(false, 'THRUSTER: NO OBJECT');
+    haptic([3]);
+    return false;
+  }
+
+  const enabled = !thrusterBodies.has(target);
+  if (enabled) {
+    thrusterBodies.add(target);
+    target.isThruster = true;
+    Matter.Sleeping.set(target, false);
+  } else {
+    thrusterBodies.delete(target);
+    delete target.isThruster;
+  }
+  addThrusterBurst(target, enabled);
+  showThrusterFeedback(enabled);
+  playSound(enabled ? 260 : 150, 0.12, 'sawtooth', 0.065);
+  playSound(enabled ? 720 : 360, 0.07, 'square', 0.045);
+  haptic(enabled ? [8, 8, 16] : [8]);
+  shakeIntensity = Math.max(shakeIntensity, enabled ? 2.5 : 1.5);
+  return enabled ? 'enabled' : 'disabled';
+}
+
+function applyThrusterForces() {
+  thrusterBodies.forEach(body => {
+    if (!Composite.get(world, body.id, 'body')) {
+      thrusterBodies.delete(body);
+      return;
+    }
+    if (body.isStatic) return;
+    const speed = Math.hypot(body.velocity.x, body.velocity.y);
+    if (speed > THRUSTER_MAX_SPEED) {
+      const scale = THRUSTER_MAX_SPEED / speed;
+      Body.setVelocity(body, { x:body.velocity.x * scale, y:body.velocity.y * scale });
+    }
+    Matter.Sleeping.set(body, false);
+    Body.applyForce(body, body.position, getThrusterForce(body.angle, body.mass));
+  });
+}
+
 function getPunchImpulse(body, pos) {
   const halfWidth = Math.max(8, (body.bounds.max.x - body.bounds.min.x) / 2);
   const halfHeight = Math.max(8, (body.bounds.max.y - body.bounds.min.y) / 2);
@@ -5648,6 +5783,7 @@ function removeFusionSourceTracking(body) {
   portalCooldowns.delete(body.id);
   anchoredBodies.delete(body);
   motorizedBodies.delete(body);
+  thrusterBodies.delete(body);
   megaBounceOriginal.delete(body.id);
   rocketBodies = rocketBodies.filter(candidate => candidate !== body);
 }
@@ -6438,6 +6574,13 @@ function onDown(e) {
   // Brake tool — remove one dynamic part's movement and spin without anchoring it.
   if (currentTool === 'brake') {
     brakeBodyAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Thruster tool — toggle continuous force along a dynamic part's facing direction.
+  if (currentTool === 'thruster') {
+    toggleThrusterAt(pos);
     pointerDown = false;
     return;
   }
@@ -8514,6 +8657,65 @@ function drawBrakeFlash(timestamp) {
   ctx.restore();
 }
 
+function drawThrusterMarkers(timestamp) {
+  thrusterBodies.forEach(body => {
+    if (!Composite.get(world, body.id, 'body')) {
+      thrusterBodies.delete(body);
+      return;
+    }
+
+    const halfW = (body.bounds.max.x - body.bounds.min.x) / 2;
+    const halfH = (body.bounds.max.y - body.bounds.min.y) / 2;
+    const radius = Math.max(20, Math.min(62, Math.hypot(halfW, halfH) + 7));
+    const pulse = 0.78 + Math.sin(timestamp / 70 + body.id) * 0.2;
+    const flameLength = 13 + pulse * 11;
+
+    ctx.save();
+    ctx.translate(body.position.x, body.position.y);
+    ctx.rotate(body.angle || 0);
+    ctx.globalAlpha = body.isStatic ? 0.45 : 1;
+    ctx.strokeStyle = '#ff9f1c';
+    ctx.fillStyle = '#ff9f1c';
+    ctx.shadowColor = '#ff3d00';
+    ctx.shadowBlur = 14;
+    ctx.lineWidth = 2.5;
+
+    ctx.beginPath();
+    ctx.moveTo(radius + 2, 0);
+    ctx.lineTo(radius + 19, 0);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(radius + 20, 0);
+    ctx.lineTo(radius + 10, -6);
+    ctx.lineTo(radius + 10, 6);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(-radius + 2, -7);
+    ctx.lineTo(-radius - flameLength, 0);
+    ctx.lineTo(-radius + 2, 7);
+    ctx.closePath();
+    ctx.fillStyle = '#ff3d00';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-radius + 2, -3.5);
+    ctx.lineTo(-radius - flameLength * 0.58, 0);
+    ctx.lineTo(-radius + 2, 3.5);
+    ctx.closePath();
+    ctx.fillStyle = '#fff176';
+    ctx.fill();
+
+    ctx.strokeStyle = `rgba(255,159,28,${pulse})`;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  });
+}
+
 function drawPunchFlash(timestamp) {
   if (!punchFlash) return;
   if (!Composite.get(world, punchFlash.body.id, 'body')) {
@@ -9783,6 +9985,7 @@ function loop(timestamp) {
   if (!paused) {
     const timeScale = (timeWarpActive || sloMoActive) ? 0.2 : 1;
     applyFloatForces();
+    applyThrusterForces();
     Engine.update(engine, (1000/60) * timeScale);
   }
 
@@ -9964,6 +10167,7 @@ function loop(timestamp) {
   drawPivotMarkers(timestamp);
   drawReverseFlash(timestamp);
   drawBrakeFlash(timestamp);
+  drawThrusterMarkers(timestamp);
   drawPunchFlash(timestamp);
   drawSwapMarker(timestamp);
   drawRelayMarker(timestamp);

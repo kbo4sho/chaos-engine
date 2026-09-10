@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-09-10",
+      "ideas": [
+        "New tool: Toggle continuous body-facing thrust on one dynamic part"
+      ],
+      "summary": "Implemented Thruster tool (🔥) — the final button in the existing object toolbar now toggles a persistent, mass-scaled force along one tapped dynamic part's live facing direction without moving, replacing, anchoring, or disconnecting it; 46px touch targeting, a stable speed cap, orange exhaust and direction markers, burst/status/audio/haptic feedback, and Eraser/Fission/Fusion/Clear cleanup turn ordinary props into collision-steered rockets on desktop and mobile."
+    },
+    {
       "date": "2026-09-09",
       "ideas": [
         "New tool: Brake one dynamic part's movement and spin without anchoring it"

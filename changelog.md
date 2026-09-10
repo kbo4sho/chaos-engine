@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-09-10T14:12:52Z — Added: Thruster tool
+**Why:** The toolbar could aim one object with a one-shot Launch or continuously spin it with Motor, but it had no way to turn an ordinary dynamic part into a persistent, orientation-driven engine. Thruster adds a reversible body-facing force without spawning, moving, replacing, anchoring, or disconnecting the target.
+**Goal alignment:** "more fun, more surprising, more satisfying" — blocks become rockets, rolling balls spiral under their rotating thrust direction, and collisions can steer powered props into ricocheting little vehicles.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (403/403 passing); browser smoke ✓ (existing Block tool placed a subject and its ground impact exercised the existing shatter behavior, then a paused Ball gained the visible orange exhaust ring/arrow from the final Thruster button and accelerated through the live scene while OBJ stayed 1); mobile ✓ (390×844, final Thruster button fully reachable at 52×50px and a paused Ball accelerated from 0/0 after Play with visible persistent thrust feedback); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-09-09T14:11:15Z — Added: Brake tool
 **Why:** The toolbar could lock an object indefinitely with Anchor, invert motion with Reverse, or exchange motion with Relay, but it had no precise way to catch one moving part and let physics resume naturally from rest. Brake adds a one-tap zero-momentum transform without moving, anchoring, replacing, or disconnecting the target.
 **Goal alignment:** "more fun, more surprising, more satisfying" — flying props can be caught midair, wobbling builds can be settled, and chain reactions can be interrupted at exactly the right moment while gravity and future collisions remain active.

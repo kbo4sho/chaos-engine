@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 56 tool buttons', () => {
+  it('should have exactly 57 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(56);
+    expect(buttons.length).toBe(57);
   });
 
-  it('should append Brake after Swirl at the end of the object toolbar', () => {
+  it('should append Thruster after Brake at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('brake');
-    expect(toolbar.lastElementChild?.textContent).toContain('Brake');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('swirl');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('curve');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('thruster');
+    expect(toolbar.lastElementChild?.textContent).toContain('Thrust');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('brake');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('swirl');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,15 +67,75 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// THRUSTER TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Thruster Tool', () => {
+  it('should expose Thruster as the final selectable toolbar tool', () => {
+    const thrusterBtn = document.querySelector('[data-tool="thruster"]');
+    expect(thrusterBtn).not.toBeNull();
+    expect(thrusterBtn?.getAttribute('aria-label')).toContain('body-facing thruster');
+    expect(document.getElementById('toolbar')?.lastElementChild).toBe(thrusterBtn);
+    expect(thrusterBtn?.previousElementSibling?.dataset.tool).toBe('brake');
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'thruster'");
+    expect(scriptContent).toContain('toggleThrusterAt(pos)');
+  });
+
+  it('should calculate mass-scaled force along the body facing direction', () => {
+    const source = scriptContent.match(/function getThrusterForce\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getThrusterForce = new Function(`${source}; return getThrusterForce;`)();
+
+    expect(getThrusterForce(0, 2, 0.001)).toEqual({ x:0.002, y:0 });
+    const downward = getThrusterForce(Math.PI / 2, 4, 0.001);
+    expect(downward.x).toBeCloseTo(0);
+    expect(downward.y).toBeCloseTo(0.004);
+    expect(getThrusterForce(Math.PI, Number.POSITIVE_INFINITY, 0.001)).toEqual({ x:-0, y:0 });
+  });
+
+  it('should toggle one touch-friendly dynamic part without moving or replacing it', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('function isThrustableBody(body)'),
+      scriptContent.indexOf('function getPunchImpulse')
+    );
+    expect(source).toContain("body.label !== 'wall'");
+    expect(source).toContain('!body.isTarget && !body.isStatic');
+    expect(source).toContain('Matter.Query.point(candidates, pos)');
+    expect(source).toContain('let nearestDist = 46');
+    expect(source).toContain('thrusterBodies.add(target)');
+    expect(source).toContain('thrusterBodies.delete(target)');
+    expect(source).toContain('target.isThruster = true');
+    expect(source).not.toContain('Body.setPosition(target');
+    expect(source).not.toContain('Composite.add(world');
+    expect(source).not.toContain('Composite.remove(world');
+  });
+
+  it('should apply capped continuous force, render feedback, and clean tracked state', () => {
+    expect(document.getElementById('thruster-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('const THRUSTER_MAX_SPEED = 24');
+    expect(scriptContent).toContain('function applyThrusterForces()');
+    expect(scriptContent).toContain('Body.applyForce(body, body.position, getThrusterForce(body.angle, body.mass))');
+    expect(scriptContent).toContain('applyThrusterForces();');
+    expect(scriptContent).toContain('function drawThrusterMarkers(timestamp)');
+    expect(scriptContent).toContain('drawThrusterMarkers(timestamp)');
+    expect(scriptContent).toContain("if (tool !== 'thruster') resetThrusterFeedback(true)");
+    expect(scriptContent).toContain('thrusterBodies.clear()');
+    expect(scriptContent.match(/thrusterBodies\.delete\(/g)?.length).toBeGreaterThanOrEqual(4);
+    expect(scriptContent).toContain("thruster: '#ff9f1c'");
+  });
+});
+
+// ============================================
 // BRAKE TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Brake Tool', () => {
-  it('should expose Brake as the final selectable toolbar tool', () => {
+  it('should keep Brake selectable immediately before Thruster', () => {
     const brakeBtn = document.querySelector('[data-tool="brake"]');
     expect(brakeBtn).not.toBeNull();
     expect(brakeBtn?.getAttribute('aria-label')).toContain('without anchoring');
-    expect(document.getElementById('toolbar')?.lastElementChild).toBe(brakeBtn);
+    expect(brakeBtn?.nextElementSibling?.dataset.tool).toBe('thruster');
     expect(brakeBtn?.previousElementSibling?.dataset.tool).toBe('swirl');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'brake'");
@@ -683,7 +743,7 @@ describe('Float Tool', () => {
   it('should apply counter-force during physics and show persistent zero-g feedback', () => {
     expect(document.getElementById('float-feedback')?.getAttribute('role')).toBe('status');
     expect(scriptContent).toContain('Body.applyForce(b, b.position, getFloatCounterForce(b, engine.gravity, engine.gravity.scale))');
-    expect(scriptContent).toContain('applyFloatForces();\n    Engine.update(engine');
+    expect(scriptContent).toMatch(/applyFloatForces\(\);[\s\S]*applyThrusterForces\(\);[\s\S]*Engine\.update\(engine/);
     expect(scriptContent).toContain('function drawFloatMarkers(timestamp)');
     expect(scriptContent).toContain('drawFloatMarkers(timestamp)');
     expect(scriptContent).toContain("ctx.fillText('0G'");
