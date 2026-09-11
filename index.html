@@ -418,6 +418,18 @@ canvas#game {
 #thruster-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#phase-feedback {
+  position:absolute; top:524px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  opacity:0; pointer-events:none;
+  color:#d47cff; font-size:22px; letter-spacing:2px;
+  text-shadow:0 0 8px currentColor, 0 0 18px currentColor;
+  white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#phase-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -529,6 +541,7 @@ canvas#game {
   #swirl-feedback { top:14px; font-size:19px; }
   #brake-feedback { top:14px; font-size:19px; }
   #thruster-feedback { top:14px; font-size:19px; }
+  #phase-feedback { top:14px; font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -589,6 +602,7 @@ canvas#game {
     <div id="swirl-feedback" role="status" aria-live="polite"></div>
     <div id="brake-feedback" role="status" aria-live="polite"></div>
     <div id="thruster-feedback" role="status" aria-live="polite"></div>
+    <div id="phase-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -651,6 +665,7 @@ canvas#game {
     <button class="tool-btn" data-tool="swirl" style="color:#b86cff;" title="Tap the canvas to curl nearby dynamic objects clockwise; tap this button again for counter-clockwise" aria-label="Swirl nearby dynamic objects clockwise around a tapped point"><span class="icon">💫</span><span class="swirl-label">SWIRL ↻</span></button>
     <button class="tool-btn" data-tool="brake" style="color:#ff5f57;" title="Tap a moving dynamic part to stop its movement and spin without anchoring it" aria-label="Brake a moving dynamic part without anchoring it"><span class="icon">🛑</span>Brake</button>
     <button class="tool-btn" data-tool="thruster" style="color:#ff9f1c;" title="Tap a dynamic part to toggle continuous thrust along its facing direction" aria-label="Toggle a continuous body-facing thruster on a dynamic part"><span class="icon">🔥</span>Thrust</button>
+    <button class="tool-btn" data-tool="phase" style="color:#d47cff;" title="Tap a dynamic part to toggle collision-free phasing through the scene" aria-label="Toggle collision-free phasing on a dynamic part"><span class="icon">👻</span>Phase</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -907,6 +922,8 @@ let brakeFlash = null; // {body, fromVelocity, fromAngularVelocity, startedAt} t
 let brakeFeedbackTimer = 0;
 let thrusterBodies = new Set(); // dynamic parts with continuous body-facing thrust enabled
 let thrusterFeedbackTimer = 0;
+let phaseBodies = new Map(); // body -> original collision filter while collision-free phasing is enabled
+let phaseFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -1582,6 +1599,14 @@ function resetThrusterFeedback(silent = false) {
   feedback.textContent = '';
 }
 
+function resetPhaseFeedback(silent = false) {
+  if (!silent) return;
+  clearTimeout(phaseFeedbackTimer);
+  const feedback = document.getElementById('phase-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -1646,6 +1671,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'swirl') resetSwirlTool(true);
       if (tool !== 'brake') resetBrakeFeedback(true);
       if (tool !== 'thruster') resetThrusterFeedback(true);
+      if (tool !== 'phase') resetPhaseFeedback(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -3087,6 +3113,8 @@ function finishClear(playFeedback = true) {
   document.getElementById('motor-feedback').textContent = '';
   thrusterBodies.clear();
   resetThrusterFeedback(true);
+  phaseBodies.clear();
+  resetPhaseFeedback(true);
   flippers = [];
   nextFlipperSide = 'left';
   clearTimeout(flipperFeedbackTimer);
@@ -3292,7 +3320,8 @@ function getToolAccentColor(tool) {
     curve: '#59e3ff',
     swirl: '#b86cff',
     brake: '#ff5f57',
-    thruster: '#ff9f1c'
+    thruster: '#ff9f1c',
+    phase: '#d47cff'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -3412,6 +3441,7 @@ function eraseBodyAt(pos) {
     anchoredBodies.delete(b);
     motorizedBodies.delete(b);
     thrusterBodies.delete(b);
+    phaseBodies.delete(b);
   });
 
   rocketBodies = rocketBodies.filter(b => !removedBodyIds.has(b.id));
@@ -3642,7 +3672,7 @@ function createBodyClone(source, position) {
     density: source.density,
     isSensor: source.isSensor,
     slop: source.slop,
-    collisionFilter: { ...source.collisionFilter },
+    collisionFilter: { ...(phaseBodies.get(source) || source.collisionFilter) },
     render: { ...source.render }
   }, true);
   Body.setAngle(clone, source.angle);
@@ -3836,6 +3866,7 @@ function fissionBodyAt(pos) {
   anchoredBodies.delete(source);
   motorizedBodies.delete(source);
   thrusterBodies.delete(source);
+  phaseBodies.delete(source);
   megaBounceOriginal.delete(source);
   if (sourceMegaBounceRestitution !== undefined) {
     halves.forEach(half => megaBounceOriginal.set(half, sourceMegaBounceRestitution));
@@ -5225,6 +5256,94 @@ function applyThrusterForces() {
   });
 }
 
+function getPhasedCollisionFilter(filter, enabled) {
+  const original = filter || { category:0x0001, mask:0xFFFFFFFF, group:0 };
+  return {
+    category:original.category,
+    mask:enabled ? 0 : original.mask,
+    group:enabled ? 0 : original.group
+  };
+}
+
+function isPhaseableBody(body) {
+  return Boolean(body && body.label !== 'wall' && !body.isTarget && !body.isStatic && body.parent === body);
+}
+
+function findPhaseableBodyAt(pos) {
+  const candidates = Composite.allBodies(world).filter(isPhaseableBody);
+  const exactMatches = Matter.Query.point(candidates, pos).filter(isPhaseableBody);
+  const phasedExact = exactMatches.find(body => phaseBodies.has(body));
+  if (phasedExact) return phasedExact;
+  if (exactMatches.length) return exactMatches[exactMatches.length - 1];
+
+  let target = null;
+  let nearestDist = 46;
+  candidates.forEach(body => {
+    const distance = Math.hypot(body.position.x - pos.x, body.position.y - pos.y);
+    if (distance < nearestDist) {
+      target = body;
+      nearestDist = distance;
+    }
+  });
+  return target;
+}
+
+function showPhaseFeedback(enabled, message = '') {
+  const feedback = document.getElementById('phase-feedback');
+  feedback.textContent = message || (enabled ? 'PHASED: COLLISIONS OFF' : 'SOLID: COLLISIONS ON');
+  feedback.style.color = enabled ? '#d47cff' : '#7df9ff';
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(phaseFeedbackTimer);
+  phaseFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 900);
+}
+
+function addPhaseBurst(body, enabled) {
+  for (let i = 0; i < 20; i++) {
+    const angle = (Math.PI * 2 * i / 20) + Math.random() * 0.18;
+    const speed = enabled ? 2.2 + Math.random() * 3.5 : 1.2 + Math.random() * 2;
+    particles.push({
+      x:body.position.x,
+      y:body.position.y,
+      vx:Math.cos(angle) * speed,
+      vy:Math.sin(angle) * speed,
+      size:1.5 + Math.random() * 3,
+      life:0.3 + Math.random() * 0.35,
+      color:i % 3 === 0 ? '#ffffff' : i % 2 ? '#d47cff' : '#7df9ff'
+    });
+  }
+}
+
+function togglePhaseAt(pos) {
+  const target = findPhaseableBodyAt(pos);
+  if (!target) {
+    showPhaseFeedback(false, 'PHASE: NO OBJECT');
+    haptic([3]);
+    return false;
+  }
+
+  const originalFilter = phaseBodies.get(target);
+  const enabled = !originalFilter;
+  if (enabled) {
+    phaseBodies.set(target, { ...target.collisionFilter });
+    Object.assign(target.collisionFilter, getPhasedCollisionFilter(target.collisionFilter, true));
+    target.isPhased = true;
+    Matter.Sleeping.set(target, false);
+  } else {
+    Object.assign(target.collisionFilter, getPhasedCollisionFilter(originalFilter, false));
+    phaseBodies.delete(target);
+    delete target.isPhased;
+  }
+  addPhaseBurst(target, enabled);
+  showPhaseFeedback(enabled);
+  playSound(enabled ? 920 : 420, 0.14, 'sine', 0.065);
+  playSound(enabled ? 540 : 760, 0.09, 'triangle', 0.045);
+  haptic(enabled ? [5, 10, 5] : [12]);
+  shakeIntensity = Math.max(shakeIntensity, enabled ? 2 : 1.5);
+  return enabled ? 'enabled' : 'disabled';
+}
+
 function getPunchImpulse(body, pos) {
   const halfWidth = Math.max(8, (body.bounds.max.x - body.bounds.min.x) / 2);
   const halfHeight = Math.max(8, (body.bounds.max.y - body.bounds.min.y) / 2);
@@ -5784,6 +5903,7 @@ function removeFusionSourceTracking(body) {
   anchoredBodies.delete(body);
   motorizedBodies.delete(body);
   thrusterBodies.delete(body);
+  phaseBodies.delete(body);
   megaBounceOriginal.delete(body.id);
   rocketBodies = rocketBodies.filter(candidate => candidate !== body);
 }
@@ -6585,6 +6705,13 @@ function onDown(e) {
     return;
   }
 
+  // Phase tool — toggle one dynamic part between normal and collision-free physics.
+  if (currentTool === 'phase') {
+    togglePhaseAt(pos);
+    pointerDown = false;
+    return;
+  }
+
   // Snip tool — cut one visible physical connection without removing its bodies.
   if (currentTool === 'snip') {
     snipConstraintAt(pos);
@@ -7052,6 +7179,7 @@ function drawBody(b) {
   const clearScale = r.clearScale || 1;
 
   ctx.save();
+  if (b.isPhased) ctx.globalAlpha = 0.42;
   ctx.translate(b.position.x, b.position.y);
   ctx.rotate(b.angle);
   const resizeScale = b.resizeScale || 1;
@@ -8716,6 +8844,47 @@ function drawThrusterMarkers(timestamp) {
   });
 }
 
+function drawPhaseMarkers(timestamp) {
+  phaseBodies.forEach((originalFilter, body) => {
+    if (!Composite.get(world, body.id, 'body')) {
+      phaseBodies.delete(body);
+      return;
+    }
+
+    const halfW = (body.bounds.max.x - body.bounds.min.x) / 2;
+    const halfH = (body.bounds.max.y - body.bounds.min.y) / 2;
+    const radius = Math.max(22, Math.min(66, Math.hypot(halfW, halfH) + 10));
+    const pulse = 0.64 + Math.sin(timestamp / 105 + body.id) * 0.22;
+    ctx.save();
+    ctx.translate(body.position.x, body.position.y);
+    ctx.globalAlpha = pulse;
+    ctx.strokeStyle = '#d47cff';
+    ctx.fillStyle = '#7df9ff';
+    ctx.shadowColor = '#d47cff';
+    ctx.shadowBlur = 14;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([3, 5]);
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    for (let y = -radius * 0.55; y <= radius * 0.55; y += 7) {
+      const width = Math.sqrt(Math.max(0, radius * radius - y * y)) * 0.65;
+      ctx.globalAlpha = pulse * 0.36;
+      ctx.beginPath();
+      ctx.moveTo(-width, y);
+      ctx.lineTo(width, y);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = pulse;
+    ctx.font = 'bold 14px VT323';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('PHASE', 0, -radius - 4);
+    ctx.restore();
+  });
+}
+
 function drawPunchFlash(timestamp) {
   if (!punchFlash) return;
   if (!Composite.get(world, punchFlash.body.id, 'body')) {
@@ -10168,6 +10337,7 @@ function loop(timestamp) {
   drawReverseFlash(timestamp);
   drawBrakeFlash(timestamp);
   drawThrusterMarkers(timestamp);
+  drawPhaseMarkers(timestamp);
   drawPunchFlash(timestamp);
   drawSwapMarker(timestamp);
   drawRelayMarker(timestamp);

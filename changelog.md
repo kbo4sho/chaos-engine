@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-09-11T14:10:33Z — Added: Phase tool
+**Why:** The toolbar could anchor, float, stop, propel, or transmute one object, but it had no way to temporarily remove that object's collisions while leaving its motion and connections intact. Phase adds a reversible collision-filter transform without moving, replacing, spawning, or disconnecting the target.
+**Goal alignment:** "more fun, more surprising, more satisfying" — balls can ghost through floors, blocks can slip through stacks, and connected contraptions can briefly ignore obstacles before becoming solid again at a chosen moment.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (408/408 passing); browser smoke ✓ (existing Block tool placed a paused subject, final Phase button changed its collision mask from 4294967295 to 0 with a persistent violet scanline marker and preserved OBJ 1, Play sent it from y≈254 through the 1403px floor to y≈14482, and a second Phase tap restored the original mask plus `SOLID: COLLISIONS ON`); mobile ✓ (390×844, final Phase button fully reachable at 52×50px and x=330–382, existing Ball tool placed a subject, and Phase enabled mask 0 with visible marker/status feedback); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-09-10T14:12:52Z — Added: Thruster tool
 **Why:** The toolbar could aim one object with a one-shot Launch or continuously spin it with Motor, but it had no way to turn an ordinary dynamic part into a persistent, orientation-driven engine. Thruster adds a reversible body-facing force without spawning, moving, replacing, anchoring, or disconnecting the target.
 **Goal alignment:** "more fun, more surprising, more satisfying" — blocks become rockets, rolling balls spiral under their rotating thrust direction, and collisions can steer powered props into ricocheting little vehicles.

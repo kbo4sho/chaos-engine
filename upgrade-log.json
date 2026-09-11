@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-09-11",
+      "ideas": [
+        "New tool: Toggle collision-free phasing on one dynamic part"
+      ],
+      "summary": "Implemented Phase tool (👻) — the final button in the existing object toolbar now toggles one tapped dynamic part between normal solid physics and collision-free phasing while preserving its position, velocity, spin, category, and connections; exact plus 46px touch targeting, full collision-group suppression with reversible filter restoration, translucent violet scanline markers, status/particle/audio/haptic feedback, and Clone/Eraser/Fission/Fusion/Clear cleanup keep ghost-through-floor tricks readable and reliable on desktop and mobile."
+    },
+    {
       "date": "2026-09-10",
       "ideas": [
         "New tool: Toggle continuous body-facing thrust on one dynamic part"

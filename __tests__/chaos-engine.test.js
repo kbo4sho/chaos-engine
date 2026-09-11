@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 57 tool buttons', () => {
+  it('should have exactly 58 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(57);
+    expect(buttons.length).toBe(58);
   });
 
-  it('should append Thruster after Brake at the end of the object toolbar', () => {
+  it('should append Phase after Thruster at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('thruster');
-    expect(toolbar.lastElementChild?.textContent).toContain('Thrust');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('brake');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('swirl');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('phase');
+    expect(toolbar.lastElementChild?.textContent).toContain('Phase');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('thruster');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('brake');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,15 +67,72 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// PHASE TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Phase Tool', () => {
+  it('should expose Phase as the final selectable toolbar tool', () => {
+    const phaseBtn = document.querySelector('[data-tool="phase"]');
+    expect(phaseBtn).not.toBeNull();
+    expect(phaseBtn?.getAttribute('aria-label')).toContain('collision-free phasing');
+    expect(document.getElementById('toolbar')?.lastElementChild).toBe(phaseBtn);
+    expect(phaseBtn?.previousElementSibling?.dataset.tool).toBe('thruster');
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'phase'");
+    expect(scriptContent).toContain('togglePhaseAt(pos)');
+  });
+
+  it('should disable every collision and restore the original filter', () => {
+    const source = scriptContent.match(/function getPhasedCollisionFilter\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getPhasedCollisionFilter = new Function(`${source}; return getPhasedCollisionFilter;`)();
+    const original = { category:4, mask:0x0007, group:-2 };
+
+    expect(getPhasedCollisionFilter(original, true)).toEqual({ category:4, mask:0, group:0 });
+    expect(getPhasedCollisionFilter(original, false)).toEqual(original);
+    expect(original).toEqual({ category:4, mask:0x0007, group:-2 });
+  });
+
+  it('should toggle one touch-friendly dynamic part without moving or replacing it', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('function isPhaseableBody(body)'),
+      scriptContent.indexOf('function getPunchImpulse')
+    );
+    expect(source).toContain("body.label !== 'wall'");
+    expect(source).toContain('!body.isTarget && !body.isStatic');
+    expect(source).toContain('Matter.Query.point(candidates, pos)');
+    expect(source).toContain('let nearestDist = 46');
+    expect(source).toContain('phaseBodies.set(target, { ...target.collisionFilter })');
+    expect(source).toContain('phaseBodies.delete(target)');
+    expect(source).toContain('target.isPhased = true');
+    expect(source).not.toContain('Body.setPosition(target');
+    expect(source).not.toContain('Composite.add(world');
+    expect(source).not.toContain('Composite.remove(world');
+  });
+
+  it('should render persistent feedback and clean tracked state', () => {
+    expect(document.getElementById('phase-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain("showPhaseFeedback(enabled)");
+    expect(scriptContent).toContain('function drawPhaseMarkers(timestamp)');
+    expect(scriptContent).toContain('drawPhaseMarkers(timestamp)');
+    expect(scriptContent).toContain('if (b.isPhased) ctx.globalAlpha = 0.42');
+    expect(scriptContent).toContain("if (tool !== 'phase') resetPhaseFeedback(true)");
+    expect(scriptContent).toContain('phaseBodies.clear()');
+    expect(scriptContent.match(/phaseBodies\.delete\(/g)?.length).toBeGreaterThanOrEqual(5);
+    expect(scriptContent).toContain("phase: '#d47cff'");
+  });
+});
+
+// ============================================
 // THRUSTER TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Thruster Tool', () => {
-  it('should expose Thruster as the final selectable toolbar tool', () => {
+  it('should keep Thruster selectable immediately before Phase', () => {
     const thrusterBtn = document.querySelector('[data-tool="thruster"]');
     expect(thrusterBtn).not.toBeNull();
     expect(thrusterBtn?.getAttribute('aria-label')).toContain('body-facing thruster');
-    expect(document.getElementById('toolbar')?.lastElementChild).toBe(thrusterBtn);
+    expect(thrusterBtn?.nextElementSibling?.dataset.tool).toBe('phase');
     expect(thrusterBtn?.previousElementSibling?.dataset.tool).toBe('brake');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'thruster'");
