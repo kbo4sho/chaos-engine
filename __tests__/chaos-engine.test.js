@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 58 tool buttons', () => {
+  it('should have exactly 59 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(58);
+    expect(buttons.length).toBe(59);
   });
 
-  it('should append Phase after Thruster at the end of the object toolbar', () => {
+  it('should append Gyro after Phase at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('phase');
-    expect(toolbar.lastElementChild?.textContent).toContain('Phase');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('thruster');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('brake');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('gyro');
+    expect(toolbar.lastElementChild?.textContent).toContain('Gyro');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('phase');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('thruster');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,15 +67,86 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// GYRO TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Gyro Tool', () => {
+  it('should expose Gyro as the final selectable toolbar tool', () => {
+    const gyroBtn = document.querySelector('[data-tool="gyro"]');
+    expect(gyroBtn).not.toBeNull();
+    expect(gyroBtn?.getAttribute('aria-label')).toContain('self-leveling gyroscope');
+    expect(document.getElementById('toolbar')?.lastElementChild).toBe(gyroBtn);
+    expect(gyroBtn?.previousElementSibling?.dataset.tool).toBe('phase');
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'gyro'");
+    expect(scriptContent).toContain('toggleGyroAt(pos)');
+  });
+
+  it('should choose the nearest stable quarter-turn', () => {
+    const source = scriptContent.match(/function getGyroTargetAngle\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getGyroTargetAngle = new Function(`${source}; return getGyroTargetAngle;`)();
+
+    expect(getGyroTargetAngle(0.2)).toBe(0);
+    expect(getGyroTargetAngle(1.2)).toBeCloseTo(Math.PI / 2);
+    expect(getGyroTargetAngle(-1.4)).toBeCloseTo(-Math.PI / 2);
+    expect(getGyroTargetAngle(8)).toBeCloseTo(Math.PI / 2);
+    expect(getGyroTargetAngle(Number.NaN)).toBe(0);
+  });
+
+  it('should steer toward level with a capped angular velocity and settle cleanly', () => {
+    const source = scriptContent.match(/function getGyroAngularVelocity\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getGyroAngularVelocity = new Function(`${source}; return getGyroAngularVelocity;`)();
+
+    expect(getGyroAngularVelocity(0.5, 0)).toBeLessThan(0);
+    expect(getGyroAngularVelocity(-0.5, 0)).toBeGreaterThan(0);
+    expect(getGyroAngularVelocity(2, 0)).toBe(-0.14);
+    expect(getGyroAngularVelocity(-2, 0)).toBe(0.14);
+    expect(getGyroAngularVelocity(0.003, 0)).toBe(0);
+  });
+
+  it('should toggle one touch-friendly dynamic part without moving or replacing it', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('function isGyroableBody(body)'),
+      scriptContent.indexOf('function getPunchImpulse')
+    );
+    expect(source).toContain("body.label !== 'wall'");
+    expect(source).toContain('!body.isTarget && !body.isStatic');
+    expect(source).toContain('Matter.Query.point(candidates, pos)');
+    expect(source).toContain('let nearestDist = 46');
+    expect(source).toContain('gyroBodies.set(target, targetAngle)');
+    expect(source).toContain('gyroBodies.delete(target)');
+    expect(source).toContain('target.isGyro = true');
+    expect(source).not.toContain('Body.setPosition(target');
+    expect(source).not.toContain('Composite.add(world');
+    expect(source).not.toContain('Composite.remove(world');
+  });
+
+  it('should continuously stabilize, render persistent feedback, and clean tracked state', () => {
+    expect(document.getElementById('gyro-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('function applyGyroStabilizers()');
+    expect(scriptContent).toContain('Body.setAngularVelocity(body, getGyroAngularVelocity(body.angle, targetAngle))');
+    expect(scriptContent).toMatch(/applyGyroStabilizers\(\);[\s\S]*Engine\.update\(engine/);
+    expect(scriptContent).toContain('function drawGyroMarkers(timestamp)');
+    expect(scriptContent).toContain('drawGyroMarkers(timestamp)');
+    expect(scriptContent).toContain("if (tool !== 'gyro') resetGyroFeedback(true)");
+    expect(scriptContent).toContain('gyroBodies.clear()');
+    expect(scriptContent.match(/gyroBodies\.delete\(/g)?.length).toBeGreaterThanOrEqual(6);
+    expect(scriptContent).toContain("gyro: '#c8ff3d'");
+  });
+});
+
+// ============================================
 // PHASE TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Phase Tool', () => {
-  it('should expose Phase as the final selectable toolbar tool', () => {
+  it('should keep Phase selectable immediately before Gyro', () => {
     const phaseBtn = document.querySelector('[data-tool="phase"]');
     expect(phaseBtn).not.toBeNull();
     expect(phaseBtn?.getAttribute('aria-label')).toContain('collision-free phasing');
-    expect(document.getElementById('toolbar')?.lastElementChild).toBe(phaseBtn);
+    expect(phaseBtn?.nextElementSibling?.dataset.tool).toBe('gyro');
     expect(phaseBtn?.previousElementSibling?.dataset.tool).toBe('thruster');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'phase'");

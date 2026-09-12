@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-09-12T14:10:47Z — Added: Gyro tool
+**Why:** The toolbar could rotate, stop, anchor, motorize, float, thrust, or phase one object, but it had no way to keep a moving part level while collisions and translation continued. Gyro adds a persistent orientation controller without moving, anchoring, replacing, spawning, or disconnecting the target.
+**Goal alignment:** "more fun, more surprising, more satisfying" — blocks become self-righting platforms, airborne props recover after impacts, and connected contraptions can stay level while the rest of the build swings and tumbles.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (414/414 passing); browser smoke ✓ (existing Block and Rotate tools placed and quarter-turned a paused subject, final Gyro button locked it at 90°, a forced +0.7 rad disturbance with +0.35 spin settled back to 1.576 rad with zero spin under live physics, and the lime/gold horizon marker stayed visible); mobile ✓ (390×844, final Gyro button fully reachable at 52×50px and x=330–382, existing Ball tool placed a subject, and Gyro locked it at 0° with visible marker/status feedback); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-09-11T14:10:33Z — Added: Phase tool
 **Why:** The toolbar could anchor, float, stop, propel, or transmute one object, but it had no way to temporarily remove that object's collisions while leaving its motion and connections intact. Phase adds a reversible collision-filter transform without moving, replacing, spawning, or disconnecting the target.
 **Goal alignment:** "more fun, more surprising, more satisfying" — balls can ghost through floors, blocks can slip through stacks, and connected contraptions can briefly ignore obstacles before becoming solid again at a chosen moment.

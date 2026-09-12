@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-09-12",
+      "ideas": [
+        "New tool: Toggle persistent self-leveling on one dynamic part"
+      ],
+      "summary": "Implemented Gyro tool (🧭) — the final button in the existing object toolbar now toggles a persistent controller that pulls one tapped dynamic part toward its nearest 90-degree orientation while preserving translation, collisions, object count, and connections; capped angular correction, exact plus 46px touch targeting, a persistent lime/gold horizon marker, status/particle/audio/haptic feedback, and Eraser/Fission/Fusion/Clear cleanup make self-righting platforms and stable moving contraptions readable and reliable on desktop and mobile."
+    },
+    {
       "date": "2026-09-11",
       "ideas": [
         "New tool: Toggle collision-free phasing on one dynamic part"

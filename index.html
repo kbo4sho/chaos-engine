@@ -430,6 +430,18 @@ canvas#game {
 #phase-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#gyro-feedback {
+  position:absolute; top:558px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  opacity:0; pointer-events:none;
+  color:#c8ff3d; font-size:22px; letter-spacing:2px;
+  text-shadow:0 0 8px currentColor, 0 0 18px currentColor;
+  white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#gyro-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -542,6 +554,7 @@ canvas#game {
   #brake-feedback { top:14px; font-size:19px; }
   #thruster-feedback { top:14px; font-size:19px; }
   #phase-feedback { top:14px; font-size:19px; }
+  #gyro-feedback { top:14px; font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -603,6 +616,7 @@ canvas#game {
     <div id="brake-feedback" role="status" aria-live="polite"></div>
     <div id="thruster-feedback" role="status" aria-live="polite"></div>
     <div id="phase-feedback" role="status" aria-live="polite"></div>
+    <div id="gyro-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -666,6 +680,7 @@ canvas#game {
     <button class="tool-btn" data-tool="brake" style="color:#ff5f57;" title="Tap a moving dynamic part to stop its movement and spin without anchoring it" aria-label="Brake a moving dynamic part without anchoring it"><span class="icon">🛑</span>Brake</button>
     <button class="tool-btn" data-tool="thruster" style="color:#ff9f1c;" title="Tap a dynamic part to toggle continuous thrust along its facing direction" aria-label="Toggle a continuous body-facing thruster on a dynamic part"><span class="icon">🔥</span>Thrust</button>
     <button class="tool-btn" data-tool="phase" style="color:#d47cff;" title="Tap a dynamic part to toggle collision-free phasing through the scene" aria-label="Toggle collision-free phasing on a dynamic part"><span class="icon">👻</span>Phase</button>
+    <button class="tool-btn" data-tool="gyro" style="color:#c8ff3d;" title="Tap a dynamic part to toggle self-leveling toward its nearest quarter-turn" aria-label="Toggle a self-leveling gyroscope on a dynamic part"><span class="icon">🧭</span>Gyro</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -924,6 +939,8 @@ let thrusterBodies = new Set(); // dynamic parts with continuous body-facing thr
 let thrusterFeedbackTimer = 0;
 let phaseBodies = new Map(); // body -> original collision filter while collision-free phasing is enabled
 let phaseFeedbackTimer = 0;
+let gyroBodies = new Map(); // body -> nearest quarter-turn target angle for persistent self-leveling
+let gyroFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -1607,6 +1624,14 @@ function resetPhaseFeedback(silent = false) {
   feedback.textContent = '';
 }
 
+function resetGyroFeedback(silent = false) {
+  if (!silent) return;
+  clearTimeout(gyroFeedbackTimer);
+  const feedback = document.getElementById('gyro-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -1672,6 +1697,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'brake') resetBrakeFeedback(true);
       if (tool !== 'thruster') resetThrusterFeedback(true);
       if (tool !== 'phase') resetPhaseFeedback(true);
+      if (tool !== 'gyro') resetGyroFeedback(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -3115,6 +3141,8 @@ function finishClear(playFeedback = true) {
   resetThrusterFeedback(true);
   phaseBodies.clear();
   resetPhaseFeedback(true);
+  gyroBodies.clear();
+  resetGyroFeedback(true);
   flippers = [];
   nextFlipperSide = 'left';
   clearTimeout(flipperFeedbackTimer);
@@ -3321,7 +3349,8 @@ function getToolAccentColor(tool) {
     swirl: '#b86cff',
     brake: '#ff5f57',
     thruster: '#ff9f1c',
-    phase: '#d47cff'
+    phase: '#d47cff',
+    gyro: '#c8ff3d'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -3442,6 +3471,7 @@ function eraseBodyAt(pos) {
     motorizedBodies.delete(b);
     thrusterBodies.delete(b);
     phaseBodies.delete(b);
+    gyroBodies.delete(b);
   });
 
   rocketBodies = rocketBodies.filter(b => !removedBodyIds.has(b.id));
@@ -3867,6 +3897,7 @@ function fissionBodyAt(pos) {
   motorizedBodies.delete(source);
   thrusterBodies.delete(source);
   phaseBodies.delete(source);
+  gyroBodies.delete(source);
   megaBounceOriginal.delete(source);
   if (sourceMegaBounceRestitution !== undefined) {
     halves.forEach(half => megaBounceOriginal.set(half, sourceMegaBounceRestitution));
@@ -5344,6 +5375,112 @@ function togglePhaseAt(pos) {
   return enabled ? 'enabled' : 'disabled';
 }
 
+function getGyroTargetAngle(angle) {
+  const quarterTurn = Math.PI / 2;
+  let target = Math.round((Number.isFinite(angle) ? angle : 0) / quarterTurn) * quarterTurn;
+  while (target > Math.PI) target -= Math.PI * 2;
+  while (target <= -Math.PI) target += Math.PI * 2;
+  return target;
+}
+
+function getGyroAngularVelocity(angle, targetAngle) {
+  let error = targetAngle - angle;
+  while (error > Math.PI) error -= Math.PI * 2;
+  while (error < -Math.PI) error += Math.PI * 2;
+  if (Math.abs(error) < 0.006) return 0;
+  return Math.max(-0.14, Math.min(0.14, error * 0.18));
+}
+
+function isGyroableBody(body) {
+  return Boolean(body && body.label !== 'wall' && !body.isTarget && !body.isStatic && body.parent === body);
+}
+
+function findGyroableBodyAt(pos) {
+  const candidates = Composite.allBodies(world).filter(isGyroableBody);
+  const exactMatches = Matter.Query.point(candidates, pos).filter(isGyroableBody);
+  const activeExact = exactMatches.find(body => gyroBodies.has(body));
+  if (activeExact) return activeExact;
+  if (exactMatches.length) return exactMatches[exactMatches.length - 1];
+
+  let target = null;
+  let nearestDist = 46;
+  candidates.forEach(body => {
+    const distance = Math.hypot(body.position.x - pos.x, body.position.y - pos.y);
+    if (distance < nearestDist) {
+      target = body;
+      nearestDist = distance;
+    }
+  });
+  return target;
+}
+
+function showGyroFeedback(enabled, targetAngle = 0, message = '') {
+  const feedback = document.getElementById('gyro-feedback');
+  const degrees = Math.round(targetAngle * 180 / Math.PI);
+  feedback.textContent = message || (enabled ? `GYRO LOCKED: ${degrees}°` : 'GYRO OFF');
+  feedback.style.color = enabled ? '#c8ff3d' : '#aaaaaa';
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(gyroFeedbackTimer);
+  gyroFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 900);
+}
+
+function addGyroBurst(body, enabled) {
+  for (let i = 0; i < 18; i++) {
+    const angle = Math.PI * 2 * i / 18;
+    const speed = (enabled ? 2.4 : 1.2) + Math.random() * 2;
+    particles.push({
+      x:body.position.x,
+      y:body.position.y,
+      vx:Math.cos(angle) * speed,
+      vy:Math.sin(angle) * speed,
+      size:1.5 + Math.random() * 2.5,
+      life:0.28 + Math.random() * 0.28,
+      color:i % 3 === 0 ? '#ffffff' : i % 2 ? '#c8ff3d' : '#ffd166'
+    });
+  }
+}
+
+function toggleGyroAt(pos) {
+  const target = findGyroableBodyAt(pos);
+  if (!target) {
+    showGyroFeedback(false, 0, 'GYRO: NO OBJECT');
+    haptic([3]);
+    return false;
+  }
+
+  const enabled = !gyroBodies.has(target);
+  const targetAngle = enabled ? getGyroTargetAngle(target.angle) : gyroBodies.get(target);
+  if (enabled) {
+    gyroBodies.set(target, targetAngle);
+    target.isGyro = true;
+    Matter.Sleeping.set(target, false);
+  } else {
+    gyroBodies.delete(target);
+    delete target.isGyro;
+  }
+  addGyroBurst(target, enabled);
+  showGyroFeedback(enabled, targetAngle);
+  playSound(enabled ? 660 : 280, 0.1, 'triangle', 0.06);
+  playSound(enabled ? 990 : 420, 0.08, 'sine', 0.045);
+  haptic(enabled ? [6, 8, 12] : [8]);
+  shakeIntensity = Math.max(shakeIntensity, enabled ? 2 : 1);
+  return enabled ? 'enabled' : 'disabled';
+}
+
+function applyGyroStabilizers() {
+  gyroBodies.forEach((targetAngle, body) => {
+    if (!Composite.get(world, body.id, 'body')) {
+      gyroBodies.delete(body);
+      return;
+    }
+    if (body.isStatic) return;
+    Matter.Sleeping.set(body, false);
+    Body.setAngularVelocity(body, getGyroAngularVelocity(body.angle, targetAngle));
+  });
+}
+
 function getPunchImpulse(body, pos) {
   const halfWidth = Math.max(8, (body.bounds.max.x - body.bounds.min.x) / 2);
   const halfHeight = Math.max(8, (body.bounds.max.y - body.bounds.min.y) / 2);
@@ -5904,6 +6041,7 @@ function removeFusionSourceTracking(body) {
   motorizedBodies.delete(body);
   thrusterBodies.delete(body);
   phaseBodies.delete(body);
+  gyroBodies.delete(body);
   megaBounceOriginal.delete(body.id);
   rocketBodies = rocketBodies.filter(candidate => candidate !== body);
 }
@@ -6708,6 +6846,13 @@ function onDown(e) {
   // Phase tool — toggle one dynamic part between normal and collision-free physics.
   if (currentTool === 'phase') {
     togglePhaseAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Gyro tool — toggle persistent self-leveling toward the nearest quarter-turn.
+  if (currentTool === 'gyro') {
+    toggleGyroAt(pos);
     pointerDown = false;
     return;
   }
@@ -8885,6 +9030,46 @@ function drawPhaseMarkers(timestamp) {
   });
 }
 
+function drawGyroMarkers(timestamp) {
+  gyroBodies.forEach((targetAngle, body) => {
+    if (!Composite.get(world, body.id, 'body')) {
+      gyroBodies.delete(body);
+      return;
+    }
+
+    const halfW = (body.bounds.max.x - body.bounds.min.x) / 2;
+    const halfH = (body.bounds.max.y - body.bounds.min.y) / 2;
+    const radius = Math.max(23, Math.min(68, Math.hypot(halfW, halfH) + 10));
+    const pulse = 0.72 + Math.sin(timestamp / 95 + body.id) * 0.2;
+    ctx.save();
+    ctx.translate(body.position.x, body.position.y);
+    ctx.globalAlpha = pulse;
+    ctx.strokeStyle = '#c8ff3d';
+    ctx.fillStyle = '#ffd166';
+    ctx.shadowColor = '#c8ff3d';
+    ctx.shadowBlur = 14;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, -Math.PI * 0.82, -Math.PI * 0.18);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, Math.PI * 0.18, Math.PI * 0.82);
+    ctx.stroke();
+    ctx.rotate(targetAngle);
+    ctx.beginPath();
+    ctx.moveTo(-radius * 0.72, 0);
+    ctx.lineTo(radius * 0.72, 0);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, -6);
+    ctx.lineTo(7, 5);
+    ctx.lineTo(-7, 5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  });
+}
+
 function drawPunchFlash(timestamp) {
   if (!punchFlash) return;
   if (!Composite.get(world, punchFlash.body.id, 'body')) {
@@ -10155,6 +10340,7 @@ function loop(timestamp) {
     const timeScale = (timeWarpActive || sloMoActive) ? 0.2 : 1;
     applyFloatForces();
     applyThrusterForces();
+    applyGyroStabilizers();
     Engine.update(engine, (1000/60) * timeScale);
   }
 
@@ -10338,6 +10524,7 @@ function loop(timestamp) {
   drawBrakeFlash(timestamp);
   drawThrusterMarkers(timestamp);
   drawPhaseMarkers(timestamp);
+  drawGyroMarkers(timestamp);
   drawPunchFlash(timestamp);
   drawSwapMarker(timestamp);
   drawRelayMarker(timestamp);
