@@ -442,6 +442,18 @@ canvas#game {
 #gyro-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#charge-feedback {
+  position:absolute; top:592px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  opacity:0; pointer-events:none;
+  color:#ff4fd8; font-size:22px; letter-spacing:2px;
+  text-shadow:0 0 8px currentColor, 0 0 18px currentColor;
+  white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#charge-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -555,6 +567,7 @@ canvas#game {
   #thruster-feedback { top:14px; font-size:19px; }
   #phase-feedback { top:14px; font-size:19px; }
   #gyro-feedback { top:14px; font-size:19px; }
+  #charge-feedback { top:14px; font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -617,6 +630,7 @@ canvas#game {
     <div id="thruster-feedback" role="status" aria-live="polite"></div>
     <div id="phase-feedback" role="status" aria-live="polite"></div>
     <div id="gyro-feedback" role="status" aria-live="polite"></div>
+    <div id="charge-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -681,6 +695,7 @@ canvas#game {
     <button class="tool-btn" data-tool="thruster" style="color:#ff9f1c;" title="Tap a dynamic part to toggle continuous thrust along its facing direction" aria-label="Toggle a continuous body-facing thruster on a dynamic part"><span class="icon">🔥</span>Thrust</button>
     <button class="tool-btn" data-tool="phase" style="color:#d47cff;" title="Tap a dynamic part to toggle collision-free phasing through the scene" aria-label="Toggle collision-free phasing on a dynamic part"><span class="icon">👻</span>Phase</button>
     <button class="tool-btn" data-tool="gyro" style="color:#c8ff3d;" title="Tap a dynamic part to toggle self-leveling toward its nearest quarter-turn" aria-label="Toggle a self-leveling gyroscope on a dynamic part"><span class="icon">🧭</span>Gyro</button>
+    <button class="tool-btn" data-tool="charge" style="color:#ff4fd8;" title="Tap a dynamic part to cycle positive, negative, and neutral electric charge" aria-label="Cycle a dynamic part through positive, negative, and neutral electric charge"><span class="icon">±</span>Charge</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -941,6 +956,7 @@ let phaseBodies = new Map(); // body -> original collision filter while collisio
 let phaseFeedbackTimer = 0;
 let gyroBodies = new Map(); // body -> nearest quarter-turn target angle for persistent self-leveling
 let gyroFeedbackTimer = 0;
+let chargeFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -1632,6 +1648,14 @@ function resetGyroFeedback(silent = false) {
   feedback.textContent = '';
 }
 
+function resetChargeFeedback(silent = false) {
+  if (!silent) return;
+  clearTimeout(chargeFeedbackTimer);
+  const feedback = document.getElementById('charge-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -1698,6 +1722,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'thruster') resetThrusterFeedback(true);
       if (tool !== 'phase') resetPhaseFeedback(true);
       if (tool !== 'gyro') resetGyroFeedback(true);
+      if (tool !== 'charge') resetChargeFeedback(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -3143,6 +3168,7 @@ function finishClear(playFeedback = true) {
   resetPhaseFeedback(true);
   gyroBodies.clear();
   resetGyroFeedback(true);
+  resetChargeFeedback(true);
   flippers = [];
   nextFlipperSide = 'left';
   clearTimeout(flipperFeedbackTimer);
@@ -3350,7 +3376,8 @@ function getToolAccentColor(tool) {
     brake: '#ff5f57',
     thruster: '#ff9f1c',
     phase: '#d47cff',
-    gyro: '#c8ff3d'
+    gyro: '#c8ff3d',
+    charge: '#ff4fd8'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -3715,6 +3742,7 @@ function createBodyClone(source, position) {
   clone.isBalloon = Boolean(source.isBalloon);
   clone.isDuck = Boolean(source.isDuck);
   clone.isFloating = Boolean(source.isFloating);
+  if (source.electricCharge) clone.electricCharge = source.electricCharge;
   if (source.alchemyMode) clone.alchemyMode = source.alchemyMode;
   if (source.alchemyOriginal) clone.alchemyOriginal = { ...source.alchemyOriginal };
   return clone;
@@ -5481,6 +5509,123 @@ function applyGyroStabilizers() {
   });
 }
 
+const CHARGE_RANGE = 240;
+const CHARGE_MIN_DISTANCE = 16;
+
+function getChargePairForce(chargeA, chargeB, dx, dy, distance) {
+  if (!chargeA || !chargeB || !Number.isFinite(distance) || distance <= CHARGE_MIN_DISTANCE || distance >= CHARGE_RANGE) return null;
+  const falloff = 1 - distance / CHARGE_RANGE;
+  const strength = 0.0016 * falloff * falloff;
+  const direction = chargeA === chargeB ? -1 : 1;
+  return {
+    x:(dx / distance) * strength * direction,
+    y:(dy / distance) * strength * direction,
+    strength,
+    interaction:direction === 1 ? 'attract' : 'repel'
+  };
+}
+
+function getNextChargeState(charge = 0) {
+  if (charge === 1) return -1;
+  if (charge === -1) return 0;
+  return 1;
+}
+
+function isChargeableBody(body) {
+  return Boolean(body && body.label !== 'wall' && !body.isTarget && !body.isStatic && body.parent === body);
+}
+
+function findChargeableBodyAt(pos) {
+  const candidates = Composite.allBodies(world).filter(isChargeableBody);
+  const exactMatches = Matter.Query.point(candidates, pos).filter(isChargeableBody);
+  const chargedExact = exactMatches.find(body => body.electricCharge);
+  if (chargedExact) return chargedExact;
+  if (exactMatches.length) return exactMatches[exactMatches.length - 1];
+
+  let target = null;
+  let nearestDist = 46;
+  candidates.forEach(body => {
+    const distance = Math.hypot(body.position.x - pos.x, body.position.y - pos.y);
+    if (distance < nearestDist) {
+      target = body;
+      nearestDist = distance;
+    }
+  });
+  return target;
+}
+
+function showChargeFeedback(charge, message = '') {
+  const feedback = document.getElementById('charge-feedback');
+  const label = charge === 1 ? 'POSITIVE +' : charge === -1 ? 'NEGATIVE −' : 'NEUTRAL';
+  feedback.textContent = message || `CHARGE: ${label}`;
+  feedback.style.color = charge === 1 ? '#ff4fd8' : charge === -1 ? '#4de8ff' : '#aaaaaa';
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(chargeFeedbackTimer);
+  chargeFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 900);
+}
+
+function addChargeBurst(body, charge) {
+  const color = charge === 1 ? '#ff4fd8' : charge === -1 ? '#4de8ff' : '#aaaaaa';
+  for (let i = 0; i < 18; i++) {
+    const angle = Math.PI * 2 * i / 18;
+    const speed = (charge ? 2.2 : 1.1) + Math.random() * 2.4;
+    particles.push({
+      x:body.position.x,
+      y:body.position.y,
+      vx:Math.cos(angle) * speed,
+      vy:Math.sin(angle) * speed,
+      size:1.5 + Math.random() * 2.5,
+      life:0.3 + Math.random() * 0.3,
+      color:i % 4 === 0 ? '#ffffff' : color
+    });
+  }
+}
+
+function cycleChargeAt(pos) {
+  const target = findChargeableBodyAt(pos);
+  if (!target) {
+    showChargeFeedback(0, 'CHARGE: NO OBJECT');
+    haptic([3]);
+    return false;
+  }
+
+  const nextCharge = getNextChargeState(target.electricCharge || 0);
+  if (nextCharge) target.electricCharge = nextCharge;
+  else delete target.electricCharge;
+  Matter.Sleeping.set(target, false);
+  addChargeBurst(target, nextCharge);
+  showChargeFeedback(nextCharge);
+  playSound(nextCharge === 1 ? 920 : nextCharge === -1 ? 520 : 260, 0.1, 'square', 0.055);
+  playSound(nextCharge === 1 ? 1380 : nextCharge === -1 ? 780 : 390, 0.08, 'sine', 0.04);
+  haptic(nextCharge ? [5, 7, 5] : [9]);
+  shakeIntensity = Math.max(shakeIntensity, nextCharge ? 1.8 : 1);
+  return nextCharge;
+}
+
+function applyChargeForces() {
+  const charged = Composite.allBodies(world).filter(body => body.electricCharge === 1 || body.electricCharge === -1);
+  for (let i = 0; i < charged.length; i++) {
+    for (let j = i + 1; j < charged.length; j++) {
+      const bodyA = charged[i];
+      const bodyB = charged[j];
+      const dx = bodyB.position.x - bodyA.position.x;
+      const dy = bodyB.position.y - bodyA.position.y;
+      const force = getChargePairForce(bodyA.electricCharge, bodyB.electricCharge, dx, dy, Math.hypot(dx, dy));
+      if (!force) continue;
+      if (!bodyA.isStatic) {
+        Matter.Sleeping.set(bodyA, false);
+        Body.applyForce(bodyA, bodyA.position, { x:force.x, y:force.y });
+      }
+      if (!bodyB.isStatic) {
+        Matter.Sleeping.set(bodyB, false);
+        Body.applyForce(bodyB, bodyB.position, { x:-force.x, y:-force.y });
+      }
+    }
+  }
+}
+
 function getPunchImpulse(body, pos) {
   const halfWidth = Math.max(8, (body.bounds.max.x - body.bounds.min.x) / 2);
   const halfHeight = Math.max(8, (body.bounds.max.y - body.bounds.min.y) / 2);
@@ -6853,6 +6998,13 @@ function onDown(e) {
   // Gyro tool — toggle persistent self-leveling toward the nearest quarter-turn.
   if (currentTool === 'gyro') {
     toggleGyroAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Charge tool — cycle one dynamic part through positive, negative, and neutral polarity.
+  if (currentTool === 'charge') {
+    cycleChargeAt(pos);
     pointerDown = false;
     return;
   }
@@ -9070,6 +9222,69 @@ function drawGyroMarkers(timestamp) {
   });
 }
 
+function drawChargeMarkers(timestamp) {
+  const charged = Composite.allBodies(world).filter(body => body.electricCharge === 1 || body.electricCharge === -1);
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  for (let i = 0; i < charged.length; i++) {
+    for (let j = i + 1; j < charged.length; j++) {
+      const bodyA = charged[i];
+      const bodyB = charged[j];
+      const dx = bodyB.position.x - bodyA.position.x;
+      const dy = bodyB.position.y - bodyA.position.y;
+      const distance = Math.hypot(dx, dy);
+      const force = getChargePairForce(bodyA.electricCharge, bodyB.electricCharge, dx, dy, distance);
+      if (!force) continue;
+      const alpha = 0.18 + Math.min(0.42, force.strength * 130);
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = force.interaction === 'attract' ? '#b8ff5a' : '#ff8a5b';
+      ctx.shadowColor = ctx.strokeStyle;
+      ctx.shadowBlur = 8;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash(force.interaction === 'attract' ? [7, 5] : [2, 7]);
+      ctx.lineDashOffset = -(timestamp / 45) % 12;
+      ctx.beginPath();
+      ctx.moveTo(bodyA.position.x, bodyA.position.y);
+      ctx.lineTo(bodyB.position.x, bodyB.position.y);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+
+  charged.forEach(body => {
+    const halfW = (body.bounds.max.x - body.bounds.min.x) / 2;
+    const halfH = (body.bounds.max.y - body.bounds.min.y) / 2;
+    const radius = Math.max(22, Math.min(66, Math.hypot(halfW, halfH) + 8));
+    const positive = body.electricCharge === 1;
+    const color = positive ? '#ff4fd8' : '#4de8ff';
+    const pulse = 0.72 + Math.sin(timestamp / 85 + body.id) * 0.2;
+    ctx.save();
+    ctx.translate(body.position.x, body.position.y);
+    ctx.globalAlpha = pulse;
+    ctx.strokeStyle = color;
+    ctx.fillStyle = '#080c10';
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 14;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 5]);
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, timestamp / 700, timestamp / 700 + Math.PI * 1.45);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.arc(0, -radius - 8, 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.font = 'bold 19px VT323';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(positive ? '+' : '−', 0, -radius - 7);
+    ctx.restore();
+  });
+}
+
 function drawPunchFlash(timestamp) {
   if (!punchFlash) return;
   if (!Composite.get(world, punchFlash.body.id, 'body')) {
@@ -10341,6 +10556,7 @@ function loop(timestamp) {
     applyFloatForces();
     applyThrusterForces();
     applyGyroStabilizers();
+    applyChargeForces();
     Engine.update(engine, (1000/60) * timeScale);
   }
 
@@ -10525,6 +10741,7 @@ function loop(timestamp) {
   drawThrusterMarkers(timestamp);
   drawPhaseMarkers(timestamp);
   drawGyroMarkers(timestamp);
+  drawChargeMarkers(timestamp);
   drawPunchFlash(timestamp);
   drawSwapMarker(timestamp);
   drawRelayMarker(timestamp);

@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-09-13",
+      "ideas": [
+        "New tool: Cycle pairwise positive, negative, and neutral charge on dynamic parts"
+      ],
+      "summary": "Implemented Charge tool (±) — the final button in the existing object toolbar now cycles one tapped dynamic part through positive, negative, and neutral polarity; opposite charges attract, matching charges repel, and neutral parts stop participating while positions, shapes, object count, collisions, and connections remain intact. A 240px range with squared falloff, 46px touch targeting, persistent magenta/cyan polarity badges, animated attraction/repulsion field lines, status/particle/audio/haptic feedback, clone/fission preservation, and Eraser/Fusion/Clear cleanup make charged clusters readable and reliable on desktop and mobile."
+    },
+    {
       "date": "2026-09-12",
       "ideas": [
         "New tool: Toggle persistent self-leveling on one dynamic part"

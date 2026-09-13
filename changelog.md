@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-09-13T14:13:34Z — Added: Charge tool
+**Why:** The toolbar could place one fixed Magnet that attracts or repels everything nearby, but it had no way to give ordinary moving parts pairwise polarity. Charge adds body-to-body attraction and repulsion without spawning, replacing, anchoring, disconnecting, or directly repositioning the targets.
+**Goal alignment:** "more fun, more surprising, more satisfying" — opposite charges snap contraptions together, matching charges scatter them apart, and cycling either object back to neutral lets players switch the interaction off mid-motion.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (420/420 passing); browser smoke ✓ (existing Block tool placed two zero-gravity subjects, final Charge button pulled opposite charges from 120px apart to 46px, matching positive charges pushed from 120px to 143px, and cycling positive → negative → neutral removed the first body's charge); mobile ✓ (390×844, final Charge button fully reachable at 52×50px and x=330–382, existing Ball tool placed a subject, and Charge applied a visible positive marker/status while preserving OBJ 1); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-09-12T14:10:47Z — Added: Gyro tool
 **Why:** The toolbar could rotate, stop, anchor, motorize, float, thrust, or phase one object, but it had no way to keep a moving part level while collisions and translation continued. Gyro adds a persistent orientation controller without moving, anchoring, replacing, spawning, or disconnecting the target.
 **Goal alignment:** "more fun, more surprising, more satisfying" — blocks become self-righting platforms, airborne props recover after impacts, and connected contraptions can stay level while the rest of the build swings and tumbles.

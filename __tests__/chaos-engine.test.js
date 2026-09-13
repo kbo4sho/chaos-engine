@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 59 tool buttons', () => {
+  it('should have exactly 60 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(59);
+    expect(buttons.length).toBe(60);
   });
 
-  it('should append Gyro after Phase at the end of the object toolbar', () => {
+  it('should append Charge after Gyro at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('gyro');
-    expect(toolbar.lastElementChild?.textContent).toContain('Gyro');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('phase');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('thruster');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('charge');
+    expect(toolbar.lastElementChild?.textContent).toContain('Charge');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('gyro');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('phase');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,15 +67,91 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// CHARGE TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Charge Tool', () => {
+  it('should expose Charge as the final selectable toolbar tool', () => {
+    const chargeBtn = document.querySelector('[data-tool="charge"]');
+    expect(chargeBtn).not.toBeNull();
+    expect(chargeBtn?.getAttribute('aria-label')).toContain('positive, negative, and neutral');
+    expect(document.getElementById('toolbar')?.lastElementChild).toBe(chargeBtn);
+    expect(chargeBtn?.previousElementSibling?.dataset.tool).toBe('gyro');
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'charge'");
+    expect(scriptContent).toContain('cycleChargeAt(pos)');
+  });
+
+  it('should cycle positive, negative, and neutral charge', () => {
+    const source = scriptContent.match(/function getNextChargeState\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getNextChargeState = new Function(`${source}; return getNextChargeState;`)();
+
+    expect(getNextChargeState()).toBe(1);
+    expect(getNextChargeState(1)).toBe(-1);
+    expect(getNextChargeState(-1)).toBe(0);
+    expect(getNextChargeState(0)).toBe(1);
+  });
+
+  it('should attract opposite charges, repel equal charges, and fade with distance', () => {
+    const source = scriptContent.match(/function getChargePairForce\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getChargePairForce = new Function(`const CHARGE_MIN_DISTANCE = 16; const CHARGE_RANGE = 240; ${source}; return getChargePairForce;`)();
+
+    const attract = getChargePairForce(1, -1, 100, 0, 100);
+    const repel = getChargePairForce(1, 1, 100, 0, 100);
+    expect(attract).toMatchObject({ interaction:'attract' });
+    expect(attract?.x).toBeGreaterThan(0);
+    expect(repel).toMatchObject({ interaction:'repel' });
+    expect(repel?.x).toBeLessThan(0);
+    expect(getChargePairForce(-1, -1, 0, 100, 100)?.y).toBeLessThan(0);
+    expect(getChargePairForce(1, -1, 60, 0, 60)?.strength).toBeGreaterThan(attract?.strength);
+    expect(getChargePairForce(1, -1, 240, 0, 240)).toBeNull();
+    expect(getChargePairForce(0, -1, 100, 0, 100)).toBeNull();
+  });
+
+  it('should target one touch-friendly dynamic part and store charge on the body', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('function isChargeableBody(body)'),
+      scriptContent.indexOf('function applyChargeForces()')
+    );
+    expect(source).toContain("body.label !== 'wall'");
+    expect(source).toContain('!body.isTarget && !body.isStatic');
+    expect(source).toContain('Matter.Query.point(candidates, pos)');
+    expect(source).toContain('let nearestDist = 46');
+    expect(source).toContain('target.electricCharge = nextCharge');
+    expect(source).toContain('delete target.electricCharge');
+    expect(source).not.toContain('Body.setPosition(target');
+    expect(source).not.toContain('Composite.add(world');
+    expect(source).not.toContain('Composite.remove(world');
+  });
+
+  it('should apply balanced pair forces, render polarity, and reset feedback cleanly', () => {
+    expect(document.getElementById('charge-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('function applyChargeForces()');
+    expect(scriptContent).toContain('Body.applyForce(bodyA, bodyA.position, { x:force.x, y:force.y })');
+    expect(scriptContent).toContain('Body.applyForce(bodyB, bodyB.position, { x:-force.x, y:-force.y })');
+    expect(scriptContent).toMatch(/applyChargeForces\(\);[\s\S]*Engine\.update\(engine/);
+    expect(scriptContent).toContain('function drawChargeMarkers(timestamp)');
+    expect(scriptContent).toContain('drawChargeMarkers(timestamp)');
+    expect(scriptContent).toContain("fillText(positive ? '+' : '−'");
+    expect(scriptContent).toContain("if (tool !== 'charge') resetChargeFeedback(true)");
+    expect(scriptContent.match(/resetChargeFeedback\(true\)/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(scriptContent).toContain('if (source.electricCharge) clone.electricCharge = source.electricCharge');
+    expect(scriptContent).toContain("charge: '#ff4fd8'");
+  });
+});
+
+// ============================================
 // GYRO TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Gyro Tool', () => {
-  it('should expose Gyro as the final selectable toolbar tool', () => {
+  it('should keep Gyro selectable immediately before Charge', () => {
     const gyroBtn = document.querySelector('[data-tool="gyro"]');
     expect(gyroBtn).not.toBeNull();
     expect(gyroBtn?.getAttribute('aria-label')).toContain('self-leveling gyroscope');
-    expect(document.getElementById('toolbar')?.lastElementChild).toBe(gyroBtn);
+    expect(gyroBtn?.nextElementSibling?.dataset.tool).toBe('charge');
     expect(gyroBtn?.previousElementSibling?.dataset.tool).toBe('phase');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'gyro'");
