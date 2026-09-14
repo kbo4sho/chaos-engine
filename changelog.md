@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-09-14T14:11:10Z — Added: Twist tool
+**Why:** The toolbar could snap an object's orientation with Rotate, drive it continuously with Motor, or self-level it with Gyro, but it had no way to inject a single controlled burst of spin while leaving translation untouched. Twist adds a one-shot angular transform without moving, replacing, anchoring, connecting, or changing the linear motion of the target.
+**Goal alignment:** "more fun, more surprising, more satisfying" — players can spin up balls and parts mid-flight, reverse an existing rotation, or kick contraptions at exactly the right moment; reselecting the tool switches between clockwise and counter-clockwise play.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (426/426 passing); browser smoke ✓ (existing Block placed a paused subject, final Twist button raised angular velocity from 0.10 to 0.42 and then the capped 0.60 clockwise, reselection switched to counter-clockwise and reduced it to 0.28, while position and linear velocity +3/−2 stayed unchanged and the torque ring/arrow rendered visibly); mobile ✓ (390×844, existing Ball placed one subject, final Twist button was fully reachable at 52×50px and x=330–382, and a real canvas tap changed angular velocity from 0 to 0.32 without moving the ball); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-09-13T14:13:34Z — Added: Charge tool
 **Why:** The toolbar could place one fixed Magnet that attracts or repels everything nearby, but it had no way to give ordinary moving parts pairwise polarity. Charge adds body-to-body attraction and repulsion without spawning, replacing, anchoring, disconnecting, or directly repositioning the targets.
 **Goal alignment:** "more fun, more surprising, more satisfying" — opposite charges snap contraptions together, matching charges scatter them apart, and cycling either object back to neutral lets players switch the interaction off mid-motion.

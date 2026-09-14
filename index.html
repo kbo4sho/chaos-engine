@@ -454,6 +454,18 @@ canvas#game {
 #charge-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#twist-feedback {
+  position:absolute; top:626px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  opacity:0; pointer-events:none;
+  color:#ffcf40; font-size:22px; letter-spacing:2px;
+  text-shadow:0 0 8px currentColor, 0 0 18px currentColor;
+  white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#twist-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -568,6 +580,7 @@ canvas#game {
   #phase-feedback { top:14px; font-size:19px; }
   #gyro-feedback { top:14px; font-size:19px; }
   #charge-feedback { top:14px; font-size:19px; }
+  #twist-feedback { top:14px; font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -631,6 +644,7 @@ canvas#game {
     <div id="phase-feedback" role="status" aria-live="polite"></div>
     <div id="gyro-feedback" role="status" aria-live="polite"></div>
     <div id="charge-feedback" role="status" aria-live="polite"></div>
+    <div id="twist-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -696,6 +710,7 @@ canvas#game {
     <button class="tool-btn" data-tool="phase" style="color:#d47cff;" title="Tap a dynamic part to toggle collision-free phasing through the scene" aria-label="Toggle collision-free phasing on a dynamic part"><span class="icon">👻</span>Phase</button>
     <button class="tool-btn" data-tool="gyro" style="color:#c8ff3d;" title="Tap a dynamic part to toggle self-leveling toward its nearest quarter-turn" aria-label="Toggle a self-leveling gyroscope on a dynamic part"><span class="icon">🧭</span>Gyro</button>
     <button class="tool-btn" data-tool="charge" style="color:#ff4fd8;" title="Tap a dynamic part to cycle positive, negative, and neutral electric charge" aria-label="Cycle a dynamic part through positive, negative, and neutral electric charge"><span class="icon">±</span>Charge</button>
+    <button class="tool-btn" data-tool="twist" style="color:#ffcf40;" title="Tap a dynamic part to kick it clockwise; tap this button again for counter-clockwise" aria-label="Twist a dynamic part clockwise with a one-shot angular kick"><span class="icon twist-icon">↻</span><span class="twist-label">TWIST CW</span></button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -957,6 +972,9 @@ let phaseFeedbackTimer = 0;
 let gyroBodies = new Map(); // body -> nearest quarter-turn target angle for persistent self-leveling
 let gyroFeedbackTimer = 0;
 let chargeFeedbackTimer = 0;
+let twistDirection = 1; // 1 clockwise, -1 counter-clockwise
+let twistFlash = null; // {body, direction, startedAt} transient angular-kick feedback
+let twistFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -1656,6 +1674,28 @@ function resetChargeFeedback(silent = false) {
   feedback.textContent = '';
 }
 
+function updateTwistButton() {
+  const btn = document.querySelector('[data-tool="twist"]');
+  if (!btn) return;
+  const clockwise = twistDirection === 1;
+  btn.querySelector('.twist-icon').textContent = clockwise ? '↻' : '↺';
+  btn.querySelector('.twist-label').textContent = clockwise ? 'TWIST CW' : 'TWIST CCW';
+  btn.style.color = clockwise ? '#ffcf40' : '#59e3ff';
+  btn.title = `Tap a dynamic part to kick it ${clockwise ? 'clockwise' : 'counter-clockwise'}; tap this button again to reverse direction`;
+  btn.setAttribute('aria-label', `Twist a dynamic part ${clockwise ? 'clockwise' : 'counter-clockwise'} with a one-shot angular kick`);
+}
+
+function resetTwistTool(silent = false) {
+  twistDirection = 1;
+  twistFlash = null;
+  updateTwistButton();
+  if (!silent) return;
+  clearTimeout(twistFeedbackTimer);
+  const feedback = document.getElementById('twist-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -1684,6 +1724,13 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       swirlDirection *= -1;
       updateSwirlButton();
       playSound(swirlDirection === 1 ? 760 : 440, 0.08, 'square', 0.06);
+      haptic([6]);
+      return;
+    }
+    if (tool === 'twist' && currentTool === 'twist' && btn.classList.contains('active')) {
+      twistDirection *= -1;
+      updateTwistButton();
+      playSound(twistDirection === 1 ? 760 : 440, 0.08, 'square', 0.06);
       haptic([6]);
       return;
     }
@@ -1723,6 +1770,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'phase') resetPhaseFeedback(true);
       if (tool !== 'gyro') resetGyroFeedback(true);
       if (tool !== 'charge') resetChargeFeedback(true);
+      if (tool !== 'twist') resetTwistTool(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -1738,6 +1786,10 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool === 'swirl') {
         swirlDirection = 1;
         updateSwirlButton();
+      }
+      if (tool === 'twist') {
+        twistDirection = 1;
+        updateTwistButton();
       }
     }
     playSound(1000, 0.05, 'square', 0.05);
@@ -3169,6 +3221,7 @@ function finishClear(playFeedback = true) {
   gyroBodies.clear();
   resetGyroFeedback(true);
   resetChargeFeedback(true);
+  resetTwistTool(true);
   flippers = [];
   nextFlipperSide = 'left';
   clearTimeout(flipperFeedbackTimer);
@@ -3377,7 +3430,8 @@ function getToolAccentColor(tool) {
     thruster: '#ff9f1c',
     phase: '#d47cff',
     gyro: '#c8ff3d',
-    charge: '#ff4fd8'
+    charge: '#ff4fd8',
+    twist: '#ffcf40'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -3513,6 +3567,7 @@ function eraseBodyAt(pos) {
   pivots = pivots.filter(pivot => !constraintsToRemove.has(pivot.constraint));
   if (reverseFlash && removedBodyIds.has(reverseFlash.body.id)) reverseFlash = null;
   if (punchFlash && removedBodyIds.has(punchFlash.body.id)) punchFlash = null;
+  if (twistFlash && removedBodyIds.has(twistFlash.body.id)) twistFlash = null;
   if (ropeFirstBody && removedBodyIds.has(ropeFirstBody.id)) ropeFirstBody = null;
   if (grabBody && removedBodyIds.has(grabBody.id)) {
     grabActive = false;
@@ -3926,6 +3981,7 @@ function fissionBodyAt(pos) {
   thrusterBodies.delete(source);
   phaseBodies.delete(source);
   gyroBodies.delete(source);
+  if (twistFlash?.body === source) twistFlash = null;
   megaBounceOriginal.delete(source);
   if (sourceMegaBounceRestitution !== undefined) {
     halves.forEach(half => megaBounceOriginal.set(half, sourceMegaBounceRestitution));
@@ -5626,6 +5682,90 @@ function applyChargeForces() {
   }
 }
 
+const TWIST_KICK = 0.32;
+const TWIST_MAX_SPEED = 0.6;
+
+function getTwistedAngularVelocity(currentVelocity = 0, direction = 1) {
+  const current = Number.isFinite(currentVelocity) ? currentVelocity : 0;
+  const turn = direction === -1 ? -1 : 1;
+  return Math.max(-TWIST_MAX_SPEED, Math.min(TWIST_MAX_SPEED, current + turn * TWIST_KICK));
+}
+
+function isTwistableBody(body) {
+  return Boolean(body && body.label !== 'wall' && !body.isTarget && !body.isStatic && body.parent === body);
+}
+
+function findTwistableBodyAt(pos) {
+  const candidates = Composite.allBodies(world).filter(isTwistableBody);
+  const exactMatches = Matter.Query.point(candidates, pos).filter(isTwistableBody);
+  if (exactMatches.length) return exactMatches[exactMatches.length - 1];
+
+  let target = null;
+  let nearestDist = 46;
+  candidates.forEach(body => {
+    const distance = Math.hypot(body.position.x - pos.x, body.position.y - pos.y);
+    if (distance < nearestDist) {
+      target = body;
+      nearestDist = distance;
+    }
+  });
+  return target;
+}
+
+function showTwistFeedback(message, direction = twistDirection) {
+  const feedback = document.getElementById('twist-feedback');
+  feedback.textContent = message;
+  feedback.style.color = direction === 1 ? '#ffcf40' : '#59e3ff';
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(twistFeedbackTimer);
+  twistFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 850);
+}
+
+function addTwistBurst(body, direction) {
+  const color = direction === 1 ? '#ffcf40' : '#59e3ff';
+  const radius = Math.max(18, Math.min(52, Math.hypot(
+    body.bounds.max.x - body.bounds.min.x,
+    body.bounds.max.y - body.bounds.min.y
+  ) / 2));
+  for (let i = 0; i < 18; i++) {
+    const angle = Math.PI * 2 * i / 18;
+    const tangent = angle + direction * Math.PI / 2;
+    const speed = 2.2 + Math.random() * 2.6;
+    particles.push({
+      x:body.position.x + Math.cos(angle) * radius,
+      y:body.position.y + Math.sin(angle) * radius,
+      vx:Math.cos(tangent) * speed,
+      vy:Math.sin(tangent) * speed,
+      size:1.5 + Math.random() * 2.8,
+      life:0.28 + Math.random() * 0.3,
+      color:i % 4 === 0 ? '#ffffff' : color
+    });
+  }
+}
+
+function twistBodyAt(pos) {
+  const target = findTwistableBodyAt(pos);
+  if (!target) {
+    showTwistFeedback('TWIST: NO OBJECT');
+    haptic([3]);
+    return false;
+  }
+
+  const nextVelocity = getTwistedAngularVelocity(target.angularVelocity, twistDirection);
+  Body.setAngularVelocity(target, nextVelocity);
+  Matter.Sleeping.set(target, false);
+  twistFlash = { body:target, direction:twistDirection, startedAt:performance.now() };
+  addTwistBurst(target, twistDirection);
+  showTwistFeedback(`TWIST ${twistDirection === 1 ? 'CLOCKWISE ↻' : 'COUNTER-CLOCKWISE ↺'}`);
+  playSound(twistDirection === 1 ? 760 : 520, 0.09, 'square', 0.07);
+  playSound(twistDirection === 1 ? 1140 : 780, 0.07, 'sine', 0.045);
+  haptic([6, 8, 10]);
+  shakeIntensity = Math.max(shakeIntensity, 2);
+  return nextVelocity;
+}
+
 function getPunchImpulse(body, pos) {
   const halfWidth = Math.max(8, (body.bounds.max.x - body.bounds.min.x) / 2);
   const halfHeight = Math.max(8, (body.bounds.max.y - body.bounds.min.y) / 2);
@@ -7005,6 +7145,13 @@ function onDown(e) {
   // Charge tool — cycle one dynamic part through positive, negative, and neutral polarity.
   if (currentTool === 'charge') {
     cycleChargeAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Twist tool — give one dynamic part a capped one-shot angular kick.
+  if (currentTool === 'twist') {
+    twistBodyAt(pos);
     pointerDown = false;
     return;
   }
@@ -9285,6 +9432,61 @@ function drawChargeMarkers(timestamp) {
   });
 }
 
+function drawTwistFlash(timestamp) {
+  if (!twistFlash) return;
+  const { body, direction, startedAt } = twistFlash;
+  if (!Composite.get(world, body.id, 'body')) {
+    twistFlash = null;
+    return;
+  }
+
+  const progress = Math.max(0, (timestamp - startedAt) / 680);
+  if (progress >= 1) {
+    twistFlash = null;
+    return;
+  }
+
+  const halfW = (body.bounds.max.x - body.bounds.min.x) / 2;
+  const halfH = (body.bounds.max.y - body.bounds.min.y) / 2;
+  const radius = Math.max(28, Math.min(70, Math.hypot(halfW, halfH) + 14 + progress * 10));
+  const alpha = 1 - progress;
+  const color = direction === 1 ? '#ffcf40' : '#59e3ff';
+  const start = -Math.PI * 0.8 + direction * progress * Math.PI * 1.4;
+  const end = start + direction * Math.PI * 1.35;
+
+  ctx.save();
+  ctx.translate(body.position.x, body.position.y);
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 18;
+  ctx.lineWidth = 3.5 - progress * 1.5;
+  ctx.setLineDash([8, 4]);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius, start, end, direction < 0);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.save();
+  ctx.translate(Math.cos(end) * radius, Math.sin(end) * radius);
+  ctx.rotate(end + direction * Math.PI / 2);
+  ctx.beginPath();
+  ctx.moveTo(9, 0);
+  ctx.lineTo(-5, -6);
+  ctx.lineTo(-5, 6);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  ctx.globalAlpha = alpha * 0.9;
+  ctx.font = 'bold 22px VT323';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(direction === 1 ? '↻' : '↺', 0, 1);
+  ctx.restore();
+}
+
 function drawPunchFlash(timestamp) {
   if (!punchFlash) return;
   if (!Composite.get(world, punchFlash.body.id, 'body')) {
@@ -10742,6 +10944,7 @@ function loop(timestamp) {
   drawPhaseMarkers(timestamp);
   drawGyroMarkers(timestamp);
   drawChargeMarkers(timestamp);
+  drawTwistFlash(timestamp);
   drawPunchFlash(timestamp);
   drawSwapMarker(timestamp);
   drawRelayMarker(timestamp);

@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 60 tool buttons', () => {
+  it('should have exactly 61 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(60);
+    expect(buttons.length).toBe(61);
   });
 
-  it('should append Charge after Gyro at the end of the object toolbar', () => {
+  it('should append Twist after Charge at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('charge');
-    expect(toolbar.lastElementChild?.textContent).toContain('Charge');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('gyro');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('phase');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('twist');
+    expect(toolbar.lastElementChild?.textContent).toContain('TWIST CW');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('charge');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('gyro');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,15 +67,80 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// TWIST TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Twist Tool', () => {
+  it('should expose Twist as the final selectable toolbar tool', () => {
+    const twistBtn = document.querySelector('[data-tool="twist"]');
+    expect(twistBtn).not.toBeNull();
+    expect(twistBtn?.getAttribute('aria-label')).toContain('one-shot angular kick');
+    expect(document.getElementById('toolbar')?.lastElementChild).toBe(twistBtn);
+    expect(twistBtn?.previousElementSibling?.dataset.tool).toBe('charge');
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'twist'");
+    expect(scriptContent).toContain('twistBodyAt(pos)');
+  });
+
+  it('should add a directional angular kick and clamp runaway spin', () => {
+    const source = scriptContent.match(/function getTwistedAngularVelocity\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getTwistedAngularVelocity = new Function(`const TWIST_KICK = 0.32; const TWIST_MAX_SPEED = 0.6; ${source}; return getTwistedAngularVelocity;`)();
+
+    expect(getTwistedAngularVelocity(0, 1)).toBeCloseTo(0.32);
+    expect(getTwistedAngularVelocity(0, -1)).toBeCloseTo(-0.32);
+    expect(getTwistedAngularVelocity(0.2, -1)).toBeCloseTo(-0.12);
+    expect(getTwistedAngularVelocity(0.5, 1)).toBe(0.6);
+    expect(getTwistedAngularVelocity(-0.5, -1)).toBe(-0.6);
+    expect(getTwistedAngularVelocity(Number.NaN, 1)).toBeCloseTo(0.32);
+  });
+
+  it('should reverse direction when the selected Twist button is reselected', () => {
+    expect(scriptContent).toContain("tool === 'twist' && currentTool === 'twist'");
+    expect(scriptContent).toContain('twistDirection *= -1');
+    expect(scriptContent).toContain("btn.querySelector('.twist-label').textContent = clockwise ? 'TWIST CW' : 'TWIST CCW'");
+    expect(scriptContent).toContain("if (tool === 'twist')");
+    expect(scriptContent).toContain('twistDirection = 1');
+  });
+
+  it('should target one touch-friendly dynamic part without translating it', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('function isTwistableBody(body)'),
+      scriptContent.indexOf('function getPunchImpulse')
+    );
+    expect(source).toContain("body.label !== 'wall'");
+    expect(source).toContain('!body.isTarget && !body.isStatic');
+    expect(source).toContain('Matter.Query.point(candidates, pos)');
+    expect(source).toContain('let nearestDist = 46');
+    expect(source).toContain('Body.setAngularVelocity(target, nextVelocity)');
+    expect(source).toContain('getTwistedAngularVelocity(target.angularVelocity, twistDirection)');
+    expect(source).not.toContain('Body.setPosition(target');
+    expect(source).not.toContain('Body.setVelocity(target');
+    expect(source).not.toContain('Composite.add(world');
+    expect(source).not.toContain('Composite.remove(world');
+  });
+
+  it('should render feedback and reset transient state cleanly', () => {
+    expect(document.getElementById('twist-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('twistFlash = { body:target, direction:twistDirection, startedAt:performance.now() }');
+    expect(scriptContent).toContain('function drawTwistFlash(timestamp)');
+    expect(scriptContent).toContain('drawTwistFlash(timestamp)');
+    expect(scriptContent).toContain("if (tool !== 'twist') resetTwistTool(true)");
+    expect(scriptContent.match(/resetTwistTool\(true\)/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(scriptContent).toContain("twist: '#ffcf40'");
+  });
+});
+
+// ============================================
 // CHARGE TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Charge Tool', () => {
-  it('should expose Charge as the final selectable toolbar tool', () => {
+  it('should keep Charge selectable immediately before Twist', () => {
     const chargeBtn = document.querySelector('[data-tool="charge"]');
     expect(chargeBtn).not.toBeNull();
     expect(chargeBtn?.getAttribute('aria-label')).toContain('positive, negative, and neutral');
-    expect(document.getElementById('toolbar')?.lastElementChild).toBe(chargeBtn);
+    expect(chargeBtn?.nextElementSibling?.dataset.tool).toBe('twist');
     expect(chargeBtn?.previousElementSibling?.dataset.tool).toBe('gyro');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'charge'");

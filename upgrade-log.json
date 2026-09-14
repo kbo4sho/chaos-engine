@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-09-14",
+      "ideas": [
+        "New tool: Give one dynamic part a capped clockwise or counter-clockwise one-shot angular kick"
+      ],
+      "summary": "Implemented Twist tool (↻/↺) — the final button in the existing object toolbar now gives one tapped dynamic part a capped one-shot angular kick while preserving its position and linear velocity; reselecting the active tool reverses between clockwise and counter-clockwise, 46px touch targeting keeps small parts practical, and a neon torque ring, tangential particles, status/audio/haptic feedback, plus Eraser/Fission/Clear/tool-change cleanup make precisely timed spins readable and reliable on desktop and mobile."
+    },
+    {
       "date": "2026-09-13",
       "ideas": [
         "New tool: Cycle pairwise positive, negative, and neutral charge on dynamic parts"
