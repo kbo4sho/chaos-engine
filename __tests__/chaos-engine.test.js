@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 61 tool buttons', () => {
+  it('should have exactly 62 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(61);
+    expect(buttons.length).toBe(62);
   });
 
-  it('should append Twist after Charge at the end of the object toolbar', () => {
+  it('should append Lift after Twist at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('twist');
-    expect(toolbar.lastElementChild?.textContent).toContain('TWIST CW');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('charge');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('gyro');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('lift');
+    expect(toolbar.lastElementChild?.textContent).toContain('Lift');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('twist');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('charge');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -71,11 +71,11 @@ describe('Tool Button Existence', () => {
 // ============================================
 
 describe('Twist Tool', () => {
-  it('should expose Twist as the final selectable toolbar tool', () => {
+  it('should keep Twist selectable immediately before Lift', () => {
     const twistBtn = document.querySelector('[data-tool="twist"]');
     expect(twistBtn).not.toBeNull();
     expect(twistBtn?.getAttribute('aria-label')).toContain('one-shot angular kick');
-    expect(document.getElementById('toolbar')?.lastElementChild).toBe(twistBtn);
+    expect(twistBtn?.nextElementSibling?.dataset.tool).toBe('lift');
     expect(twistBtn?.previousElementSibling?.dataset.tool).toBe('charge');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'twist'");
@@ -128,6 +128,77 @@ describe('Twist Tool', () => {
     expect(scriptContent).toContain("if (tool !== 'twist') resetTwistTool(true)");
     expect(scriptContent.match(/resetTwistTool\(true\)/g)?.length).toBeGreaterThanOrEqual(2);
     expect(scriptContent).toContain("twist: '#ffcf40'");
+  });
+});
+
+// ============================================
+// LIFT TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Lift Tool', () => {
+  it('should expose Lift as the final selectable toolbar tool', () => {
+    const liftBtn = document.querySelector('[data-tool="lift"]');
+    expect(liftBtn).not.toBeNull();
+    expect(liftBtn?.getAttribute('aria-label')).toContain('inverted local gravity');
+    expect(document.getElementById('toolbar')?.lastElementChild).toBe(liftBtn);
+    expect(liftBtn?.previousElementSibling?.dataset.tool).toBe('twist');
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'lift'");
+    expect(scriptContent).toContain('toggleLiftAt(pos)');
+  });
+
+  it('should calculate a mass-scaled force that inverts the current scene gravity', () => {
+    const source = scriptContent.match(/function getLiftForce\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getLiftForce = new Function(`${source}; return getLiftForce;`)();
+
+    expect(getLiftForce({ mass:2 }, { x:0, y:1 }, 0.001)).toEqual({ x:-0, y:-0.004 });
+    expect(getLiftForce({ mass:4 }, { x:-1, y:0 }, 0.001)).toEqual({ x:0.008, y:-0 });
+    expect(getLiftForce({ mass:3 }, { x:0, y:-0.5 }, 0.002)).toEqual({ x:-0, y:0.006 });
+    expect(getLiftForce({ mass:Number.POSITIVE_INFINITY }, { x:0, y:1 }, 0.001)).toEqual({ x:-0, y:-0 });
+  });
+
+  it('should toggle one touch-friendly dynamic part without moving or replacing it', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('function isLiftableBody(body)'),
+      scriptContent.indexOf('function getPunchImpulse')
+    );
+    expect(source).toContain("body.label !== 'wall'");
+    expect(source).toContain('!body.isTarget && !body.isStatic');
+    expect(source).toContain('Matter.Query.point(candidates, pos)');
+    expect(source).toContain('let nearestDist = 46');
+    expect(source).toContain('liftedBodies.add(target)');
+    expect(source).toContain('liftedBodies.delete(target)');
+    expect(source).toContain('target.isLifted = true');
+    expect(source).not.toContain('Body.setPosition(target');
+    expect(source).not.toContain('Body.setVelocity(target');
+    expect(source).not.toContain('Composite.add(world');
+    expect(source).not.toContain('Composite.remove(world');
+  });
+
+  it('should remain connected, supersede Float, and apply persistent counter-gravity', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('function isLiftableBody(body)'),
+      scriptContent.indexOf('function getPunchImpulse')
+    );
+    expect(source).not.toContain('Composite.allConstraints(world).some');
+    expect(source).toContain('target.isFloating = false');
+    expect(scriptContent).toContain('if (target.isFloating && liftedBodies.has(target))');
+    expect(scriptContent).toContain('function applyLiftForces()');
+    expect(scriptContent).toContain('Body.applyForce(body, body.position, getLiftForce(body, engine.gravity, engine.gravity.scale))');
+    expect(scriptContent).toMatch(/applyLiftForces\(\);[\s\S]*Engine\.update\(engine/);
+  });
+
+  it('should render gravity-aware feedback and clean tracked state', () => {
+    expect(document.getElementById('lift-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain("showLiftFeedback(enabled)");
+    expect(scriptContent).toContain('function drawLiftMarkers(timestamp)');
+    expect(scriptContent).toContain('const liftAngle = gravityMagnitude > 0.001 ? Math.atan2(-gy, -gx) : -Math.PI / 2');
+    expect(scriptContent).toContain('drawLiftMarkers(timestamp)');
+    expect(scriptContent).toContain("if (tool !== 'lift') resetLiftFeedback(true)");
+    expect(scriptContent).toContain('liftedBodies.clear()');
+    expect(scriptContent.match(/liftedBodies\.delete\(/g)?.length).toBeGreaterThanOrEqual(6);
+    expect(scriptContent).toContain("lift: '#9d7cff'");
   });
 });
 

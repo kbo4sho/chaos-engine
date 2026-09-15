@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-09-15T14:11:58Z — Added: Lift tool
+**Why:** The toolbar could cancel gravity on one standalone object with Float or flip gravity for the entire scene with a chaos action, but it had no way to make one connected or standalone moving part continuously fall opposite the current scene gravity. Lift adds a reversible local gravity transform without moving, replacing, spawning, anchoring, or disconnecting its target.
+**Goal alignment:** "more fun, more surprising, more satisfying" — ordinary props can rise through falling crowds, connected builds can pull against themselves, and changing the planet or gravity direction immediately changes where lifted parts travel.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (432/432 passing); browser smoke ✓ (existing Block and Ball tools placed subjects, final Lift button toggled inverted local gravity with persistent violet/cyan `−G` feedback, and a desktop Ball moved from y=650 to y=631.7 with velocity y=−3.04 while retaining horizontal motion and spin); mobile ✓ (390×844, final Lift button was fully reachable at 52×50px and x=330–382, and a real lifted Ball moved from y=300 to y=284.8 with velocity y=−2.77 while OBJ remained 1); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-09-14T14:11:10Z — Added: Twist tool
 **Why:** The toolbar could snap an object's orientation with Rotate, drive it continuously with Motor, or self-level it with Gyro, but it had no way to inject a single controlled burst of spin while leaving translation untouched. Twist adds a one-shot angular transform without moving, replacing, anchoring, connecting, or changing the linear motion of the target.
 **Goal alignment:** "more fun, more surprising, more satisfying" — players can spin up balls and parts mid-flight, reverse an existing rotation, or kick contraptions at exactly the right moment; reselecting the tool switches between clockwise and counter-clockwise play.

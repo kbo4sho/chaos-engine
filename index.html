@@ -466,6 +466,18 @@ canvas#game {
 #twist-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#lift-feedback {
+  position:absolute; top:660px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  opacity:0; pointer-events:none;
+  color:#9d7cff; font-size:22px; letter-spacing:2px;
+  text-shadow:0 0 8px currentColor, 0 0 18px currentColor;
+  white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#lift-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -581,6 +593,7 @@ canvas#game {
   #gyro-feedback { top:14px; font-size:19px; }
   #charge-feedback { top:14px; font-size:19px; }
   #twist-feedback { top:14px; font-size:19px; }
+  #lift-feedback { top:14px; font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -645,6 +658,7 @@ canvas#game {
     <div id="gyro-feedback" role="status" aria-live="polite"></div>
     <div id="charge-feedback" role="status" aria-live="polite"></div>
     <div id="twist-feedback" role="status" aria-live="polite"></div>
+    <div id="lift-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -711,6 +725,7 @@ canvas#game {
     <button class="tool-btn" data-tool="gyro" style="color:#c8ff3d;" title="Tap a dynamic part to toggle self-leveling toward its nearest quarter-turn" aria-label="Toggle a self-leveling gyroscope on a dynamic part"><span class="icon">🧭</span>Gyro</button>
     <button class="tool-btn" data-tool="charge" style="color:#ff4fd8;" title="Tap a dynamic part to cycle positive, negative, and neutral electric charge" aria-label="Cycle a dynamic part through positive, negative, and neutral electric charge"><span class="icon">±</span>Charge</button>
     <button class="tool-btn" data-tool="twist" style="color:#ffcf40;" title="Tap a dynamic part to kick it clockwise; tap this button again for counter-clockwise" aria-label="Twist a dynamic part clockwise with a one-shot angular kick"><span class="icon twist-icon">↻</span><span class="twist-label">TWIST CW</span></button>
+    <button class="tool-btn" data-tool="lift" style="color:#9d7cff;" title="Tap a dynamic part to make it fall opposite the scene's gravity" aria-label="Toggle inverted local gravity on a dynamic part"><span class="icon">🪁</span>Lift</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -975,6 +990,8 @@ let chargeFeedbackTimer = 0;
 let twistDirection = 1; // 1 clockwise, -1 counter-clockwise
 let twistFlash = null; // {body, direction, startedAt} transient angular-kick feedback
 let twistFeedbackTimer = 0;
+let liftedBodies = new Set(); // dynamic parts falling opposite the scene gravity
+let liftFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -1696,6 +1713,14 @@ function resetTwistTool(silent = false) {
   feedback.textContent = '';
 }
 
+function resetLiftFeedback(silent = false) {
+  if (!silent) return;
+  clearTimeout(liftFeedbackTimer);
+  const feedback = document.getElementById('lift-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -1771,6 +1796,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'gyro') resetGyroFeedback(true);
       if (tool !== 'charge') resetChargeFeedback(true);
       if (tool !== 'twist') resetTwistTool(true);
+      if (tool !== 'lift') resetLiftFeedback(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -3222,6 +3248,8 @@ function finishClear(playFeedback = true) {
   resetGyroFeedback(true);
   resetChargeFeedback(true);
   resetTwistTool(true);
+  liftedBodies.clear();
+  resetLiftFeedback(true);
   flippers = [];
   nextFlipperSide = 'left';
   clearTimeout(flipperFeedbackTimer);
@@ -3431,7 +3459,8 @@ function getToolAccentColor(tool) {
     phase: '#d47cff',
     gyro: '#c8ff3d',
     charge: '#ff4fd8',
-    twist: '#ffcf40'
+    twist: '#ffcf40',
+    lift: '#9d7cff'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -3553,6 +3582,7 @@ function eraseBodyAt(pos) {
     thrusterBodies.delete(b);
     phaseBodies.delete(b);
     gyroBodies.delete(b);
+    liftedBodies.delete(b);
   });
 
   rocketBodies = rocketBodies.filter(b => !removedBodyIds.has(b.id));
@@ -3797,6 +3827,7 @@ function createBodyClone(source, position) {
   clone.isBalloon = Boolean(source.isBalloon);
   clone.isDuck = Boolean(source.isDuck);
   clone.isFloating = Boolean(source.isFloating);
+  clone.isLifted = Boolean(source.isLifted);
   if (source.electricCharge) clone.electricCharge = source.electricCharge;
   if (source.alchemyMode) clone.alchemyMode = source.alchemyMode;
   if (source.alchemyOriginal) clone.alchemyOriginal = { ...source.alchemyOriginal };
@@ -3861,6 +3892,7 @@ function cloneBodyAt(pos) {
   Body.setAngularVelocity(clone, source.angularVelocity * 0.65);
   markSpawnPop(clone);
   Composite.add(world, clone);
+  if (clone.isLifted) liftedBodies.add(clone);
   if (clone.render?.type === 'rocket') rocketBodies.push(clone);
   addCloneBurst(source, clone);
   showCloneFeedback();
@@ -3981,6 +4013,10 @@ function fissionBodyAt(pos) {
   thrusterBodies.delete(source);
   phaseBodies.delete(source);
   gyroBodies.delete(source);
+  liftedBodies.delete(source);
+  halves.forEach(half => {
+    if (half.isLifted) liftedBodies.add(half);
+  });
   if (twistFlash?.body === source) twistFlash = null;
   megaBounceOriginal.delete(source);
   if (sourceMegaBounceRestitution !== undefined) {
@@ -4964,6 +5000,10 @@ function toggleFloatAt(pos) {
   }
 
   target.isFloating = !target.isFloating;
+  if (target.isFloating && liftedBodies.has(target)) {
+    liftedBodies.delete(target);
+    delete target.isLifted;
+  }
   Matter.Sleeping.set(target, false);
   addFloatBurst(target, target.isFloating);
   showFloatFeedback(target.isFloating);
@@ -5766,6 +5806,108 @@ function twistBodyAt(pos) {
   return nextVelocity;
 }
 
+function getLiftForce(body, gravity, gravityScale = 0.001) {
+  const mass = Number.isFinite(body?.mass) ? body.mass : 0;
+  return {
+    x:-2 * (gravity?.x || 0) * mass * gravityScale,
+    y:-2 * (gravity?.y || 0) * mass * gravityScale
+  };
+}
+
+function isLiftableBody(body) {
+  return Boolean(body && body.label !== 'wall' && !body.isTarget && !body.isStatic && body.parent === body);
+}
+
+function findLiftableBodyAt(pos) {
+  const candidates = Composite.allBodies(world).filter(isLiftableBody);
+  const exactMatches = Matter.Query.point(candidates, pos).filter(isLiftableBody);
+  const liftedExact = exactMatches.find(body => liftedBodies.has(body));
+  if (liftedExact) return liftedExact;
+  if (exactMatches.length) return exactMatches[exactMatches.length - 1];
+
+  let target = null;
+  let nearestDist = 46;
+  candidates.forEach(body => {
+    const distance = Math.hypot(body.position.x - pos.x, body.position.y - pos.y);
+    if (distance < nearestDist) {
+      target = body;
+      nearestDist = distance;
+    }
+  });
+  return target;
+}
+
+function showLiftFeedback(enabled, message = '') {
+  const feedback = document.getElementById('lift-feedback');
+  feedback.textContent = message || (enabled ? 'LIFT: GRAVITY INVERTED' : 'LIFT: GRAVITY NORMAL');
+  feedback.style.color = enabled ? '#9d7cff' : '#7df9ff';
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(liftFeedbackTimer);
+  liftFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 900);
+}
+
+function addLiftBurst(body, enabled) {
+  const gx = engine.gravity.x || 0;
+  const gy = engine.gravity.y || 1;
+  const magnitude = Math.hypot(gx, gy) || 1;
+  const liftX = -gx / magnitude;
+  const liftY = -gy / magnitude;
+  for (let i = 0; i < 18; i++) {
+    const spread = (i - 8.5) / 8.5;
+    const speed = (enabled ? 2.4 : 1.2) + Math.random() * 2.6;
+    particles.push({
+      x:body.position.x + spread * 18,
+      y:body.position.y,
+      vx:liftX * speed - liftY * spread * 1.8,
+      vy:liftY * speed + liftX * spread * 1.8,
+      size:1.5 + Math.random() * 2.8,
+      life:0.3 + Math.random() * 0.3,
+      color:i % 3 === 0 ? '#ffffff' : i % 2 ? '#9d7cff' : '#7df9ff'
+    });
+  }
+}
+
+function toggleLiftAt(pos) {
+  const target = findLiftableBodyAt(pos);
+  if (!target) {
+    showLiftFeedback(false, 'LIFT: NO OBJECT');
+    haptic([3]);
+    return false;
+  }
+
+  const enabled = !liftedBodies.has(target);
+  if (enabled) {
+    liftedBodies.add(target);
+    target.isLifted = true;
+    target.isFloating = false;
+    Matter.Sleeping.set(target, false);
+  } else {
+    liftedBodies.delete(target);
+    delete target.isLifted;
+  }
+  addLiftBurst(target, enabled);
+  showLiftFeedback(enabled);
+  playSound(enabled ? 880 : 320, 0.12, 'triangle', 0.065);
+  playSound(enabled ? 1240 : 480, 0.08, 'sine', 0.045);
+  haptic(enabled ? [6, 8, 14] : [8]);
+  shakeIntensity = Math.max(shakeIntensity, enabled ? 2 : 1);
+  return enabled ? 'enabled' : 'disabled';
+}
+
+function applyLiftForces() {
+  liftedBodies.forEach(body => {
+    if (!Composite.get(world, body.id, 'body')) {
+      liftedBodies.delete(body);
+      return;
+    }
+    if (body.isStatic) return;
+    Matter.Sleeping.set(body, false);
+    Body.applyForce(body, body.position, getLiftForce(body, engine.gravity, engine.gravity.scale));
+  });
+}
+
 function getPunchImpulse(body, pos) {
   const halfWidth = Math.max(8, (body.bounds.max.x - body.bounds.min.x) / 2);
   const halfHeight = Math.max(8, (body.bounds.max.y - body.bounds.min.y) / 2);
@@ -6327,6 +6469,7 @@ function removeFusionSourceTracking(body) {
   thrusterBodies.delete(body);
   phaseBodies.delete(body);
   gyroBodies.delete(body);
+  liftedBodies.delete(body);
   megaBounceOriginal.delete(body.id);
   rocketBodies = rocketBodies.filter(candidate => candidate !== body);
 }
@@ -7152,6 +7295,13 @@ function onDown(e) {
   // Twist tool — give one dynamic part a capped one-shot angular kick.
   if (currentTool === 'twist') {
     twistBodyAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Lift tool — toggle inverted local gravity on one dynamic part.
+  if (currentTool === 'lift') {
+    toggleLiftAt(pos);
     pointerDown = false;
     return;
   }
@@ -9487,6 +9637,55 @@ function drawTwistFlash(timestamp) {
   ctx.restore();
 }
 
+function drawLiftMarkers(timestamp) {
+  const gx = engine.gravity.x || 0;
+  const gy = engine.gravity.y || 0;
+  const gravityMagnitude = Math.hypot(gx, gy);
+  const liftAngle = gravityMagnitude > 0.001 ? Math.atan2(-gy, -gx) : -Math.PI / 2;
+
+  liftedBodies.forEach(body => {
+    if (!Composite.get(world, body.id, 'body')) {
+      liftedBodies.delete(body);
+      return;
+    }
+    const halfW = (body.bounds.max.x - body.bounds.min.x) / 2;
+    const halfH = (body.bounds.max.y - body.bounds.min.y) / 2;
+    const radius = Math.max(23, Math.min(68, Math.hypot(halfW, halfH) + 10));
+    const pulse = 0.72 + Math.sin(timestamp / 90 + body.id) * 0.2;
+    ctx.save();
+    ctx.translate(body.position.x, body.position.y);
+    ctx.globalAlpha = pulse;
+    ctx.strokeStyle = '#9d7cff';
+    ctx.fillStyle = '#7df9ff';
+    ctx.shadowColor = '#9d7cff';
+    ctx.shadowBlur = 15;
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([3, 5]);
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.rotate(liftAngle);
+    ctx.beginPath();
+    ctx.moveTo(-radius * 0.5, 0);
+    ctx.lineTo(radius * 0.45, 0);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(radius * 0.62, 0);
+    ctx.lineTo(radius * 0.35, -8);
+    ctx.lineTo(radius * 0.35, 8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.rotate(-liftAngle);
+    ctx.fillStyle = '#9d7cff';
+    ctx.font = 'bold 15px VT323';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('−G', 0, 1);
+    ctx.restore();
+  });
+}
+
 function drawPunchFlash(timestamp) {
   if (!punchFlash) return;
   if (!Composite.get(world, punchFlash.body.id, 'body')) {
@@ -10756,6 +10955,7 @@ function loop(timestamp) {
   if (!paused) {
     const timeScale = (timeWarpActive || sloMoActive) ? 0.2 : 1;
     applyFloatForces();
+    applyLiftForces();
     applyThrusterForces();
     applyGyroStabilizers();
     applyChargeForces();
@@ -10945,6 +11145,7 @@ function loop(timestamp) {
   drawGyroMarkers(timestamp);
   drawChargeMarkers(timestamp);
   drawTwistFlash(timestamp);
+  drawLiftMarkers(timestamp);
   drawPunchFlash(timestamp);
   drawSwapMarker(timestamp);
   drawRelayMarker(timestamp);

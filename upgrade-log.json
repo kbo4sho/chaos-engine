@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-09-15",
+      "ideas": [
+        "New tool: Toggle inverted local gravity on one dynamic part"
+      ],
+      "summary": "Implemented Lift tool (🪁) — the final button in the existing object toolbar now toggles one tapped dynamic part between normal gravity and falling opposite the current scene gravity while preserving its position, velocity, spin, collisions, object count, and connections; exact plus 46px touch targeting, Float mutual exclusion, a persistent gravity-aware violet/cyan −G marker, status/particle/audio/haptic feedback, clone/fission preservation, and Eraser/Fusion/Clear cleanup keep counter-gravity contraptions readable and reliable on desktop and mobile."
+    },
+    {
       "date": "2026-09-14",
       "ideas": [
         "New tool: Give one dynamic part a capped clockwise or counter-clockwise one-shot angular kick"
