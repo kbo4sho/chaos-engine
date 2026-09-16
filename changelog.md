@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-09-16T14:13:02Z — Added: Orbit tool
+**Why:** The toolbar could pin a part at its own position with Pivot or give a nearby cluster a one-shot curl with Swirl, but it had no way to choose a remote center and keep one part circling it. Orbit adds a persistent spatial controller without spawning, replacing, anchoring, or physically constraining its target.
+**Goal alignment:** "more fun, more surprising, more satisfying" — balls become satellites, loose parts loop around builds, and players can release an orbiting object mid-flight to turn its live tangent into a launch.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (437/437 passing); browser smoke ✓ (existing Block and Ball tools placed paused subjects, final Orbit button selected one subject and locked a tapped remote center, a desktop Ball held 199.2px on a 200px orbit after 12 seconds and released cleanly while OBJ stayed 1); mobile ✓ (390×844, final Orbit button was fully reachable at 52×50px and x=330–382, and a Ball held 119.1px on a 120px orbit after 8 seconds with visible path, center, tangent arrow, and speed trail feedback); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-09-15T14:11:58Z — Added: Lift tool
 **Why:** The toolbar could cancel gravity on one standalone object with Float or flip gravity for the entire scene with a chaos action, but it had no way to make one connected or standalone moving part continuously fall opposite the current scene gravity. Lift adds a reversible local gravity transform without moving, replacing, spawning, anchoring, or disconnecting its target.
 **Goal alignment:** "more fun, more surprising, more satisfying" — ordinary props can rise through falling crowds, connected builds can pull against themselves, and changing the planet or gravity direction immediately changes where lifted parts travel.

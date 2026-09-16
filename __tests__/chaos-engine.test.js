@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 62 tool buttons', () => {
+  it('should have exactly 63 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(62);
+    expect(buttons.length).toBe(63);
   });
 
-  it('should append Lift after Twist at the end of the object toolbar', () => {
+  it('should append Orbit after Lift at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('lift');
-    expect(toolbar.lastElementChild?.textContent).toContain('Lift');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('twist');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('charge');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('orbit');
+    expect(toolbar.lastElementChild?.textContent).toContain('Orbit');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('lift');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('twist');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -136,11 +136,11 @@ describe('Twist Tool', () => {
 // ============================================
 
 describe('Lift Tool', () => {
-  it('should expose Lift as the final selectable toolbar tool', () => {
+  it('should keep Lift selectable immediately before Orbit', () => {
     const liftBtn = document.querySelector('[data-tool="lift"]');
     expect(liftBtn).not.toBeNull();
     expect(liftBtn?.getAttribute('aria-label')).toContain('inverted local gravity');
-    expect(document.getElementById('toolbar')?.lastElementChild).toBe(liftBtn);
+    expect(liftBtn?.nextElementSibling?.dataset.tool).toBe('orbit');
     expect(liftBtn?.previousElementSibling?.dataset.tool).toBe('twist');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'lift'");
@@ -199,6 +199,80 @@ describe('Lift Tool', () => {
     expect(scriptContent).toContain('liftedBodies.clear()');
     expect(scriptContent.match(/liftedBodies\.delete\(/g)?.length).toBeGreaterThanOrEqual(6);
     expect(scriptContent).toContain("lift: '#9d7cff'");
+  });
+});
+
+// ============================================
+// ORBIT TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Orbit Tool', () => {
+  it('should expose Orbit as the final selectable toolbar tool', () => {
+    const orbitBtn = document.querySelector('[data-tool="orbit"]');
+    expect(orbitBtn).not.toBeNull();
+    expect(orbitBtn?.getAttribute('aria-label')).toContain('persistent orbit');
+    expect(document.getElementById('toolbar')?.lastElementChild).toBe(orbitBtn);
+    expect(orbitBtn?.previousElementSibling?.dataset.tool).toBe('lift');
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'orbit'");
+    expect(scriptContent).toContain('orbitBodyAt(pos)');
+  });
+
+  it('should calculate mass-scaled centripetal, tangential, and gravity-canceling force', () => {
+    const speedSource = scriptContent.match(/function getOrbitTargetSpeed\([\s\S]*?\n\}/)?.[0];
+    const forceSource = scriptContent.match(/function getOrbitForce\([\s\S]*?\n\}/)?.[0];
+    expect(speedSource).toBeTruthy();
+    expect(forceSource).toBeTruthy();
+    const getOrbitForce = new Function(`
+      const ORBIT_MIN_RADIUS = 70;
+      const ORBIT_STEP_SQUARED = (1000 / 60) ** 2;
+      ${speedSource}
+      ${forceSource}
+      return getOrbitForce;
+    `)();
+    const body = { mass:2, position:{ x:100, y:0 }, velocity:{ x:0, y:5 } };
+    const orbit = { center:{ x:0, y:0 }, radius:100, direction:1 };
+    const clockwise = getOrbitForce(body, orbit, { x:0, y:0 }, 0.001);
+    const counterClockwise = getOrbitForce(body, { ...orbit, direction:-1 }, { x:0, y:0 }, 0.001);
+    const heavy = getOrbitForce({ ...body, mass:4 }, orbit, { x:0, y:0 }, 0.001);
+
+    expect(clockwise.x).toBeLessThan(0);
+    expect(clockwise.y).toBeGreaterThan(0);
+    expect(counterClockwise.y).toBeLessThan(0);
+    expect(heavy.x).toBeCloseTo(clockwise.x * 2);
+    expect(heavy.y).toBeCloseTo(clockwise.y * 2);
+  });
+
+  it('should select one touch-friendly dynamic part and lock a remote center', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('function isOrbitableBody(body)'),
+      scriptContent.indexOf('function getPunchImpulse')
+    );
+    expect(source).toContain("body.label !== 'wall'");
+    expect(source).toContain('!body.isTarget && !body.isFragment && !body.isStatic');
+    expect(source).toContain('Matter.Query.point(candidates, pos)');
+    expect(source).toContain('let nearestDist = 46');
+    expect(source).toContain('if (rawRadius < ORBIT_MIN_RADIUS)');
+    expect(source).toContain('const radius = Math.min(ORBIT_MAX_RADIUS, rawRadius)');
+    expect(source).toContain('orbitingBodies.set(body, { center, radius, direction })');
+    expect(source).toContain('Body.setVelocity(body, { x:tangent.x * targetSpeed, y:tangent.y * targetSpeed })');
+    expect(source).not.toContain('Body.setPosition(');
+    expect(source).not.toContain('Composite.add(world');
+    expect(source).not.toContain('Composite.remove(world');
+  });
+
+  it('should apply persistent guidance, render its path, and clean state', () => {
+    expect(document.getElementById('orbit-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('let orbitingBodies = new Map()');
+    expect(scriptContent).toContain('function applyOrbitForces()');
+    expect(scriptContent).toContain('Body.applyForce(body, body.position, getOrbitForce(body, orbit, engine.gravity, engine.gravity.scale))');
+    expect(scriptContent).toMatch(/applyOrbitForces\(\);[\s\S]*Engine\.update\(engine/);
+    expect(scriptContent).toContain('function drawOrbitMarkers(timestamp)');
+    expect(scriptContent).toContain('drawOrbitMarkers(timestamp)');
+    expect(scriptContent).toContain("if (tool !== 'orbit') resetOrbitSelection(true)");
+    expect(scriptContent).toContain('orbitingBodies.clear()');
+    expect(scriptContent.match(/orbitingBodies\.delete\(/g)?.length).toBeGreaterThanOrEqual(6);
+    expect(scriptContent).toContain("orbit: '#54f7ff'");
   });
 });
 

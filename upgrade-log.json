@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-09-16",
+      "ideas": [
+        "New tool: Send one dynamic part into a persistent orbit around a tapped remote center"
+      ],
+      "summary": "Implemented Orbit tool (🛰️) — the final button in the existing object toolbar now selects one dynamic part and a remote center, then applies live mass-scaled centripetal, tangential, and gravity-canceling force to keep it circling while preserving collisions, object count, connections, and spin; exact plus 46px touch targeting, 70–260px radius limits, tap-to-release behavior, a persistent cyan/magenta path-center-tangent marker, status/particle/audio/haptic feedback, Float/Lift mutual exclusion, and Eraser/Fission/Fusion/Clear cleanup keep orbital contraptions readable and reliable on desktop and mobile."
+    },
+    {
       "date": "2026-09-15",
       "ideas": [
         "New tool: Toggle inverted local gravity on one dynamic part"
