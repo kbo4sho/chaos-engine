@@ -673,6 +673,7 @@ canvas#game {
     <div id="twist-feedback" role="status" aria-live="polite"></div>
     <div id="lift-feedback" role="status" aria-live="polite"></div>
     <div id="orbit-feedback" role="status" aria-live="polite"></div>
+    <div id="weld-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -741,6 +742,7 @@ canvas#game {
     <button class="tool-btn" data-tool="twist" style="color:#ffcf40;" title="Tap a dynamic part to kick it clockwise; tap this button again for counter-clockwise" aria-label="Twist a dynamic part clockwise with a one-shot angular kick"><span class="icon twist-icon">↻</span><span class="twist-label">TWIST CW</span></button>
     <button class="tool-btn" data-tool="lift" style="color:#9d7cff;" title="Tap a dynamic part to make it fall opposite the scene's gravity" aria-label="Toggle inverted local gravity on a dynamic part"><span class="icon">🪁</span>Lift</button>
     <button class="tool-btn" data-tool="orbit" style="color:#54f7ff;" title="Tap a dynamic part, then tap a center point to send it into orbit; tap the orbiting part to release it" aria-label="Send a dynamic part into a persistent orbit around a tapped center point"><span class="icon">🛰️</span>Orbit</button>
+    <button class="tool-btn" data-tool="weld" style="color:#ffb347;" title="Tap two build parts at their seam to lock their distance and relative rotation" aria-label="Weld two build parts into one rigid assembly"><span class="icon">🔧</span>Weld</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1010,6 +1012,9 @@ let liftFeedbackTimer = 0;
 let orbitSelection = null; // dynamic part waiting for a tapped orbit center
 let orbitingBodies = new Map(); // body -> {center, radius, direction}
 let orbitFeedbackTimer = 0;
+let weldSelection = null; // {body, point} first tapped build part and body-local seam point
+let welds = []; // {constraint, bodyA, bodyB, angleOffset} rigid seams created by the Weld tool
+let weldFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -1748,6 +1753,15 @@ function resetOrbitSelection(silent = false) {
   feedback.textContent = '';
 }
 
+function resetWeldSelection(silent = false) {
+  weldSelection = null;
+  if (!silent) return;
+  clearTimeout(weldFeedbackTimer);
+  const feedback = document.getElementById('weld-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -1825,6 +1839,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'twist') resetTwistTool(true);
       if (tool !== 'lift') resetLiftFeedback(true);
       if (tool !== 'orbit') resetOrbitSelection(true);
+      if (tool !== 'weld') resetWeldSelection(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -3245,6 +3260,8 @@ function finishClear(playFeedback = true) {
   hingeSelection = null;
   springs = [];
   springFirstBody = null;
+  welds = [];
+  weldSelection = null;
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -3280,6 +3297,7 @@ function finishClear(playFeedback = true) {
   resetLiftFeedback(true);
   orbitingBodies.clear();
   resetOrbitSelection(true);
+  resetWeldSelection(true);
   flippers = [];
   nextFlipperSide = 'left';
   clearTimeout(flipperFeedbackTimer);
@@ -3491,7 +3509,8 @@ function getToolAccentColor(tool) {
     charge: '#ff4fd8',
     twist: '#ffcf40',
     lift: '#9d7cff',
-    orbit: '#54f7ff'
+    orbit: '#54f7ff',
+    weld: '#ffb347'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -3626,6 +3645,7 @@ function eraseBodyAt(pos) {
   struts = struts.filter(strut => !constraintsToRemove.has(strut));
   hinges = hinges.filter(hinge => !constraintsToRemove.has(hinge));
   springs = springs.filter(spring => !constraintsToRemove.has(spring));
+  welds = welds.filter(weld => !constraintsToRemove.has(weld.constraint));
   pivots = pivots.filter(pivot => !constraintsToRemove.has(pivot.constraint));
   if (reverseFlash && removedBodyIds.has(reverseFlash.body.id)) reverseFlash = null;
   if (punchFlash && removedBodyIds.has(punchFlash.body.id)) punchFlash = null;
@@ -3644,6 +3664,7 @@ function eraseBodyAt(pos) {
   if (fusionFirstBody && removedBodyIds.has(fusionFirstBody.id)) fusionFirstBody = null;
   if (hingeSelection && removedBodyIds.has(hingeSelection.body.id)) hingeSelection = null;
   if (springFirstBody && removedBodyIds.has(springFirstBody.id)) springFirstBody = null;
+  if (weldSelection && removedBodyIds.has(weldSelection.body.id)) resetWeldSelection(true);
   if (launchBody && removedBodyIds.has(launchBody.id)) resetLaunchSelection(true);
   if (blinkBody && removedBodyIds.has(blinkBody.id)) resetBlinkSelection(true);
   if (squashFlash && removedBodyIds.has(squashFlash.body.id)) squashFlash = null;
@@ -4484,6 +4505,180 @@ function hingeBodiesAt(pos) {
   playSound(840, 0.12, 'sine', 0.06);
   shakeIntensity = Math.max(shakeIntensity, 2);
   return hinge;
+}
+
+function normalizeWeldAngle(angle) {
+  return Math.atan2(Math.sin(angle), Math.cos(angle));
+}
+
+function getWeldAngularVelocities(bodyA, bodyB, angleOffset, gain = 0.45, maxCorrection = 0.22) {
+  const angleError = normalizeWeldAngle((bodyB.angle - bodyA.angle) - angleOffset);
+  const correction = Math.max(-maxCorrection, Math.min(maxCorrection, angleError * gain));
+  const velocityA = Number.isFinite(bodyA.angularVelocity) ? bodyA.angularVelocity : 0;
+  const velocityB = Number.isFinite(bodyB.angularVelocity) ? bodyB.angularVelocity : 0;
+
+  if (bodyA.isStatic && bodyB.isStatic) return { a:0, b:0, angleError };
+  if (bodyA.isStatic) return { a:velocityA, b:-correction, angleError };
+  if (bodyB.isStatic) return { a:correction, b:velocityB, angleError };
+
+  const inertiaA = Number.isFinite(bodyA.inertia) && bodyA.inertia > 0 ? bodyA.inertia : 1;
+  const inertiaB = Number.isFinite(bodyB.inertia) && bodyB.inertia > 0 ? bodyB.inertia : 1;
+  const sharedVelocity = (velocityA * inertiaA + velocityB * inertiaB) / (inertiaA + inertiaB);
+  return {
+    a:sharedVelocity + correction * 0.5,
+    b:sharedVelocity - correction * 0.5,
+    angleError
+  };
+}
+
+function getWeldSeamLength(body, localPoint, otherWorldPoint) {
+  const firstWorldPoint = Vector.add(body.position, Vector.rotate(localPoint, body.angle));
+  return Math.hypot(otherWorldPoint.x - firstWorldPoint.x, otherWorldPoint.y - firstWorldPoint.y);
+}
+
+function isWeldableBody(body) {
+  if (!body || body.label === 'wall' || body.label === 'chain-link' || body.isTarget || body.isFragment || body.parent !== body) return false;
+  return !body.isStatic || body.isAnchored;
+}
+
+function findWeldBodyAt(pos) {
+  const candidates = Composite.allBodies(world).filter(isWeldableBody);
+  const exact = Matter.Query.point(candidates, pos).filter(isWeldableBody).pop();
+  if (exact) return { body:exact, point:{ x:pos.x, y:pos.y } };
+
+  let nearest = null;
+  let nearestDist = 46;
+  candidates.forEach(body => {
+    const distance = Math.hypot(body.position.x - pos.x, body.position.y - pos.y);
+    if (distance < nearestDist) {
+      nearest = body;
+      nearestDist = distance;
+    }
+  });
+  return nearest ? { body:nearest, point:{ x:nearest.position.x, y:nearest.position.y } } : null;
+}
+
+function hasWeldBetween(bodyA, bodyB) {
+  welds = welds.filter(weld => Composite.get(world, weld.constraint.id, 'constraint'));
+  return welds.some(weld =>
+    (weld.bodyA === bodyA && weld.bodyB === bodyB) ||
+    (weld.bodyA === bodyB && weld.bodyB === bodyA)
+  );
+}
+
+function pruneWelds() {
+  const liveBodies = new Set(Composite.allBodies(world));
+  welds = welds.filter(weld => {
+    const inWorld = Composite.get(world, weld.constraint.id, 'constraint');
+    const hasBothEnds = liveBodies.has(weld.bodyA) && liveBodies.has(weld.bodyB);
+    if (inWorld && !hasBothEnds) Composite.remove(world, weld.constraint, true);
+    return Boolean(inWorld && hasBothEnds);
+  });
+  if (weldSelection && !liveBodies.has(weldSelection.body)) resetWeldSelection(true);
+}
+
+function showWeldFeedback(message, color = '#ffb347') {
+  const feedback = document.getElementById('weld-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(weldFeedbackTimer);
+  weldFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 850);
+}
+
+function addWeldBurst(point, color = '#ffb347') {
+  for (let i = 0; i < 18; i++) {
+    const angle = Math.PI * 2 * i / 18;
+    const speed = 2 + Math.random() * 4.2;
+    particles.push({
+      x:point.x,
+      y:point.y,
+      vx:Math.cos(angle) * speed,
+      vy:Math.sin(angle) * speed,
+      size:1.5 + Math.random() * 2.5,
+      life:0.22 + Math.random() * 0.28,
+      color:i % 3 === 0 ? '#ffffff' : color
+    });
+  }
+}
+
+function weldBodiesAt(pos) {
+  const hit = findWeldBodyAt(pos);
+  if (!hit) {
+    showWeldFeedback('WELD: NO PART', '#888888');
+    haptic([3]);
+    return false;
+  }
+
+  if (!weldSelection || !Composite.get(world, weldSelection.body.id, 'body')) {
+    weldSelection = { body:hit.body, point:getHingeLocalPoint(hit.body, hit.point) };
+    addWeldBurst(hit.point, '#ffb347');
+    showWeldFeedback('WELD: PICK B');
+    haptic([6]);
+    playSound(740, 0.07, 'square', 0.055);
+    return 'selected';
+  }
+
+  if (hit.body === weldSelection.body) {
+    resetWeldSelection();
+    showWeldFeedback('WELD CANCELLED', '#aaaaaa');
+    haptic([4]);
+    playSound(240, 0.08, 'square', 0.05);
+    return 'cancelled';
+  }
+
+  const first = weldSelection;
+  if (hasWeldBetween(first.body, hit.body)) {
+    resetWeldSelection();
+    showWeldFeedback('ALREADY WELDED', '#ffdd55');
+    haptic([4, 18, 4]);
+    return false;
+  }
+
+  const pointB = getHingeLocalPoint(hit.body, hit.point);
+  const seamLength = getWeldSeamLength(first.body, first.point, hit.point);
+  const constraint = Constraint.create({
+    bodyA:first.body,
+    pointA:first.point,
+    bodyB:hit.body,
+    pointB,
+    length:seamLength,
+    stiffness:0.96,
+    damping:0.22,
+    render:{ type:'weld' }
+  });
+  const weld = {
+    constraint,
+    bodyA:first.body,
+    bodyB:hit.body,
+    angleOffset:normalizeWeldAngle(hit.body.angle - first.body.angle)
+  };
+  Composite.add(world, constraint);
+  welds.push(weld);
+  addWeldBurst(hit.point);
+  resetWeldSelection();
+  showWeldFeedback('WELD LOCKED');
+  haptic([10, 8, 14]);
+  playSound(320, 0.08, 'sawtooth', 0.07);
+  playSound(980, 0.12, 'square', 0.055);
+  shakeIntensity = Math.max(shakeIntensity, 2.5);
+  return weld;
+}
+
+function applyWeldLocks() {
+  welds.forEach(weld => {
+    const next = getWeldAngularVelocities(weld.bodyA, weld.bodyB, weld.angleOffset);
+    if (!weld.bodyA.isStatic) {
+      Matter.Sleeping.set(weld.bodyA, false);
+      Body.setAngularVelocity(weld.bodyA, next.a);
+    }
+    if (!weld.bodyB.isStatic) {
+      Matter.Sleeping.set(weld.bodyB, false);
+      Body.setAngularVelocity(weld.bodyB, next.b);
+    }
+  });
 }
 
 const SPRING_REST_RATIO = 0.72;
@@ -7228,6 +7423,7 @@ function snipConstraintAt(pos) {
   struts = struts.filter(strut => strut !== constraint);
   hinges = hinges.filter(hinge => hinge !== constraint);
   springs = springs.filter(spring => spring !== constraint);
+  welds = welds.filter(weld => weld.constraint !== constraint);
   wreckingBalls = wreckingBalls.filter(wrecking => wrecking.chain !== constraint);
   seesaws = seesaws.filter(seesaw => seesaw.constraint !== constraint);
   flippers = flippers.filter(flipper => flipper.constraint !== constraint);
@@ -7513,6 +7709,13 @@ function onDown(e) {
   // Orbit tool — select one dynamic part, then set a remote center for continuous orbital motion.
   if (currentTool === 'orbit') {
     orbitBodyAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Weld tool — lock two tapped build parts together at a rigid seam.
+  if (currentTool === 'weld') {
+    weldBodiesAt(pos);
     pointerDown = false;
     return;
   }
@@ -8970,6 +9173,43 @@ function drawConstraints() {
         ctx.stroke();
       });
       ctx.restore();
+    } else if (c.render?.type === 'weld') {
+      const seam = { x:(pA.x + pB.x) / 2, y:(pA.y + pB.y) / 2 };
+      const pulse = 0.78 + Math.sin(performance.now() / 110 + c.id) * 0.18;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(pA.x, pA.y);
+      ctx.lineTo(pB.x, pB.y);
+      ctx.strokeStyle = '#5a3517';
+      ctx.lineWidth = 8;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(pA.x, pA.y);
+      ctx.lineTo(pB.x, pB.y);
+      ctx.strokeStyle = '#ffb347';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.translate(seam.x, seam.y);
+      ctx.rotate(Math.PI / 4);
+      ctx.globalAlpha = pulse;
+      ctx.shadowColor = '#ffb347';
+      ctx.shadowBlur = 14;
+      ctx.fillStyle = '#11181c';
+      ctx.strokeStyle = '#ffb347';
+      ctx.lineWidth = 3;
+      ctx.fillRect(-9, -9, 18, 18);
+      ctx.strokeRect(-9, -9, 18, 18);
+      ctx.rotate(-Math.PI / 4);
+      ctx.strokeStyle = '#65f7ff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-6, -6);
+      ctx.lineTo(6, 6);
+      ctx.moveTo(6, -6);
+      ctx.lineTo(-6, 6);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.restore();
     } else if (c.render?.type === 'hinge') {
       const joint = { x:(pA.x + pB.x) / 2, y:(pA.y + pB.y) / 2 };
       ctx.save();
@@ -10253,6 +10493,36 @@ function drawSpringMarker(timestamp) {
   ctx.restore();
 }
 
+function drawWeldMarker(timestamp) {
+  if (!weldSelection || currentTool !== 'weld') return;
+  if (!Composite.get(world, weldSelection.body.id, 'body')) {
+    resetWeldSelection(true);
+    return;
+  }
+  const body = weldSelection.body;
+  const worldPoint = Vector.add(body.position, Vector.rotate(weldSelection.point, body.angle));
+  const pulse = 0.72 + Math.sin(timestamp / 105 + body.id) * 0.2;
+  ctx.save();
+  ctx.translate(worldPoint.x, worldPoint.y);
+  ctx.globalAlpha = pulse;
+  ctx.strokeStyle = '#ffb347';
+  ctx.fillStyle = '#ffb347';
+  ctx.shadowColor = '#ffb347';
+  ctx.shadowBlur = 14;
+  ctx.lineWidth = 3;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.arc(0, 0, 18, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 1;
+  ctx.font = '18px VT323';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('A', 0, 1);
+  ctx.restore();
+}
+
 function drawLaunchMarker(timestamp) {
   if (launchBody && currentTool === 'launch') {
     if (!Composite.get(world, launchBody.id, 'body')) {
@@ -10631,6 +10901,7 @@ function loop(timestamp) {
   pruneStruts();
   pruneHinges();
   pruneSprings();
+  pruneWelds();
   prunePivots();
 
   // Smooth gravity transition (skip during anti-grav pulse and gravity flip)
@@ -11252,6 +11523,7 @@ function loop(timestamp) {
     applyThrusterForces();
     applyGyroStabilizers();
     applyChargeForces();
+    applyWeldLocks();
     Engine.update(engine, (1000/60) * timeScale);
   }
 
@@ -11440,6 +11712,7 @@ function loop(timestamp) {
   drawTwistFlash(timestamp);
   drawLiftMarkers(timestamp);
   drawOrbitMarkers(timestamp);
+  drawWeldMarker(timestamp);
   drawPunchFlash(timestamp);
   drawSwapMarker(timestamp);
   drawRelayMarker(timestamp);

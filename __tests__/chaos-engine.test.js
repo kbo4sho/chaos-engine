@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 63 tool buttons', () => {
+  it('should have exactly 64 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(63);
+    expect(buttons.length).toBe(64);
   });
 
-  it('should append Orbit after Lift at the end of the object toolbar', () => {
+  it('should append Weld after Orbit at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('orbit');
-    expect(toolbar.lastElementChild?.textContent).toContain('Orbit');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('lift');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('twist');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('weld');
+    expect(toolbar.lastElementChild?.textContent).toContain('Weld');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('orbit');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('lift');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -207,11 +207,11 @@ describe('Lift Tool', () => {
 // ============================================
 
 describe('Orbit Tool', () => {
-  it('should expose Orbit as the final selectable toolbar tool', () => {
+  it('should keep Orbit selectable immediately before Weld', () => {
     const orbitBtn = document.querySelector('[data-tool="orbit"]');
     expect(orbitBtn).not.toBeNull();
     expect(orbitBtn?.getAttribute('aria-label')).toContain('persistent orbit');
-    expect(document.getElementById('toolbar')?.lastElementChild).toBe(orbitBtn);
+    expect(orbitBtn?.nextElementSibling?.dataset.tool).toBe('weld');
     expect(orbitBtn?.previousElementSibling?.dataset.tool).toBe('lift');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'orbit'");
@@ -273,6 +273,90 @@ describe('Orbit Tool', () => {
     expect(scriptContent).toContain('orbitingBodies.clear()');
     expect(scriptContent.match(/orbitingBodies\.delete\(/g)?.length).toBeGreaterThanOrEqual(6);
     expect(scriptContent).toContain("orbit: '#54f7ff'");
+  });
+});
+
+// ============================================
+// WELD TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Weld Tool', () => {
+  it('should expose Weld as the final selectable toolbar tool', () => {
+    const weldBtn = document.querySelector('[data-tool="weld"]');
+    expect(weldBtn).not.toBeNull();
+    expect(weldBtn?.getAttribute('aria-label')).toContain('rigid assembly');
+    expect(document.getElementById('toolbar')?.lastElementChild).toBe(weldBtn);
+    expect(weldBtn?.previousElementSibling?.dataset.tool).toBe('orbit');
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'weld'");
+    expect(scriptContent).toContain('weldBodiesAt(pos)');
+  });
+
+  it('should converge relative rotation while preserving shared spin', () => {
+    const normalizeSource = scriptContent.match(/function normalizeWeldAngle\([\s\S]*?\n\}/)?.[0];
+    const velocitySource = scriptContent.match(/function getWeldAngularVelocities\([\s\S]*?\n\}/)?.[0];
+    expect(normalizeSource).toBeTruthy();
+    expect(velocitySource).toBeTruthy();
+    const getWeldAngularVelocities = new Function(`${normalizeSource}\n${velocitySource}; return getWeldAngularVelocities;`)();
+
+    const balanced = getWeldAngularVelocities(
+      { angle:0, angularVelocity:0.4, inertia:2, isStatic:false },
+      { angle:0.4, angularVelocity:-0.2, inertia:2, isStatic:false },
+      0
+    );
+    expect(balanced.a).toBeGreaterThan(balanced.b);
+    expect((balanced.a + balanced.b) / 2).toBeCloseTo(0.1);
+    expect(balanced.angleError).toBeCloseTo(0.4);
+
+    const anchored = getWeldAngularVelocities(
+      { angle:0, angularVelocity:0, inertia:Infinity, isStatic:true },
+      { angle:-0.3, angularVelocity:0.5, inertia:2, isStatic:false },
+      0
+    );
+    expect(anchored.b).toBeGreaterThan(0);
+    expect(anchored.b).toBeLessThanOrEqual(0.22);
+  });
+
+  it('should create one touch-friendly rigid seam that preserves the tapped distance', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('function isWeldableBody(body)'),
+      scriptContent.indexOf('const SPRING_REST_RATIO')
+    );
+    expect(source).toContain("body.label === 'wall'");
+    expect(source).toContain('Matter.Query.point(candidates, pos)');
+    expect(source).toContain('let nearestDist = 46');
+    expect(source).toContain('pointA:first.point');
+    expect(source).toContain('pointB');
+    expect(source).toContain('const seamLength = getWeldSeamLength(first.body, first.point, hit.point)');
+    expect(source).toContain('length:seamLength');
+    expect(source).toContain('stiffness:0.96');
+    expect(source).toContain("render:{ type:'weld' }");
+    expect(source).toContain('angleOffset:normalizeWeldAngle(hit.body.angle - first.body.angle)');
+    expect(source).toContain('welds.push(weld)');
+  });
+
+  it('should continuously lock rotation without replacing either body', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('function applyWeldLocks()'),
+      scriptContent.indexOf('const SPRING_REST_RATIO')
+    );
+    expect(source).toContain('getWeldAngularVelocities(weld.bodyA, weld.bodyB, weld.angleOffset)');
+    expect(source).toContain('Body.setAngularVelocity(weld.bodyA, next.a)');
+    expect(source).toContain('Body.setAngularVelocity(weld.bodyB, next.b)');
+    expect(source).not.toContain('Body.setPosition(');
+    expect(source).not.toContain('Composite.remove(world');
+    expect(scriptContent).toMatch(/applyWeldLocks\(\);[\s\S]*Engine\.update\(engine/);
+  });
+
+  it('should render selection and seam feedback and clean tracked state', () => {
+    expect(document.getElementById('weld-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('function drawWeldMarker(timestamp)');
+    expect(scriptContent).toContain('drawWeldMarker(timestamp)');
+    expect(scriptContent).toContain("c.render?.type === 'weld'");
+    expect(scriptContent).toContain("if (tool !== 'weld') resetWeldSelection(true)");
+    expect(scriptContent).toContain('welds = welds.filter(weld => weld.constraint !== constraint)');
+    expect(scriptContent).toContain('welds = []');
+    expect(scriptContent).toContain("weld: '#ffb347'");
   });
 });
 

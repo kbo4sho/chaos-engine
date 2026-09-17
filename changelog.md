@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-09-17T14:14:14Z — Added: Weld tool
+**Why:** The toolbar could connect parts with flexible Rope, elastic Spring, distance-only Strut, or free-rotating Hinge joints, but it had no way to preserve both the tapped spacing and relative angle of two build parts. Weld adds a rigid seam without replacing or fusing either object.
+**Goal alignment:** "more fun, more surprising, more satisfying" — loose blocks become rigid beams, panels, and odd machines in two taps; the glowing seam makes the lock readable, existing Twist can drive the pair as one assembly, and Snip can release it instantly.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (443/443 passing); browser smoke ✓ (existing Block tool placed two paused subjects, final Weld button joined their tapped points with one visible 79px rigid seam, live physics kept relative-angle error at 0.00000 radians, existing Twist moved both to the same angle, Snip removed the seam while OBJ stayed 2); mobile ✓ (390×844, final Weld button was fully reachable at 52×50px and x=330–382, and two Blocks held one visible 110px weld with 0.00000 radians of relative-angle error); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-09-16T14:13:02Z — Added: Orbit tool
 **Why:** The toolbar could pin a part at its own position with Pivot or give a nearby cluster a one-shot curl with Swirl, but it had no way to choose a remote center and keep one part circling it. Orbit adds a persistent spatial controller without spawning, replacing, anchoring, or physically constraining its target.
 **Goal alignment:** "more fun, more surprising, more satisfying" — balls become satellites, loose parts loop around builds, and players can release an orbiting object mid-flight to turn its live tangent into a launch.

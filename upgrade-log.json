@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-09-17",
+      "ideas": [
+        "New tool: Weld two build parts into one rigid assembly"
+      ],
+      "summary": "Implemented Weld tool (🔧) — the final button in the existing object toolbar now selects two dynamic or anchored build parts at touch-friendly tapped points and joins them with a persistent rigid seam that preserves both spacing and relative rotation; live angular correction, a glowing amber/cyan seam plate, selection/status/particle/audio/haptic feedback, and tool-change/Snip/Eraser/Clear cleanup make rigid beams, panels, and machines readable and reversible on desktop and mobile."
+    },
+    {
       "date": "2026-09-16",
       "ideas": [
         "New tool: Send one dynamic part into a persistent orbit around a tapped remote center"
