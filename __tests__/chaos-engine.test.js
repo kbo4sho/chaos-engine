@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 64 tool buttons', () => {
+  it('should have exactly 65 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(64);
+    expect(buttons.length).toBe(65);
   });
 
-  it('should append Weld after Orbit at the end of the object toolbar', () => {
+  it('should append Tether after Weld at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('weld');
-    expect(toolbar.lastElementChild?.textContent).toContain('Weld');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('orbit');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('lift');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('tether');
+    expect(toolbar.lastElementChild?.textContent).toContain('Tether');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('weld');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('orbit');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -281,11 +281,11 @@ describe('Orbit Tool', () => {
 // ============================================
 
 describe('Weld Tool', () => {
-  it('should expose Weld as the final selectable toolbar tool', () => {
+  it('should keep Weld selectable immediately before Tether', () => {
     const weldBtn = document.querySelector('[data-tool="weld"]');
     expect(weldBtn).not.toBeNull();
     expect(weldBtn?.getAttribute('aria-label')).toContain('rigid assembly');
-    expect(document.getElementById('toolbar')?.lastElementChild).toBe(weldBtn);
+    expect(weldBtn?.nextElementSibling?.dataset.tool).toBe('tether');
     expect(weldBtn?.previousElementSibling?.dataset.tool).toBe('orbit');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'weld'");
@@ -338,7 +338,7 @@ describe('Weld Tool', () => {
   it('should continuously lock rotation without replacing either body', () => {
     const source = scriptContent.slice(
       scriptContent.indexOf('function applyWeldLocks()'),
-      scriptContent.indexOf('const SPRING_REST_RATIO')
+      scriptContent.indexOf('const TETHER_REST_RATIO')
     );
     expect(source).toContain('getWeldAngularVelocities(weld.bodyA, weld.bodyB, weld.angleOffset)');
     expect(source).toContain('Body.setAngularVelocity(weld.bodyA, next.a)');
@@ -357,6 +357,80 @@ describe('Weld Tool', () => {
     expect(scriptContent).toContain('welds = welds.filter(weld => weld.constraint !== constraint)');
     expect(scriptContent).toContain('welds = []');
     expect(scriptContent).toContain("weld: '#ffb347'");
+  });
+});
+
+// ============================================
+// TETHER TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Tether Tool', () => {
+  it('should expose Tether as the final selectable toolbar tool', () => {
+    const tetherBtn = document.querySelector('[data-tool="tether"]');
+    expect(tetherBtn).not.toBeNull();
+    expect(tetherBtn?.getAttribute('aria-label')).toContain('elastic cord');
+    expect(document.getElementById('toolbar')?.lastElementChild).toBe(tetherBtn);
+    expect(tetherBtn?.previousElementSibling?.dataset.tool).toBe('weld');
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'tether'");
+    expect(scriptContent).toContain('tetherBodyAt(pos)');
+  });
+
+  it('should calculate a shortened but safely bounded elastic rest length', () => {
+    const source = scriptContent.match(/function getTetherRestLength\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getTetherRestLength = new Function(`
+      const TETHER_REST_RATIO = 0.64;
+      const TETHER_MIN_LENGTH = 42;
+      const TETHER_MAX_LENGTH = 260;
+      ${source}
+      return getTetherRestLength;
+    `)();
+
+    expect(getTetherRestLength(40)).toBe(42);
+    expect(getTetherRestLength(100)).toBe(64);
+    expect(getTetherRestLength(500)).toBe(260);
+  });
+
+  it('should select one touch-friendly dynamic part and connect it to a remote world point', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('function isTetherableBody(body)'),
+      scriptContent.indexOf('const SPRING_REST_RATIO')
+    );
+    expect(source).toContain("body.label !== 'wall'");
+    expect(source).toContain('!body.isTarget && !body.isFragment');
+    expect(source).toContain('!body.isStatic');
+    expect(source).toContain('Matter.Query.point(candidates, pos)');
+    expect(source).toContain('let nearestDist = 46');
+    expect(source).toContain('if (distance < TETHER_MIN_ANCHOR_DISTANCE)');
+    expect(source).toContain('pointA:anchor');
+    expect(source).toContain('bodyB:selected.body');
+    expect(source).toContain('pointB:selected.point');
+    expect(source).toContain('length:getTetherRestLength(distance)');
+    expect(source).toContain('stiffness:0.018');
+    expect(source).toContain("render:{ visible:true, type:'tether' }");
+    expect(source).toContain('tethers.push(tether)');
+  });
+
+  it('should release by tapping the tethered part and remain cuttable with Snip', () => {
+    expect(scriptContent).toContain('const existing = getTetherForBody(hit.body)');
+    expect(scriptContent).toContain('Composite.remove(world, existing.constraint, true)');
+    expect(scriptContent).toContain("showTetherFeedback('TETHER RELEASED', '#65f7ff')");
+    expect(scriptContent).toContain('(constraint.bodyA || constraint.bodyB)');
+    expect(scriptContent).toContain('tethers = tethers.filter(tether => tether.constraint !== constraint)');
+  });
+
+  it('should render persistent cord feedback and clean every tracked state path', () => {
+    expect(document.getElementById('tether-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('function drawTethers(timestamp)');
+    expect(scriptContent).toContain('drawTethers(timestamp)');
+    expect(scriptContent).toContain("ctx.strokeStyle = '#ff7ad9'");
+    expect(scriptContent).toContain("if (tool !== 'tether') resetTetherSelection(true)");
+    expect(scriptContent).toContain('function pruneTethers()');
+    expect(scriptContent).toContain('pruneTethers()');
+    expect(scriptContent).toContain('tethers = tethers.filter(tether => !constraintsToRemove.has(tether.constraint))');
+    expect(scriptContent).toContain('tethers = []');
+    expect(scriptContent).toContain("tether: '#ff7ad9'");
   });
 });
 
@@ -1823,10 +1897,9 @@ describe('Snip Tool', () => {
     expect(distancePointToSegment({ x:3, y:4 }, { x:0, y:0 }, { x:0, y:0 })).toBe(5);
   });
 
-  it('should find only visible body-to-body constraints with forgiving touch targeting', () => {
+  it('should find visible body connections, including world tethers, with forgiving touch targeting', () => {
     expect(scriptContent).toContain('function isSnippableConstraint(constraint)');
-    expect(scriptContent).toContain('constraint.bodyA &&');
-    expect(scriptContent).toContain('constraint.bodyB &&');
+    expect(scriptContent).toContain('(constraint.bodyA || constraint.bodyB) &&');
     expect(scriptContent).toContain("constraint.render?.visible !== false");
     expect(scriptContent).toContain("constraint.render?.type !== 'flipper-pin'");
     expect(scriptContent).toContain('function findSnippableConstraintAt(pos, maxDistance = 28)');

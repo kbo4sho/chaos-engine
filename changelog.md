@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-09-18T14:09:05Z — Added: Tether tool
+**Why:** The toolbar could pin a part at its current point with Pivot or connect two parts with Spring, but it had no way to attach one existing object to a remote fixed point with an elastic cord. Tether adds a body-to-world connection without spawning an anchor body, replacing the target, or freezing its rotation.
+**Goal alignment:** "more fun, more surprising, more satisfying" — balls become bungees, blocks swing from invisible rafters, and moving props can be caught into elastic arcs; tapping the tethered part or using Snip releases it instantly.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (449/449 passing); browser smoke ✓ (existing Block tool placed a paused subject, final Tether button selected it and created one visible 160px body-to-world cord from a 250px tap span, live physics pulled the Block into a stable 160.1px swing while OBJ stayed 1); mobile ✓ (390×844, existing Ball tool placed a subject, final Tether button was fully reachable at 52×50px and x=330–382, one visible cord contracted from a 197px tap span to its 126px rest length, and tapping the tethered Ball released only the cord while preserving OBJ 1); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-09-17T14:14:14Z — Added: Weld tool
 **Why:** The toolbar could connect parts with flexible Rope, elastic Spring, distance-only Strut, or free-rotating Hinge joints, but it had no way to preserve both the tapped spacing and relative angle of two build parts. Weld adds a rigid seam without replacing or fusing either object.
 **Goal alignment:** "more fun, more surprising, more satisfying" — loose blocks become rigid beams, panels, and odd machines in two taps; the glowing seam makes the lock readable, existing Twist can drive the pair as one assembly, and Snip can release it instantly.

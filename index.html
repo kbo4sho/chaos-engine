@@ -490,6 +490,18 @@ canvas#game {
 #orbit-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#tether-feedback {
+  position:absolute; top:728px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  opacity:0; pointer-events:none;
+  color:#ff7ad9; font-size:22px; letter-spacing:2px;
+  text-shadow:0 0 8px currentColor, 0 0 18px currentColor;
+  white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#tether-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -607,6 +619,7 @@ canvas#game {
   #twist-feedback { top:14px; font-size:19px; }
   #lift-feedback { top:14px; font-size:19px; }
   #orbit-feedback { top:14px; font-size:19px; }
+  #tether-feedback { top:14px; font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -674,6 +687,7 @@ canvas#game {
     <div id="lift-feedback" role="status" aria-live="polite"></div>
     <div id="orbit-feedback" role="status" aria-live="polite"></div>
     <div id="weld-feedback" role="status" aria-live="polite"></div>
+    <div id="tether-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -743,6 +757,7 @@ canvas#game {
     <button class="tool-btn" data-tool="lift" style="color:#9d7cff;" title="Tap a dynamic part to make it fall opposite the scene's gravity" aria-label="Toggle inverted local gravity on a dynamic part"><span class="icon">🪁</span>Lift</button>
     <button class="tool-btn" data-tool="orbit" style="color:#54f7ff;" title="Tap a dynamic part, then tap a center point to send it into orbit; tap the orbiting part to release it" aria-label="Send a dynamic part into a persistent orbit around a tapped center point"><span class="icon">🛰️</span>Orbit</button>
     <button class="tool-btn" data-tool="weld" style="color:#ffb347;" title="Tap two build parts at their seam to lock their distance and relative rotation" aria-label="Weld two build parts into one rigid assembly"><span class="icon">🔧</span>Weld</button>
+    <button class="tool-btn" data-tool="tether" style="color:#ff7ad9;" title="Tap a dynamic part, then tap a remote point to connect an elastic world tether; tap the tethered part to release" aria-label="Tether a dynamic part to a remote world point with an elastic cord"><span class="icon">🪝</span>Tether</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1015,6 +1030,9 @@ let orbitFeedbackTimer = 0;
 let weldSelection = null; // {body, point} first tapped build part and body-local seam point
 let welds = []; // {constraint, bodyA, bodyB, angleOffset} rigid seams created by the Weld tool
 let weldFeedbackTimer = 0;
+let tetherSelection = null; // {body, point} dynamic part waiting for a remote world anchor
+let tethers = []; // {body, constraint, anchor} elastic body-to-world cords created by Tether
+let tetherFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -1762,6 +1780,15 @@ function resetWeldSelection(silent = false) {
   feedback.textContent = '';
 }
 
+function resetTetherSelection(silent = false) {
+  tetherSelection = null;
+  if (!silent) return;
+  clearTimeout(tetherFeedbackTimer);
+  const feedback = document.getElementById('tether-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -1840,6 +1867,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'lift') resetLiftFeedback(true);
       if (tool !== 'orbit') resetOrbitSelection(true);
       if (tool !== 'weld') resetWeldSelection(true);
+      if (tool !== 'tether') resetTetherSelection(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -3262,6 +3290,8 @@ function finishClear(playFeedback = true) {
   springFirstBody = null;
   welds = [];
   weldSelection = null;
+  tethers = [];
+  tetherSelection = null;
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -3298,6 +3328,7 @@ function finishClear(playFeedback = true) {
   orbitingBodies.clear();
   resetOrbitSelection(true);
   resetWeldSelection(true);
+  resetTetherSelection(true);
   flippers = [];
   nextFlipperSide = 'left';
   clearTimeout(flipperFeedbackTimer);
@@ -3510,7 +3541,8 @@ function getToolAccentColor(tool) {
     twist: '#ffcf40',
     lift: '#9d7cff',
     orbit: '#54f7ff',
-    weld: '#ffb347'
+    weld: '#ffb347',
+    tether: '#ff7ad9'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -3646,6 +3678,7 @@ function eraseBodyAt(pos) {
   hinges = hinges.filter(hinge => !constraintsToRemove.has(hinge));
   springs = springs.filter(spring => !constraintsToRemove.has(spring));
   welds = welds.filter(weld => !constraintsToRemove.has(weld.constraint));
+  tethers = tethers.filter(tether => !constraintsToRemove.has(tether.constraint));
   pivots = pivots.filter(pivot => !constraintsToRemove.has(pivot.constraint));
   if (reverseFlash && removedBodyIds.has(reverseFlash.body.id)) reverseFlash = null;
   if (punchFlash && removedBodyIds.has(punchFlash.body.id)) punchFlash = null;
@@ -3665,6 +3698,7 @@ function eraseBodyAt(pos) {
   if (hingeSelection && removedBodyIds.has(hingeSelection.body.id)) hingeSelection = null;
   if (springFirstBody && removedBodyIds.has(springFirstBody.id)) springFirstBody = null;
   if (weldSelection && removedBodyIds.has(weldSelection.body.id)) resetWeldSelection(true);
+  if (tetherSelection && removedBodyIds.has(tetherSelection.body.id)) resetTetherSelection(true);
   if (launchBody && removedBodyIds.has(launchBody.id)) resetLaunchSelection(true);
   if (blinkBody && removedBodyIds.has(blinkBody.id)) resetBlinkSelection(true);
   if (squashFlash && removedBodyIds.has(squashFlash.body.id)) squashFlash = null;
@@ -4679,6 +4713,150 @@ function applyWeldLocks() {
       Body.setAngularVelocity(weld.bodyB, next.b);
     }
   });
+}
+
+const TETHER_REST_RATIO = 0.64;
+const TETHER_MIN_LENGTH = 42;
+const TETHER_MAX_LENGTH = 260;
+const TETHER_MIN_ANCHOR_DISTANCE = 64;
+
+function getTetherRestLength(distance) {
+  return Math.max(TETHER_MIN_LENGTH, Math.min(TETHER_MAX_LENGTH, distance * TETHER_REST_RATIO));
+}
+
+function getTetherLocalPoint(body, worldPoint) {
+  const dx = worldPoint.x - body.position.x;
+  const dy = worldPoint.y - body.position.y;
+  const cos = Math.cos(-body.angle);
+  const sin = Math.sin(-body.angle);
+  return { x:dx * cos - dy * sin, y:dx * sin + dy * cos };
+}
+
+function getTetherForBody(body) {
+  return tethers.find(tether => tether.body === body);
+}
+
+function isTetherableBody(body) {
+  return Boolean(body && body.label !== 'wall' && body.label !== 'chain-link' && !body.isTarget && !body.isFragment && body.parent === body && !body.isStatic);
+}
+
+function findTetherableBodyAt(pos) {
+  const candidates = Composite.allBodies(world).filter(isTetherableBody);
+  const exact = Matter.Query.point(candidates, pos).filter(isTetherableBody).pop();
+  if (exact) return { body:exact, point:{ x:pos.x, y:pos.y } };
+
+  let target = null;
+  let nearestDist = 46;
+  candidates.forEach(body => {
+    const distance = Math.hypot(body.position.x - pos.x, body.position.y - pos.y);
+    if (distance < nearestDist) {
+      target = body;
+      nearestDist = distance;
+    }
+  });
+  return target ? { body:target, point:{ x:target.position.x, y:target.position.y } } : null;
+}
+
+function showTetherFeedback(message, color = '#ff7ad9') {
+  const feedback = document.getElementById('tether-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(tetherFeedbackTimer);
+  tetherFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 850);
+}
+
+function addTetherBurst(point, color = '#ff7ad9') {
+  for (let i = 0; i < 14; i++) {
+    const angle = Math.PI * 2 * i / 14;
+    const speed = 1.4 + Math.random() * 2.8;
+    particles.push({
+      x:point.x,
+      y:point.y,
+      vx:Math.cos(angle) * speed,
+      vy:Math.sin(angle) * speed,
+      size:2 + Math.random() * 2,
+      life:0.28 + Math.random() * 0.28,
+      color:i % 3 === 0 ? '#65f7ff' : color
+    });
+  }
+  explosions.push({ x:point.x, y:point.y, r:4, maxR:42, alpha:0.7, isBirthRing:true });
+}
+
+function tetherBodyAt(pos) {
+  if (!tetherSelection || !Composite.get(world, tetherSelection.body.id, 'body')) {
+    const hit = findTetherableBodyAt(pos);
+    if (!hit) {
+      showTetherFeedback('TETHER: NO OBJECT', '#888888');
+      haptic([3]);
+      return false;
+    }
+
+    const existing = getTetherForBody(hit.body);
+    if (existing) {
+      Composite.remove(world, existing.constraint, true);
+      tethers = tethers.filter(tether => tether !== existing);
+      Matter.Sleeping.set(hit.body, false);
+      addTetherBurst(existing.anchor, '#65f7ff');
+      showTetherFeedback('TETHER RELEASED', '#65f7ff');
+      haptic([8]);
+      playSound(360, 0.1, 'triangle', 0.07);
+      return 'released';
+    }
+
+    tetherSelection = { body:hit.body, point:getTetherLocalPoint(hit.body, hit.point) };
+    addTetherBurst(hit.point);
+    showTetherFeedback('TETHER: PICK ANCHOR');
+    haptic([6]);
+    playSound(720, 0.08, 'sine', 0.06);
+    return 'selected';
+  }
+
+  const selected = tetherSelection;
+  const bodyPoint = Vector.add(selected.body.position, Vector.rotate(selected.point, selected.body.angle));
+  const distance = Math.hypot(pos.x - bodyPoint.x, pos.y - bodyPoint.y);
+  if (distance < TETHER_MIN_ANCHOR_DISTANCE) {
+    resetTetherSelection();
+    showTetherFeedback('TETHER CANCELLED', '#aaaaaa');
+    haptic([4]);
+    playSound(240, 0.08, 'square', 0.05);
+    return 'cancelled';
+  }
+
+  const anchor = { x:pos.x, y:pos.y };
+  const constraint = Constraint.create({
+    pointA:anchor,
+    bodyB:selected.body,
+    pointB:selected.point,
+    length:getTetherRestLength(distance),
+    stiffness:0.018,
+    damping:0.035,
+    render:{ visible:true, type:'tether' }
+  });
+  Composite.add(world, constraint);
+  const tether = { body:selected.body, constraint, anchor };
+  tethers.push(tether);
+  Matter.Sleeping.set(selected.body, false);
+  addTetherBurst(anchor);
+  resetTetherSelection();
+  showTetherFeedback(`TETHER SET: ${Math.round(constraint.length)}PX`);
+  haptic([8, 10, 12]);
+  playSound(300, 0.1, 'triangle', 0.07);
+  playSound(820, 0.15, 'sine', 0.06);
+  shakeIntensity = Math.max(shakeIntensity, 2);
+  return tether;
+}
+
+function pruneTethers() {
+  const liveBodies = new Set(Composite.allBodies(world));
+  tethers = tethers.filter(tether => {
+    const inWorld = Composite.get(world, tether.constraint.id, 'constraint');
+    if (inWorld && !liveBodies.has(tether.body)) Composite.remove(world, tether.constraint, true);
+    return Boolean(inWorld && liveBodies.has(tether.body));
+  });
+  if (tetherSelection && !liveBodies.has(tetherSelection.body)) resetTetherSelection(true);
 }
 
 const SPRING_REST_RATIO = 0.72;
@@ -7355,8 +7533,7 @@ function getConstraintCutPoint(point, start, end) {
 function isSnippableConstraint(constraint) {
   return Boolean(
     constraint &&
-    constraint.bodyA &&
-    constraint.bodyB &&
+    (constraint.bodyA || constraint.bodyB) &&
     constraint.render?.visible !== false &&
     constraint.render?.type !== 'flipper-pin'
   );
@@ -7424,6 +7601,7 @@ function snipConstraintAt(pos) {
   hinges = hinges.filter(hinge => hinge !== constraint);
   springs = springs.filter(spring => spring !== constraint);
   welds = welds.filter(weld => weld.constraint !== constraint);
+  tethers = tethers.filter(tether => tether.constraint !== constraint);
   wreckingBalls = wreckingBalls.filter(wrecking => wrecking.chain !== constraint);
   seesaws = seesaws.filter(seesaw => seesaw.constraint !== constraint);
   flippers = flippers.filter(flipper => flipper.constraint !== constraint);
@@ -7716,6 +7894,13 @@ function onDown(e) {
   // Weld tool — lock two tapped build parts together at a rigid seam.
   if (currentTool === 'weld') {
     weldBodiesAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Tether tool — connect one dynamic part to a remote world point with an elastic cord.
+  if (currentTool === 'tether') {
+    tetherBodyAt(pos);
     pointerDown = false;
     return;
   }
@@ -10493,6 +10678,89 @@ function drawSpringMarker(timestamp) {
   ctx.restore();
 }
 
+function drawTethers(timestamp) {
+  tethers.forEach(tether => {
+    if (!Composite.get(world, tether.constraint.id, 'constraint')) return;
+    const anchor = getConstraintWorldPoint(tether.constraint, 'A');
+    const bodyPoint = getConstraintWorldPoint(tether.constraint, 'B');
+    const dx = bodyPoint.x - anchor.x;
+    const dy = bodyPoint.y - anchor.y;
+    const distance = Math.hypot(dx, dy) || 1;
+    const nx = -dy / distance;
+    const ny = dx / distance;
+    const segments = Math.max(8, Math.min(20, Math.round(distance / 16)));
+    const pulse = 0.78 + Math.sin(timestamp / 120 + tether.body.id) * 0.18;
+
+    ctx.save();
+    ctx.globalAlpha = pulse;
+    ctx.strokeStyle = '#ff7ad9';
+    ctx.shadowColor = '#ff7ad9';
+    ctx.shadowBlur = 10;
+    ctx.lineWidth = 3;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(anchor.x, anchor.y);
+    for (let i = 1; i < segments; i++) {
+      const t = i / segments;
+      const wave = Math.sin(t * Math.PI * segments) * 4;
+      ctx.lineTo(anchor.x + dx * t + nx * wave, anchor.y + dy * t + ny * wave);
+    }
+    ctx.lineTo(bodyPoint.x, bodyPoint.y);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    ctx.translate(anchor.x, anchor.y);
+    ctx.rotate(Math.PI / 4);
+    ctx.fillStyle = '#111820';
+    ctx.strokeStyle = '#65f7ff';
+    ctx.lineWidth = 3;
+    ctx.fillRect(-8, -8, 16, 16);
+    ctx.strokeRect(-8, -8, 16, 16);
+    ctx.rotate(-Math.PI / 4);
+    ctx.fillStyle = '#65f7ff';
+    ctx.font = '14px VT323';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('T', 0, 1);
+    ctx.restore();
+
+    ctx.save();
+    ctx.globalAlpha = pulse;
+    ctx.strokeStyle = '#ffcf40';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(bodyPoint.x, bodyPoint.y, 7, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  });
+
+  if (!tetherSelection || currentTool !== 'tether') return;
+  if (!Composite.get(world, tetherSelection.body.id, 'body')) {
+    resetTetherSelection(true);
+    return;
+  }
+  const point = Vector.add(tetherSelection.body.position, Vector.rotate(tetherSelection.point, tetherSelection.body.angle));
+  const pulse = 0.72 + Math.sin(timestamp / 100 + tetherSelection.body.id) * 0.22;
+  ctx.save();
+  ctx.globalAlpha = pulse;
+  ctx.strokeStyle = '#ff7ad9';
+  ctx.fillStyle = '#ff7ad9';
+  ctx.shadowColor = '#ff7ad9';
+  ctx.shadowBlur = 14;
+  ctx.lineWidth = 3;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.arc(point.x, point.y, 18, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 1;
+  ctx.font = '18px VT323';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('A', point.x, point.y + 1);
+  ctx.restore();
+}
+
 function drawWeldMarker(timestamp) {
   if (!weldSelection || currentTool !== 'weld') return;
   if (!Composite.get(world, weldSelection.body.id, 'body')) {
@@ -10902,6 +11170,7 @@ function loop(timestamp) {
   pruneHinges();
   pruneSprings();
   pruneWelds();
+  pruneTethers();
   prunePivots();
 
   // Smooth gravity transition (skip during anti-grav pulse and gravity flip)
@@ -11712,6 +11981,7 @@ function loop(timestamp) {
   drawTwistFlash(timestamp);
   drawLiftMarkers(timestamp);
   drawOrbitMarkers(timestamp);
+  drawTethers(timestamp);
   drawWeldMarker(timestamp);
   drawPunchFlash(timestamp);
   drawSwapMarker(timestamp);

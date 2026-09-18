@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-09-18",
+      "ideas": [
+        "New tool: Tether one dynamic part to a remote fixed point with an elastic cord"
+      ],
+      "summary": "Implemented Tether tool (🪝) — the final button in the existing object toolbar now selects one dynamic part at an exact or 46px fallback tap point and connects it to a remote world anchor with a shortened, energy-storing elastic cord; a persistent magenta/cyan cord and anchor, selection/status/particle/audio/haptic feedback, tap-to-release behavior, Snip support, and tool-change/Eraser/Clear pruning make bungees and pendulums readable, reversible, and touch-friendly on desktop and mobile."
+    },
+    {
       "date": "2026-09-17",
       "ideas": [
         "New tool: Weld two build parts into one rigid assembly"
