@@ -688,6 +688,7 @@ canvas#game {
     <div id="orbit-feedback" role="status" aria-live="polite"></div>
     <div id="weld-feedback" role="status" aria-live="polite"></div>
     <div id="tether-feedback" role="status" aria-live="polite"></div>
+    <div id="stack-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -758,6 +759,7 @@ canvas#game {
     <button class="tool-btn" data-tool="orbit" style="color:#54f7ff;" title="Tap a dynamic part, then tap a center point to send it into orbit; tap the orbiting part to release it" aria-label="Send a dynamic part into a persistent orbit around a tapped center point"><span class="icon">🛰️</span>Orbit</button>
     <button class="tool-btn" data-tool="weld" style="color:#ffb347;" title="Tap two build parts at their seam to lock their distance and relative rotation" aria-label="Weld two build parts into one rigid assembly"><span class="icon">🔧</span>Weld</button>
     <button class="tool-btn" data-tool="tether" style="color:#ff7ad9;" title="Tap a dynamic part, then tap a remote point to connect an elastic world tether; tap the tethered part to release" aria-label="Tether a dynamic part to a remote world point with an elastic cord"><span class="icon">🪝</span>Tether</button>
+    <button class="tool-btn" data-tool="stack" style="color:#70ffb4;" title="Tap a standalone movable part, then tap another part to stack it neatly on top" aria-label="Stack one standalone movable part neatly on top of another part"><span class="icon">🧱</span>Stack</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1033,6 +1035,9 @@ let weldFeedbackTimer = 0;
 let tetherSelection = null; // {body, point} dynamic part waiting for a remote world anchor
 let tethers = []; // {body, constraint, anchor} elastic body-to-world cords created by Tether
 let tetherFeedbackTimer = 0;
+let stackFirstBody = null; // standalone movable part waiting for a base part
+let stackFlash = null; // {from, to, targetTop, startedAt} transient placement feedback
+let stackFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -1789,6 +1794,16 @@ function resetTetherSelection(silent = false) {
   feedback.textContent = '';
 }
 
+function resetStackSelection(silent = false) {
+  stackFirstBody = null;
+  if (!silent) return;
+  stackFlash = null;
+  clearTimeout(stackFeedbackTimer);
+  const feedback = document.getElementById('stack-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -1868,6 +1883,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'orbit') resetOrbitSelection(true);
       if (tool !== 'weld') resetWeldSelection(true);
       if (tool !== 'tether') resetTetherSelection(true);
+      if (tool !== 'stack') resetStackSelection(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -3329,6 +3345,7 @@ function finishClear(playFeedback = true) {
   resetOrbitSelection(true);
   resetWeldSelection(true);
   resetTetherSelection(true);
+  resetStackSelection(true);
   flippers = [];
   nextFlipperSide = 'left';
   clearTimeout(flipperFeedbackTimer);
@@ -3542,7 +3559,8 @@ function getToolAccentColor(tool) {
     lift: '#9d7cff',
     orbit: '#54f7ff',
     weld: '#ffb347',
-    tether: '#ff7ad9'
+    tether: '#ff7ad9',
+    stack: '#70ffb4'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -3691,6 +3709,8 @@ function eraseBodyAt(pos) {
     grabHistory = [];
   }
   if (swapFirstBody && removedBodyIds.has(swapFirstBody.id)) swapFirstBody = null;
+  if (stackFirstBody && removedBodyIds.has(stackFirstBody.id)) resetStackSelection(true);
+  if (stackFlash && removedBodyIds.has(stackFlash.bodyId)) stackFlash = null;
   if (relayFirstBody && removedBodyIds.has(relayFirstBody.id)) resetRelaySelection(true);
   if (strutFirstBody && removedBodyIds.has(strutFirstBody.id)) strutFirstBody = null;
   if (rotateFlash && removedBodyIds.has(rotateFlash.body.id)) rotateFlash = null;
@@ -7375,6 +7395,123 @@ function swapBodiesAt(pos) {
   return 'swapped';
 }
 
+function isStackSourceBody(body) {
+  if (!body || body.label === 'wall' || body.isTarget || body.isStatic || body.isFragment || body.parent !== body) return false;
+  return !Composite.allConstraints(world).some(constraint => constraint.bodyA === body || constraint.bodyB === body);
+}
+
+function isStackTargetBody(body) {
+  return Boolean(body && body.label !== 'wall' && !body.isTarget && !body.isFragment && body.parent === body);
+}
+
+function findStackBodyAt(pos, predicate) {
+  const candidates = Composite.allBodies(world).filter(predicate);
+  let target = Matter.Query.point(candidates, pos).filter(predicate).pop();
+  if (!target) {
+    let nearestDist = 46;
+    candidates.forEach(body => {
+      const distance = Math.hypot(body.position.x - pos.x, body.position.y - pos.y);
+      if (distance < nearestDist) {
+        target = body;
+        nearestDist = distance;
+      }
+    });
+  }
+  return target || null;
+}
+
+function getStackPosition(sourceBounds, targetBounds, canvasWidth, canvasHeight, gap = 4) {
+  const halfWidth = (sourceBounds.max.x - sourceBounds.min.x) / 2;
+  const halfHeight = (sourceBounds.max.y - sourceBounds.min.y) / 2;
+  const targetCenterX = (targetBounds.min.x + targetBounds.max.x) / 2;
+  const x = Math.max(halfWidth + 10, Math.min(canvasWidth - halfWidth - 10, targetCenterX));
+  const y = targetBounds.min.y - halfHeight - gap;
+  if (y - halfHeight < 10 || y + halfHeight > canvasHeight - 28) return null;
+  return { x, y };
+}
+
+function showStackFeedback(message, color = '#70ffb4') {
+  const feedback = document.getElementById('stack-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(stackFeedbackTimer);
+  stackFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 900);
+}
+
+function addStackBurst(position) {
+  for (let i = 0; i < 16; i++) {
+    const side = i % 2 === 0 ? -1 : 1;
+    particles.push({
+      x: position.x + side * (4 + Math.random() * 18),
+      y: position.y + 5 + Math.random() * 8,
+      vx: side * (1.2 + Math.random() * 2.2),
+      vy: -1.2 - Math.random() * 2.8,
+      size: 2 + Math.random() * 2.5,
+      life: 0.3 + Math.random() * 0.25,
+      color: i % 3 === 0 ? '#ffcf40' : '#70ffb4'
+    });
+  }
+}
+
+function stackBodiesAt(pos) {
+  if (stackFirstBody && !Composite.get(world, stackFirstBody.id, 'body')) stackFirstBody = null;
+  const target = findStackBodyAt(pos, stackFirstBody ? isStackTargetBody : isStackSourceBody);
+  if (!target) return false;
+
+  if (!stackFirstBody) {
+    stackFirstBody = target;
+    addStackBurst(target.position);
+    showStackFeedback('STACK PART SET • PICK BASE');
+    haptic([7]);
+    playSound(620, 0.08, 'square', 0.06);
+    return 'selected';
+  }
+
+  if (target === stackFirstBody) {
+    resetStackSelection();
+    showStackFeedback('STACK CANCELLED', '#aaaaaa');
+    haptic([4]);
+    playSound(240, 0.08, 'square', 0.05);
+    return 'cancelled';
+  }
+
+  const source = stackFirstBody;
+  const destination = getStackPosition(source.bounds, target.bounds, canvas.width, canvas.height);
+  if (!destination) {
+    showStackFeedback('NO ROOM ABOVE', '#ff9966');
+    haptic([5, 12, 5]);
+    playSound(210, 0.12, 'square', 0.05);
+    return 'blocked';
+  }
+
+  const from = { x:source.position.x, y:source.position.y };
+  const inheritedVelocity = target.isStatic
+    ? { x:0, y:0 }
+    : { x:target.velocity.x, y:target.velocity.y };
+  Matter.Sleeping.set(source, false);
+  Body.setPosition(source, destination);
+  Body.setVelocity(source, inheritedVelocity);
+  Body.setAngularVelocity(source, 0);
+  stackFlash = {
+    bodyId: source.id,
+    from,
+    to: { x:destination.x, y:destination.y },
+    targetTop: target.bounds.min.y,
+    startedAt: performance.now()
+  };
+  addStackBurst(destination);
+  resetStackSelection();
+  showStackFeedback('STACKED!');
+  haptic([9, 14, 9]);
+  playSound(420, 0.08, 'square', 0.07);
+  playSound(720, 0.12, 'sine', 0.08);
+  shakeIntensity = Math.max(shakeIntensity, 2);
+  return 'stacked';
+}
+
 function isRelayableBody(body) {
   if (!body || body.label === 'wall' || body.label === 'chain-link' || body.isTarget || body.isStatic || body.isFragment || body.parent !== body) return false;
   return !Composite.allConstraints(world).some(constraint => constraint.bodyA === body || constraint.bodyB === body);
@@ -7901,6 +8038,13 @@ function onDown(e) {
   // Tether tool — connect one dynamic part to a remote world point with an elastic cord.
   if (currentTool === 'tether') {
     tetherBodyAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Stack tool — place one standalone movable part neatly on top of another part.
+  if (currentTool === 'stack') {
+    stackBodiesAt(pos);
     pointerDown = false;
     return;
   }
@@ -10485,6 +10629,79 @@ function drawSwapMarker(timestamp) {
   ctx.restore();
 }
 
+function drawStackMarker(timestamp) {
+  if (stackFirstBody && currentTool === 'stack') {
+    if (!Composite.get(world, stackFirstBody.id, 'body')) {
+      stackFirstBody = null;
+    } else {
+      const halfWidth = (stackFirstBody.bounds.max.x - stackFirstBody.bounds.min.x) / 2;
+      const halfHeight = (stackFirstBody.bounds.max.y - stackFirstBody.bounds.min.y) / 2;
+      const radius = Math.max(24, Math.min(68, Math.hypot(halfWidth, halfHeight) + 12));
+      const pulse = 0.75 + Math.sin(timestamp / 100) * 0.2;
+      ctx.save();
+      ctx.translate(stackFirstBody.position.x, stackFirstBody.position.y);
+      ctx.globalAlpha = pulse;
+      ctx.strokeStyle = '#70ffb4';
+      ctx.fillStyle = '#ffcf40';
+      ctx.shadowColor = '#70ffb4';
+      ctx.shadowBlur = 14;
+      ctx.lineWidth = 3;
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(-12, radius + 7);
+      ctx.lineTo(12, radius + 7);
+      ctx.moveTo(-7, radius + 2);
+      ctx.lineTo(0, radius + 9);
+      ctx.lineTo(7, radius + 2);
+      ctx.stroke();
+      ctx.font = 'bold 15px VT323';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('TOP?', 0, -radius - 10);
+      ctx.restore();
+    }
+  }
+
+  if (!stackFlash) return;
+  const progress = (timestamp - stackFlash.startedAt) / 700;
+  if (progress >= 1) {
+    stackFlash = null;
+    return;
+  }
+  const eased = 1 - Math.pow(1 - progress, 3);
+  const x = stackFlash.from.x + (stackFlash.to.x - stackFlash.from.x) * eased;
+  const y = stackFlash.from.y + (stackFlash.to.y - stackFlash.from.y) * eased;
+  const alpha = 1 - progress;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = '#70ffb4';
+  ctx.fillStyle = '#ffcf40';
+  ctx.shadowColor = '#70ffb4';
+  ctx.shadowBlur = 14;
+  ctx.lineWidth = 2.5;
+  ctx.setLineDash([6, 5]);
+  ctx.beginPath();
+  ctx.moveTo(stackFlash.from.x, stackFlash.from.y);
+  ctx.lineTo(stackFlash.to.x, stackFlash.to.y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.rect(x - 8, y - 6, 16, 12);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(stackFlash.to.x - 28, stackFlash.targetTop);
+  ctx.lineTo(stackFlash.to.x + 28, stackFlash.targetTop);
+  ctx.stroke();
+  ctx.font = 'bold 16px VT323';
+  ctx.textAlign = 'center';
+  ctx.fillText('STACKED', stackFlash.to.x, stackFlash.targetTop - 10);
+  ctx.restore();
+}
+
 function drawRelayMarker(timestamp) {
   if (relayFirstBody && currentTool === 'relay') {
     if (!Composite.get(world, relayFirstBody.id, 'body')) {
@@ -11985,6 +12202,7 @@ function loop(timestamp) {
   drawWeldMarker(timestamp);
   drawPunchFlash(timestamp);
   drawSwapMarker(timestamp);
+  drawStackMarker(timestamp);
   drawRelayMarker(timestamp);
   drawStrutMarker(timestamp);
   drawRotateFlash(timestamp);

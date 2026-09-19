@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-09-19",
+      "ideas": [
+        "New tool: Stack one standalone movable part neatly on top of another part"
+      ],
+      "summary": "Implemented Stack tool (🧱) — the final button in the existing object toolbar now selects one standalone movable part at an exact or 46px fallback tap point, then places it at a canvas-safe 4px gap above a second part while inheriting the base's linear motion and settling source spin; a persistent neon TOP? selection marker, animated placement guide, status/particle/audio/haptic feedback, blocked/cancel handling, and tool-change/Eraser/Clear cleanup make quick towers and demolition setups precise and touch-friendly on desktop and mobile."
+    },
+    {
       "date": "2026-09-18",
       "ideas": [
         "New tool: Tether one dynamic part to a remote fixed point with an elastic cord"

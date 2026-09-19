@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 65 tool buttons', () => {
+  it('should have exactly 66 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(65);
+    expect(buttons.length).toBe(66);
   });
 
-  it('should append Tether after Weld at the end of the object toolbar', () => {
+  it('should append Stack after Tether at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('tether');
-    expect(toolbar.lastElementChild?.textContent).toContain('Tether');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('weld');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('orbit');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('stack');
+    expect(toolbar.lastElementChild?.textContent).toContain('Stack');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('tether');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('weld');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -63,6 +63,66 @@ describe('Tool Button Existence', () => {
   it('should have draw button with special class', () => {
     const drawBtn = document.querySelector('[data-tool="draw"]');
     expect(drawBtn.classList.contains('draw-btn')).toBe(true);
+  });
+});
+
+// ============================================
+// STACK TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Stack Tool', () => {
+  it('should expose Stack as the final selectable toolbar tool', () => {
+    const stackBtn = document.querySelector('[data-tool="stack"]');
+    expect(stackBtn).not.toBeNull();
+    expect(stackBtn?.getAttribute('aria-label')).toContain('neatly on top');
+    expect(stackBtn?.previousElementSibling?.dataset.tool).toBe('tether');
+    expect(stackBtn?.nextElementSibling).toBeNull();
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'stack'");
+    expect(scriptContent).toContain('stackBodiesAt(pos)');
+  });
+
+  it('should calculate a centered, canvas-safe position above the selected base', () => {
+    const source = scriptContent.match(/function getStackPosition\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getStackPosition = new Function(`${source}; return getStackPosition;`)();
+
+    const sourceBounds = { min:{ x:10, y:20 }, max:{ x:50, y:60 } };
+    const targetBounds = { min:{ x:170, y:200 }, max:{ x:230, y:240 } };
+    expect(getStackPosition(sourceBounds, targetBounds, 600, 500)).toEqual({ x:200, y:176 });
+    expect(getStackPosition(sourceBounds, { min:{ x:-10, y:200 }, max:{ x:20, y:240 } }, 600, 500)).toEqual({ x:30, y:176 });
+    expect(getStackPosition(sourceBounds, { min:{ x:170, y:40 }, max:{ x:230, y:80 } }, 600, 500)).toBeNull();
+  });
+
+  it('should select with touch-friendly targeting and move only the standalone source', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('function isStackSourceBody(body)'),
+      scriptContent.indexOf('function isRelayableBody(body)')
+    );
+    expect(source).toContain("body.label === 'wall'");
+    expect(source).toContain('body.isStatic');
+    expect(source).toContain('Composite.allConstraints(world).some');
+    expect(source).toContain('Matter.Query.point(candidates, pos)');
+    expect(source).toContain('let nearestDist = 46');
+    expect(source).toContain('Body.setPosition(source, destination)');
+    expect(source).toContain('Body.setVelocity(source, inheritedVelocity)');
+    expect(source).toContain('Body.setAngularVelocity(source, 0)');
+    expect(source).not.toContain('Body.setPosition(target');
+    expect(source).not.toContain('Composite.add(world');
+    expect(source).not.toContain('Composite.remove(world');
+  });
+
+  it('should preserve a blocked selection and clean selection or feedback on cancellation, tool change, Eraser, and Clear', () => {
+    expect(document.getElementById('stack-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain("return 'blocked'");
+    expect(scriptContent).toContain("return 'cancelled'");
+    expect(scriptContent).toContain("return 'stacked'");
+    expect(scriptContent).toContain("if (tool !== 'stack') resetStackSelection(true)");
+    expect(scriptContent).toContain('if (stackFirstBody && removedBodyIds.has(stackFirstBody.id)) resetStackSelection(true)');
+    expect(scriptContent.match(/resetStackSelection\(true\)/g)?.length).toBeGreaterThanOrEqual(3);
+    expect(scriptContent).toContain('function drawStackMarker(timestamp)');
+    expect(scriptContent).toContain('drawStackMarker(timestamp)');
+    expect(scriptContent).toContain("stack: '#70ffb4'");
   });
 });
 
@@ -365,11 +425,11 @@ describe('Weld Tool', () => {
 // ============================================
 
 describe('Tether Tool', () => {
-  it('should expose Tether as the final selectable toolbar tool', () => {
+  it('should keep Tether selectable immediately before Stack', () => {
     const tetherBtn = document.querySelector('[data-tool="tether"]');
     expect(tetherBtn).not.toBeNull();
     expect(tetherBtn?.getAttribute('aria-label')).toContain('elastic cord');
-    expect(document.getElementById('toolbar')?.lastElementChild).toBe(tetherBtn);
+    expect(tetherBtn?.nextElementSibling?.dataset.tool).toBe('stack');
     expect(tetherBtn?.previousElementSibling?.dataset.tool).toBe('weld');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'tether'");

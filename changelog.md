@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-09-19T14:10:49Z — Added: Stack tool
+**Why:** The toolbar could drag a part freely with Grab, teleport it to an arbitrary point with Blink, or exchange two positions with Swap, but it had no precise way to assemble one loose part directly on top of another. Stack adds a deliberate two-part placement transform without spawning, replacing, merging, connecting, or moving the selected base.
+**Goal alignment:** "more fun, more surprising, more satisfying" — balls and blocks can become clean towers in two taps, awkward pieces can be placed onto moving builds, and repeated stacks create instant demolition setups without requiring careful dragging.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (454/454 passing); browser smoke ✓ (existing Block tool placed two paused subjects, final Stack button selected one and moved it above the other with an exact 4px gap while preserving both bodies and OBJ 2); mobile ✓ (390×844, existing Ball and Block tools placed two subjects, the selected Ball showed the neon `TOP?` marker, Stack placed it 4px above the Block, and the final button was fully reachable at 52×50px and x=330–382); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-09-18T14:09:05Z — Added: Tether tool
 **Why:** The toolbar could pin a part at its current point with Pivot or connect two parts with Spring, but it had no way to attach one existing object to a remote fixed point with an elastic cord. Tether adds a body-to-world connection without spawning an anchor body, replacing the target, or freezing its rotation.
 **Goal alignment:** "more fun, more surprising, more satisfying" — balls become bungees, blocks swing from invisible rafters, and moving props can be caught into elastic arcs; tapping the tethered part or using Snip releases it instantly.
