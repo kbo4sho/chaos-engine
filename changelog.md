@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-09-20T14:09:36Z — Added: Mirror tool
+**Why:** The toolbar could teleport a part to an arbitrary point with Blink, exchange two positions with Swap, or reverse motion in place with Reverse, but it had no one-tap way to reflect both placement and movement across the playfield. Mirror adds a centerline transform without spawning, replacing, connecting, or removing the target.
+**Goal alignment:** "more fun, more surprising, more satisfying" — moving props can ricochet into symmetric setups, mid-flight mistakes can become opposite-side attacks, and repeated taps create playful cross-screen volleys while preserving the same object.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (459/459 passing); browser smoke ✓ (existing Block tool placed a paused subject, final Mirror button reflected it from x=180 to x=1100 while changing velocity +8/−3 to −8/−3, angle +0.4 to −0.4, spin +0.25 to −0.25, and preserving OBJ 1); mobile ✓ (390×844, existing Ball tool placed a subject, final Mirror button was fully reachable at 52×50px and x=330–382, then reflected it from x=92 to x=298 while reversing horizontal velocity and spin); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-09-19T14:10:49Z — Added: Stack tool
 **Why:** The toolbar could drag a part freely with Grab, teleport it to an arbitrary point with Blink, or exchange two positions with Swap, but it had no precise way to assemble one loose part directly on top of another. Stack adds a deliberate two-part placement transform without spawning, replacing, merging, connecting, or moving the selected base.
 **Goal alignment:** "more fun, more surprising, more satisfying" — balls and blocks can become clean towers in two taps, awkward pieces can be placed onto moving builds, and repeated stacks create instant demolition setups without requiring careful dragging.

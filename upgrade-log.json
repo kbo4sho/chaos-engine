@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-09-20",
+      "ideas": [
+        "New tool: Mirror one standalone movable part across the canvas centerline"
+      ],
+      "summary": "Implemented Mirror tool (🪞) — the final button in the existing object toolbar now reflects one tapped standalone movable part across the vertical canvas centerline while reversing its horizontal velocity, orientation, and spin and preserving vertical motion, object count, shape, and physics properties; canvas-safe placement, exact plus 46px touch targeting, neon centerline/particle/status/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make symmetric ricochets readable and reliable on desktop and mobile."
+    },
+    {
       "date": "2026-09-19",
       "ideas": [
         "New tool: Stack one standalone movable part neatly on top of another part"

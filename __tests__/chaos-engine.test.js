@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 66 tool buttons', () => {
+  it('should have exactly 67 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(66);
+    expect(buttons.length).toBe(67);
   });
 
-  it('should append Stack after Tether at the end of the object toolbar', () => {
+  it('should append Mirror after Stack at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('stack');
-    expect(toolbar.lastElementChild?.textContent).toContain('Stack');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('tether');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('weld');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('mirror');
+    expect(toolbar.lastElementChild?.textContent).toContain('Mirror');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('stack');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('tether');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,16 +67,80 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// MIRROR TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Mirror Tool', () => {
+  it('should expose Mirror as the final selectable toolbar tool', () => {
+    const mirrorBtn = document.querySelector('[data-tool="mirror"]');
+    expect(mirrorBtn).not.toBeNull();
+    expect(mirrorBtn?.getAttribute('aria-label')).toContain('canvas centerline');
+    expect(mirrorBtn?.previousElementSibling?.dataset.tool).toBe('stack');
+    expect(mirrorBtn?.nextElementSibling).toBeNull();
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'mirror'");
+    expect(scriptContent).toContain('mirrorBodyAt(pos)');
+  });
+
+  it('should reflect position, horizontal motion, orientation, and spin across the centerline', () => {
+    const source = scriptContent.match(/function getMirroredTransform\([\s\S]*?\n\}/)?.[0];
+    expect(source).toBeTruthy();
+    const getMirroredTransform = new Function(`${source}; return getMirroredTransform;`)();
+    const bounds = { min:{ x:70, y:90 }, max:{ x:130, y:130 } };
+
+    expect(getMirroredTransform(
+      { x:100, y:110 }, { x:8, y:-3 }, 0.4, 0.25, bounds, 600
+    )).toEqual({
+      position:{ x:500, y:110 },
+      velocity:{ x:-8, y:-3 },
+      angle:-0.4,
+      angularVelocity:-0.25
+    });
+    expect(getMirroredTransform(
+      { x:570, y:110 }, { x:-2, y:5 }, -0.3, -0.2, bounds, 600
+    ).position).toEqual({ x:40, y:110 });
+  });
+
+  it('should use touch-friendly standalone targeting and apply only the mirrored transform', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('function isMirrorableBody(body)'),
+      scriptContent.indexOf('function isRelayableBody(body)')
+    );
+    expect(source).toContain("body.label === 'wall'");
+    expect(source).toContain("body.label === 'chain-link'");
+    expect(source).toContain('Composite.allConstraints(world).some');
+    expect(source).toContain('Matter.Query.point(candidates, pos)');
+    expect(source).toContain('let nearestDist = 46');
+    expect(source).toContain('Body.setPosition(target, transform.position)');
+    expect(source).toContain('Body.setVelocity(target, transform.velocity)');
+    expect(source).toContain('Body.setAngle(target, transform.angle)');
+    expect(source).toContain('Body.setAngularVelocity(target, transform.angularVelocity)');
+    expect(source).not.toContain('Composite.add(world');
+    expect(source).not.toContain('Composite.remove(world');
+  });
+
+  it('should provide visible status and clean transient state on tool change, Eraser, and Clear', () => {
+    expect(document.getElementById('mirror-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain("if (tool !== 'mirror') resetMirrorFeedback(true)");
+    expect(scriptContent).toContain('if (mirrorFlash && removedBodyIds.has(mirrorFlash.bodyId)) mirrorFlash = null');
+    expect(scriptContent.match(/resetMirrorFeedback\(true\)/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(scriptContent).toContain('function drawMirrorFlash(timestamp)');
+    expect(scriptContent).toContain('drawMirrorFlash(timestamp)');
+    expect(scriptContent).toContain("mirror: '#67e8ff'");
+  });
+});
+
+// ============================================
 // STACK TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Stack Tool', () => {
-  it('should expose Stack as the final selectable toolbar tool', () => {
+  it('should keep Stack selectable immediately before Mirror', () => {
     const stackBtn = document.querySelector('[data-tool="stack"]');
     expect(stackBtn).not.toBeNull();
     expect(stackBtn?.getAttribute('aria-label')).toContain('neatly on top');
     expect(stackBtn?.previousElementSibling?.dataset.tool).toBe('tether');
-    expect(stackBtn?.nextElementSibling).toBeNull();
+    expect(stackBtn?.nextElementSibling?.dataset.tool).toBe('mirror');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'stack'");
     expect(scriptContent).toContain('stackBodiesAt(pos)');
@@ -97,7 +161,7 @@ describe('Stack Tool', () => {
   it('should select with touch-friendly targeting and move only the standalone source', () => {
     const source = scriptContent.slice(
       scriptContent.indexOf('function isStackSourceBody(body)'),
-      scriptContent.indexOf('function isRelayableBody(body)')
+      scriptContent.indexOf('function isMirrorableBody(body)')
     );
     expect(source).toContain("body.label === 'wall'");
     expect(source).toContain('body.isStatic');

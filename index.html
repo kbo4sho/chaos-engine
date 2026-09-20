@@ -502,6 +502,19 @@ canvas#game {
 #tether-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#mirror-feedback {
+  position:absolute; top:14px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#67e8ff;
+  font-size:19px; letter-spacing:2px; line-height:1;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none; white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#mirror-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -689,6 +702,7 @@ canvas#game {
     <div id="weld-feedback" role="status" aria-live="polite"></div>
     <div id="tether-feedback" role="status" aria-live="polite"></div>
     <div id="stack-feedback" role="status" aria-live="polite"></div>
+    <div id="mirror-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -760,6 +774,7 @@ canvas#game {
     <button class="tool-btn" data-tool="weld" style="color:#ffb347;" title="Tap two build parts at their seam to lock their distance and relative rotation" aria-label="Weld two build parts into one rigid assembly"><span class="icon">🔧</span>Weld</button>
     <button class="tool-btn" data-tool="tether" style="color:#ff7ad9;" title="Tap a dynamic part, then tap a remote point to connect an elastic world tether; tap the tethered part to release" aria-label="Tether a dynamic part to a remote world point with an elastic cord"><span class="icon">🪝</span>Tether</button>
     <button class="tool-btn" data-tool="stack" style="color:#70ffb4;" title="Tap a standalone movable part, then tap another part to stack it neatly on top" aria-label="Stack one standalone movable part neatly on top of another part"><span class="icon">🧱</span>Stack</button>
+    <button class="tool-btn" data-tool="mirror" style="color:#67e8ff;" title="Tap a standalone movable part to reflect its position and motion across the canvas centerline" aria-label="Mirror a standalone movable part across the canvas centerline"><span class="icon">🪞</span>Mirror</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1038,6 +1053,8 @@ let tetherFeedbackTimer = 0;
 let stackFirstBody = null; // standalone movable part waiting for a base part
 let stackFlash = null; // {from, to, targetTop, startedAt} transient placement feedback
 let stackFeedbackTimer = 0;
+let mirrorFlash = null; // {bodyId, from, to, startedAt} transient centerline reflection feedback
+let mirrorFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -1804,6 +1821,15 @@ function resetStackSelection(silent = false) {
   feedback.textContent = '';
 }
 
+function resetMirrorFeedback(silent = false) {
+  mirrorFlash = null;
+  if (!silent) return;
+  clearTimeout(mirrorFeedbackTimer);
+  const feedback = document.getElementById('mirror-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -1884,6 +1910,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'weld') resetWeldSelection(true);
       if (tool !== 'tether') resetTetherSelection(true);
       if (tool !== 'stack') resetStackSelection(true);
+      if (tool !== 'mirror') resetMirrorFeedback(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -3346,6 +3373,7 @@ function finishClear(playFeedback = true) {
   resetWeldSelection(true);
   resetTetherSelection(true);
   resetStackSelection(true);
+  resetMirrorFeedback(true);
   flippers = [];
   nextFlipperSide = 'left';
   clearTimeout(flipperFeedbackTimer);
@@ -3560,7 +3588,8 @@ function getToolAccentColor(tool) {
     orbit: '#54f7ff',
     weld: '#ffb347',
     tether: '#ff7ad9',
-    stack: '#70ffb4'
+    stack: '#70ffb4',
+    mirror: '#67e8ff'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -3711,6 +3740,7 @@ function eraseBodyAt(pos) {
   if (swapFirstBody && removedBodyIds.has(swapFirstBody.id)) swapFirstBody = null;
   if (stackFirstBody && removedBodyIds.has(stackFirstBody.id)) resetStackSelection(true);
   if (stackFlash && removedBodyIds.has(stackFlash.bodyId)) stackFlash = null;
+  if (mirrorFlash && removedBodyIds.has(mirrorFlash.bodyId)) mirrorFlash = null;
   if (relayFirstBody && removedBodyIds.has(relayFirstBody.id)) resetRelaySelection(true);
   if (strutFirstBody && removedBodyIds.has(strutFirstBody.id)) strutFirstBody = null;
   if (rotateFlash && removedBodyIds.has(rotateFlash.body.id)) rotateFlash = null;
@@ -7512,6 +7542,106 @@ function stackBodiesAt(pos) {
   return 'stacked';
 }
 
+function isMirrorableBody(body) {
+  if (!body || body.isStatic || body.label === 'wall' || body.label === 'chain-link' || body.isTarget || body.isFragment || body.parent !== body) return false;
+  return !Composite.allConstraints(world).some(constraint => constraint.bodyA === body || constraint.bodyB === body);
+}
+
+function findMirrorableBodyAt(pos) {
+  const candidates = Composite.allBodies(world).filter(isMirrorableBody);
+  let target = Matter.Query.point(candidates, pos).filter(isMirrorableBody).pop();
+  if (!target) {
+    let nearestDist = 46;
+    candidates.forEach(body => {
+      const distance = Math.hypot(body.position.x - pos.x, body.position.y - pos.y);
+      if (distance < nearestDist) {
+        target = body;
+        nearestDist = distance;
+      }
+    });
+  }
+  return target || null;
+}
+
+function getMirroredTransform(position, velocity, angle, angularVelocity, bounds, canvasWidth) {
+  const halfWidth = (bounds.max.x - bounds.min.x) / 2;
+  return {
+    position: {
+      x:Math.max(halfWidth + 10, Math.min(canvasWidth - halfWidth - 10, canvasWidth - position.x)),
+      y:position.y
+    },
+    velocity:{ x:-velocity.x, y:velocity.y },
+    angle:-angle,
+    angularVelocity:-angularVelocity
+  };
+}
+
+function showMirrorFeedback(message, color = '#67e8ff') {
+  const feedback = document.getElementById('mirror-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(mirrorFeedbackTimer);
+  mirrorFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 900);
+}
+
+function addMirrorBurst(point, color, direction) {
+  for (let i = 0; i < 16; i++) {
+    const angle = Math.PI * 2 * i / 16;
+    const speed = 1.8 + Math.random() * 3.2;
+    particles.push({
+      x:point.x,
+      y:point.y,
+      vx:Math.cos(angle) * speed + direction * 1.4,
+      vy:Math.sin(angle) * speed,
+      size:2 + Math.random() * 2.5,
+      life:0.3 + Math.random() * 0.26,
+      color:i % 3 === 0 ? '#ffffff' : color
+    });
+  }
+}
+
+function mirrorBodyAt(pos) {
+  const target = findMirrorableBodyAt(pos);
+  if (!target) {
+    showMirrorFeedback('MIRROR: NO OBJECT', '#888888');
+    playSound(190, 0.07, 'square', 0.035);
+    haptic([3]);
+    return false;
+  }
+
+  const from = { x:target.position.x, y:target.position.y };
+  const transform = getMirroredTransform(
+    target.position,
+    target.velocity,
+    target.angle,
+    target.angularVelocity,
+    target.bounds,
+    canvas.width
+  );
+  Matter.Sleeping.set(target, false);
+  Body.setPosition(target, transform.position);
+  Body.setVelocity(target, transform.velocity);
+  Body.setAngle(target, transform.angle);
+  Body.setAngularVelocity(target, transform.angularVelocity);
+  mirrorFlash = {
+    bodyId:target.id,
+    from,
+    to:{ x:transform.position.x, y:transform.position.y },
+    startedAt:performance.now()
+  };
+  addMirrorBurst(from, '#ff5fd7', from.x <= canvas.width / 2 ? 1 : -1);
+  addMirrorBurst(transform.position, '#67e8ff', transform.position.x <= canvas.width / 2 ? -1 : 1);
+  showMirrorFeedback('MIRRORED!');
+  playSound(880, 0.08, 'square', 0.06);
+  playSound(440, 0.12, 'sine', 0.07);
+  haptic([8, 8, 12]);
+  shakeIntensity = Math.max(shakeIntensity, 2);
+  return { body:target, from, ...transform };
+}
+
 function isRelayableBody(body) {
   if (!body || body.label === 'wall' || body.label === 'chain-link' || body.isTarget || body.isStatic || body.isFragment || body.parent !== body) return false;
   return !Composite.allConstraints(world).some(constraint => constraint.bodyA === body || constraint.bodyB === body);
@@ -8045,6 +8175,13 @@ function onDown(e) {
   // Stack tool — place one standalone movable part neatly on top of another part.
   if (currentTool === 'stack') {
     stackBodiesAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Mirror tool — reflect one standalone part and its motion across the canvas centerline.
+  if (currentTool === 'mirror') {
+    mirrorBodyAt(pos);
     pointerDown = false;
     return;
   }
@@ -10702,6 +10839,51 @@ function drawStackMarker(timestamp) {
   ctx.restore();
 }
 
+function drawMirrorFlash(timestamp) {
+  if (!mirrorFlash) return;
+  if (!Composite.get(world, mirrorFlash.bodyId, 'body')) {
+    mirrorFlash = null;
+    return;
+  }
+  const progress = (timestamp - mirrorFlash.startedAt) / 720;
+  if (progress >= 1) {
+    mirrorFlash = null;
+    return;
+  }
+  const alpha = 1 - progress;
+  const axisX = canvas.width / 2;
+  const beamY = mirrorFlash.from.y + (mirrorFlash.to.y - mirrorFlash.from.y) * progress;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = '#67e8ff';
+  ctx.fillStyle = '#ff5fd7';
+  ctx.shadowColor = '#67e8ff';
+  ctx.shadowBlur = 16;
+  ctx.lineWidth = 2.5;
+  ctx.setLineDash([7, 5]);
+  ctx.beginPath();
+  ctx.moveTo(axisX, 14);
+  ctx.lineTo(axisX, canvas.height - 28);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(mirrorFlash.from.x, beamY);
+  ctx.lineTo(mirrorFlash.to.x, beamY);
+  ctx.stroke();
+  [mirrorFlash.from.x, mirrorFlash.to.x].forEach((x, index) => {
+    ctx.globalAlpha = alpha * (index ? 1 : 0.62);
+    ctx.beginPath();
+    ctx.arc(x, beamY, 10 + progress * 18, 0, Math.PI * 2);
+    ctx.stroke();
+  });
+  ctx.globalAlpha = alpha;
+  ctx.font = 'bold 16px VT323';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('MIRROR', axisX, Math.max(28, beamY - 20));
+  ctx.restore();
+}
+
 function drawRelayMarker(timestamp) {
   if (relayFirstBody && currentTool === 'relay') {
     if (!Composite.get(world, relayFirstBody.id, 'body')) {
@@ -12203,6 +12385,7 @@ function loop(timestamp) {
   drawPunchFlash(timestamp);
   drawSwapMarker(timestamp);
   drawStackMarker(timestamp);
+  drawMirrorFlash(timestamp);
   drawRelayMarker(timestamp);
   drawStrutMarker(timestamp);
   drawRotateFlash(timestamp);
