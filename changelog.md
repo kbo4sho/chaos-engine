@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-09-21T14:12:23Z — Added: Web tool
+**Why:** The toolbar could place surfaces that bounce, slide, blow, attract, or move objects, and it could manually connect selected parts, but it had no reusable collision-triggered trap. Web adds a static catch surface that automatically makes a physical connection when a moving part hits it, then releases everything it holds on demand.
+**Goal alignment:** "more fun, more surprising, more satisfying" — falling balls and tumbling builds can be caught mid-chaos, up to three parts can collect into a dangling web cluster, and one tap releases the whole catch back into the simulation.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (464/464 passing); browser smoke ✓ (existing Block tool placed a real subject, final Web button placed one sticky trap, a falling Ball created one visible physical attachment and stopped on the trap, tapping the Web released it back to zero Web constraints); mobile ✓ (390×844, final Web button was fully reachable at 52×50px and x=330–382, existing Ball tool placed a subject, and the live trap caught it with visible neon web strands); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-09-20T14:09:36Z — Added: Mirror tool
 **Why:** The toolbar could teleport a part to an arbitrary point with Blink, exchange two positions with Swap, or reverse motion in place with Reverse, but it had no one-tap way to reflect both placement and movement across the playfield. Mirror adds a centerline transform without spawning, replacing, connecting, or removing the target.
 **Goal alignment:** "more fun, more surprising, more satisfying" — moving props can ricochet into symmetric setups, mid-flight mistakes can become opposite-side attacks, and repeated taps create playful cross-screen volleys while preserving the same object.

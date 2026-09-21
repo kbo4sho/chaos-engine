@@ -515,6 +515,19 @@ canvas#game {
 #mirror-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#web-feedback {
+  position:absolute; top:48px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#f58cff;
+  font-size:19px; letter-spacing:2px; line-height:1;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none; white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#web-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -703,6 +716,7 @@ canvas#game {
     <div id="tether-feedback" role="status" aria-live="polite"></div>
     <div id="stack-feedback" role="status" aria-live="polite"></div>
     <div id="mirror-feedback" role="status" aria-live="polite"></div>
+    <div id="web-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -775,6 +789,7 @@ canvas#game {
     <button class="tool-btn" data-tool="tether" style="color:#ff7ad9;" title="Tap a dynamic part, then tap a remote point to connect an elastic world tether; tap the tethered part to release" aria-label="Tether a dynamic part to a remote world point with an elastic cord"><span class="icon">🪝</span>Tether</button>
     <button class="tool-btn" data-tool="stack" style="color:#70ffb4;" title="Tap a standalone movable part, then tap another part to stack it neatly on top" aria-label="Stack one standalone movable part neatly on top of another part"><span class="icon">🧱</span>Stack</button>
     <button class="tool-btn" data-tool="mirror" style="color:#67e8ff;" title="Tap a standalone movable part to reflect its position and motion across the canvas centerline" aria-label="Mirror a standalone movable part across the canvas centerline"><span class="icon">🪞</span>Mirror</button>
+    <button class="tool-btn" data-tool="web" style="color:#f58cff;" title="Tap the canvas to place a sticky web trap; tap a web to release its captured parts" aria-label="Place a sticky web trap or release its captured parts"><span class="icon">🕸️</span>Web</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1055,6 +1070,8 @@ let stackFlash = null; // {from, to, targetTop, startedAt} transient placement f
 let stackFeedbackTimer = 0;
 let mirrorFlash = null; // {bodyId, from, to, startedAt} transient centerline reflection feedback
 let mirrorFeedbackTimer = 0;
+let webTraps = []; // {body, attachments:[{body, constraint}]} collision-triggered sticky traps
+let webFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -1830,6 +1847,14 @@ function resetMirrorFeedback(silent = false) {
   feedback.textContent = '';
 }
 
+function resetWebFeedback(silent = false) {
+  if (!silent) return;
+  clearTimeout(webFeedbackTimer);
+  const feedback = document.getElementById('web-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -1911,6 +1936,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'tether') resetTetherSelection(true);
       if (tool !== 'stack') resetStackSelection(true);
       if (tool !== 'mirror') resetMirrorFeedback(true);
+      if (tool !== 'web') resetWebFeedback(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -3335,6 +3361,7 @@ function finishClear(playFeedback = true) {
   weldSelection = null;
   tethers = [];
   tetherSelection = null;
+  webTraps = [];
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -3374,6 +3401,7 @@ function finishClear(playFeedback = true) {
   resetTetherSelection(true);
   resetStackSelection(true);
   resetMirrorFeedback(true);
+  resetWebFeedback(true);
   flippers = [];
   nextFlipperSide = 'left';
   clearTimeout(flipperFeedbackTimer);
@@ -3589,7 +3617,8 @@ function getToolAccentColor(tool) {
     weld: '#ffb347',
     tether: '#ff7ad9',
     stack: '#70ffb4',
-    mirror: '#67e8ff'
+    mirror: '#67e8ff',
+    web: '#f58cff'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -3727,6 +3756,7 @@ function eraseBodyAt(pos) {
   welds = welds.filter(weld => !constraintsToRemove.has(weld.constraint));
   tethers = tethers.filter(tether => !constraintsToRemove.has(tether.constraint));
   pivots = pivots.filter(pivot => !constraintsToRemove.has(pivot.constraint));
+  pruneWebTraps();
   if (reverseFlash && removedBodyIds.has(reverseFlash.body.id)) reverseFlash = null;
   if (punchFlash && removedBodyIds.has(punchFlash.body.id)) punchFlash = null;
   if (twistFlash && removedBodyIds.has(twistFlash.body.id)) twistFlash = null;
@@ -7642,6 +7672,159 @@ function mirrorBodyAt(pos) {
   return { body:target, from, ...transform };
 }
 
+const WEB_WIDTH = 84;
+const WEB_HEIGHT = 12;
+const WEB_MAX_CAPTURES = 3;
+
+function getWebLocalPoint(position, angle, worldPoint) {
+  const dx = worldPoint.x - position.x;
+  const dy = worldPoint.y - position.y;
+  const cos = Math.cos(angle || 0);
+  const sin = Math.sin(angle || 0);
+  return {
+    x:dx * cos + dy * sin,
+    y:-dx * sin + dy * cos
+  };
+}
+
+function getWebAttachmentPoints(webBody, capturedBody, contact) {
+  return {
+    pointA:getWebLocalPoint(webBody.position, webBody.angle, contact),
+    pointB:getWebLocalPoint(capturedBody.position, capturedBody.angle, contact)
+  };
+}
+
+function showWebFeedback(message, color = '#f58cff') {
+  const feedback = document.getElementById('web-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(webFeedbackTimer);
+  webFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 900);
+}
+
+function addWebBurst(point, color = '#f58cff', count = 14) {
+  for (let i = 0; i < count; i++) {
+    const angle = Math.PI * 2 * i / count;
+    const speed = 1.4 + Math.random() * 2.8;
+    particles.push({
+      x:point.x,
+      y:point.y,
+      vx:Math.cos(angle) * speed,
+      vy:Math.sin(angle) * speed - 0.5,
+      size:2 + Math.random() * 2,
+      life:0.3 + Math.random() * 0.28,
+      color:i % 3 === 0 ? '#bdfcff' : color
+    });
+  }
+}
+
+function pruneWebTraps() {
+  webTraps = webTraps.filter(entry => {
+    if (!Composite.get(world, entry.body.id, 'body')) {
+      entry.attachments.forEach(attachment => {
+        if (Composite.get(world, attachment.constraint.id, 'constraint')) Composite.remove(world, attachment.constraint, true);
+      });
+      return false;
+    }
+    entry.attachments = entry.attachments.filter(attachment => (
+      Composite.get(world, attachment.body.id, 'body') &&
+      Composite.get(world, attachment.constraint.id, 'constraint')
+    ));
+    return true;
+  });
+}
+
+function findWebTrapAt(pos) {
+  const bodies = webTraps.map(entry => entry.body).filter(body => Composite.get(world, body.id, 'body'));
+  let body = Matter.Query.point(bodies, pos).pop();
+  if (!body) {
+    let nearestDist = 46;
+    bodies.forEach(candidate => {
+      const distance = Math.hypot(candidate.position.x - pos.x, candidate.position.y - pos.y);
+      if (distance < nearestDist) {
+        body = candidate;
+        nearestDist = distance;
+      }
+    });
+  }
+  return body ? webTraps.find(entry => entry.body === body) || null : null;
+}
+
+function releaseWebTrap(entry) {
+  pruneWebTraps();
+  const captured = entry.attachments.filter(attachment => Composite.get(world, attachment.body.id, 'body'));
+  captured.forEach(attachment => {
+    Composite.remove(world, attachment.constraint, true);
+    Matter.Sleeping.set(attachment.body, false);
+  });
+  entry.attachments = [];
+  addWebBurst(entry.body.position, '#bdfcff', 18);
+  showWebFeedback(captured.length ? `WEB RELEASED ×${captured.length}` : 'WEB ARMED', captured.length ? '#bdfcff' : '#f58cff');
+  playSound(captured.length ? 720 : 420, 0.12, 'triangle', 0.07);
+  haptic(captured.length ? [8, 10, 8] : [5]);
+  return captured.length;
+}
+
+function placeOrReleaseWebAt(pos) {
+  pruneWebTraps();
+  const existing = findWebTrapAt(pos);
+  if (existing) return { released:releaseWebTrap(existing), body:existing.body };
+
+  const x = Math.max(WEB_WIDTH / 2 + 10, Math.min(canvas.width - WEB_WIDTH / 2 - 10, pos.x));
+  const y = Math.max(WEB_HEIGHT / 2 + 10, Math.min(canvas.height - WEB_HEIGHT / 2 - 30, pos.y));
+  const body = Bodies.rectangle(x, y, WEB_WIDTH, WEB_HEIGHT, {
+    isStatic:true,
+    friction:0.9,
+    restitution:0.05,
+    label:'web-trap',
+    chamfer:{ radius:6 },
+    render:{ type:'web-trap', color:'#f58cff', width:WEB_WIDTH, height:WEB_HEIGHT }
+  });
+  body.isWebTrap = true;
+  body.material = 'rubber';
+  Composite.add(world, body);
+  markSpawnPop(body);
+  webTraps.push({ body, attachments:[] });
+  addWebBurst(body.position);
+  showWebFeedback('WEB ARMED • CATCH UP TO 3');
+  playSound(660, 0.08, 'square', 0.06);
+  haptic([7]);
+  return { released:0, body };
+}
+
+function attachBodyToWeb(webBody, capturedBody, contact) {
+  pruneWebTraps();
+  const entry = webTraps.find(candidate => candidate.body === webBody);
+  if (!entry || !capturedBody || capturedBody.isStatic || capturedBody.isPhased) return false;
+  if (entry.attachments.length >= WEB_MAX_CAPTURES) return false;
+  if (webTraps.some(candidate => candidate.attachments.some(attachment => attachment.body === capturedBody))) return false;
+
+  const points = getWebAttachmentPoints(webBody, capturedBody, contact);
+  const constraint = Constraint.create({
+    bodyA:webBody,
+    pointA:points.pointA,
+    bodyB:capturedBody,
+    pointB:points.pointB,
+    length:0,
+    stiffness:0.92,
+    damping:0.28,
+    render:{ type:'web-attachment' }
+  });
+  Composite.add(world, constraint);
+  entry.attachments.push({ body:capturedBody, constraint });
+  Matter.Sleeping.set(capturedBody, false);
+  Body.setVelocity(capturedBody, { x:capturedBody.velocity.x * 0.2, y:capturedBody.velocity.y * 0.2 });
+  Body.setAngularVelocity(capturedBody, capturedBody.angularVelocity * 0.25);
+  addWebBurst(contact, '#f58cff', 16);
+  showWebFeedback(`WEB CAUGHT ${entry.attachments.length}/${WEB_MAX_CAPTURES}`);
+  playSound(520 + entry.attachments.length * 90, 0.1, 'triangle', 0.08);
+  haptic([8, 8, 10]);
+  return constraint;
+}
+
 function isRelayableBody(body) {
   if (!body || body.label === 'wall' || body.label === 'chain-link' || body.isTarget || body.isStatic || body.isFragment || body.parent !== body) return false;
   return !Composite.allConstraints(world).some(constraint => constraint.bodyA === body || constraint.bodyB === body);
@@ -7869,6 +8052,9 @@ function snipConstraintAt(pos) {
   springs = springs.filter(spring => spring !== constraint);
   welds = welds.filter(weld => weld.constraint !== constraint);
   tethers = tethers.filter(tether => tether.constraint !== constraint);
+  webTraps.forEach(entry => {
+    entry.attachments = entry.attachments.filter(attachment => attachment.constraint !== constraint);
+  });
   wreckingBalls = wreckingBalls.filter(wrecking => wrecking.chain !== constraint);
   seesaws = seesaws.filter(seesaw => seesaw.constraint !== constraint);
   flippers = flippers.filter(flipper => flipper.constraint !== constraint);
@@ -8186,6 +8372,13 @@ function onDown(e) {
     return;
   }
 
+  // Web tool — place a collision-triggered sticky trap or release everything it caught.
+  if (currentTool === 'web') {
+    placeOrReleaseWebAt(pos);
+    pointerDown = false;
+    return;
+  }
+
   // Snip tool — cut one visible physical connection without removing its bodies.
   if (currentTool === 'snip') {
     snipConstraintAt(pos);
@@ -8431,6 +8624,17 @@ canvas.addEventListener('touchend', onUp, {passive:false});
 // ── COLLISION EVENTS ──
 Events.on(engine, 'collisionStart', (e) => {
   e.pairs.forEach(pair => {
+    // Web traps catch up to three dynamic parts on contact until tapped to release.
+    const webBody = pair.bodyA.isWebTrap ? pair.bodyA : (pair.bodyB.isWebTrap ? pair.bodyB : null);
+    const capturedBody = webBody === pair.bodyA ? pair.bodyB : pair.bodyA;
+    if (webBody && capturedBody && !capturedBody.isStatic) {
+      const contact = pair.collision.supports?.[0] || {
+        x:(webBody.position.x + capturedBody.position.x) / 2,
+        y:(webBody.position.y + capturedBody.position.y) / 2
+      };
+      attachBodyToWeb(webBody, capturedBody, contact);
+    }
+
     // Target hit detection
     const targetBody = pair.bodyA.isTarget ? pair.bodyA : (pair.bodyB.isTarget ? pair.bodyB : null);
     const hitterBody = targetBody === pair.bodyA ? pair.bodyB : pair.bodyA;
@@ -9057,6 +9261,37 @@ function drawBody(b) {
       ctx.textBaseline = 'alphabetic';
       break;
     }
+    case 'web-trap': {
+      const ww = r.width || WEB_WIDTH;
+      const wh = r.height || WEB_HEIGHT;
+      const pulse = 0.72 + Math.sin(performance.now() / 130 + b.id) * 0.18;
+      ctx.shadowColor = '#f58cff';
+      ctx.shadowBlur = 12;
+      ctx.fillStyle = `rgba(245,140,255,${0.12 + pulse * 0.08})`;
+      ctx.strokeStyle = '#f58cff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(-ww / 2, -wh / 2, ww, wh, wh / 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = '#bdfcff';
+      ctx.lineWidth = 1;
+      for (let x = -ww / 2 + 8; x < ww / 2; x += 10) {
+        ctx.beginPath();
+        ctx.moveTo(x - 4, -wh / 2 + 2);
+        ctx.quadraticCurveTo(x, wh / 2 + 4, x + 4, -wh / 2 + 2);
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#f58cff';
+      ctx.font = 'bold 11px VT323';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('WEB', 0, -12);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      break;
+    }
     case 'conveyor': {
       const cw = r.width || 100;
       const ch = r.height || 12;
@@ -9594,7 +9829,36 @@ function drawConstraints() {
     if (c.render?.type === 'flipper-pin') return;
     const pA = Vector.add(c.bodyA.position, Vector.rotate(c.pointA, c.bodyA.angle));
     const pB = Vector.add(c.bodyB.position, Vector.rotate(c.pointB, c.bodyB.angle));
-    if (c.render?.type === 'strut') {
+    if (c.render?.type === 'web-attachment') {
+      const dx = pB.x - pA.x;
+      const dy = pB.y - pA.y;
+      const distance = Math.hypot(dx, dy) || 1;
+      const nx = -dy / distance;
+      const ny = dx / distance;
+      const segments = Math.max(3, Math.min(8, Math.round(distance / 8)));
+      ctx.save();
+      ctx.strokeStyle = '#f58cff';
+      ctx.shadowColor = '#f58cff';
+      ctx.shadowBlur = 9;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(pA.x, pA.y);
+      for (let i = 1; i < segments; i++) {
+        const t = i / segments;
+        const wave = (i % 2 === 0 ? -1 : 1) * 4;
+        ctx.lineTo(pA.x + dx * t + nx * wave, pA.y + dy * t + ny * wave);
+      }
+      ctx.lineTo(pB.x, pB.y);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      [pA, pB].forEach(point => {
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#bdfcff';
+        ctx.fill();
+      });
+      ctx.restore();
+    } else if (c.render?.type === 'strut') {
       const dx = pB.x - pA.x;
       const dy = pB.y - pA.y;
       const dist = Math.hypot(dx, dy) || 1;
@@ -11571,6 +11835,7 @@ function loop(timestamp) {
   pruneWelds();
   pruneTethers();
   prunePivots();
+  pruneWebTraps();
 
   // Smooth gravity transition (skip during anti-grav pulse and gravity flip)
   if (!antiGravActive && gravityAngle === 0) {

@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-09-21",
+      "ideas": [
+        "New tool: Place a sticky Web trap that catches moving parts on contact and releases them on tap"
+      ],
+      "summary": "Implemented Web tool (🕸️) — the final button in the existing object toolbar now places a neon static trap that automatically connects up to three colliding dynamic parts at their contact points, then releases the full catch when tapped again; local-point physical constraints, duplicate/cap guards, touch-friendly trap targeting, visible web strands, status/particle/audio/haptic feedback, and Snip/Eraser/Clear pruning make collision-triggered catches reliable and reversible on desktop and mobile."
+    },
+    {
       "date": "2026-09-20",
       "ideas": [
         "New tool: Mirror one standalone movable part across the canvas centerline"

@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 67 tool buttons', () => {
+  it('should have exactly 68 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(67);
+    expect(buttons.length).toBe(68);
   });
 
-  it('should append Mirror after Stack at the end of the object toolbar', () => {
+  it('should append Web after Mirror at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('mirror');
-    expect(toolbar.lastElementChild?.textContent).toContain('Mirror');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('stack');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('tether');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('web');
+    expect(toolbar.lastElementChild?.textContent).toContain('Web');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('mirror');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('stack');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,6 +67,69 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// WEB TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Web Tool', () => {
+  it('should expose Web as the final selectable toolbar tool', () => {
+    const webBtn = document.querySelector('[data-tool="web"]');
+    expect(webBtn).not.toBeNull();
+    expect(webBtn?.getAttribute('aria-label')).toContain('sticky web trap');
+    expect(webBtn?.previousElementSibling?.dataset.tool).toBe('mirror');
+    expect(webBtn?.nextElementSibling).toBeNull();
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'web'");
+    expect(scriptContent).toContain('placeOrReleaseWebAt(pos)');
+  });
+
+  it('should convert the collision point into stable local anchors for both bodies', () => {
+    const localSource = scriptContent.match(/function getWebLocalPoint\([\s\S]*?\n\}/)?.[0];
+    const attachmentSource = scriptContent.match(/function getWebAttachmentPoints\([\s\S]*?\n\}/)?.[0];
+    expect(localSource).toBeTruthy();
+    expect(attachmentSource).toBeTruthy();
+    const getWebAttachmentPoints = new Function(`${localSource}; ${attachmentSource}; return getWebAttachmentPoints;`)();
+
+    const points = getWebAttachmentPoints(
+      { position:{ x:100, y:200 }, angle:0 },
+      { position:{ x:120, y:170 }, angle:Math.PI / 2 },
+      { x:110, y:190 }
+    );
+    expect(points.pointA).toEqual({ x:10, y:-10 });
+    expect(points.pointB.x).toBeCloseTo(20);
+    expect(points.pointB.y).toBeCloseTo(10);
+  });
+
+  it('should place a static trap and create one capped, collision-triggered physical attachment', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('const WEB_WIDTH'),
+      scriptContent.indexOf('function isRelayableBody(body)')
+    );
+    expect(source).toContain('const WEB_MAX_CAPTURES = 3');
+    expect(source).toContain("label:'web-trap'");
+    expect(source).toContain('isStatic:true');
+    expect(source).toContain('webTraps.push({ body, attachments:[] })');
+    expect(source).toContain('function attachBodyToWeb(');
+    expect(source).toContain('entry.attachments.length >= WEB_MAX_CAPTURES');
+    expect(source).toContain('candidate.attachments.some(attachment => attachment.body === capturedBody)');
+    expect(source).toContain('const constraint = Constraint.create({');
+    expect(source).toContain("render:{ type:'web-attachment' }");
+    expect(scriptContent).toContain('attachBodyToWeb(webBody, capturedBody, contact)');
+  });
+
+  it('should release captures on pad tap and clean state for Snip, Eraser, Clear, and tool changes', () => {
+    expect(document.getElementById('web-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('if (existing) return { released:releaseWebTrap(existing), body:existing.body }');
+    expect(scriptContent).toContain("if (tool !== 'web') resetWebFeedback(true)");
+    expect(scriptContent).toContain('webTraps = [];');
+    expect(scriptContent).toContain('entry.attachments = entry.attachments.filter(attachment => attachment.constraint !== constraint)');
+    expect(scriptContent.match(/pruneWebTraps\(\)/g)?.length).toBeGreaterThanOrEqual(4);
+    expect(scriptContent).toContain("case 'web-trap':");
+    expect(scriptContent).toContain("c.render?.type === 'web-attachment'");
+    expect(scriptContent).toContain("web: '#f58cff'");
+  });
+});
+
+// ============================================
 // MIRROR TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
@@ -76,7 +139,7 @@ describe('Mirror Tool', () => {
     expect(mirrorBtn).not.toBeNull();
     expect(mirrorBtn?.getAttribute('aria-label')).toContain('canvas centerline');
     expect(mirrorBtn?.previousElementSibling?.dataset.tool).toBe('stack');
-    expect(mirrorBtn?.nextElementSibling).toBeNull();
+    expect(mirrorBtn?.nextElementSibling?.dataset.tool).toBe('web');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'mirror'");
     expect(scriptContent).toContain('mirrorBodyAt(pos)');
@@ -104,7 +167,7 @@ describe('Mirror Tool', () => {
   it('should use touch-friendly standalone targeting and apply only the mirrored transform', () => {
     const source = scriptContent.slice(
       scriptContent.indexOf('function isMirrorableBody(body)'),
-      scriptContent.indexOf('function isRelayableBody(body)')
+      scriptContent.indexOf('const WEB_WIDTH')
     );
     expect(source).toContain("body.label === 'wall'");
     expect(source).toContain("body.label === 'chain-link'");
