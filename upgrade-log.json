@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-09-22",
+      "ideas": [
+        "New tool: Place a solid triangular Ramp and tap it to flip the slope"
+      ],
+      "summary": "Implemented Ramp tool (◢) — the final button in the existing object toolbar now places a canvas-clamped static triangular physics slope and flips an existing ramp between right-rise and left-rise on tap; exact plus 50px touch targeting, neon CRT rendering, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make reusable launches, ricochets, and obstacle courses readable and reliable on desktop and mobile."
+    },
+    {
       "date": "2026-09-21",
       "ideas": [
         "New tool: Place a sticky Web trap that catches moving parts on contact and releases them on tap"

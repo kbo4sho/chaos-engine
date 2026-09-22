@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 68 tool buttons', () => {
+  it('should have exactly 69 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(68);
+    expect(buttons.length).toBe(69);
   });
 
-  it('should append Web after Mirror at the end of the object toolbar', () => {
+  it('should append Ramp after Web at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('web');
-    expect(toolbar.lastElementChild?.textContent).toContain('Web');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('mirror');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('stack');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('ramp');
+    expect(toolbar.lastElementChild?.textContent).toContain('Ramp');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('web');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('mirror');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,6 +67,73 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// RAMP TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Ramp Tool', () => {
+  it('should expose Ramp as the final selectable toolbar tool', () => {
+    const rampBtn = document.querySelector('[data-tool="ramp"]');
+    expect(rampBtn).not.toBeNull();
+    expect(rampBtn?.getAttribute('aria-label')).toContain('flip an existing ramp');
+    expect(rampBtn?.previousElementSibling?.dataset.tool).toBe('web');
+    expect(rampBtn?.nextElementSibling).toBeNull();
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'ramp'");
+    expect(scriptContent).toContain('placeOrFlipRampAt(pos)');
+  });
+
+  it('should build mirrored triangular slopes and clamp placement inside the canvas', () => {
+    const verticesSource = scriptContent.match(/function getRampVertices\([\s\S]*?\n\}/)?.[0];
+    const placementSource = scriptContent.match(/function getRampPlacement\([\s\S]*?\n\}/)?.[0];
+    expect(verticesSource).toBeTruthy();
+    expect(placementSource).toBeTruthy();
+    const helpers = new Function(`
+      const RAMP_WIDTH = 112;
+      const RAMP_HEIGHT = 58;
+      ${verticesSource}
+      ${placementSource}
+      return { getRampVertices, getRampPlacement };
+    `)();
+
+    expect(helpers.getRampVertices(1)).toEqual([
+      { x:-56, y:29 }, { x:56, y:29 }, { x:56, y:-29 }
+    ]);
+    expect(helpers.getRampVertices(-1)).toEqual([
+      { x:-56, y:-29 }, { x:-56, y:29 }, { x:56, y:29 }
+    ]);
+    expect(helpers.getRampPlacement({ x:4, y:8 }, 390, 500)).toEqual({ x:66, y:39 });
+    expect(helpers.getRampPlacement({ x:386, y:496 }, 390, 500)).toEqual({ x:324, y:441 });
+  });
+
+  it('should create a real static physics ramp and replace it with the opposite slope on tap', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('const RAMP_WIDTH'),
+      scriptContent.indexOf('function isRelayableBody(body)')
+    );
+    expect(source).toContain('Bodies.fromVertices(position.x, position.y, getRampVertices(direction)');
+    expect(source).toContain('isStatic:true');
+    expect(source).toContain("label:'ramp'");
+    expect(source).toContain('body.rampDirection = direction');
+    expect(source).toContain('ramps.push(body)');
+    expect(source).toContain('const direction = existing.rampDirection === -1 ? 1 : -1');
+    expect(source).toContain('Composite.remove(world, existing, true)');
+    expect(source).toContain('Composite.add(world, replacement)');
+    expect(source).toContain('ramps[index] = replacement');
+  });
+
+  it('should provide touch-friendly targeting, visible feedback, rendering, and cleanup', () => {
+    expect(document.getElementById('ramp-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('Matter.Query.point(ramps, pos)');
+    expect(scriptContent).toContain('let nearestDist = 50');
+    expect(scriptContent).toContain("if (tool !== 'ramp') resetRampFeedback(true)");
+    expect(scriptContent).toContain('ramps = [];');
+    expect(scriptContent).toContain('ramps = ramps.filter(b => !removedBodyIds.has(b.id))');
+    expect(scriptContent).toContain("case 'ramp':");
+    expect(scriptContent).toContain("ramp: '#ffe66d'");
+  });
+});
+
+// ============================================
 // WEB TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
@@ -76,7 +143,7 @@ describe('Web Tool', () => {
     expect(webBtn).not.toBeNull();
     expect(webBtn?.getAttribute('aria-label')).toContain('sticky web trap');
     expect(webBtn?.previousElementSibling?.dataset.tool).toBe('mirror');
-    expect(webBtn?.nextElementSibling).toBeNull();
+    expect(webBtn?.nextElementSibling?.dataset.tool).toBe('ramp');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'web'");
     expect(scriptContent).toContain('placeOrReleaseWebAt(pos)');

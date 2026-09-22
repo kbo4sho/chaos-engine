@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-09-22T14:14:28Z — Added: Ramp tool
+**Why:** The toolbar could place flat surfaces, powered surfaces, traps, and freehand segments, but it had no compact reusable slope for redirecting falling or rolling objects. Ramp adds a solid triangular terrain piece that can be flipped in place to reshape a course without rebuilding it.
+**Goal alignment:** "more fun, more surprising, more satisfying" — ramps turn ordinary drops into launches and ricochets, combine naturally with balls, cars, bumpers, and gravity changes, and flip direction with one direct tap.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (469/469 passing); browser smoke ✓ (existing Block tool placed a real subject, final Ramp button placed one static three-vertex physics slope, and tapping the Ramp flipped it from right-rise to left-rise while keeping one ramp); mobile ✓ (390×844, final Ramp button was fully reachable at 52×50px and x=330–382, existing Ball tool placed a subject, and the ramp rendered and behaved correctly); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-09-21T14:12:23Z — Added: Web tool
 **Why:** The toolbar could place surfaces that bounce, slide, blow, attract, or move objects, and it could manually connect selected parts, but it had no reusable collision-triggered trap. Web adds a static catch surface that automatically makes a physical connection when a moving part hits it, then releases everything it holds on demand.
 **Goal alignment:** "more fun, more surprising, more satisfying" — falling balls and tumbling builds can be caught mid-chaos, up to three parts can collect into a dangling web cluster, and one tap releases the whole catch back into the simulation.

@@ -717,6 +717,7 @@ canvas#game {
     <div id="stack-feedback" role="status" aria-live="polite"></div>
     <div id="mirror-feedback" role="status" aria-live="polite"></div>
     <div id="web-feedback" role="status" aria-live="polite"></div>
+    <div id="ramp-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -790,6 +791,7 @@ canvas#game {
     <button class="tool-btn" data-tool="stack" style="color:#70ffb4;" title="Tap a standalone movable part, then tap another part to stack it neatly on top" aria-label="Stack one standalone movable part neatly on top of another part"><span class="icon">🧱</span>Stack</button>
     <button class="tool-btn" data-tool="mirror" style="color:#67e8ff;" title="Tap a standalone movable part to reflect its position and motion across the canvas centerline" aria-label="Mirror a standalone movable part across the canvas centerline"><span class="icon">🪞</span>Mirror</button>
     <button class="tool-btn" data-tool="web" style="color:#f58cff;" title="Tap the canvas to place a sticky web trap; tap a web to release its captured parts" aria-label="Place a sticky web trap or release its captured parts"><span class="icon">🕸️</span>Web</button>
+    <button class="tool-btn" data-tool="ramp" style="color:#ffe66d;" title="Tap the canvas to place a solid ramp; tap a ramp to flip its slope" aria-label="Place a solid ramp or flip an existing ramp's slope"><span class="icon">◢</span>Ramp</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1072,6 +1074,8 @@ let mirrorFlash = null; // {bodyId, from, to, startedAt} transient centerline re
 let mirrorFeedbackTimer = 0;
 let webTraps = []; // {body, attachments:[{body, constraint}]} collision-triggered sticky traps
 let webFeedbackTimer = 0;
+let ramps = []; // static triangular slopes created and flipped by the Ramp tool
+let rampFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -1855,6 +1859,14 @@ function resetWebFeedback(silent = false) {
   feedback.textContent = '';
 }
 
+function resetRampFeedback(silent = false) {
+  if (!silent) return;
+  clearTimeout(rampFeedbackTimer);
+  const feedback = document.getElementById('ramp-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -1937,6 +1949,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'stack') resetStackSelection(true);
       if (tool !== 'mirror') resetMirrorFeedback(true);
       if (tool !== 'web') resetWebFeedback(true);
+      if (tool !== 'ramp') resetRampFeedback(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -3362,6 +3375,7 @@ function finishClear(playFeedback = true) {
   tethers = [];
   tetherSelection = null;
   webTraps = [];
+  ramps = [];
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -3402,6 +3416,7 @@ function finishClear(playFeedback = true) {
   resetStackSelection(true);
   resetMirrorFeedback(true);
   resetWebFeedback(true);
+  resetRampFeedback(true);
   flippers = [];
   nextFlipperSide = 'left';
   clearTimeout(flipperFeedbackTimer);
@@ -3618,7 +3633,8 @@ function getToolAccentColor(tool) {
     tether: '#ff7ad9',
     stack: '#70ffb4',
     mirror: '#67e8ff',
-    web: '#f58cff'
+    web: '#f58cff',
+    ramp: '#ffe66d'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -3749,6 +3765,7 @@ function eraseBodyAt(pos) {
   conveyors = conveyors.filter(b => !removedBodyIds.has(b.id));
   magnets = magnets.filter(m => !removedBodyIds.has(m.body.id));
   chainLinks = chainLinks.filter(b => !removedBodyIds.has(b.id));
+  ramps = ramps.filter(b => !removedBodyIds.has(b.id));
   ropes = ropes.filter(r => !constraintsToRemove.has(r));
   struts = struts.filter(strut => !constraintsToRemove.has(strut));
   hinges = hinges.filter(hinge => !constraintsToRemove.has(hinge));
@@ -7825,6 +7842,117 @@ function attachBodyToWeb(webBody, capturedBody, contact) {
   return constraint;
 }
 
+const RAMP_WIDTH = 112;
+const RAMP_HEIGHT = 58;
+
+function getRampVertices(direction = 1) {
+  return direction === -1
+    ? [
+      { x:-RAMP_WIDTH / 2, y:-RAMP_HEIGHT / 2 },
+      { x:-RAMP_WIDTH / 2, y:RAMP_HEIGHT / 2 },
+      { x:RAMP_WIDTH / 2, y:RAMP_HEIGHT / 2 }
+    ]
+    : [
+      { x:-RAMP_WIDTH / 2, y:RAMP_HEIGHT / 2 },
+      { x:RAMP_WIDTH / 2, y:RAMP_HEIGHT / 2 },
+      { x:RAMP_WIDTH / 2, y:-RAMP_HEIGHT / 2 }
+    ];
+}
+
+function getRampPlacement(pos, canvasWidth, canvasHeight) {
+  return {
+    x:Math.max(RAMP_WIDTH / 2 + 10, Math.min(canvasWidth - RAMP_WIDTH / 2 - 10, pos.x)),
+    y:Math.max(RAMP_HEIGHT / 2 + 10, Math.min(canvasHeight - RAMP_HEIGHT / 2 - 30, pos.y))
+  };
+}
+
+function createRampBody(position, direction = 1) {
+  const body = Bodies.fromVertices(position.x, position.y, getRampVertices(direction), {
+    isStatic:true,
+    friction:0.92,
+    restitution:0.08,
+    label:'ramp',
+    render:{ type:'ramp', color:'#ffe66d', width:RAMP_WIDTH, height:RAMP_HEIGHT, direction }
+  });
+  body.isRamp = true;
+  body.rampDirection = direction;
+  body.material = 'stone';
+  return body;
+}
+
+function findRampAt(pos) {
+  ramps = ramps.filter(body => Composite.get(world, body.id, 'body'));
+  let body = Matter.Query.point(ramps, pos).pop();
+  if (!body) {
+    let nearestDist = 50;
+    ramps.forEach(candidate => {
+      const distance = Math.hypot(candidate.position.x - pos.x, candidate.position.y - pos.y);
+      if (distance < nearestDist) {
+        body = candidate;
+        nearestDist = distance;
+      }
+    });
+  }
+  return body || null;
+}
+
+function showRampFeedback(message, color = '#ffe66d') {
+  const feedback = document.getElementById('ramp-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(rampFeedbackTimer);
+  rampFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 900);
+}
+
+function addRampBurst(position, direction) {
+  const travel = direction === -1 ? -1 : 1;
+  for (let i = 0; i < 16; i++) {
+    const angle = Math.PI + (Math.PI * i / 15);
+    const speed = 1.4 + Math.random() * 3;
+    particles.push({
+      x:position.x,
+      y:position.y,
+      vx:Math.cos(angle) * speed + travel * 0.8,
+      vy:Math.sin(angle) * speed - 0.8,
+      size:2 + Math.random() * 2.5,
+      life:0.28 + Math.random() * 0.3,
+      color:i % 3 === 0 ? '#ffffff' : '#ffe66d'
+    });
+  }
+  explosions.push({ x:position.x, y:position.y, r:5, maxR:52, alpha:0.62, isBirthRing:true });
+}
+
+function placeOrFlipRampAt(pos) {
+  const existing = findRampAt(pos);
+  if (existing) {
+    const direction = existing.rampDirection === -1 ? 1 : -1;
+    const index = ramps.indexOf(existing);
+    const replacement = createRampBody({ x:existing.position.x, y:existing.position.y }, direction);
+    Composite.remove(world, existing, true);
+    Composite.add(world, replacement);
+    ramps[index] = replacement;
+    addRampBurst(replacement.position, direction);
+    showRampFeedback(direction === 1 ? 'RAMP FLIPPED: RISE RIGHT' : 'RAMP FLIPPED: RISE LEFT');
+    playSound(direction === 1 ? 720 : 520, 0.1, 'square', 0.065);
+    haptic([7, 8, 7]);
+    return { body:replacement, flipped:true, direction };
+  }
+
+  const placement = getRampPlacement(pos, canvas.width, canvas.height);
+  const body = createRampBody(placement, 1);
+  Composite.add(world, body);
+  ramps.push(body);
+  addRampBurst(body.position, 1);
+  showRampFeedback('RAMP PLACED: TAP IT TO FLIP');
+  playSpawn();
+  playSound(620, 0.08, 'triangle', 0.06);
+  haptic([7]);
+  return { body, flipped:false, direction:1 };
+}
+
 function isRelayableBody(body) {
   if (!body || body.label === 'wall' || body.label === 'chain-link' || body.isTarget || body.isStatic || body.isFragment || body.parent !== body) return false;
   return !Composite.allConstraints(world).some(constraint => constraint.bodyA === body || constraint.bodyB === body);
@@ -8375,6 +8503,13 @@ function onDown(e) {
   // Web tool — place a collision-triggered sticky trap or release everything it caught.
   if (currentTool === 'web') {
     placeOrReleaseWebAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Ramp tool — place a solid triangular slope or flip an existing ramp in place.
+  if (currentTool === 'ramp') {
+    placeOrFlipRampAt(pos);
     pointerDown = false;
     return;
   }
@@ -9288,6 +9423,45 @@ function drawBody(b) {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('WEB', 0, -12);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      break;
+    }
+    case 'ramp': {
+      const direction = b.rampDirection === -1 ? -1 : 1;
+      const cos = Math.cos(-(b.angle || 0));
+      const sin = Math.sin(-(b.angle || 0));
+      const vertices = b.vertices.map(vertex => {
+        const dx = vertex.x - b.position.x;
+        const dy = vertex.y - b.position.y;
+        return { x:dx * cos - dy * sin, y:dx * sin + dy * cos };
+      });
+      const pulse = 0.75 + Math.sin(performance.now() / 150 + b.id) * 0.15;
+      ctx.shadowColor = '#ffe66d';
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.moveTo(vertices[0].x, vertices[0].y);
+      for (let i = 1; i < vertices.length; i++) ctx.lineTo(vertices[i].x, vertices[i].y);
+      ctx.closePath();
+      ctx.fillStyle = `rgba(255,230,109,${0.12 + pulse * 0.08})`;
+      ctx.fill();
+      ctx.strokeStyle = '#ffe66d';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = '#67e8ff';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 5]);
+      ctx.beginPath();
+      ctx.moveTo(-RAMP_WIDTH * 0.28 * direction, RAMP_HEIGHT * 0.08);
+      ctx.lineTo(RAMP_WIDTH * 0.2 * direction, -RAMP_HEIGHT * 0.18);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#ffe66d';
+      ctx.font = 'bold 20px VT323';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(direction === 1 ? '↗' : '↖', 0, 8);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'alphabetic';
       break;
