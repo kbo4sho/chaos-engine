@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-09-23",
+      "ideas": [
+        "New tool: Place a pinned four-arm Pinwheel and tap it to reverse its spin"
+      ],
+      "summary": "Implemented Pinwheel tool (✣) — the final button in the existing object toolbar now places a canvas-clamped compound four-arm rotor on a zero-length world pin, starts it spinning, and alternates equal clockwise and counter-clockwise kicks when tapped; exact plus 52px touch targeting, neon CRT rendering, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make reusable pinball obstacles readable and reliable on desktop and mobile."
+    },
+    {
       "date": "2026-09-22",
       "ideas": [
         "New tool: Place a solid triangular Ramp and tap it to flip the slope"

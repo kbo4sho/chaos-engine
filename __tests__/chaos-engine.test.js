@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 69 tool buttons', () => {
+  it('should have exactly 70 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(69);
+    expect(buttons.length).toBe(70);
   });
 
-  it('should append Ramp after Web at the end of the object toolbar', () => {
+  it('should append Pinwheel after Ramp at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('ramp');
-    expect(toolbar.lastElementChild?.textContent).toContain('Ramp');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('web');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('mirror');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('pinwheel');
+    expect(toolbar.lastElementChild?.textContent).toContain('Pinwheel');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('ramp');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('web');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,16 +67,81 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// PINWHEEL TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Pinwheel Tool', () => {
+  it('should expose Pinwheel as the final selectable toolbar tool', () => {
+    const pinwheelBtn = document.querySelector('[data-tool="pinwheel"]');
+    expect(pinwheelBtn).not.toBeNull();
+    expect(pinwheelBtn?.getAttribute('aria-label')).toContain('reverse its spin');
+    expect(pinwheelBtn?.previousElementSibling?.dataset.tool).toBe('ramp');
+    expect(pinwheelBtn?.nextElementSibling).toBeNull();
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'pinwheel'");
+    expect(scriptContent).toContain('placeOrKickPinwheelAt(pos)');
+  });
+
+  it('should clamp placement and alternate equal opposite angular kicks', () => {
+    const placementSource = scriptContent.match(/function getPinwheelPlacement\([\s\S]*?\n\}/)?.[0];
+    const kickSource = scriptContent.match(/function getPinwheelKick\([\s\S]*?\n\}/)?.[0];
+    expect(placementSource).toBeTruthy();
+    expect(kickSource).toBeTruthy();
+    const helpers = new Function(`
+      const PINWHEEL_ARM_LENGTH = 104;
+      const PINWHEEL_KICK_SPEED = 0.42;
+      ${placementSource}
+      ${kickSource}
+      return { getPinwheelPlacement, getPinwheelKick };
+    `)();
+
+    expect(helpers.getPinwheelPlacement({ x:2, y:4 }, 390, 500)).toEqual({ x:62, y:62 });
+    expect(helpers.getPinwheelPlacement({ x:388, y:498 }, 390, 500)).toEqual({ x:328, y:418 });
+    expect(helpers.getPinwheelKick(1)).toEqual({ angularVelocity:0.42, nextDirection:-1 });
+    expect(helpers.getPinwheelKick(-1)).toEqual({ angularVelocity:-0.42, nextDirection:1 });
+  });
+
+  it('should create one compound rotor pinned to the world and reverse it on tap', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('const PINWHEEL_ARM_LENGTH'),
+      scriptContent.indexOf('function isRelayableBody(body)')
+    );
+    expect(source).toContain('parts:[horizontal, vertical]');
+    expect(source).toContain("label:'pinwheel'");
+    expect(source).toContain("render:{ type:'pinwheel'");
+    expect(source).toContain('const constraint = Constraint.create({');
+    expect(source).toContain('pointA:{ x:position.x, y:position.y }');
+    expect(source).toContain("render:{ visible:false, type:'pinwheel-pin' }");
+    expect(source).toContain('Body.setAngularVelocity(existing.body, kick.angularVelocity)');
+    expect(source).toContain('existing.body.pinwheelNextDirection = kick.nextDirection');
+    expect(source).toContain('Composite.add(world, [assembly.body, assembly.constraint])');
+    expect(source).toContain('pinwheels.push(assembly)');
+  });
+
+  it('should provide touch targeting, visible feedback, rendering, and cleanup', () => {
+    expect(document.getElementById('pinwheel-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('Matter.Query.point(bodies, pos)');
+    expect(scriptContent).toContain('let nearestDist = 52');
+    expect(scriptContent).toContain("if (tool !== 'pinwheel') resetPinwheelFeedback(true)");
+    expect(scriptContent).toContain('pinwheels = [];');
+    expect(scriptContent).toContain('pinwheels = pinwheels.filter(entry => !removedBodyIds.has(entry.body.id)');
+    expect(scriptContent).toContain('prunePinwheels();');
+    expect(scriptContent).toContain("case 'pinwheel':");
+    expect(scriptContent).toContain("pinwheel: '#7dff7a'");
+  });
+});
+
+// ============================================
 // RAMP TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Ramp Tool', () => {
-  it('should expose Ramp as the final selectable toolbar tool', () => {
+  it('should keep Ramp selectable immediately before Pinwheel', () => {
     const rampBtn = document.querySelector('[data-tool="ramp"]');
     expect(rampBtn).not.toBeNull();
     expect(rampBtn?.getAttribute('aria-label')).toContain('flip an existing ramp');
     expect(rampBtn?.previousElementSibling?.dataset.tool).toBe('web');
-    expect(rampBtn?.nextElementSibling).toBeNull();
+    expect(rampBtn?.nextElementSibling?.dataset.tool).toBe('pinwheel');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'ramp'");
     expect(scriptContent).toContain('placeOrFlipRampAt(pos)');

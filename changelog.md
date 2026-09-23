@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-09-23T14:12:58Z — Added: Pinwheel tool
+**Why:** The toolbar could place timed flippers, motorize existing parts, and pin arbitrary objects, but it had no ready-made free-spinning obstacle that could be redirected in place. Pinwheel adds a compact four-arm rotor with its own permanent axle and reversible one-tap kicks.
+**Goal alignment:** "more fun, more surprising, more satisfying" — pinwheels turn falling balls and loose builds into ricocheting pinball interactions, and alternating kicks let players redirect the action without rebuilding the scene.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (474/474 passing); browser smoke ✓ (existing Block tool placed a real subject, final Pinwheel button placed one compound four-arm rotor with one zero-length world constraint, live physics rotated it while its center stayed fixed, and two taps alternated its angular velocity from −0.42 to +0.42); mobile ✓ (390×844, final Pinwheel button was fully reachable at 52×50px and x=330–382 at the toolbar's true maximum scroll, existing Ball tool placed a subject, and the pinwheel rendered and placed correctly); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-09-22T14:14:28Z — Added: Ramp tool
 **Why:** The toolbar could place flat surfaces, powered surfaces, traps, and freehand segments, but it had no compact reusable slope for redirecting falling or rolling objects. Ramp adds a solid triangular terrain piece that can be flipped in place to reshape a course without rebuilding it.
 **Goal alignment:** "more fun, more surprising, more satisfying" — ramps turn ordinary drops into launches and ricochets, combine naturally with balls, cars, bumpers, and gravity changes, and flip direction with one direct tap.

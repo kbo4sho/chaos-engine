@@ -528,6 +528,19 @@ canvas#game {
 #web-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#pinwheel-feedback {
+  position:absolute; top:82px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#7dff7a;
+  font-size:19px; letter-spacing:2px; line-height:1;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none; white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#pinwheel-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -646,6 +659,7 @@ canvas#game {
   #lift-feedback { top:14px; font-size:19px; }
   #orbit-feedback { top:14px; font-size:19px; }
   #tether-feedback { top:14px; font-size:19px; }
+  #pinwheel-feedback { top:14px; font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -718,6 +732,7 @@ canvas#game {
     <div id="mirror-feedback" role="status" aria-live="polite"></div>
     <div id="web-feedback" role="status" aria-live="polite"></div>
     <div id="ramp-feedback" role="status" aria-live="polite"></div>
+    <div id="pinwheel-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -792,6 +807,7 @@ canvas#game {
     <button class="tool-btn" data-tool="mirror" style="color:#67e8ff;" title="Tap a standalone movable part to reflect its position and motion across the canvas centerline" aria-label="Mirror a standalone movable part across the canvas centerline"><span class="icon">🪞</span>Mirror</button>
     <button class="tool-btn" data-tool="web" style="color:#f58cff;" title="Tap the canvas to place a sticky web trap; tap a web to release its captured parts" aria-label="Place a sticky web trap or release its captured parts"><span class="icon">🕸️</span>Web</button>
     <button class="tool-btn" data-tool="ramp" style="color:#ffe66d;" title="Tap the canvas to place a solid ramp; tap a ramp to flip its slope" aria-label="Place a solid ramp or flip an existing ramp's slope"><span class="icon">◢</span>Ramp</button>
+    <button class="tool-btn" data-tool="pinwheel" style="color:#7dff7a;" title="Tap the canvas to place a pinned rotor; tap a pinwheel to kick it in the opposite direction" aria-label="Place a pinned pinwheel rotor or reverse its spin with a kick"><span class="icon">✣</span>Pinwheel</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1076,6 +1092,8 @@ let webTraps = []; // {body, attachments:[{body, constraint}]} collision-trigger
 let webFeedbackTimer = 0;
 let ramps = []; // static triangular slopes created and flipped by the Ramp tool
 let rampFeedbackTimer = 0;
+let pinwheels = []; // {body, constraint} free-spinning rotors pinned to the world
+let pinwheelFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -1867,6 +1885,14 @@ function resetRampFeedback(silent = false) {
   feedback.textContent = '';
 }
 
+function resetPinwheelFeedback(silent = false) {
+  if (!silent) return;
+  clearTimeout(pinwheelFeedbackTimer);
+  const feedback = document.getElementById('pinwheel-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -1950,6 +1976,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'mirror') resetMirrorFeedback(true);
       if (tool !== 'web') resetWebFeedback(true);
       if (tool !== 'ramp') resetRampFeedback(true);
+      if (tool !== 'pinwheel') resetPinwheelFeedback(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -3376,6 +3403,7 @@ function finishClear(playFeedback = true) {
   tetherSelection = null;
   webTraps = [];
   ramps = [];
+  pinwheels = [];
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -3417,6 +3445,7 @@ function finishClear(playFeedback = true) {
   resetMirrorFeedback(true);
   resetWebFeedback(true);
   resetRampFeedback(true);
+  resetPinwheelFeedback(true);
   flippers = [];
   nextFlipperSide = 'left';
   clearTimeout(flipperFeedbackTimer);
@@ -3634,7 +3663,8 @@ function getToolAccentColor(tool) {
     stack: '#70ffb4',
     mirror: '#67e8ff',
     web: '#f58cff',
-    ramp: '#ffe66d'
+    ramp: '#ffe66d',
+    pinwheel: '#7dff7a'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -3766,6 +3796,7 @@ function eraseBodyAt(pos) {
   magnets = magnets.filter(m => !removedBodyIds.has(m.body.id));
   chainLinks = chainLinks.filter(b => !removedBodyIds.has(b.id));
   ramps = ramps.filter(b => !removedBodyIds.has(b.id));
+  pinwheels = pinwheels.filter(entry => !removedBodyIds.has(entry.body.id) && !constraintsToRemove.has(entry.constraint));
   ropes = ropes.filter(r => !constraintsToRemove.has(r));
   struts = struts.filter(strut => !constraintsToRemove.has(strut));
   hinges = hinges.filter(hinge => !constraintsToRemove.has(hinge));
@@ -7953,6 +7984,141 @@ function placeOrFlipRampAt(pos) {
   return { body, flipped:false, direction:1 };
 }
 
+const PINWHEEL_ARM_LENGTH = 104;
+const PINWHEEL_ARM_WIDTH = 14;
+const PINWHEEL_KICK_SPEED = 0.42;
+
+function getPinwheelPlacement(pos, canvasWidth, canvasHeight) {
+  const radius = PINWHEEL_ARM_LENGTH / 2;
+  return {
+    x:Math.max(radius + 10, Math.min(canvasWidth - radius - 10, pos.x)),
+    y:Math.max(radius + 10, Math.min(canvasHeight - radius - 30, pos.y))
+  };
+}
+
+function getPinwheelKick(direction = 1) {
+  const normalizedDirection = direction === -1 ? -1 : 1;
+  return {
+    angularVelocity:normalizedDirection * PINWHEEL_KICK_SPEED,
+    nextDirection:-normalizedDirection
+  };
+}
+
+function createPinwheelAssembly(position) {
+  const partOptions = {
+    chamfer:{ radius:PINWHEEL_ARM_WIDTH / 2 },
+    friction:0.32,
+    restitution:0.78,
+    render:{ visible:false }
+  };
+  const horizontal = Bodies.rectangle(
+    position.x, position.y, PINWHEEL_ARM_LENGTH, PINWHEEL_ARM_WIDTH, partOptions
+  );
+  const vertical = Bodies.rectangle(
+    position.x, position.y, PINWHEEL_ARM_WIDTH, PINWHEEL_ARM_LENGTH, partOptions
+  );
+  const body = Body.create({
+    parts:[horizontal, vertical],
+    friction:0.32,
+    frictionAir:0.012,
+    restitution:0.78,
+    density:0.006,
+    label:'pinwheel',
+    render:{ type:'pinwheel', color:'#7dff7a', size:PINWHEEL_ARM_LENGTH }
+  });
+  body.isPinwheel = true;
+  body.pinwheelNextDirection = -1;
+  body.material = 'metal';
+  Body.setAngularVelocity(body, PINWHEEL_KICK_SPEED * 0.34);
+
+  const constraint = Constraint.create({
+    pointA:{ x:position.x, y:position.y },
+    bodyB:body,
+    pointB:{ x:0, y:0 },
+    length:0,
+    stiffness:1,
+    damping:0.12,
+    render:{ visible:false, type:'pinwheel-pin' }
+  });
+  return { body, constraint };
+}
+
+function prunePinwheels() {
+  pinwheels = pinwheels.filter(entry => (
+    Composite.get(world, entry.body.id, 'body') && Composite.get(world, entry.constraint.id, 'constraint')
+  ));
+}
+
+function findPinwheelAt(pos) {
+  prunePinwheels();
+  const bodies = pinwheels.map(entry => entry.body);
+  let body = Matter.Query.point(bodies, pos).pop();
+  if (!body) {
+    let nearestDist = 52;
+    bodies.forEach(candidate => {
+      const distance = Math.hypot(candidate.position.x - pos.x, candidate.position.y - pos.y);
+      if (distance < nearestDist) {
+        body = candidate;
+        nearestDist = distance;
+      }
+    });
+  }
+  return body ? pinwheels.find(entry => entry.body === body) || null : null;
+}
+
+function showPinwheelFeedback(message) {
+  const feedback = document.getElementById('pinwheel-feedback');
+  feedback.textContent = message;
+  feedback.style.color = '#7dff7a';
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(pinwheelFeedbackTimer);
+  pinwheelFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 900);
+}
+
+function addPinwheelBurst(body, direction) {
+  for (let i = 0; i < 16; i++) {
+    const angle = Math.PI * 2 * i / 16;
+    const tangent = angle + direction * Math.PI / 2;
+    const radius = 18 + Math.random() * 28;
+    particles.push({
+      x:body.position.x + Math.cos(angle) * radius,
+      y:body.position.y + Math.sin(angle) * radius,
+      vx:Math.cos(tangent) * (1.5 + Math.random() * 2.5),
+      vy:Math.sin(tangent) * (1.5 + Math.random() * 2.5),
+      size:2 + Math.random() * 2.5,
+      life:0.3 + Math.random() * 0.28,
+      color:i % 3 === 0 ? '#ffffff' : '#7dff7a'
+    });
+  }
+}
+
+function placeOrKickPinwheelAt(pos) {
+  const existing = findPinwheelAt(pos);
+  if (existing) {
+    const kick = getPinwheelKick(existing.body.pinwheelNextDirection);
+    Body.setAngularVelocity(existing.body, kick.angularVelocity);
+    existing.body.pinwheelNextDirection = kick.nextDirection;
+    addPinwheelBurst(existing.body, Math.sign(kick.angularVelocity));
+    showPinwheelFeedback(kick.angularVelocity > 0 ? 'PINWHEEL KICKED: CLOCKWISE' : 'PINWHEEL KICKED: COUNTER-CLOCKWISE');
+    playSound(kick.angularVelocity > 0 ? 760 : 520, 0.09, 'square', 0.07);
+    haptic([8, 10, 8]);
+    return { ...existing, placed:false, direction:Math.sign(kick.angularVelocity) };
+  }
+
+  const placement = getPinwheelPlacement(pos, canvas.width, canvas.height);
+  const assembly = createPinwheelAssembly(placement);
+  Composite.add(world, [assembly.body, assembly.constraint]);
+  pinwheels.push(assembly);
+  addPinwheelBurst(assembly.body, 1);
+  showPinwheelFeedback('PINWHEEL PLACED: TAP TO REVERSE');
+  playSpawn();
+  playSound(650, 0.1, 'triangle', 0.06);
+  haptic([7]);
+  return { ...assembly, placed:true, direction:1 };
+}
+
 function isRelayableBody(body) {
   if (!body || body.label === 'wall' || body.label === 'chain-link' || body.isTarget || body.isStatic || body.isFragment || body.parent !== body) return false;
   return !Composite.allConstraints(world).some(constraint => constraint.bodyA === body || constraint.bodyB === body);
@@ -8510,6 +8676,13 @@ function onDown(e) {
   // Ramp tool — place a solid triangular slope or flip an existing ramp in place.
   if (currentTool === 'ramp') {
     placeOrFlipRampAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Pinwheel tool — place a pinned four-arm rotor or kick an existing one in reverse.
+  if (currentTool === 'pinwheel') {
+    placeOrKickPinwheelAt(pos);
     pointerDown = false;
     return;
   }
@@ -9462,6 +9635,40 @@ function drawBody(b) {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(direction === 1 ? '↗' : '↖', 0, 8);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      break;
+    }
+    case 'pinwheel': {
+      const size = r.size || PINWHEEL_ARM_LENGTH;
+      const armWidth = PINWHEEL_ARM_WIDTH;
+      const pulse = 0.75 + Math.sin(performance.now() / 150 + b.id) * 0.18;
+      ctx.shadowColor = '#7dff7a';
+      ctx.shadowBlur = 14;
+      ctx.fillStyle = `rgba(125,255,122,${0.12 + pulse * 0.08})`;
+      ctx.strokeStyle = '#7dff7a';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.roundRect(-size / 2, -armWidth / 2, size, armWidth, armWidth / 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.roundRect(-armWidth / 2, -size / 2, armWidth, size, armWidth / 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#08100d';
+      ctx.strokeStyle = '#d7ffd5';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, 9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#7dff7a';
+      ctx.font = 'bold 14px VT323';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(b.angularVelocity < 0 ? '↺' : '↻', 0, 1);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'alphabetic';
       break;
@@ -12010,6 +12217,7 @@ function loop(timestamp) {
   pruneTethers();
   prunePivots();
   pruneWebTraps();
+  prunePinwheels();
 
   // Smooth gravity transition (skip during anti-grav pulse and gravity flip)
   if (!antiGravActive && gravityAngle === 0) {
