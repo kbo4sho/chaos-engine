@@ -541,6 +541,19 @@ canvas#game {
 #pinwheel-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#basket-feedback {
+  position:absolute; top:116px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#ffb86b;
+  font-size:19px; letter-spacing:2px; line-height:1;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none; white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#basket-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -660,6 +673,7 @@ canvas#game {
   #orbit-feedback { top:14px; font-size:19px; }
   #tether-feedback { top:14px; font-size:19px; }
   #pinwheel-feedback { top:14px; font-size:19px; }
+  #basket-feedback { top:14px; font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -733,6 +747,7 @@ canvas#game {
     <div id="web-feedback" role="status" aria-live="polite"></div>
     <div id="ramp-feedback" role="status" aria-live="polite"></div>
     <div id="pinwheel-feedback" role="status" aria-live="polite"></div>
+    <div id="basket-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -808,6 +823,7 @@ canvas#game {
     <button class="tool-btn" data-tool="web" style="color:#f58cff;" title="Tap the canvas to place a sticky web trap; tap a web to release its captured parts" aria-label="Place a sticky web trap or release its captured parts"><span class="icon">🕸️</span>Web</button>
     <button class="tool-btn" data-tool="ramp" style="color:#ffe66d;" title="Tap the canvas to place a solid ramp; tap a ramp to flip its slope" aria-label="Place a solid ramp or flip an existing ramp's slope"><span class="icon">◢</span>Ramp</button>
     <button class="tool-btn" data-tool="pinwheel" style="color:#7dff7a;" title="Tap the canvas to place a pinned rotor; tap a pinwheel to kick it in the opposite direction" aria-label="Place a pinned pinwheel rotor or reverse its spin with a kick"><span class="icon">✣</span>Pinwheel</button>
+    <button class="tool-btn" data-tool="basket" style="color:#ffb86b;" title="Tap the canvas to place a catching basket; tap a basket to hop and tip it" aria-label="Place a catching basket or hop and tip an existing basket"><span class="icon">🧺</span>Basket</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1094,6 +1110,8 @@ let ramps = []; // static triangular slopes created and flipped by the Ramp tool
 let rampFeedbackTimer = 0;
 let pinwheels = []; // {body, constraint} free-spinning rotors pinned to the world
 let pinwheelFeedbackTimer = 0;
+let baskets = []; // dynamic open-top compound bodies that catch smaller objects
+let basketFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -1893,6 +1911,14 @@ function resetPinwheelFeedback(silent = false) {
   feedback.textContent = '';
 }
 
+function resetBasketFeedback(silent = false) {
+  if (!silent) return;
+  clearTimeout(basketFeedbackTimer);
+  const feedback = document.getElementById('basket-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -1977,6 +2003,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'web') resetWebFeedback(true);
       if (tool !== 'ramp') resetRampFeedback(true);
       if (tool !== 'pinwheel') resetPinwheelFeedback(true);
+      if (tool !== 'basket') resetBasketFeedback(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -3404,6 +3431,7 @@ function finishClear(playFeedback = true) {
   webTraps = [];
   ramps = [];
   pinwheels = [];
+  baskets = [];
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -3446,6 +3474,7 @@ function finishClear(playFeedback = true) {
   resetWebFeedback(true);
   resetRampFeedback(true);
   resetPinwheelFeedback(true);
+  resetBasketFeedback(true);
   flippers = [];
   nextFlipperSide = 'left';
   clearTimeout(flipperFeedbackTimer);
@@ -3664,7 +3693,8 @@ function getToolAccentColor(tool) {
     mirror: '#67e8ff',
     web: '#f58cff',
     ramp: '#ffe66d',
-    pinwheel: '#7dff7a'
+    pinwheel: '#7dff7a',
+    basket: '#ffb86b'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -3797,6 +3827,7 @@ function eraseBodyAt(pos) {
   chainLinks = chainLinks.filter(b => !removedBodyIds.has(b.id));
   ramps = ramps.filter(b => !removedBodyIds.has(b.id));
   pinwheels = pinwheels.filter(entry => !removedBodyIds.has(entry.body.id) && !constraintsToRemove.has(entry.constraint));
+  baskets = baskets.filter(b => !removedBodyIds.has(b.id));
   ropes = ropes.filter(r => !constraintsToRemove.has(r));
   struts = struts.filter(strut => !constraintsToRemove.has(strut));
   hinges = hinges.filter(hinge => !constraintsToRemove.has(hinge));
@@ -8119,6 +8150,139 @@ function placeOrKickPinwheelAt(pos) {
   return { ...assembly, placed:true, direction:1 };
 }
 
+const BASKET_WIDTH = 104;
+const BASKET_HEIGHT = 74;
+const BASKET_WALL = 12;
+const BASKET_TIP_SPEED = 0.34;
+
+function getBasketPlacement(pos, canvasWidth, canvasHeight) {
+  return {
+    x:Math.max(BASKET_WIDTH / 2 + 10, Math.min(canvasWidth - BASKET_WIDTH / 2 - 10, pos.x)),
+    y:Math.max(BASKET_HEIGHT / 2 + 10, Math.min(canvasHeight - BASKET_HEIGHT / 2 - 30, pos.y))
+  };
+}
+
+function getBasketTip(direction = 1, velocity = { x:0, y:0 }) {
+  const normalizedDirection = direction === -1 ? -1 : 1;
+  return {
+    angularVelocity:normalizedDirection * BASKET_TIP_SPEED,
+    velocity:{
+      x:velocity.x + normalizedDirection * 2.2,
+      y:Math.min(velocity.y, -4.2)
+    },
+    nextDirection:-normalizedDirection
+  };
+}
+
+function createBasketBody(position) {
+  const partOptions = {
+    chamfer:{ radius:5 },
+    friction:0.72,
+    restitution:0.16,
+    density:0.006,
+    render:{ visible:false }
+  };
+  const bottom = Bodies.rectangle(
+    position.x, position.y + BASKET_HEIGHT / 2 - BASKET_WALL / 2,
+    BASKET_WIDTH, BASKET_WALL, partOptions
+  );
+  const left = Bodies.rectangle(
+    position.x - BASKET_WIDTH / 2 + BASKET_WALL / 2, position.y,
+    BASKET_WALL, BASKET_HEIGHT, partOptions
+  );
+  const right = Bodies.rectangle(
+    position.x + BASKET_WIDTH / 2 - BASKET_WALL / 2, position.y,
+    BASKET_WALL, BASKET_HEIGHT, partOptions
+  );
+  const body = Body.create({
+    parts:[bottom, left, right],
+    friction:0.72,
+    frictionAir:0.012,
+    restitution:0.16,
+    label:'basket',
+    render:{ type:'basket', color:'#ffb86b', width:BASKET_WIDTH, height:BASKET_HEIGHT, wall:BASKET_WALL }
+  });
+  body.render.offsetX = position.x - body.position.x;
+  body.render.offsetY = position.y - body.position.y;
+  body.isBasket = true;
+  body.basketNextDirection = 1;
+  body.material = 'wood';
+  return body;
+}
+
+function pruneBaskets() {
+  baskets = baskets.filter(body => Composite.get(world, body.id, 'body'));
+}
+
+function findBasketAt(pos) {
+  pruneBaskets();
+  let body = Matter.Query.point(baskets, pos).pop();
+  if (!body) {
+    let nearestDist = 56;
+    baskets.forEach(candidate => {
+      const distance = Math.hypot(candidate.position.x - pos.x, candidate.position.y - pos.y);
+      if (distance < nearestDist) {
+        body = candidate;
+        nearestDist = distance;
+      }
+    });
+  }
+  return body || null;
+}
+
+function showBasketFeedback(message) {
+  const feedback = document.getElementById('basket-feedback');
+  feedback.textContent = message;
+  feedback.style.color = '#ffb86b';
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(basketFeedbackTimer);
+  basketFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 900);
+}
+
+function addBasketBurst(body, direction) {
+  for (let i = 0; i < 14; i++) {
+    const angle = -Math.PI + Math.PI * i / 13;
+    const speed = 1.2 + Math.random() * 2.8;
+    particles.push({
+      x:body.position.x + (Math.random() - 0.5) * BASKET_WIDTH * 0.7,
+      y:body.position.y - BASKET_HEIGHT * 0.25,
+      vx:Math.cos(angle) * speed + direction * 0.9,
+      vy:Math.sin(angle) * speed - 1.4,
+      size:2 + Math.random() * 2.5,
+      life:0.28 + Math.random() * 0.3,
+      color:i % 3 === 0 ? '#fff1c7' : '#ffb86b'
+    });
+  }
+}
+
+function placeOrTipBasketAt(pos) {
+  const existing = findBasketAt(pos);
+  if (existing) {
+    const tip = getBasketTip(existing.basketNextDirection, existing.velocity);
+    Body.setAngularVelocity(existing, tip.angularVelocity);
+    Body.setVelocity(existing, tip.velocity);
+    existing.basketNextDirection = tip.nextDirection;
+    addBasketBurst(existing, Math.sign(tip.angularVelocity));
+    showBasketFeedback(tip.angularVelocity > 0 ? 'BASKET TIPPED: RIGHT' : 'BASKET TIPPED: LEFT');
+    playSound(tip.angularVelocity > 0 ? 690 : 510, 0.09, 'square', 0.065);
+    haptic([8, 8, 10]);
+    return { body:existing, placed:false, direction:Math.sign(tip.angularVelocity) };
+  }
+
+  const placement = getBasketPlacement(pos, canvas.width, canvas.height);
+  const body = createBasketBody(placement);
+  Composite.add(world, body);
+  baskets.push(body);
+  addBasketBurst(body, 0);
+  showBasketFeedback('BASKET PLACED: DROP OBJECTS INSIDE');
+  playSpawn();
+  playSound(590, 0.09, 'triangle', 0.06);
+  haptic([7]);
+  return { body, placed:true, direction:0 };
+}
+
 function isRelayableBody(body) {
   if (!body || body.label === 'wall' || body.label === 'chain-link' || body.isTarget || body.isStatic || body.isFragment || body.parent !== body) return false;
   return !Composite.allConstraints(world).some(constraint => constraint.bodyA === body || constraint.bodyB === body);
@@ -8683,6 +8847,13 @@ function onDown(e) {
   // Pinwheel tool — place a pinned four-arm rotor or kick an existing one in reverse.
   if (currentTool === 'pinwheel') {
     placeOrKickPinwheelAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Basket tool — place a dynamic open-top catcher or hop and tip an existing basket.
+  if (currentTool === 'basket') {
+    placeOrTipBasketAt(pos);
     pointerDown = false;
     return;
   }
@@ -9669,6 +9840,47 @@ function drawBody(b) {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(b.angularVelocity < 0 ? '↺' : '↻', 0, 1);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      break;
+    }
+    case 'basket': {
+      const width = r.width || BASKET_WIDTH;
+      const height = r.height || BASKET_HEIGHT;
+      const wall = r.wall || BASKET_WALL;
+      const ox = r.offsetX || 0;
+      const oy = r.offsetY || 0;
+      const pulse = 0.78 + Math.sin(performance.now() / 170 + b.id) * 0.14;
+      const drawRail = (x, y, railWidth, railHeight) => {
+        ctx.beginPath();
+        ctx.roundRect(x, y, railWidth, railHeight, Math.min(5, railHeight / 2));
+        ctx.fill();
+        ctx.stroke();
+      };
+      ctx.shadowColor = '#ffb86b';
+      ctx.shadowBlur = 13;
+      ctx.fillStyle = `rgba(255,184,107,${0.14 + pulse * 0.08})`;
+      ctx.strokeStyle = '#ffb86b';
+      ctx.lineWidth = 2.5;
+      drawRail(ox - width / 2, oy + height / 2 - wall, width, wall);
+      drawRail(ox - width / 2, oy - height / 2, wall, height);
+      drawRail(ox + width / 2 - wall, oy - height / 2, wall, height);
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = '#fff1c7';
+      ctx.lineWidth = 1;
+      for (let y = oy - height / 2 + 10; y < oy + height / 2 - wall; y += 13) {
+        ctx.beginPath();
+        ctx.moveTo(ox - width / 2 + 3, y);
+        ctx.lineTo(ox - width / 2 + wall - 3, y);
+        ctx.moveTo(ox + width / 2 - wall + 3, y);
+        ctx.lineTo(ox + width / 2 - 3, y);
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#fff1c7';
+      ctx.font = 'bold 11px VT323';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('CATCH', ox, oy + height / 2 - wall / 2 + 1);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'alphabetic';
       break;

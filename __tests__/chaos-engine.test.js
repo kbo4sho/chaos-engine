@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 70 tool buttons', () => {
+  it('should have exactly 71 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(70);
+    expect(buttons.length).toBe(71);
   });
 
-  it('should append Pinwheel after Ramp at the end of the object toolbar', () => {
+  it('should append Basket after Pinwheel at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('pinwheel');
-    expect(toolbar.lastElementChild?.textContent).toContain('Pinwheel');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('ramp');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('web');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('basket');
+    expect(toolbar.lastElementChild?.textContent).toContain('Basket');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('pinwheel');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('ramp');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,16 +67,88 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// BASKET TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Basket Tool', () => {
+  it('should expose Basket as the final selectable toolbar tool', () => {
+    const basketBtn = document.querySelector('[data-tool="basket"]');
+    expect(basketBtn).not.toBeNull();
+    expect(basketBtn?.getAttribute('aria-label')).toContain('hop and tip');
+    expect(basketBtn?.previousElementSibling?.dataset.tool).toBe('pinwheel');
+    expect(basketBtn?.nextElementSibling).toBeNull();
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'basket'");
+    expect(scriptContent).toContain('placeOrTipBasketAt(pos)');
+  });
+
+  it('should clamp placement and alternate hop-tip directions', () => {
+    const placementSource = scriptContent.match(/function getBasketPlacement\([\s\S]*?\n\}/)?.[0];
+    const tipSource = scriptContent.match(/function getBasketTip\([\s\S]*?\n\}/)?.[0];
+    expect(placementSource).toBeTruthy();
+    expect(tipSource).toBeTruthy();
+    const helpers = new Function(`
+      const BASKET_WIDTH = 104;
+      const BASKET_HEIGHT = 74;
+      const BASKET_TIP_SPEED = 0.34;
+      ${placementSource}
+      ${tipSource}
+      return { getBasketPlacement, getBasketTip };
+    `)();
+
+    expect(helpers.getBasketPlacement({ x:2, y:4 }, 390, 500)).toEqual({ x:62, y:47 });
+    expect(helpers.getBasketPlacement({ x:388, y:498 }, 390, 500)).toEqual({ x:328, y:433 });
+    expect(helpers.getBasketTip(1, { x:1, y:3 })).toEqual({
+      angularVelocity:0.34,
+      velocity:{ x:3.2, y:-4.2 },
+      nextDirection:-1
+    });
+    expect(helpers.getBasketTip(-1, { x:-1, y:-6 })).toEqual({
+      angularVelocity:-0.34,
+      velocity:{ x:-3.2, y:-6 },
+      nextDirection:1
+    });
+  });
+
+  it('should create one open-top compound catcher and tip it on repeat taps', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('const BASKET_WIDTH'),
+      scriptContent.indexOf('function isRelayableBody(body)')
+    );
+    expect(source).toContain('parts:[bottom, left, right]');
+    expect(source).toContain("label:'basket'");
+    expect(source).toContain("render:{ type:'basket'");
+    expect(source).toContain('body.render.offsetX = position.x - body.position.x');
+    expect(source).toContain('body.basketNextDirection = 1');
+    expect(source).toContain('Composite.add(world, body)');
+    expect(source).toContain('baskets.push(body)');
+    expect(source).toContain('Body.setAngularVelocity(existing, tip.angularVelocity)');
+    expect(source).toContain('Body.setVelocity(existing, tip.velocity)');
+  });
+
+  it('should provide touch targeting, visible feedback, rendering, and cleanup', () => {
+    expect(document.getElementById('basket-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('Matter.Query.point(baskets, pos)');
+    expect(scriptContent).toContain('let nearestDist = 56');
+    expect(scriptContent).toContain("if (tool !== 'basket') resetBasketFeedback(true)");
+    expect(scriptContent).toContain('baskets = [];');
+    expect(scriptContent).toContain('baskets = baskets.filter(b => !removedBodyIds.has(b.id))');
+    expect(scriptContent).toContain("case 'basket':");
+    expect(scriptContent).toContain("basket: '#ffb86b'");
+  });
+});
+
+// ============================================
 // PINWHEEL TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Pinwheel Tool', () => {
-  it('should expose Pinwheel as the final selectable toolbar tool', () => {
+  it('should keep Pinwheel selectable immediately before Basket', () => {
     const pinwheelBtn = document.querySelector('[data-tool="pinwheel"]');
     expect(pinwheelBtn).not.toBeNull();
     expect(pinwheelBtn?.getAttribute('aria-label')).toContain('reverse its spin');
     expect(pinwheelBtn?.previousElementSibling?.dataset.tool).toBe('ramp');
-    expect(pinwheelBtn?.nextElementSibling).toBeNull();
+    expect(pinwheelBtn?.nextElementSibling?.dataset.tool).toBe('basket');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'pinwheel'");
     expect(scriptContent).toContain('placeOrKickPinwheelAt(pos)');

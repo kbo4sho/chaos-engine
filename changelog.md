@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-09-24T14:08:47Z — Added: Basket tool
+**Why:** The toolbar could place ramps, traps, rotors, and loose props, but it had no open container whose real compound-body shape could catch other physics objects and then spill them back into the scene. Basket adds a reusable three-part catcher with a direct hop-and-tip interaction.
+**Goal alignment:** "more fun, more surprising, more satisfying" — players can drop blocks into a moving container, build catch-and-dump contraptions, and tap the basket to alternate left/right spills without rebuilding the setup.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (479/479 passing); browser smoke ✓ (existing Block tool placed a real subject, final Basket button placed one open-top four-part Matter compound body, a falling Block settled inside at the basket center, and a repeat tap applied a +0.34 right tip with a −4.2 upward hop); mobile ✓ (390×844, final Basket button was fully reachable at 52×50px and x=330–382 at the toolbar's true maximum scroll, selected correctly, and placed/rendered one four-part basket); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-09-23T14:12:58Z — Added: Pinwheel tool
 **Why:** The toolbar could place timed flippers, motorize existing parts, and pin arbitrary objects, but it had no ready-made free-spinning obstacle that could be redirected in place. Pinwheel adds a compact four-arm rotor with its own permanent axle and reversible one-tap kicks.
 **Goal alignment:** "more fun, more surprising, more satisfying" — pinwheels turn falling balls and loose builds into ricocheting pinball interactions, and alternating kicks let players redirect the action without rebuilding the scene.

@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-09-24",
+      "ideas": [
+        "New tool: Place an open-top Basket that catches objects and hops into alternating tips"
+      ],
+      "summary": "Implemented Basket tool (🧺) — the final button in the existing object toolbar now places a canvas-clamped dynamic U-shaped compound body whose open top physically catches smaller objects, then hops and alternates right/left angular tips when tapped again; exact plus 56px touch targeting, center-of-mass-aligned neon CRT rendering, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make catch-and-dump contraptions readable and reliable on desktop and mobile."
+    },
+    {
       "date": "2026-09-23",
       "ideas": [
         "New tool: Place a pinned four-arm Pinwheel and tap it to reverse its spin"
