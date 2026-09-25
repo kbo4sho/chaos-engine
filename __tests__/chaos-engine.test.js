@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 71 tool buttons', () => {
+  it('should have exactly 72 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(71);
+    expect(buttons.length).toBe(72);
   });
 
-  it('should append Basket after Pinwheel at the end of the object toolbar', () => {
+  it('should append Cannon after Basket at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('basket');
-    expect(toolbar.lastElementChild?.textContent).toContain('Basket');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('pinwheel');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('ramp');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('cannon');
+    expect(toolbar.lastElementChild?.textContent).toContain('Cannon');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('basket');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('pinwheel');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,16 +67,94 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// CANNON TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Cannon Tool', () => {
+  it('should expose Cannon as the final selectable toolbar tool', () => {
+    const cannonBtn = document.querySelector('[data-tool="cannon"]');
+    expect(cannonBtn).not.toBeNull();
+    expect(cannonBtn?.getAttribute('aria-label')).toContain('reusable cannon');
+    expect(cannonBtn?.previousElementSibling?.dataset.tool).toBe('basket');
+    expect(cannonBtn?.nextElementSibling).toBeNull();
+    expect(scriptContent).toContain('currentTool = tool');
+    expect(scriptContent).toContain("currentTool === 'cannon'");
+    expect(scriptContent).toContain('placeOrFireCannonAt(pos)');
+  });
+
+  it('should clamp placement and point each cannon toward the canvas center', () => {
+    const placementSource = scriptContent.match(/function getCannonPlacement\([\s\S]*?\n\}/)?.[0];
+    expect(placementSource).toBeTruthy();
+    const getCannonPlacement = new Function(`
+      const CANNON_WIDTH = 84;
+      const CANNON_HEIGHT = 34;
+      ${placementSource}
+      return getCannonPlacement;
+    `)();
+
+    expect(getCannonPlacement({ x:2, y:4 }, 390, 500)).toEqual({ x:56, y:45, direction:1 });
+    expect(getCannonPlacement({ x:388, y:498 }, 390, 500)).toEqual({ x:334, y:459, direction:-1 });
+  });
+
+  it('should calculate mirrored cannonball launch vectors', () => {
+    const shotSource = scriptContent.match(/function getCannonShot\([\s\S]*?\n\}/)?.[0];
+    expect(shotSource).toBeTruthy();
+    const getCannonShot = new Function(`
+      const CANNON_SHOT_SPEED = 14;
+      ${shotSource}
+      return getCannonShot;
+    `)();
+    const right = getCannonShot({ x:100, y:120 }, 1);
+    const left = getCannonShot({ x:290, y:120 }, -1);
+
+    expect(right.direction).toBe(1);
+    expect(left.direction).toBe(-1);
+    expect(right.muzzle.x).toBeCloseTo(153.74, 2);
+    expect(left.muzzle.x).toBeCloseTo(236.26, 2);
+    expect(right.muzzle.y).toBeCloseTo(left.muzzle.y, 5);
+    expect(right.velocity.x).toBeCloseTo(-left.velocity.x, 5);
+    expect(right.velocity.y).toBeCloseTo(left.velocity.y, 5);
+  });
+
+  it('should place one reusable launcher and fire dynamic cannonballs on repeat taps', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('const CANNON_WIDTH'),
+      scriptContent.indexOf('function isRelayableBody(body)')
+    );
+    expect(source).toContain("label:'cannon'");
+    expect(source).toContain("render:{ type:'cannon'");
+    expect(source).toContain('body.cannonDirection = placement.direction');
+    expect(source).toContain("label:'cannonball'");
+    expect(source).toContain("render:{ type:'cannonball'");
+    expect(source).toContain('Body.setVelocity(ball, shot.velocity)');
+    expect(source).toContain('Composite.add(world, ball)');
+    expect(source).toContain('cannons.push(body)');
+  });
+
+  it('should provide touch targeting, feedback, rendering, and cleanup', () => {
+    expect(document.getElementById('cannon-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('Matter.Query.point(cannons, pos)');
+    expect(scriptContent).toContain('let nearestDist = 58');
+    expect(scriptContent).toContain("if (tool !== 'cannon') resetCannonFeedback(true)");
+    expect(scriptContent).toContain('cannons = [];');
+    expect(scriptContent).toContain('cannons = cannons.filter(b => !removedBodyIds.has(b.id))');
+    expect(scriptContent).toContain("case 'cannon':");
+    expect(scriptContent).toContain("case 'cannonball':");
+    expect(scriptContent).toContain("cannon: '#ff7043'");
+  });
+});
+
+// ============================================
 // BASKET TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Basket Tool', () => {
-  it('should expose Basket as the final selectable toolbar tool', () => {
+  it('should keep Basket selectable immediately before Cannon', () => {
     const basketBtn = document.querySelector('[data-tool="basket"]');
     expect(basketBtn).not.toBeNull();
     expect(basketBtn?.getAttribute('aria-label')).toContain('hop and tip');
     expect(basketBtn?.previousElementSibling?.dataset.tool).toBe('pinwheel');
-    expect(basketBtn?.nextElementSibling).toBeNull();
+    expect(basketBtn?.nextElementSibling?.dataset.tool).toBe('cannon');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'basket'");
     expect(scriptContent).toContain('placeOrTipBasketAt(pos)');

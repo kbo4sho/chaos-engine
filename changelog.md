@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-09-25T14:10:12Z — Added: Cannon tool
+**Why:** The toolbar could launch one existing part, sling new props, and place passive obstacles, but it had no reusable machine that creates repeated physical projectiles from the scene itself. Cannon adds a fixed launcher that automatically faces inward and fires a real cannonball every time it is tapped.
+**Goal alignment:** "more fun, more surprising, more satisfying" — players can build repeatable target ranges, bombard towers and baskets, or crossfire two sides of the canvas without re-aiming a loose object after every shot.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (485/485 passing); browser smoke ✓ (existing Block tool placed a real subject, final Cannon button placed one inward-facing static launcher, and a repeat tap created a dynamic metal cannonball at the muzzle with velocity +13.20/−4.67 before live physics carried it across the canvas); mobile ✓ (390×844, final Cannon button was fully reachable at 52×50px and x=330–382 at the toolbar's true maximum scroll, selected correctly, and placed/fired one visible cannon and cannonball); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-09-24T14:08:47Z — Added: Basket tool
 **Why:** The toolbar could place ramps, traps, rotors, and loose props, but it had no open container whose real compound-body shape could catch other physics objects and then spill them back into the scene. Basket adds a reusable three-part catcher with a direct hop-and-tip interaction.
 **Goal alignment:** "more fun, more surprising, more satisfying" — players can drop blocks into a moving container, build catch-and-dump contraptions, and tap the basket to alternate left/right spills without rebuilding the setup.

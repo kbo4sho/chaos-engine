@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-09-25",
+      "ideas": [
+        "New tool: Place a reusable Cannon and tap it to fire real physics cannonballs"
+      ],
+      "summary": "Implemented Cannon tool (☄️) — the final button in the existing object toolbar now places a canvas-clamped static launcher that automatically faces toward the playfield center and fires a fast dynamic metal cannonball from its muzzle on repeat taps; exact plus 58px touch targeting, mirrored launch math, recoil/muzzle-flash rendering, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make repeatable target ranges and crossfire reliable on desktop and mobile."
+    },
+    {
       "date": "2026-09-24",
       "ideas": [
         "New tool: Place an open-top Basket that catches objects and hops into alternating tips"
