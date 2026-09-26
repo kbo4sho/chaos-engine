@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 72 tool buttons', () => {
+  it('should have exactly 73 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(72);
+    expect(buttons.length).toBe(73);
   });
 
-  it('should append Cannon after Basket at the end of the object toolbar', () => {
+  it('should append Domino Run after Cannon at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('cannon');
-    expect(toolbar.lastElementChild?.textContent).toContain('Cannon');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('basket');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('pinwheel');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('domino-run');
+    expect(toolbar.lastElementChild?.textContent).toContain('Run');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('cannon');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('basket');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,16 +67,99 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// DOMINO RUN TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Domino Run Tool', () => {
+  it('should expose Domino Run as the final selectable toolbar tool', () => {
+    const runBtn = document.querySelector('[data-tool="domino-run"]');
+    expect(runBtn).not.toBeNull();
+    expect(runBtn?.getAttribute('aria-label')).toContain('dragging');
+    expect(runBtn?.previousElementSibling?.dataset.tool).toBe('cannon');
+    expect(runBtn?.nextElementSibling).toBeNull();
+    expect(scriptContent).toContain("currentTool === 'domino-run'");
+    expect(scriptContent).toContain('placeDominoRun(dominoRunPath)');
+  });
+
+  it('should make a five-domino starter line for a tap', () => {
+    const distanceSource = scriptContent.match(/function getDominoRunDistance\([\s\S]*?\n\}/)?.[0];
+    const layoutSource = scriptContent.match(/function getDominoRunLayout\([\s\S]*?\n\}/)?.[0];
+    expect(distanceSource).toBeTruthy();
+    expect(layoutSource).toBeTruthy();
+    const getDominoRunLayout = new Function(`
+      const DOMINO_RUN_SPACING = 34;
+      const DOMINO_RUN_HEIGHT = 54;
+      const DOMINO_RUN_MIN_DRAG = 30;
+      const DOMINO_RUN_MAX = 36;
+      ${distanceSource}
+      ${layoutSource}
+      return getDominoRunLayout;
+    `)();
+
+    const layout = getDominoRunLayout([{ x:100, y:120 }], 390, 500);
+    expect(layout).toHaveLength(5);
+    expect(layout.map(point => point.x)).toEqual([32, 66, 100, 134, 168]);
+    expect(layout.every(point => point.y === 120 && point.angle === 0)).toBe(true);
+  });
+
+  it('should sample a dragged path at stable spacing and orient each domino to the path', () => {
+    const distanceSource = scriptContent.match(/function getDominoRunDistance\([\s\S]*?\n\}/)?.[0];
+    const layoutSource = scriptContent.match(/function getDominoRunLayout\([\s\S]*?\n\}/)?.[0];
+    const getDominoRunLayout = new Function(`
+      const DOMINO_RUN_SPACING = 34;
+      const DOMINO_RUN_HEIGHT = 54;
+      const DOMINO_RUN_MIN_DRAG = 30;
+      const DOMINO_RUN_MAX = 36;
+      ${distanceSource}
+      ${layoutSource}
+      return getDominoRunLayout;
+    `)();
+
+    const horizontal = getDominoRunLayout([{ x:100, y:120 }, { x:202, y:120 }], 390, 500);
+    expect(horizontal).toHaveLength(4);
+    expect(horizontal.map(point => point.x)).toEqual([100, 134, 168, 202]);
+    expect(horizontal.every(point => point.angle === 0)).toBe(true);
+
+    const vertical = getDominoRunLayout([{ x:180, y:100 }, { x:180, y:168 }], 390, 500);
+    expect(vertical).toHaveLength(3);
+    expect(vertical[1].angle).toBeCloseTo(Math.PI / 2, 5);
+  });
+
+  it('should create real dynamic domino bodies for the full run', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('const DOMINO_RUN_SPACING'),
+      scriptContent.indexOf('function isRelayableBody(body)')
+    );
+    expect(source).toContain("label:'domino-run'");
+    expect(source).toContain("render:{ type:'domino'");
+    expect(source).toContain('body.isDominoRun = true');
+    expect(source).toContain('Composite.add(world, bodies)');
+    expect(source).toContain('RUN READY: ${bodies.length} DOMINOES');
+  });
+
+  it('should provide preview, status feedback, tool-change cleanup, and Clear cleanup', () => {
+    expect(document.getElementById('domino-run-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('function drawDominoRunPreview()');
+    expect(scriptContent).toContain('drawDominoRunPreview();');
+    expect(scriptContent).toContain("if (tool !== 'domino-run') resetDominoRun(true)");
+    expect(scriptContent).toContain('dominoRunPath = [];');
+    expect(scriptContent).toMatch(/function resetDominoRun[\s\S]*?pointerDown = false/);
+    expect(scriptContent).toContain('resetDominoRun(true);');
+    expect(scriptContent).toContain("'domino-run': '#ff9f43'");
+  });
+});
+
+// ============================================
 // CANNON TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Cannon Tool', () => {
-  it('should expose Cannon as the final selectable toolbar tool', () => {
+  it('should keep Cannon selectable immediately before Domino Run', () => {
     const cannonBtn = document.querySelector('[data-tool="cannon"]');
     expect(cannonBtn).not.toBeNull();
     expect(cannonBtn?.getAttribute('aria-label')).toContain('reusable cannon');
     expect(cannonBtn?.previousElementSibling?.dataset.tool).toBe('basket');
-    expect(cannonBtn?.nextElementSibling).toBeNull();
+    expect(cannonBtn?.nextElementSibling?.dataset.tool).toBe('domino-run');
     expect(scriptContent).toContain('currentTool = tool');
     expect(scriptContent).toContain("currentTool === 'cannon'");
     expect(scriptContent).toContain('placeOrFireCannonAt(pos)');

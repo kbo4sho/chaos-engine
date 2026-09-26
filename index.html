@@ -567,6 +567,19 @@ canvas#game {
 #cannon-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#domino-run-feedback {
+  position:absolute; top:14px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#ff9f43;
+  font-size:19px; letter-spacing:2px; line-height:1;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none; white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#domino-run-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -688,6 +701,7 @@ canvas#game {
   #pinwheel-feedback { top:14px; font-size:19px; }
   #basket-feedback { top:14px; font-size:19px; }
   #cannon-feedback { top:14px; font-size:19px; }
+  #domino-run-feedback { top:14px; font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -763,6 +777,7 @@ canvas#game {
     <div id="pinwheel-feedback" role="status" aria-live="polite"></div>
     <div id="basket-feedback" role="status" aria-live="polite"></div>
     <div id="cannon-feedback" role="status" aria-live="polite"></div>
+    <div id="domino-run-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -840,6 +855,7 @@ canvas#game {
     <button class="tool-btn" data-tool="pinwheel" style="color:#7dff7a;" title="Tap the canvas to place a pinned rotor; tap a pinwheel to kick it in the opposite direction" aria-label="Place a pinned pinwheel rotor or reverse its spin with a kick"><span class="icon">✣</span>Pinwheel</button>
     <button class="tool-btn" data-tool="basket" style="color:#ffb86b;" title="Tap the canvas to place a catching basket; tap a basket to hop and tip it" aria-label="Place a catching basket or hop and tip an existing basket"><span class="icon">🧺</span>Basket</button>
     <button class="tool-btn" data-tool="cannon" style="color:#ff7043;" title="Tap the canvas to place a cannon; tap a cannon to fire a real cannonball" aria-label="Place a reusable cannon or fire one of its cannonballs"><span class="icon">☄️</span>Cannon</button>
+    <button class="tool-btn" data-tool="domino-run" style="color:#ff9f43;" title="Drag to lay a curved domino run; tap to place a five-domino starter line" aria-label="Lay a physical domino run by dragging or place five dominoes by tapping"><span class="icon">▥</span>Run</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1130,6 +1146,8 @@ let baskets = []; // dynamic open-top compound bodies that catch smaller objects
 let basketFeedbackTimer = 0;
 let cannons = []; // reusable static launchers that fire dynamic cannonballs toward canvas center
 let cannonFeedbackTimer = 0;
+let dominoRunPath = []; // live pointer path previewed and committed by the Domino Run tool
+let dominoRunFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -1945,6 +1963,16 @@ function resetCannonFeedback(silent = false) {
   feedback.textContent = '';
 }
 
+function resetDominoRun(silent = false) {
+  dominoRunPath = [];
+  pointerDown = false;
+  if (!silent) return;
+  clearTimeout(dominoRunFeedbackTimer);
+  const feedback = document.getElementById('domino-run-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -2031,6 +2059,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'pinwheel') resetPinwheelFeedback(true);
       if (tool !== 'basket') resetBasketFeedback(true);
       if (tool !== 'cannon') resetCannonFeedback(true);
+      if (tool !== 'domino-run') resetDominoRun(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -3291,6 +3320,7 @@ function startClearVortex(bodiesToClear) {
   pointerDown = false;
   slingStart = null;
   slingCurrent = null;
+  dominoRunPath = [];
   grabActive = false;
   grabBody = null;
   grabHistory = [];
@@ -3504,6 +3534,7 @@ function finishClear(playFeedback = true) {
   resetPinwheelFeedback(true);
   resetBasketFeedback(true);
   resetCannonFeedback(true);
+  resetDominoRun(true);
   flippers = [];
   nextFlipperSide = 'left';
   clearTimeout(flipperFeedbackTimer);
@@ -3724,7 +3755,8 @@ function getToolAccentColor(tool) {
     ramp: '#ffe66d',
     pinwheel: '#7dff7a',
     basket: '#ffb86b',
-    cannon: '#ff7043'
+    cannon: '#ff7043',
+    'domino-run': '#ff9f43'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -8447,6 +8479,148 @@ function placeOrFireCannonAt(pos) {
   return { body, placed:true, direction:placement.direction };
 }
 
+const DOMINO_RUN_SPACING = 34;
+const DOMINO_RUN_WIDTH = 12;
+const DOMINO_RUN_HEIGHT = 54;
+const DOMINO_RUN_MIN_DRAG = 30;
+const DOMINO_RUN_MAX = 36;
+
+function getDominoRunDistance(path) {
+  let total = 0;
+  for (let i = 1; i < path.length; i++) {
+    total += Math.hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y);
+  }
+  return total;
+}
+
+function getDominoRunLayout(path, canvasWidth, canvasHeight, spacing = DOMINO_RUN_SPACING) {
+  if (!path.length) return [];
+  const margin = DOMINO_RUN_HEIGHT / 2 + 5;
+  const clampPoint = point => ({
+    x:Math.max(margin, Math.min(canvasWidth - margin, point.x)),
+    y:Math.max(margin, Math.min(canvasHeight - margin, point.y)),
+    angle:point.angle || 0
+  });
+  const total = getDominoRunDistance(path);
+
+  if (total < DOMINO_RUN_MIN_DRAG) {
+    const halfSpan = spacing * 2;
+    const centerX = Math.max(margin + halfSpan, Math.min(canvasWidth - margin - halfSpan, path[0].x));
+    const centerY = Math.max(margin, Math.min(canvasHeight - margin, path[0].y));
+    return [-2, -1, 0, 1, 2].map(offset => ({
+      x:centerX + offset * spacing,
+      y:centerY,
+      angle:0
+    }));
+  }
+
+  const segments = [];
+  let traversed = 0;
+  for (let i = 1; i < path.length; i++) {
+    const start = path[i - 1];
+    const end = path[i];
+    const length = Math.hypot(end.x - start.x, end.y - start.y);
+    if (length < 0.001) continue;
+    segments.push({ start, end, length, from:traversed, to:traversed + length });
+    traversed += length;
+  }
+
+  const layout = [];
+  for (let distance = 0; distance <= traversed && layout.length < DOMINO_RUN_MAX; distance += spacing) {
+    const segment = segments.find(item => distance <= item.to) || segments[segments.length - 1];
+    if (!segment) break;
+    const t = Math.max(0, Math.min(1, (distance - segment.from) / segment.length));
+    layout.push(clampPoint({
+      x:segment.start.x + (segment.end.x - segment.start.x) * t,
+      y:segment.start.y + (segment.end.y - segment.start.y) * t,
+      angle:Math.atan2(segment.end.y - segment.start.y, segment.end.x - segment.start.x)
+    }));
+  }
+  return layout;
+}
+
+function createDominoRunBody(point, index = 0) {
+  const color = index % 2 === 0 ? '#ff9f43' : '#ffd166';
+  const body = Bodies.rectangle(point.x, point.y, DOMINO_RUN_WIDTH, DOMINO_RUN_HEIGHT, {
+    angle:point.angle,
+    restitution:0.08,
+    friction:0.72,
+    density:0.0035,
+    label:'domino-run',
+    render:{ type:'domino', color, width:DOMINO_RUN_WIDTH, height:DOMINO_RUN_HEIGHT }
+  });
+  body.isDominoRun = true;
+  body.material = 'wood';
+  return body;
+}
+
+function showDominoRunFeedback(message) {
+  const feedback = document.getElementById('domino-run-feedback');
+  feedback.textContent = message;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(dominoRunFeedbackTimer);
+  dominoRunFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 1000);
+}
+
+function placeDominoRun(path) {
+  const layout = getDominoRunLayout(path, canvas.width, canvas.height);
+  const bodies = layout.map((point, index) => createDominoRunBody(point, index));
+  if (!bodies.length) return [];
+  markSpawnPop(bodies);
+  Composite.add(world, bodies);
+  const first = bodies[0].position;
+  const last = bodies[bodies.length - 1].position;
+  [first, last].forEach((point, endpoint) => {
+    for (let i = 0; i < 8; i++) {
+      const angle = (Math.PI * 2 * i) / 8;
+      particles.push({
+        x:point.x, y:point.y,
+        vx:Math.cos(angle) * (1.5 + Math.random() * 2),
+        vy:Math.sin(angle) * (1.5 + Math.random() * 2),
+        size:2 + Math.random() * 2,
+        life:0.35,
+        color:endpoint === 0 ? '#ff9f43' : '#ffd166'
+      });
+    }
+  });
+  showDominoRunFeedback(`RUN READY: ${bodies.length} DOMINOES`);
+  playSound(420, 0.08, 'square', 0.06);
+  setTimeout(() => playSound(620, 0.08, 'square', 0.05), 55);
+  setTimeout(() => playSound(820, 0.08, 'square', 0.04), 110);
+  haptic([6, 12, 6]);
+  return bodies;
+}
+
+function drawDominoRunPreview() {
+  if (currentTool !== 'domino-run' || !dominoRunPath.length) return;
+  const layout = getDominoRunLayout(dominoRunPath, canvas.width, canvas.height);
+  ctx.save();
+  if (dominoRunPath.length > 1) {
+    ctx.beginPath();
+    ctx.moveTo(dominoRunPath[0].x, dominoRunPath[0].y);
+    dominoRunPath.slice(1).forEach(point => ctx.lineTo(point.x, point.y));
+    ctx.strokeStyle = 'rgba(255,159,67,0.42)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 7]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  layout.forEach((point, index) => {
+    ctx.save();
+    ctx.translate(point.x, point.y);
+    ctx.rotate(point.angle);
+    ctx.fillStyle = index % 2 === 0 ? 'rgba(255,159,67,0.18)' : 'rgba(255,209,102,0.18)';
+    ctx.strokeStyle = index % 2 === 0 ? '#ff9f43' : '#ffd166';
+    ctx.lineWidth = 2;
+    ctx.fillRect(-DOMINO_RUN_WIDTH / 2, -DOMINO_RUN_HEIGHT / 2, DOMINO_RUN_WIDTH, DOMINO_RUN_HEIGHT);
+    ctx.strokeRect(-DOMINO_RUN_WIDTH / 2, -DOMINO_RUN_HEIGHT / 2, DOMINO_RUN_WIDTH, DOMINO_RUN_HEIGHT);
+    ctx.restore();
+  });
+  ctx.restore();
+}
+
 function isRelayableBody(body) {
   if (!body || body.label === 'wall' || body.label === 'chain-link' || body.isTarget || body.isStatic || body.isFragment || body.parent !== body) return false;
   return !Composite.allConstraints(world).some(constraint => constraint.bodyA === body || constraint.bodyB === body);
@@ -8749,6 +8923,14 @@ function onDown(e) {
 
   if (drawMode) {
     drawPoints = [pos];
+    return;
+  }
+
+  // Domino Run tool — drag a path for a chain, or tap for a five-piece starter line.
+  if (currentTool === 'domino-run') {
+    dominoRunPath = [pos];
+    slingStart = null;
+    slingCurrent = null;
     return;
   }
 
@@ -9145,6 +9327,12 @@ function onMove(e) {
   e.preventDefault();
   const pos = getPointerPos(e);
 
+  if (currentTool === 'domino-run' && pointerDown) {
+    const last = dominoRunPath[dominoRunPath.length - 1];
+    if (!last || Math.hypot(pos.x - last.x, pos.y - last.y) >= 5) dominoRunPath.push(pos);
+    return;
+  }
+
   if (currentTool === 'launch' && launchBody) launchAimPoint = pos;
   if (currentTool === 'blink' && blinkBody) blinkAimPoint = pos;
 
@@ -9200,6 +9388,17 @@ function onUp(e) {
     }
     grabBody = null;
     grabHistory = [];
+    return;
+  }
+
+  if (currentTool === 'domino-run' && pointerDown) {
+    pointerDown = false;
+    const last = dominoRunPath[dominoRunPath.length - 1];
+    if (!last || Math.hypot(pos.x - last.x, pos.y - last.y) >= 5) dominoRunPath.push(pos);
+    placeDominoRun(dominoRunPath);
+    dominoRunPath = [];
+    slingStart = null;
+    slingCurrent = null;
     return;
   }
 
@@ -13489,6 +13688,7 @@ function loop(timestamp) {
   });
 
   // Bodies
+  drawDominoRunPreview();
   allBodies.forEach(b => {
     if (b.label === 'wall') return;
     drawBody(b);

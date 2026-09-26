@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-09-26T14:10:00Z — Added: Domino Run tool
+**Why:** The toolbar could place one Domino at a time, but building a satisfying chain still required careful repeated taps. Domino Run turns the strongest unused proposal into a dedicated construction tool that lays an evenly spaced physical chain in one gesture while retaining a simple tap alternative.
+**Goal alignment:** "more fun, more surprising, more satisfying" — players can sketch curved toppling paths in seconds, tap out compact five-piece starter lines, and combine them with balls, cannons, ramps, and chaos actions without tedious one-by-one setup.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (491/491 passing); browser smoke ✓ (existing Block tool placed a real subject, final Domino Run button laid a 10-body curved chain with path-aligned angles, and a tap placed an exact five-body starter line; unpaused live physics moved and settled all 15 bodies); mobile ✓ (390×844, final Domino Run button was fully reachable at 52×50px and x=330–382 at the toolbar's true maximum scroll, existing Ball tool worked, a drag created seven real dominoes, and Clear removed all run state); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-09-25T14:10:12Z — Added: Cannon tool
 **Why:** The toolbar could launch one existing part, sling new props, and place passive obstacles, but it had no reusable machine that creates repeated physical projectiles from the scene itself. Cannon adds a fixed launcher that automatically faces inward and fires a real cannonball every time it is tapped.
 **Goal alignment:** "more fun, more surprising, more satisfying" — players can build repeatable target ranges, bombard towers and baskets, or crossfire two sides of the canvas without re-aiming a loose object after every shot.

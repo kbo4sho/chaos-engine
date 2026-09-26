@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-09-26",
+      "ideas": [
+        "New tool: Drag or tap to place an evenly spaced physical Domino Run"
+      ],
+      "summary": "Implemented Domino Run tool (▥) — the final button in the existing object toolbar now records a mouse or touch path, previews an evenly spaced amber/gold chain, and commits up to 36 real dynamic domino bodies with path-aligned angles; a tap-only five-domino starter line provides a non-drag alternative, while canvas clamping, status/particle/audio/haptic feedback, and tool-change/Clear cleanup make rapid chain building reliable on desktop and mobile."
+    },
+    {
       "date": "2026-09-25",
       "ideas": [
         "New tool: Place a reusable Cannon and tap it to fire real physics cannonballs"
