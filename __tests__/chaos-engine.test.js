@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 73 tool buttons', () => {
+  it('should have exactly 74 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(73);
+    expect(buttons.length).toBe(74);
   });
 
-  it('should append Domino Run after Cannon at the end of the object toolbar', () => {
+  it('should append Elevator after Domino Run at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('domino-run');
-    expect(toolbar.lastElementChild?.textContent).toContain('Run');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('cannon');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('basket');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('elevator');
+    expect(toolbar.lastElementChild?.textContent).toContain('Elevator');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('domino-run');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('cannon');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,16 +67,89 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// ELEVATOR TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Elevator Tool', () => {
+  it('should expose Elevator as the final selectable toolbar tool', () => {
+    const elevatorBtn = document.querySelector('[data-tool="elevator"]');
+    expect(elevatorBtn).not.toBeNull();
+    expect(elevatorBtn?.getAttribute('aria-label')).toContain('up or down');
+    expect(elevatorBtn?.previousElementSibling?.dataset.tool).toBe('domino-run');
+    expect(elevatorBtn?.nextElementSibling).toBeNull();
+    expect(scriptContent).toContain("currentTool === 'elevator'");
+    expect(scriptContent).toContain('placeOrToggleElevatorAt(pos)');
+  });
+
+  it('should clamp placement and create two fixed vertical stops', () => {
+    const placementSource = scriptContent.match(/function getElevatorPlacement\([\s\S]*?\n\}/)?.[0];
+    expect(placementSource).toBeTruthy();
+    const getElevatorPlacement = new Function(`
+      const ELEVATOR_WIDTH = 112;
+      const ELEVATOR_TRAVEL = 132;
+      ${placementSource}
+      return getElevatorPlacement;
+    `)();
+
+    expect(getElevatorPlacement({ x:2, y:4 }, 390, 500)).toEqual({ x:68, lowerY:168, upperY:36 });
+    expect(getElevatorPlacement({ x:388, y:498 }, 390, 500)).toEqual({ x:322, lowerY:458, upperY:326 });
+  });
+
+  it('should move toward either stop without overshooting', () => {
+    const stepSource = scriptContent.match(/function getElevatorStep\([\s\S]*?\n\}/)?.[0];
+    expect(stepSource).toBeTruthy();
+    const getElevatorStep = new Function(`
+      const ELEVATOR_SPEED = 2.8;
+      ${stepSource}
+      return getElevatorStep;
+    `)();
+
+    expect(getElevatorStep(300, 168, 2.8)).toEqual({ y:297.2, reached:false, direction:-1 });
+    expect(getElevatorStep(168, 300, 2.8)).toEqual({ y:170.8, reached:false, direction:1 });
+    expect(getElevatorStep(169, 168, 2.8)).toEqual({ y:168, reached:true, direction:0 });
+  });
+
+  it('should create a real colliding platform and reverse its destination on repeat taps', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('const ELEVATOR_WIDTH'),
+      scriptContent.indexOf('function isRelayableBody(body)')
+    );
+    expect(source).toContain("label:'elevator'");
+    expect(source).toContain('isStatic:true');
+    expect(source).toContain("render:{ type:'elevator'");
+    expect(source).toContain('entry.targetY = headingUp ? entry.upperY : entry.lowerY');
+    expect(source).toContain('Body.setPosition(entry.body');
+    expect(source).toContain('function isBodyOnElevator(body, entry');
+    expect(source).toContain('Matter.Sleeping.set(body, false)');
+    expect(source).toContain('Body.translate(body, { x:0, y:deltaY }, true)');
+    expect(scriptContent).toContain('updateElevators(timeScale)');
+  });
+
+  it('should provide touch targeting, feedback, rendering, Eraser cleanup, and Clear cleanup', () => {
+    expect(document.getElementById('elevator-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('Matter.Query.point(bodies, pos)');
+    expect(scriptContent).toContain('let nearestDist = 58');
+    expect(scriptContent).toContain("if (tool !== 'elevator') resetElevatorFeedback(true)");
+    expect(scriptContent).toContain('drawElevatorTracks(timestamp);');
+    expect(scriptContent).toContain("case 'elevator':");
+    expect(scriptContent).toContain('elevators = elevators.filter(entry => !removedBodyIds.has(entry.body.id))');
+    expect(scriptContent).toContain('elevators = [];');
+    expect(scriptContent).toContain('resetElevatorFeedback(true);');
+    expect(scriptContent).toContain("elevator: '#4de3ff'");
+  });
+});
+
+// ============================================
 // DOMINO RUN TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Domino Run Tool', () => {
-  it('should expose Domino Run as the final selectable toolbar tool', () => {
+  it('should keep Domino Run selectable immediately before Elevator', () => {
     const runBtn = document.querySelector('[data-tool="domino-run"]');
     expect(runBtn).not.toBeNull();
     expect(runBtn?.getAttribute('aria-label')).toContain('dragging');
     expect(runBtn?.previousElementSibling?.dataset.tool).toBe('cannon');
-    expect(runBtn?.nextElementSibling).toBeNull();
+    expect(runBtn?.nextElementSibling?.dataset.tool).toBe('elevator');
     expect(scriptContent).toContain("currentTool === 'domino-run'");
     expect(scriptContent).toContain('placeDominoRun(dominoRunPath)');
   });

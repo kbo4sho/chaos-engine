@@ -580,6 +580,19 @@ canvas#game {
 #domino-run-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#elevator-feedback {
+  position:absolute; top:48px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#4de3ff;
+  font-size:19px; letter-spacing:2px; line-height:1;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none; white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#elevator-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -702,6 +715,7 @@ canvas#game {
   #basket-feedback { top:14px; font-size:19px; }
   #cannon-feedback { top:14px; font-size:19px; }
   #domino-run-feedback { top:14px; font-size:19px; }
+  #elevator-feedback { top:14px; font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -778,6 +792,7 @@ canvas#game {
     <div id="basket-feedback" role="status" aria-live="polite"></div>
     <div id="cannon-feedback" role="status" aria-live="polite"></div>
     <div id="domino-run-feedback" role="status" aria-live="polite"></div>
+    <div id="elevator-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -856,6 +871,7 @@ canvas#game {
     <button class="tool-btn" data-tool="basket" style="color:#ffb86b;" title="Tap the canvas to place a catching basket; tap a basket to hop and tip it" aria-label="Place a catching basket or hop and tip an existing basket"><span class="icon">🧺</span>Basket</button>
     <button class="tool-btn" data-tool="cannon" style="color:#ff7043;" title="Tap the canvas to place a cannon; tap a cannon to fire a real cannonball" aria-label="Place a reusable cannon or fire one of its cannonballs"><span class="icon">☄️</span>Cannon</button>
     <button class="tool-btn" data-tool="domino-run" style="color:#ff9f43;" title="Drag to lay a curved domino run; tap to place a five-domino starter line" aria-label="Lay a physical domino run by dragging or place five dominoes by tapping"><span class="icon">▥</span>Run</button>
+    <button class="tool-btn" data-tool="elevator" style="color:#4de3ff;" title="Tap the canvas to place an elevator; tap the platform to send it up or down" aria-label="Place a moving elevator platform or send an existing elevator up or down"><span class="icon">↕</span>Elevator</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1148,6 +1164,8 @@ let cannons = []; // reusable static launchers that fire dynamic cannonballs tow
 let cannonFeedbackTimer = 0;
 let dominoRunPath = []; // live pointer path previewed and committed by the Domino Run tool
 let dominoRunFeedbackTimer = 0;
+let elevators = []; // {body, upperY, lowerY, targetY} reusable vertical transport platforms
+let elevatorFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -1973,6 +1991,14 @@ function resetDominoRun(silent = false) {
   feedback.textContent = '';
 }
 
+function resetElevatorFeedback(silent = false) {
+  if (!silent) return;
+  clearTimeout(elevatorFeedbackTimer);
+  const feedback = document.getElementById('elevator-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -2060,6 +2086,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'basket') resetBasketFeedback(true);
       if (tool !== 'cannon') resetCannonFeedback(true);
       if (tool !== 'domino-run') resetDominoRun(true);
+      if (tool !== 'elevator') resetElevatorFeedback(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -3490,6 +3517,7 @@ function finishClear(playFeedback = true) {
   pinwheels = [];
   baskets = [];
   cannons = [];
+  elevators = [];
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -3535,6 +3563,7 @@ function finishClear(playFeedback = true) {
   resetBasketFeedback(true);
   resetCannonFeedback(true);
   resetDominoRun(true);
+  resetElevatorFeedback(true);
   flippers = [];
   nextFlipperSide = 'left';
   clearTimeout(flipperFeedbackTimer);
@@ -3756,7 +3785,8 @@ function getToolAccentColor(tool) {
     pinwheel: '#7dff7a',
     basket: '#ffb86b',
     cannon: '#ff7043',
-    'domino-run': '#ff9f43'
+    'domino-run': '#ff9f43',
+    elevator: '#4de3ff'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -3891,6 +3921,7 @@ function eraseBodyAt(pos) {
   pinwheels = pinwheels.filter(entry => !removedBodyIds.has(entry.body.id) && !constraintsToRemove.has(entry.constraint));
   baskets = baskets.filter(b => !removedBodyIds.has(b.id));
   cannons = cannons.filter(b => !removedBodyIds.has(b.id));
+  elevators = elevators.filter(entry => !removedBodyIds.has(entry.body.id));
   ropes = ropes.filter(r => !constraintsToRemove.has(r));
   struts = struts.filter(strut => !constraintsToRemove.has(strut));
   hinges = hinges.filter(hinge => !constraintsToRemove.has(hinge));
@@ -8621,6 +8652,179 @@ function drawDominoRunPreview() {
   ctx.restore();
 }
 
+const ELEVATOR_WIDTH = 112;
+const ELEVATOR_HEIGHT = 16;
+const ELEVATOR_TRAVEL = 132;
+const ELEVATOR_SPEED = 2.8;
+
+function getElevatorPlacement(pos, canvasWidth, canvasHeight) {
+  const xMargin = ELEVATOR_WIDTH / 2 + 12;
+  const lowerY = Math.max(
+    ELEVATOR_TRAVEL + 36,
+    Math.min(canvasHeight - 42, pos.y)
+  );
+  return {
+    x:Math.max(xMargin, Math.min(canvasWidth - xMargin, pos.x)),
+    lowerY,
+    upperY:lowerY - ELEVATOR_TRAVEL
+  };
+}
+
+function getElevatorStep(currentY, targetY, maxStep = ELEVATOR_SPEED) {
+  const delta = targetY - currentY;
+  if (Math.abs(delta) <= maxStep) return { y:targetY, reached:true, direction:0 };
+  const direction = Math.sign(delta);
+  return { y:currentY + direction * maxStep, reached:false, direction };
+}
+
+function createElevatorBody(placement) {
+  const body = Bodies.rectangle(placement.x, placement.lowerY, ELEVATOR_WIDTH, ELEVATOR_HEIGHT, {
+    isStatic:true,
+    chamfer:{ radius:4 },
+    friction:0.92,
+    restitution:0.08,
+    label:'elevator',
+    render:{ type:'elevator', color:'#4de3ff', width:ELEVATOR_WIDTH, height:ELEVATOR_HEIGHT }
+  });
+  body.isElevator = true;
+  body.elevatorUpperY = placement.upperY;
+  body.elevatorLowerY = placement.lowerY;
+  body.elevatorTargetY = placement.lowerY;
+  body.elevatorDirection = 0;
+  body.material = 'metal';
+  return body;
+}
+
+function pruneElevators() {
+  elevators = elevators.filter(entry => Composite.get(world, entry.body.id, 'body'));
+}
+
+function findElevatorAt(pos) {
+  pruneElevators();
+  const bodies = elevators.map(entry => entry.body);
+  let body = Matter.Query.point(bodies, pos).pop();
+  if (!body) {
+    let nearestDist = 58;
+    bodies.forEach(candidate => {
+      const distance = Math.hypot(candidate.position.x - pos.x, candidate.position.y - pos.y);
+      if (distance < nearestDist) {
+        body = candidate;
+        nearestDist = distance;
+      }
+    });
+  }
+  return body ? elevators.find(entry => entry.body === body) || null : null;
+}
+
+function showElevatorFeedback(message) {
+  const feedback = document.getElementById('elevator-feedback');
+  feedback.textContent = message;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(elevatorFeedbackTimer);
+  elevatorFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 900);
+}
+
+function addElevatorBurst(body, direction) {
+  const y = body.position.y + (direction < 0 ? ELEVATOR_HEIGHT / 2 : -ELEVATOR_HEIGHT / 2);
+  for (let i = 0; i < 12; i++) {
+    particles.push({
+      x:body.position.x + (Math.random() - 0.5) * ELEVATOR_WIDTH * 0.82,
+      y,
+      vx:(Math.random() - 0.5) * 2.4,
+      vy:direction * (1.2 + Math.random() * 2.2),
+      size:2 + Math.random() * 2.5,
+      life:0.25 + Math.random() * 0.28,
+      color:i % 3 === 0 ? '#ffffff' : '#4de3ff'
+    });
+  }
+}
+
+function toggleElevator(entry) {
+  const headingUp = entry.targetY === entry.lowerY;
+  entry.targetY = headingUp ? entry.upperY : entry.lowerY;
+  entry.body.elevatorTargetY = entry.targetY;
+  entry.body.elevatorDirection = headingUp ? -1 : 1;
+  addElevatorBurst(entry.body, entry.body.elevatorDirection);
+  showElevatorFeedback(headingUp ? 'ELEVATOR GOING UP' : 'ELEVATOR GOING DOWN');
+  playSound(headingUp ? 760 : 440, 0.1, 'square', 0.065);
+  haptic([7, 8, 7]);
+  return { ...entry, placed:false, direction:entry.body.elevatorDirection };
+}
+
+function placeOrToggleElevatorAt(pos) {
+  const existing = findElevatorAt(pos);
+  if (existing) return toggleElevator(existing);
+
+  const placement = getElevatorPlacement(pos, canvas.width, canvas.height);
+  const body = createElevatorBody(placement);
+  const entry = { body, upperY:placement.upperY, lowerY:placement.lowerY, targetY:placement.lowerY };
+  Composite.add(world, body);
+  elevators.push(entry);
+  addElevatorBurst(body, -1);
+  showElevatorFeedback('ELEVATOR READY: TAP TO RISE');
+  playSpawn();
+  playSound(560, 0.09, 'triangle', 0.06);
+  haptic([7]);
+  return { ...entry, placed:true, direction:0 };
+}
+
+function isBodyOnElevator(body, entry, platformY = entry.body.position.y) {
+  if (!body || body === entry.body || body.isStatic || !body.bounds) return false;
+  const platformTop = platformY - ELEVATOR_HEIGHT / 2;
+  const horizontalOverlap = body.bounds.max.x >= entry.body.position.x - ELEVATOR_WIDTH / 2
+    && body.bounds.min.x <= entry.body.position.x + ELEVATOR_WIDTH / 2;
+  const bottomGap = platformTop - body.bounds.max.y;
+  return horizontalOverlap && body.position.y < platformY && bottomGap >= -5 && bottomGap <= 12;
+}
+
+function updateElevators(timeScale = 1) {
+  pruneElevators();
+  elevators.forEach(entry => {
+    const previousY = entry.body.position.y;
+    const step = getElevatorStep(previousY, entry.targetY, ELEVATOR_SPEED * timeScale);
+    const riders = Composite.allBodies(world).filter(body => isBodyOnElevator(body, entry, previousY));
+    entry.body.elevatorDirection = step.direction;
+    Body.setPosition(entry.body, { x:entry.body.position.x, y:step.y }, true);
+    const deltaY = step.y - previousY;
+    riders.forEach(body => {
+      Matter.Sleeping.set(body, false);
+      Body.translate(body, { x:0, y:deltaY }, true);
+    });
+    if (step.reached) Body.setVelocity(entry.body, { x:0, y:0 });
+  });
+}
+
+function drawElevatorTracks(timestamp = performance.now()) {
+  pruneElevators();
+  elevators.forEach(entry => {
+    const x = entry.body.position.x;
+    const pulse = 0.58 + Math.sin(timestamp / 180 + entry.body.id) * 0.16;
+    ctx.save();
+    ctx.strokeStyle = `rgba(77,227,255,${0.34 + pulse * 0.18})`;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([7, 6]);
+    [-ELEVATOR_WIDTH * 0.34, ELEVATOR_WIDTH * 0.34].forEach(offset => {
+      ctx.beginPath();
+      ctx.moveTo(x + offset, entry.upperY);
+      ctx.lineTo(x + offset, entry.lowerY);
+      ctx.stroke();
+    });
+    ctx.setLineDash([]);
+    [entry.upperY, entry.lowerY].forEach((y, index) => {
+      ctx.fillStyle = '#080c10';
+      ctx.strokeStyle = index === 0 ? '#d9fbff' : '#4de3ff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    });
+    ctx.restore();
+  });
+}
+
 function isRelayableBody(body) {
   if (!body || body.label === 'wall' || body.label === 'chain-link' || body.isTarget || body.isStatic || body.isFragment || body.parent !== body) return false;
   return !Composite.allConstraints(world).some(constraint => constraint.bodyA === body || constraint.bodyB === body);
@@ -9207,6 +9411,13 @@ function onDown(e) {
   // Cannon tool — place a reusable launcher or fire a real dynamic cannonball.
   if (currentTool === 'cannon') {
     placeOrFireCannonAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Elevator tool — place a vertical transport platform or reverse its destination.
+  if (currentTool === 'elevator') {
+    placeOrToggleElevatorAt(pos);
     pointerDown = false;
     return;
   }
@@ -10350,6 +10561,39 @@ function drawBody(b) {
       ctx.beginPath();
       ctx.arc(-radius * 0.28, -radius * 0.3, Math.max(2, radius * 0.18), 0, Math.PI * 2);
       ctx.fill();
+      break;
+    }
+    case 'elevator': {
+      const width = r.width || ELEVATOR_WIDTH;
+      const height = r.height || ELEVATOR_HEIGHT;
+      const pulse = 0.74 + Math.sin(performance.now() / 150 + b.id) * 0.16;
+      const atTop = Math.abs(b.position.y - b.elevatorUpperY) < 1;
+      const direction = b.elevatorDirection || (atTop ? 1 : -1);
+      ctx.shadowColor = '#4de3ff';
+      ctx.shadowBlur = 14;
+      ctx.fillStyle = `rgba(77,227,255,${0.14 + pulse * 0.08})`;
+      ctx.strokeStyle = '#4de3ff';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.roundRect(-width / 2, -height / 2, width, height, 4);
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = '#d9fbff';
+      ctx.lineWidth = 1.5;
+      for (let x = -width / 2 + 12; x < width / 2 - 5; x += 16) {
+        ctx.beginPath();
+        ctx.moveTo(x, -height / 2 + 3);
+        ctx.lineTo(x + 6, height / 2 - 3);
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#d9fbff';
+      ctx.font = 'bold 14px VT323';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(direction < 0 ? '↑' : '↓', 0, 1);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
       break;
     }
     case 'conveyor': {
@@ -12897,6 +13141,7 @@ function loop(timestamp) {
   prunePivots();
   pruneWebTraps();
   prunePinwheels();
+  pruneElevators();
 
   // Smooth gravity transition (skip during anti-grav pulse and gravity flip)
   if (!antiGravActive && gravityAngle === 0) {
@@ -13518,6 +13763,7 @@ function loop(timestamp) {
     applyGyroStabilizers();
     applyChargeForces();
     applyWeldLocks();
+    updateElevators(timeScale);
     Engine.update(engine, (1000/60) * timeScale);
   }
 
@@ -13689,6 +13935,7 @@ function loop(timestamp) {
 
   // Bodies
   drawDominoRunPreview();
+  drawElevatorTracks(timestamp);
   allBodies.forEach(b => {
     if (b.label === 'wall') return;
     drawBody(b);

@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-09-27",
+      "ideas": [
+        "New tool: Place a reusable Elevator and tap it to transport objects between two levels"
+      ],
+      "summary": "Implemented Elevator tool (↕) — the final button in the existing object toolbar now places a canvas-clamped static platform on a visible 132px neon rail, then sends it to the opposite stop on repeat taps; real colliding riders are awakened and carried with the deck, while 58px touch targeting, mid-trip reversal, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make vertical transport reliable on desktop and mobile."
+    },
+    {
       "date": "2026-09-26",
       "ideas": [
         "New tool: Drag or tap to place an evenly spaced physical Domino Run"

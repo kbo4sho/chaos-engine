@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-09-27T14:14:44Z — Added: Elevator tool
+**Why:** The toolbar could launch, attract, bounce, rotate, and connect objects, but it had no reusable machine for deliberately transporting a resting object between two levels. Elevator adds a real colliding platform with fixed vertical stops and a direct up/down interaction.
+**Goal alignment:** "more fun, more surprising, more satisfying" — players can lift balls and blocks into towers, lower payloads into contraptions, or reverse the platform mid-trip without rebuilding the scene.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (497/497 passing); browser smoke ✓ (existing Block tool placed a real rider, final Elevator button placed one static colliding platform, and repeat taps carried both platform and Block exactly 132px up and back down); mobile ✓ (390×844, final Elevator button was fully reachable at 52×50px and x=330–382 at the toolbar's true maximum scroll, existing Ball tool worked, and the platform carried the Ball exactly 132px to its upper stop); cleanup ✓ (Clear removed the Elevator, rider, feedback, and tool state); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-09-26T14:10:00Z — Added: Domino Run tool
 **Why:** The toolbar could place one Domino at a time, but building a satisfying chain still required careful repeated taps. Domino Run turns the strongest unused proposal into a dedicated construction tool that lays an evenly spaced physical chain in one gesture while retaining a simple tap alternative.
 **Goal alignment:** "more fun, more surprising, more satisfying" — players can sketch curved toppling paths in seconds, tap out compact five-piece starter lines, and combine them with balls, cannons, ramps, and chaos actions without tedious one-by-one setup.
