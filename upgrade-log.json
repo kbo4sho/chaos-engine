@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-09-28",
+      "ideas": [
+        "New tool: Place a Recycler that converts loose objects into an ejectable scrap ball"
+      ],
+      "summary": "Implemented Recycler tool (♻) — the final button in the existing object toolbar now places a canvas-clamped sensor intake that removes loose standalone physics parts on contact, banks up to nine as visible scrap, and ejects one size-scaled dynamic metal scrap ball when tapped; 58px touch targeting, neon CRT rendering, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make the recycle-and-reuse loop readable and reliable on desktop and mobile."
+    },
+    {
       "date": "2026-09-27",
       "ideas": [
         "New tool: Place a reusable Elevator and tap it to transport objects between two levels"

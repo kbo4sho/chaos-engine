@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 74 tool buttons', () => {
+  it('should have exactly 75 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(74);
+    expect(buttons.length).toBe(75);
   });
 
-  it('should append Elevator after Domino Run at the end of the object toolbar', () => {
+  it('should append Recycler after Elevator at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('elevator');
-    expect(toolbar.lastElementChild?.textContent).toContain('Elevator');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('domino-run');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('cannon');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('recycler');
+    expect(toolbar.lastElementChild?.textContent).toContain('Recycler');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('elevator');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('domino-run');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,6 +67,83 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// RECYCLER TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Recycler Tool', () => {
+  it('should expose Recycler as the final selectable toolbar tool', () => {
+    const recyclerBtn = document.querySelector('[data-tool="recycler"]');
+    expect(recyclerBtn).not.toBeNull();
+    expect(recyclerBtn?.getAttribute('aria-label')).toContain('scrap ball');
+    expect(recyclerBtn?.previousElementSibling?.dataset.tool).toBe('elevator');
+    expect(recyclerBtn?.nextElementSibling).toBeNull();
+    expect(scriptContent).toContain("currentTool === 'recycler'");
+    expect(scriptContent).toContain('placeOrEjectRecyclerAt(pos)');
+  });
+
+  it('should clamp placement and scale scrap balls within safe bounds', () => {
+    const placementSource = scriptContent.match(/function getRecyclerPlacement\([\s\S]*?\n\}/)?.[0];
+    const radiusSource = scriptContent.match(/function getRecyclerScrapRadius\([\s\S]*?\n\}/)?.[0];
+    expect(placementSource).toBeTruthy();
+    expect(radiusSource).toBeTruthy();
+    const helpers = new Function(`
+      const RECYCLER_WIDTH = 96;
+      const RECYCLER_HEIGHT = 62;
+      ${placementSource}
+      ${radiusSource}
+      return { getRecyclerPlacement, getRecyclerScrapRadius };
+    `)();
+
+    expect(helpers.getRecyclerPlacement({ x:2, y:4 }, 390, 500)).toEqual({ x:60, y:43 });
+    expect(helpers.getRecyclerPlacement({ x:388, y:498 }, 390, 500)).toEqual({ x:330, y:435 });
+    expect(helpers.getRecyclerScrapRadius(1)).toBe(15);
+    expect(helpers.getRecyclerScrapRadius(9)).toBe(25);
+    expect(helpers.getRecyclerScrapRadius(100)).toBe(28);
+  });
+
+  it('should consume loose standalone bodies and bank a capped scrap count', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('const RECYCLER_WIDTH'),
+      scriptContent.indexOf('function isRelayableBody(body)')
+    );
+    expect(source).toContain("label:'recycler'");
+    expect(source).toContain('isSensor:true');
+    expect(source).toContain('body.isRecycler = true');
+    expect(source).toContain('body.parent === body');
+    expect(source).toContain('body.parts?.length === 1');
+    expect(source).toContain('entry.stored = Math.min(RECYCLER_MAX_STORED, entry.stored + 1)');
+    expect(source).toContain('Composite.remove(world, body, true)');
+    expect(scriptContent).toContain('recycleBodyWithRecycler(recyclerBody, inputBody)');
+  });
+
+  it('should eject one real dynamic scrap ball and reset stored scrap', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('const RECYCLER_WIDTH'),
+      scriptContent.indexOf('function isRelayableBody(body)')
+    );
+    expect(source).toContain("label:'recycler-scrap'");
+    expect(source).toContain("render:{ type:'recycler-scrap'");
+    expect(source).toContain('Body.setVelocity(scrap, { x:direction * 2.6, y:-8.6 })');
+    expect(source).toContain('Composite.add(world, scrap)');
+    expect(source).toContain('entry.stored = 0');
+    expect(source).toContain('entry.nextDirection *= -1');
+  });
+
+  it('should provide touch targeting, visible feedback, rendering, and cleanup', () => {
+    expect(document.getElementById('recycler-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('Matter.Query.point(bodies, pos)');
+    expect(scriptContent).toContain('let nearestDist = 58');
+    expect(scriptContent).toContain("if (tool !== 'recycler') resetRecyclerFeedback(true)");
+    expect(scriptContent).toContain("case 'recycler':");
+    expect(scriptContent).toContain("case 'recycler-scrap':");
+    expect(scriptContent).toContain('recyclers = recyclers.filter(entry => !removedBodyIds.has(entry.body.id))');
+    expect(scriptContent).toContain('recyclers = [];');
+    expect(scriptContent).toContain('resetRecyclerFeedback(true);');
+    expect(scriptContent).toContain("recycler: '#62ffb0'");
+  });
+});
+
+// ============================================
 // ELEVATOR TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
@@ -76,7 +153,7 @@ describe('Elevator Tool', () => {
     expect(elevatorBtn).not.toBeNull();
     expect(elevatorBtn?.getAttribute('aria-label')).toContain('up or down');
     expect(elevatorBtn?.previousElementSibling?.dataset.tool).toBe('domino-run');
-    expect(elevatorBtn?.nextElementSibling).toBeNull();
+    expect(elevatorBtn?.nextElementSibling?.dataset.tool).toBe('recycler');
     expect(scriptContent).toContain("currentTool === 'elevator'");
     expect(scriptContent).toContain('placeOrToggleElevatorAt(pos)');
   });

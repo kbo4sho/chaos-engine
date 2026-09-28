@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-09-28T14:11:41Z — Added: Recycler tool
+**Why:** The toolbar could directly erase, merge, split, clone, launch, and transport objects, but it had no reusable canvas machine that turns incoming loose parts into a new physical output. Recycler adds an environmental removal-and-transform loop instead of another direct object edit.
+**Goal alignment:** "more fun, more surprising, more satisfying" — players can feed balls, blocks, dominoes, or cannonballs into a glowing intake, watch its nine-segment scrap meter fill, then tap the machine to eject one larger bouncing scrap ball back into the scene.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (503/503 passing); browser smoke ✓ (existing Block tool placed a real input, final Recycler button placed one sensor intake, the falling Block was removed and banked as 1/9 scrap, and tapping the Recycler ejected one real 15px dynamic scrap ball); mobile ✓ (390×844, final Recycler button was fully reachable at 52×50px and x=330–382 at the toolbar's true maximum scroll, the same recycle/eject loop worked, and Clear removed the machine, output, stored scrap, and feedback); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-09-27T14:14:44Z — Added: Elevator tool
 **Why:** The toolbar could launch, attract, bounce, rotate, and connect objects, but it had no reusable machine for deliberately transporting a resting object between two levels. Elevator adds a real colliding platform with fixed vertical stops and a direct up/down interaction.
 **Goal alignment:** "more fun, more surprising, more satisfying" — players can lift balls and blocks into towers, lower payloads into contraptions, or reverse the platform mid-trip without rebuilding the scene.

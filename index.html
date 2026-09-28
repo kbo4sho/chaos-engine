@@ -593,6 +593,19 @@ canvas#game {
 #elevator-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#recycler-feedback {
+  position:absolute; top:82px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#62ffb0;
+  font-size:19px; letter-spacing:2px; line-height:1;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none; white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#recycler-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -716,6 +729,7 @@ canvas#game {
   #cannon-feedback { top:14px; font-size:19px; }
   #domino-run-feedback { top:14px; font-size:19px; }
   #elevator-feedback { top:14px; font-size:19px; }
+  #recycler-feedback { top:14px; font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -793,6 +807,7 @@ canvas#game {
     <div id="cannon-feedback" role="status" aria-live="polite"></div>
     <div id="domino-run-feedback" role="status" aria-live="polite"></div>
     <div id="elevator-feedback" role="status" aria-live="polite"></div>
+    <div id="recycler-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -872,6 +887,7 @@ canvas#game {
     <button class="tool-btn" data-tool="cannon" style="color:#ff7043;" title="Tap the canvas to place a cannon; tap a cannon to fire a real cannonball" aria-label="Place a reusable cannon or fire one of its cannonballs"><span class="icon">☄️</span>Cannon</button>
     <button class="tool-btn" data-tool="domino-run" style="color:#ff9f43;" title="Drag to lay a curved domino run; tap to place a five-domino starter line" aria-label="Lay a physical domino run by dragging or place five dominoes by tapping"><span class="icon">▥</span>Run</button>
     <button class="tool-btn" data-tool="elevator" style="color:#4de3ff;" title="Tap the canvas to place an elevator; tap the platform to send it up or down" aria-label="Place a moving elevator platform or send an existing elevator up or down"><span class="icon">↕</span>Elevator</button>
+    <button class="tool-btn" data-tool="recycler" style="color:#62ffb0;" title="Tap the canvas to place a recycler; feed it loose objects, then tap it to eject a scrap ball" aria-label="Place a recycler that converts loose objects into an ejectable scrap ball"><span class="icon">♻</span>Recycler</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1166,6 +1182,8 @@ let dominoRunPath = []; // live pointer path previewed and committed by the Domi
 let dominoRunFeedbackTimer = 0;
 let elevators = []; // {body, upperY, lowerY, targetY} reusable vertical transport platforms
 let elevatorFeedbackTimer = 0;
+let recyclers = []; // {body, stored, nextDirection} sensor intakes that convert loose parts into scrap balls
+let recyclerFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -1999,6 +2017,14 @@ function resetElevatorFeedback(silent = false) {
   feedback.textContent = '';
 }
 
+function resetRecyclerFeedback(silent = false) {
+  if (!silent) return;
+  clearTimeout(recyclerFeedbackTimer);
+  const feedback = document.getElementById('recycler-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -2087,6 +2113,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'cannon') resetCannonFeedback(true);
       if (tool !== 'domino-run') resetDominoRun(true);
       if (tool !== 'elevator') resetElevatorFeedback(true);
+      if (tool !== 'recycler') resetRecyclerFeedback(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -3518,6 +3545,7 @@ function finishClear(playFeedback = true) {
   baskets = [];
   cannons = [];
   elevators = [];
+  recyclers = [];
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -3564,6 +3592,7 @@ function finishClear(playFeedback = true) {
   resetCannonFeedback(true);
   resetDominoRun(true);
   resetElevatorFeedback(true);
+  resetRecyclerFeedback(true);
   flippers = [];
   nextFlipperSide = 'left';
   clearTimeout(flipperFeedbackTimer);
@@ -3786,7 +3815,8 @@ function getToolAccentColor(tool) {
     basket: '#ffb86b',
     cannon: '#ff7043',
     'domino-run': '#ff9f43',
-    elevator: '#4de3ff'
+    elevator: '#4de3ff',
+    recycler: '#62ffb0'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -3922,6 +3952,7 @@ function eraseBodyAt(pos) {
   baskets = baskets.filter(b => !removedBodyIds.has(b.id));
   cannons = cannons.filter(b => !removedBodyIds.has(b.id));
   elevators = elevators.filter(entry => !removedBodyIds.has(entry.body.id));
+  recyclers = recyclers.filter(entry => !removedBodyIds.has(entry.body.id));
   ropes = ropes.filter(r => !constraintsToRemove.has(r));
   struts = struts.filter(strut => !constraintsToRemove.has(strut));
   hinges = hinges.filter(hinge => !constraintsToRemove.has(hinge));
@@ -8825,6 +8856,168 @@ function drawElevatorTracks(timestamp = performance.now()) {
   });
 }
 
+const RECYCLER_WIDTH = 96;
+const RECYCLER_HEIGHT = 62;
+const RECYCLER_MAX_STORED = 9;
+
+function getRecyclerPlacement(pos, canvasWidth, canvasHeight) {
+  return {
+    x:Math.max(RECYCLER_WIDTH / 2 + 12, Math.min(canvasWidth - RECYCLER_WIDTH / 2 - 12, pos.x)),
+    y:Math.max(RECYCLER_HEIGHT / 2 + 12, Math.min(canvasHeight - RECYCLER_HEIGHT / 2 - 34, pos.y))
+  };
+}
+
+function getRecyclerScrapRadius(stored) {
+  return Math.max(12, Math.min(28, 10 + Math.sqrt(Math.max(1, stored)) * 5));
+}
+
+function createRecyclerBody(position) {
+  const body = Bodies.rectangle(position.x, position.y, RECYCLER_WIDTH, RECYCLER_HEIGHT, {
+    isStatic:true,
+    isSensor:true,
+    label:'recycler',
+    render:{ type:'recycler', color:'#62ffb0', width:RECYCLER_WIDTH, height:RECYCLER_HEIGHT }
+  });
+  body.isRecycler = true;
+  body.recyclerStored = 0;
+  body.material = 'metal';
+  return body;
+}
+
+function pruneRecyclers() {
+  recyclers = recyclers.filter(entry => Composite.get(world, entry.body.id, 'body'));
+}
+
+function findRecyclerAt(pos) {
+  pruneRecyclers();
+  const bodies = recyclers.map(entry => entry.body);
+  let body = Matter.Query.point(bodies, pos).pop();
+  if (!body) {
+    let nearestDist = 58;
+    bodies.forEach(candidate => {
+      const distance = Math.hypot(candidate.position.x - pos.x, candidate.position.y - pos.y);
+      if (distance < nearestDist) {
+        body = candidate;
+        nearestDist = distance;
+      }
+    });
+  }
+  return body ? recyclers.find(entry => entry.body === body) || null : null;
+}
+
+function showRecyclerFeedback(message, color = '#62ffb0') {
+  const feedback = document.getElementById('recycler-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(recyclerFeedbackTimer);
+  recyclerFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 950);
+}
+
+function addRecyclerBurst(position, color = '#62ffb0', count = 16, inward = false) {
+  for (let i = 0; i < count; i++) {
+    const angle = Math.PI * 2 * i / count;
+    const radius = inward ? 28 : 6;
+    const speed = 1.4 + Math.random() * 2.8;
+    particles.push({
+      x:position.x + Math.cos(angle) * radius,
+      y:position.y + Math.sin(angle) * radius,
+      vx:Math.cos(angle) * speed * (inward ? -1 : 1),
+      vy:Math.sin(angle) * speed * (inward ? -1 : 1) - (inward ? 0 : 1),
+      size:2 + Math.random() * 2.5,
+      life:0.3 + Math.random() * 0.3,
+      color:i % 3 === 0 ? '#dfffee' : color
+    });
+  }
+}
+
+function isRecyclerInput(body) {
+  return Boolean(
+    body && !body.isStatic && !body.isTarget && !body.isFragment && !body._recycling
+    && body.parent === body && body.parts?.length === 1
+    && !Composite.allConstraints(world).some(constraint => constraint.bodyA === body || constraint.bodyB === body)
+  );
+}
+
+function recycleBodyWithRecycler(recyclerBody, body) {
+  pruneRecyclers();
+  const entry = recyclers.find(candidate => candidate.body === recyclerBody);
+  if (!entry || !isRecyclerInput(body) || !Composite.get(world, body.id, 'body')) return false;
+
+  body._recycling = true;
+  const sourceColor = body.render?.color || '#dfffee';
+  entry.stored = Math.min(RECYCLER_MAX_STORED, entry.stored + 1);
+  entry.body.recyclerStored = entry.stored;
+  removeFusionSourceTracking(body);
+  chainLinks = chainLinks.filter(candidate => candidate !== body);
+  Composite.remove(world, body, true);
+  addRecyclerBurst(entry.body.position, sourceColor, 18, true);
+  showRecyclerFeedback(`RECYCLED ${entry.stored}/${RECYCLER_MAX_STORED} • TAP TO EJECT`);
+  playSound(260 + entry.stored * 35, 0.08, 'square', 0.06);
+  haptic([5, 7]);
+  return entry.stored;
+}
+
+function ejectRecyclerScrap(entry) {
+  if (entry.stored <= 0) {
+    showRecyclerFeedback('RECYCLER EMPTY', '#a8b8b0');
+    playSound(170, 0.08, 'square', 0.035);
+    haptic([3]);
+    return false;
+  }
+
+  const stored = entry.stored;
+  const radius = getRecyclerScrapRadius(stored);
+  const direction = entry.nextDirection;
+  const scrap = Bodies.circle(
+    entry.body.position.x,
+    entry.body.position.y - RECYCLER_HEIGHT / 2 - radius - 8,
+    radius,
+    {
+      restitution:0.58,
+      friction:0.62,
+      density:0.005,
+      label:'recycler-scrap',
+      render:{ type:'recycler-scrap', color:'#b8d8cf', radius, stored }
+    }
+  );
+  scrap.material = 'metal';
+  Body.setVelocity(scrap, { x:direction * 2.6, y:-8.6 });
+  Body.setAngularVelocity(scrap, direction * 0.18);
+  Composite.add(world, scrap);
+  markSpawnPop(scrap);
+  entry.stored = 0;
+  entry.nextDirection *= -1;
+  entry.body.recyclerStored = 0;
+  addRecyclerBurst(scrap.position, '#f8fffd', 20);
+  showRecyclerFeedback(`SCRAP BALL EJECTED ×${stored}`);
+  playSound(760, 0.08, 'square', 0.08);
+  playSound(320, 0.14, 'triangle', 0.06);
+  haptic([8, 12, 8]);
+  shakeIntensity = Math.max(shakeIntensity, 2.5);
+  return scrap;
+}
+
+function placeOrEjectRecyclerAt(pos) {
+  const existing = findRecyclerAt(pos);
+  if (existing) return ejectRecyclerScrap(existing);
+
+  const position = getRecyclerPlacement(pos, canvas.width, canvas.height);
+  const body = createRecyclerBody(position);
+  const entry = { body, stored:0, nextDirection:1 };
+  Composite.add(world, body);
+  recyclers.push(entry);
+  markSpawnPop(body);
+  addRecyclerBurst(body.position, '#62ffb0', 16);
+  showRecyclerFeedback('RECYCLER READY • FEED LOOSE PARTS');
+  playSpawn();
+  playSound(520, 0.09, 'triangle', 0.06);
+  haptic([7]);
+  return entry;
+}
+
 function isRelayableBody(body) {
   if (!body || body.label === 'wall' || body.label === 'chain-link' || body.isTarget || body.isStatic || body.isFragment || body.parent !== body) return false;
   return !Composite.allConstraints(world).some(constraint => constraint.bodyA === body || constraint.bodyB === body);
@@ -9422,6 +9615,13 @@ function onDown(e) {
     return;
   }
 
+  // Recycler tool — place an intake or eject its stored scrap as one physical ball.
+  if (currentTool === 'recycler') {
+    placeOrEjectRecyclerAt(pos);
+    pointerDown = false;
+    return;
+  }
+
   // Snip tool — cut one visible physical connection without removing its bodies.
   if (currentTool === 'snip') {
     snipConstraintAt(pos);
@@ -9684,6 +9884,14 @@ canvas.addEventListener('touchend', onUp, {passive:false});
 // ── COLLISION EVENTS ──
 Events.on(engine, 'collisionStart', (e) => {
   e.pairs.forEach(pair => {
+    // Recycler sensors consume one loose standalone part and bank it as scrap.
+    const recyclerBody = pair.bodyA.isRecycler ? pair.bodyA : (pair.bodyB.isRecycler ? pair.bodyB : null);
+    const recyclerCandidate = recyclerBody === pair.bodyA ? pair.bodyB : pair.bodyA;
+    if (recyclerBody && recyclerCandidate) {
+      const inputBody = recyclerCandidate.parent || recyclerCandidate;
+      recycleBodyWithRecycler(recyclerBody, inputBody);
+    }
+
     // Web traps catch up to three dynamic parts on contact until tapped to release.
     const webBody = pair.bodyA.isWebTrap ? pair.bodyA : (pair.bodyB.isWebTrap ? pair.bodyB : null);
     const capturedBody = webBody === pair.bodyA ? pair.bodyB : pair.bodyA;
@@ -10594,6 +10802,79 @@ function drawBody(b) {
       ctx.fillText(direction < 0 ? '↑' : '↓', 0, 1);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'alphabetic';
+      break;
+    }
+    case 'recycler': {
+      const width = r.width || RECYCLER_WIDTH;
+      const height = r.height || RECYCLER_HEIGHT;
+      const stored = Math.min(RECYCLER_MAX_STORED, b.recyclerStored || 0);
+      const pulse = 0.74 + Math.sin(performance.now() / 140 + b.id) * 0.18;
+      ctx.shadowColor = '#62ffb0';
+      ctx.shadowBlur = 14;
+      ctx.fillStyle = `rgba(98,255,176,${0.09 + pulse * 0.07})`;
+      ctx.strokeStyle = '#62ffb0';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.roundRect(-width / 2, -height / 2, width, height, 8);
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      ctx.fillStyle = '#07110d';
+      ctx.strokeStyle = '#dfffee';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(-width * 0.28, -height * 0.28, width * 0.56, height * 0.4, 5);
+      ctx.fill();
+      ctx.stroke();
+      ctx.strokeStyle = '#ff5bc8';
+      ctx.lineWidth = 2;
+      [-1, 1].forEach(direction => {
+        ctx.beginPath();
+        ctx.moveTo(direction * width * 0.38, -height * 0.22);
+        ctx.lineTo(direction * width * 0.22, -height * 0.08);
+        ctx.lineTo(direction * width * 0.34, height * 0.05);
+        ctx.stroke();
+      });
+
+      const pipWidth = 6;
+      const pipGap = 3;
+      const rowWidth = RECYCLER_MAX_STORED * pipWidth + (RECYCLER_MAX_STORED - 1) * pipGap;
+      for (let i = 0; i < RECYCLER_MAX_STORED; i++) {
+        ctx.fillStyle = i < stored ? '#62ffb0' : 'rgba(98,255,176,0.16)';
+        ctx.fillRect(-rowWidth / 2 + i * (pipWidth + pipGap), height * 0.25, pipWidth, 4);
+      }
+      ctx.fillStyle = stored ? '#f8fffd' : '#62ffb0';
+      ctx.font = 'bold 12px VT323';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(stored ? `SCRAP ${stored}` : 'RECYCLE', 0, height * 0.08);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      break;
+    }
+    case 'recycler-scrap': {
+      const radius = r.radius || 14;
+      const stored = r.stored || 1;
+      ctx.shadowColor = '#62ffb0';
+      ctx.shadowBlur = 12;
+      ctx.fillStyle = '#17251f';
+      ctx.strokeStyle = '#dfffee';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = '#62ffb0';
+      ctx.lineWidth = 1.5;
+      for (let i = 0; i < Math.min(6, stored + 1); i++) {
+        const angle = i * 2.399;
+        const inner = radius * (0.22 + (i % 3) * 0.16);
+        ctx.beginPath();
+        ctx.arc(Math.cos(angle) * inner, Math.sin(angle) * inner, Math.max(2, radius * 0.13), 0, Math.PI * 2);
+        ctx.stroke();
+      }
       break;
     }
     case 'conveyor': {
