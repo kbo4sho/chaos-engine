@@ -606,6 +606,19 @@ canvas#game {
 #recycler-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#hatch-feedback {
+  position:absolute; top:116px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#ffc857;
+  font-size:19px; letter-spacing:2px; line-height:1;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none; white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#hatch-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -730,6 +743,7 @@ canvas#game {
   #domino-run-feedback { top:14px; font-size:19px; }
   #elevator-feedback { top:14px; font-size:19px; }
   #recycler-feedback { top:14px; font-size:19px; }
+  #hatch-feedback { top:14px; font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -808,6 +822,7 @@ canvas#game {
     <div id="domino-run-feedback" role="status" aria-live="polite"></div>
     <div id="elevator-feedback" role="status" aria-live="polite"></div>
     <div id="recycler-feedback" role="status" aria-live="polite"></div>
+    <div id="hatch-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -888,6 +903,7 @@ canvas#game {
     <button class="tool-btn" data-tool="domino-run" style="color:#ff9f43;" title="Drag to lay a curved domino run; tap to place a five-domino starter line" aria-label="Lay a physical domino run by dragging or place five dominoes by tapping"><span class="icon">▥</span>Run</button>
     <button class="tool-btn" data-tool="elevator" style="color:#4de3ff;" title="Tap the canvas to place an elevator; tap the platform to send it up or down" aria-label="Place a moving elevator platform or send an existing elevator up or down"><span class="icon">↕</span>Elevator</button>
     <button class="tool-btn" data-tool="recycler" style="color:#62ffb0;" title="Tap the canvas to place a recycler; feed it loose objects, then tap it to eject a scrap ball" aria-label="Place a recycler that converts loose objects into an ejectable scrap ball"><span class="icon">♻</span>Recycler</button>
+    <button class="tool-btn" data-tool="hatch" style="color:#ffc857;" title="Tap the canvas to place a trapdoor; tap the hatch to open or close it" aria-label="Place a hinged hatch or open and close an existing hatch"><span class="icon">▰</span>Hatch</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1184,6 +1200,8 @@ let elevators = []; // {body, upperY, lowerY, targetY} reusable vertical transpo
 let elevatorFeedbackTimer = 0;
 let recyclers = []; // {body, stored, nextDirection} sensor intakes that convert loose parts into scrap balls
 let recyclerFeedbackTimer = 0;
+let hatches = []; // {body, pivotX, pivotY, direction, targetAngle} reusable hinged trapdoors
+let hatchFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -2025,6 +2043,14 @@ function resetRecyclerFeedback(silent = false) {
   feedback.textContent = '';
 }
 
+function resetHatchFeedback(silent = false) {
+  if (!silent) return;
+  clearTimeout(hatchFeedbackTimer);
+  const feedback = document.getElementById('hatch-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -2114,6 +2140,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'domino-run') resetDominoRun(true);
       if (tool !== 'elevator') resetElevatorFeedback(true);
       if (tool !== 'recycler') resetRecyclerFeedback(true);
+      if (tool !== 'hatch') resetHatchFeedback(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -3546,6 +3573,7 @@ function finishClear(playFeedback = true) {
   cannons = [];
   elevators = [];
   recyclers = [];
+  hatches = [];
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -3593,6 +3621,7 @@ function finishClear(playFeedback = true) {
   resetDominoRun(true);
   resetElevatorFeedback(true);
   resetRecyclerFeedback(true);
+  resetHatchFeedback(true);
   flippers = [];
   nextFlipperSide = 'left';
   clearTimeout(flipperFeedbackTimer);
@@ -3816,7 +3845,8 @@ function getToolAccentColor(tool) {
     cannon: '#ff7043',
     'domino-run': '#ff9f43',
     elevator: '#4de3ff',
-    recycler: '#62ffb0'
+    recycler: '#62ffb0',
+    hatch: '#ffc857'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -3953,6 +3983,7 @@ function eraseBodyAt(pos) {
   cannons = cannons.filter(b => !removedBodyIds.has(b.id));
   elevators = elevators.filter(entry => !removedBodyIds.has(entry.body.id));
   recyclers = recyclers.filter(entry => !removedBodyIds.has(entry.body.id));
+  hatches = hatches.filter(entry => !removedBodyIds.has(entry.body.id));
   ropes = ropes.filter(r => !constraintsToRemove.has(r));
   struts = struts.filter(strut => !constraintsToRemove.has(strut));
   hinges = hinges.filter(hinge => !constraintsToRemove.has(hinge));
@@ -8683,6 +8714,160 @@ function drawDominoRunPreview() {
   ctx.restore();
 }
 
+const HATCH_WIDTH = 112;
+const HATCH_HEIGHT = 14;
+const HATCH_SPEED = 0.12;
+
+function getHatchPlacement(pos, canvasWidth, canvasHeight) {
+  const halfWidth = HATCH_WIDTH / 2;
+  const centerX = Math.max(halfWidth + 16, Math.min(canvasWidth - halfWidth - 16, pos.x));
+  const direction = centerX <= canvasWidth / 2 ? 1 : -1;
+  const pivotY = Math.max(24, Math.min(canvasHeight - halfWidth - 24, pos.y));
+  return {
+    centerX,
+    pivotX:centerX - direction * halfWidth,
+    pivotY,
+    direction,
+    closedAngle:0,
+    openAngle:direction * Math.PI / 2
+  };
+}
+
+function getHatchStep(currentAngle, targetAngle, maxStep = HATCH_SPEED) {
+  const delta = targetAngle - currentAngle;
+  if (Math.abs(delta) <= maxStep) return { angle:targetAngle, reached:true, direction:0 };
+  const direction = Math.sign(delta);
+  return { angle:currentAngle + direction * maxStep, reached:false, direction };
+}
+
+function setHatchAngle(entry, angle) {
+  const halfWidth = HATCH_WIDTH / 2;
+  const center = {
+    x:entry.pivotX + entry.direction * Math.cos(angle) * halfWidth,
+    y:entry.pivotY + entry.direction * Math.sin(angle) * halfWidth
+  };
+  Body.setPosition(entry.body, center, true);
+  Body.setAngle(entry.body, angle, true);
+  Body.setVelocity(entry.body, { x:0, y:0 });
+  Body.setAngularVelocity(entry.body, 0);
+  return center;
+}
+
+function createHatchBody(placement) {
+  const body = Bodies.rectangle(placement.centerX, placement.pivotY, HATCH_WIDTH, HATCH_HEIGHT, {
+    isStatic:true,
+    chamfer:{ radius:3 },
+    friction:0.92,
+    restitution:0.08,
+    label:'hatch',
+    render:{ type:'hatch', color:'#ffc857', width:HATCH_WIDTH, height:HATCH_HEIGHT, direction:placement.direction }
+  });
+  body.isHatch = true;
+  body.hatchOpen = false;
+  body.hatchTargetAngle = placement.closedAngle;
+  body.material = 'metal';
+  return body;
+}
+
+function pruneHatches() {
+  hatches = hatches.filter(entry => Composite.get(world, entry.body.id, 'body'));
+}
+
+function findHatchAt(pos) {
+  pruneHatches();
+  const bodies = hatches.map(entry => entry.body);
+  let body = Matter.Query.point(bodies, pos).pop();
+  if (!body) {
+    let nearestDist = 58;
+    bodies.forEach(candidate => {
+      const distance = Math.hypot(candidate.position.x - pos.x, candidate.position.y - pos.y);
+      if (distance < nearestDist) {
+        body = candidate;
+        nearestDist = distance;
+      }
+    });
+  }
+  return body ? hatches.find(entry => entry.body === body) || null : null;
+}
+
+function showHatchFeedback(message) {
+  const feedback = document.getElementById('hatch-feedback');
+  feedback.textContent = message;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(hatchFeedbackTimer);
+  hatchFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 900);
+}
+
+function addHatchBurst(entry, opening) {
+  for (let i = 0; i < 14; i++) {
+    const angle = Math.PI * 2 * i / 14;
+    const speed = 1.2 + Math.random() * 2.4;
+    particles.push({
+      x:entry.pivotX,
+      y:entry.pivotY,
+      vx:Math.cos(angle) * speed,
+      vy:Math.sin(angle) * speed - (opening ? 0.2 : 0.8),
+      size:2 + Math.random() * 2.4,
+      life:0.25 + Math.random() * 0.3,
+      color:i % 3 === 0 ? '#fff5c4' : '#ffc857'
+    });
+  }
+}
+
+function toggleHatch(entry) {
+  const opening = entry.targetAngle === 0;
+  entry.targetAngle = opening ? entry.direction * Math.PI / 2 : 0;
+  entry.body.hatchTargetAngle = entry.targetAngle;
+  entry.body.hatchOpen = opening;
+  addHatchBurst(entry, opening);
+  showHatchFeedback(opening ? 'HATCH OPENING • DROP!' : 'HATCH CLOSING');
+  playSound(opening ? 360 : 620, 0.1, 'square', 0.065);
+  haptic(opening ? [8, 10, 8] : [7]);
+  return { ...entry, placed:false, opening };
+}
+
+function placeOrToggleHatchAt(pos) {
+  const existing = findHatchAt(pos);
+  if (existing) return toggleHatch(existing);
+
+  const placement = getHatchPlacement(pos, canvas.width, canvas.height);
+  const body = createHatchBody(placement);
+  const entry = {
+    body,
+    pivotX:placement.pivotX,
+    pivotY:placement.pivotY,
+    direction:placement.direction,
+    targetAngle:placement.closedAngle
+  };
+  Composite.add(world, body);
+  hatches.push(entry);
+  markSpawnPop(body);
+  addHatchBurst(entry, false);
+  showHatchFeedback('HATCH READY • TAP TO DROP');
+  playSpawn();
+  playSound(510, 0.09, 'triangle', 0.055);
+  haptic([7]);
+  return { ...entry, placed:true, opening:false };
+}
+
+function updateHatches(timeScale = 1) {
+  pruneHatches();
+  hatches.forEach(entry => {
+    const step = getHatchStep(entry.body.angle, entry.targetAngle, HATCH_SPEED * timeScale);
+    setHatchAngle(entry, step.angle);
+    if (step.direction !== 0) {
+      Composite.allBodies(world).forEach(body => {
+        if (body.isStatic || body === entry.body) return;
+        if (Math.hypot(body.position.x - entry.pivotX, body.position.y - entry.pivotY) <= HATCH_WIDTH) {
+          Matter.Sleeping.set(body, false);
+        }
+      });
+    }
+  });
+}
+
 const ELEVATOR_WIDTH = 112;
 const ELEVATOR_HEIGHT = 16;
 const ELEVATOR_TRAVEL = 132;
@@ -9618,6 +9803,13 @@ function onDown(e) {
   // Recycler tool — place an intake or eject its stored scrap as one physical ball.
   if (currentTool === 'recycler') {
     placeOrEjectRecyclerAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Hatch tool — place a colliding trapdoor or swing an existing hatch open or closed.
+  if (currentTool === 'hatch') {
+    placeOrToggleHatchAt(pos);
     pointerDown = false;
     return;
   }
@@ -10875,6 +11067,58 @@ function drawBody(b) {
         ctx.arc(Math.cos(angle) * inner, Math.sin(angle) * inner, Math.max(2, radius * 0.13), 0, Math.PI * 2);
         ctx.stroke();
       }
+      break;
+    }
+    case 'hatch': {
+      const width = r.width || HATCH_WIDTH;
+      const height = r.height || HATCH_HEIGHT;
+      const direction = r.direction === -1 ? -1 : 1;
+      const moving = Math.abs((b.hatchTargetAngle || 0) - b.angle) > 0.01;
+      const pulse = 0.72 + Math.sin(performance.now() / 140 + b.id) * 0.18;
+      ctx.shadowColor = '#ffc857';
+      ctx.shadowBlur = moving ? 18 : 12;
+      ctx.fillStyle = `rgba(255,200,87,${0.12 + pulse * 0.08})`;
+      ctx.strokeStyle = '#ffc857';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.roundRect(-width / 2, -height / 2, width, height, 3);
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(-width / 2 + 5, -height / 2 + 2, width - 10, height - 4);
+      ctx.clip();
+      ctx.strokeStyle = 'rgba(255,91,87,0.86)';
+      ctx.lineWidth = 5;
+      for (let x = -width; x <= width; x += 18) {
+        ctx.beginPath();
+        ctx.moveTo(x, height / 2);
+        ctx.lineTo(x + 14, -height / 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      const hingeX = -direction * width / 2;
+      ctx.fillStyle = '#080c10';
+      ctx.strokeStyle = '#dffcff';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(hingeX, 0, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#4de3ff';
+      ctx.beginPath();
+      ctx.arc(hingeX, 0, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fff5c4';
+      ctx.font = 'bold 11px VT323';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(b.hatchOpen ? 'OPEN' : 'HATCH', direction * 8, 1);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
       break;
     }
     case 'conveyor': {
@@ -13423,6 +13667,7 @@ function loop(timestamp) {
   pruneWebTraps();
   prunePinwheels();
   pruneElevators();
+  pruneHatches();
 
   // Smooth gravity transition (skip during anti-grav pulse and gravity flip)
   if (!antiGravActive && gravityAngle === 0) {
@@ -14045,6 +14290,7 @@ function loop(timestamp) {
     applyChargeForces();
     applyWeldLocks();
     updateElevators(timeScale);
+    updateHatches(timeScale);
     Engine.update(engine, (1000/60) * timeScale);
   }
 

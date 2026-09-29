@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-09-29T14:14:48Z — Added: Hatch tool
+**Why:** The toolbar could place ramps, elevators, traps, and pinned rotors, but it had no reusable passage that could hold a payload and deliberately release it through the same piece of terrain. Hatch adds a real colliding trapdoor with a fixed outer hinge and deterministic open/closed stops.
+**Goal alignment:** "more fun, more surprising, more satisfying" — players can catch a falling ball or block on a hazard-striped platform, tap it open to drop the payload into a lower contraption, then close it and reuse the same gate.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, DESIGN.md, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (509/509 passing); browser smoke ✓ (existing Block tool created a live physics subject, final Hatch button placed one real colliding static trapdoor, and repeat taps moved it exactly between 0 and −π/2 radians and back around its fixed right hinge); mobile ✓ (390×844, final Hatch button was fully reachable at 52×50px and x=330–382 at the toolbar's true maximum scroll, existing Ball settled on the closed hatch at y=257.52, then fell to y=482.70 after the hatch opened exactly to +π/2); cleanup ✓ (Clear removed the Hatch, payload, feedback, and tool state); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-09-28T14:11:41Z — Added: Recycler tool
 **Why:** The toolbar could directly erase, merge, split, clone, launch, and transport objects, but it had no reusable canvas machine that turns incoming loose parts into a new physical output. Recycler adds an environmental removal-and-transform loop instead of another direct object edit.
 **Goal alignment:** "more fun, more surprising, more satisfying" — players can feed balls, blocks, dominoes, or cannonballs into a glowing intake, watch its nine-segment scrap meter fill, then tap the machine to eject one larger bouncing scrap ball back into the scene.

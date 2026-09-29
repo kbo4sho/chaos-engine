@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-09-29",
+      "ideas": [
+        "New tool: Place a hinged Hatch and tap it to open or close a real trapdoor"
+      ],
+      "summary": "Implemented Hatch tool (▰) — the final button in the existing object toolbar now places a canvas-clamped, hazard-striped static platform hinged toward the nearest outer edge, then swings it exactly 90 degrees down or back closed on repeat taps so resting physics objects can be deliberately dropped; 58px touch targeting, fixed-pivot animation, payload wake-up, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make reusable gates reliable on desktop and mobile."
+    },
+    {
       "date": "2026-09-28",
       "ideas": [
         "New tool: Place a Recycler that converts loose objects into an ejectable scrap ball"

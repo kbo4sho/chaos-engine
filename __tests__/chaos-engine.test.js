@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 75 tool buttons', () => {
+  it('should have exactly 76 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(75);
+    expect(buttons.length).toBe(76);
   });
 
-  it('should append Recycler after Elevator at the end of the object toolbar', () => {
+  it('should append Hatch after Recycler at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('recycler');
-    expect(toolbar.lastElementChild?.textContent).toContain('Recycler');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('elevator');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('domino-run');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('hatch');
+    expect(toolbar.lastElementChild?.textContent).toContain('Hatch');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('recycler');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('elevator');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,16 +67,90 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// HATCH TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Hatch Tool', () => {
+  it('should expose Hatch as the final selectable toolbar tool', () => {
+    const hatchBtn = document.querySelector('[data-tool="hatch"]');
+    expect(hatchBtn).not.toBeNull();
+    expect(hatchBtn?.getAttribute('aria-label')).toContain('open and close');
+    expect(hatchBtn?.previousElementSibling?.dataset.tool).toBe('recycler');
+    expect(hatchBtn?.nextElementSibling).toBeNull();
+    expect(scriptContent).toContain("currentTool === 'hatch'");
+    expect(scriptContent).toContain('placeOrToggleHatchAt(pos)');
+  });
+
+  it('should clamp placement and hinge toward the nearest outer edge', () => {
+    const placementSource = scriptContent.match(/function getHatchPlacement\([\s\S]*?\n\}/)?.[0];
+    expect(placementSource).toBeTruthy();
+    const getHatchPlacement = new Function(`
+      const HATCH_WIDTH = 112;
+      ${placementSource}
+      return getHatchPlacement;
+    `)();
+
+    const left = getHatchPlacement({ x:2, y:4 }, 390, 500);
+    const right = getHatchPlacement({ x:388, y:498 }, 390, 500);
+    expect(left).toMatchObject({ centerX:72, pivotX:16, pivotY:24, direction:1, closedAngle:0 });
+    expect(left.openAngle).toBeCloseTo(Math.PI / 2);
+    expect(right).toMatchObject({ centerX:318, pivotX:374, pivotY:420, direction:-1, closedAngle:0 });
+    expect(right.openAngle).toBeCloseTo(-Math.PI / 2);
+  });
+
+  it('should move in capped steps and land exactly at each stop', () => {
+    const stepSource = scriptContent.match(/function getHatchStep\([\s\S]*?\n\}/)?.[0];
+    expect(stepSource).toBeTruthy();
+    const getHatchStep = new Function(`
+      const HATCH_SPEED = 0.12;
+      ${stepSource}
+      return getHatchStep;
+    `)();
+
+    expect(getHatchStep(0, Math.PI / 2)).toEqual({ angle:0.12, reached:false, direction:1 });
+    expect(getHatchStep(0, -Math.PI / 2)).toEqual({ angle:-0.12, reached:false, direction:-1 });
+    expect(getHatchStep(1.54, Math.PI / 2)).toEqual({ angle:Math.PI / 2, reached:true, direction:0 });
+  });
+
+  it('should create a real colliding static trapdoor and swing it around a fixed pivot', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('const HATCH_WIDTH'),
+      scriptContent.indexOf('const ELEVATOR_WIDTH')
+    );
+    expect(source).toContain("label:'hatch'");
+    expect(source).toContain('isStatic:true');
+    expect(source).not.toContain('isSensor:true');
+    expect(source).toContain('body.isHatch = true');
+    expect(source).toContain('entry.targetAngle = opening ? entry.direction * Math.PI / 2 : 0');
+    expect(source).toContain('Body.setPosition(entry.body, center, true)');
+    expect(source).toContain('Body.setAngle(entry.body, angle, true)');
+    expect(scriptContent).toContain('updateHatches(timeScale)');
+  });
+
+  it('should provide touch targeting, rendering, feedback, and cleanup', () => {
+    expect(document.getElementById('hatch-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('Matter.Query.point(bodies, pos)');
+    expect(scriptContent).toContain('let nearestDist = 58');
+    expect(scriptContent).toContain("if (tool !== 'hatch') resetHatchFeedback(true)");
+    expect(scriptContent).toContain("case 'hatch':");
+    expect(scriptContent).toContain('hatches = hatches.filter(entry => !removedBodyIds.has(entry.body.id))');
+    expect(scriptContent).toContain('hatches = [];');
+    expect(scriptContent).toContain('resetHatchFeedback(true);');
+    expect(scriptContent).toContain("hatch: '#ffc857'");
+  });
+});
+
+// ============================================
 // RECYCLER TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Recycler Tool', () => {
-  it('should expose Recycler as the final selectable toolbar tool', () => {
+  it('should keep Recycler selectable immediately before Hatch', () => {
     const recyclerBtn = document.querySelector('[data-tool="recycler"]');
     expect(recyclerBtn).not.toBeNull();
     expect(recyclerBtn?.getAttribute('aria-label')).toContain('scrap ball');
     expect(recyclerBtn?.previousElementSibling?.dataset.tool).toBe('elevator');
-    expect(recyclerBtn?.nextElementSibling).toBeNull();
+    expect(recyclerBtn?.nextElementSibling?.dataset.tool).toBe('hatch');
     expect(scriptContent).toContain("currentTool === 'recycler'");
     expect(scriptContent).toContain('placeOrEjectRecyclerAt(pos)');
   });
