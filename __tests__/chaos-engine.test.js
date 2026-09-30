@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch', 'piston'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 76 tool buttons', () => {
+  it('should have exactly 77 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(76);
+    expect(buttons.length).toBe(77);
   });
 
-  it('should append Hatch after Recycler at the end of the object toolbar', () => {
+  it('should append Piston after Hatch at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('hatch');
-    expect(toolbar.lastElementChild?.textContent).toContain('Hatch');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('recycler');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('elevator');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('piston');
+    expect(toolbar.lastElementChild?.textContent).toContain('Piston');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('hatch');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('recycler');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,6 +67,80 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// PISTON TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Piston Tool', () => {
+  it('should expose Piston as the final selectable toolbar tool', () => {
+    const pistonBtn = document.querySelector('[data-tool="piston"]');
+    expect(pistonBtn).not.toBeNull();
+    expect(pistonBtn?.getAttribute('aria-label')).toContain('extend and retract');
+    expect(pistonBtn?.previousElementSibling?.dataset.tool).toBe('hatch');
+    expect(pistonBtn?.nextElementSibling).toBeNull();
+    expect(scriptContent).toContain("currentTool === 'piston'");
+    expect(scriptContent).toContain('placeOrTogglePistonAt(pos)');
+  });
+
+  it('should clamp placement and point the ram toward the canvas center', () => {
+    const placementSource = scriptContent.match(/function getPistonPlacement\([\s\S]*?\n\}/)?.[0];
+    expect(placementSource).toBeTruthy();
+    const getPistonPlacement = new Function(`
+      const PISTON_WIDTH = 28;
+      const PISTON_HEIGHT = 72;
+      const PISTON_TRAVEL = 96;
+      ${placementSource}
+      return getPistonPlacement;
+    `)();
+
+    expect(getPistonPlacement({ x:2, y:4 }, 390, 500)).toEqual({
+      retractedX:32, extendedX:128, y:56, direction:1
+    });
+    expect(getPistonPlacement({ x:388, y:498 }, 390, 500)).toEqual({
+      retractedX:358, extendedX:262, y:436, direction:-1
+    });
+  });
+
+  it('should move in capped steps and land exactly at each stop', () => {
+    const stepSource = scriptContent.match(/function getPistonStep\([\s\S]*?\n\}/)?.[0];
+    expect(stepSource).toBeTruthy();
+    const getPistonStep = new Function(`
+      const PISTON_SPEED = 7;
+      ${stepSource}
+      return getPistonStep;
+    `)();
+
+    expect(getPistonStep(100, 196)).toEqual({ x:107, reached:false, direction:1 });
+    expect(getPistonStep(196, 100)).toEqual({ x:189, reached:false, direction:-1 });
+    expect(getPistonStep(191, 196)).toEqual({ x:196, reached:true, direction:0 });
+  });
+
+  it('should create a real colliding static ram and toggle between fixed stops', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('const PISTON_WIDTH'),
+      scriptContent.indexOf('const ELEVATOR_WIDTH')
+    );
+    expect(source).toContain("label:'piston'");
+    expect(source).toContain('isStatic:true');
+    expect(source).not.toContain('isSensor:true');
+    expect(source).toContain('body.isPiston = true');
+    expect(source).toContain('entry.targetX = extending ? entry.extendedX : entry.retractedX');
+    expect(source).toContain('Body.setPosition(entry.body, { x:step.x, y:entry.y }, true)');
+    expect(scriptContent).toContain('updatePistons(timeScale)');
+  });
+
+  it('should provide touch targeting, rendering, feedback, and cleanup', () => {
+    expect(document.getElementById('piston-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain("case 'piston':");
+    expect(scriptContent).toContain('let nearestDist = 58');
+    expect(scriptContent).toContain("if (tool !== 'piston') resetPistonFeedback(true)");
+    expect(scriptContent).toContain('pistons = pistons.filter(entry => !removedBodyIds.has(entry.body.id))');
+    expect(scriptContent).toContain('pistons = [];');
+    expect(scriptContent).toContain('resetPistonFeedback(true);');
+    expect(scriptContent).toContain("piston: '#ff6b4a'");
+  });
+});
+
+// ============================================
 // HATCH TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
@@ -76,7 +150,7 @@ describe('Hatch Tool', () => {
     expect(hatchBtn).not.toBeNull();
     expect(hatchBtn?.getAttribute('aria-label')).toContain('open and close');
     expect(hatchBtn?.previousElementSibling?.dataset.tool).toBe('recycler');
-    expect(hatchBtn?.nextElementSibling).toBeNull();
+    expect(hatchBtn?.nextElementSibling?.dataset.tool).toBe('piston');
     expect(scriptContent).toContain("currentTool === 'hatch'");
     expect(scriptContent).toContain('placeOrToggleHatchAt(pos)');
   });

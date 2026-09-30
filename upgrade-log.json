@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-09-30",
+      "ideas": [
+        "New tool: Place a reusable Piston and tap it to push nearby physics objects horizontally"
+      ],
+      "summary": "Implemented Piston tool (⇥) — the final button in the existing object toolbar now places a canvas-clamped, inward-facing static ram that extends exactly 96px on tap to physically shove nearby objects, then retracts to its original stop on the next tap; 58px touch targeting, payload wake-up, neon housing/rod rendering, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make repeatable horizontal launches reliable on desktop and mobile."
+    },
+    {
       "date": "2026-09-29",
       "ideas": [
         "New tool: Place a hinged Hatch and tap it to open or close a real trapdoor"

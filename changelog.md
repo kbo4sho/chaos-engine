@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-09-30T14:19:28Z — Added: Piston tool
+**Why:** The toolbar could lift, rotate, launch, catch, and release physics objects, but it had no reusable machine for delivering a deliberate horizontal shove from inside a contraption. Piston adds a compact inward-facing ram with deterministic retracted and extended stops.
+**Goal alignment:** "more fun, more surprising, more satisfying" — players can push balls into ramps, knock blocks into chains, or drive payloads through gates with the same visible machine, then retract it and fire again.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (515/515 passing); browser smoke ✓ (existing Block tool placed a real physics subject, final Piston button placed one real colliding static ram, and a 96px extension pushed the Block from x=340.00 to x=374.45 before retracting exactly to its starting stop); mobile ✓ (390×844, final Piston button was fully reachable at 52×50px and x=330–382 at the toolbar's true maximum scroll, existing Ball worked, and the ram pushed it from x=260.00 to x=273.72); cleanup ✓ (Clear removed the Piston, payload, feedback, and tool state); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-09-29T14:14:48Z — Added: Hatch tool
 **Why:** The toolbar could place ramps, elevators, traps, and pinned rotors, but it had no reusable passage that could hold a payload and deliberately release it through the same piece of terrain. Hatch adds a real colliding trapdoor with a fixed outer hinge and deterministic open/closed stops.
 **Goal alignment:** "more fun, more surprising, more satisfying" — players can catch a falling ball or block on a hazard-striped platform, tap it open to drop the payload into a lower contraption, then close it and reuse the same gate.

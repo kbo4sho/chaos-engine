@@ -619,6 +619,19 @@ canvas#game {
 #hatch-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#piston-feedback {
+  position:absolute; top:150px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#ff6b4a;
+  font-size:19px; letter-spacing:2px; line-height:1;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none; white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#piston-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -744,6 +757,7 @@ canvas#game {
   #elevator-feedback { top:14px; font-size:19px; }
   #recycler-feedback { top:14px; font-size:19px; }
   #hatch-feedback { top:14px; font-size:19px; }
+  #piston-feedback { top:14px; font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -823,6 +837,7 @@ canvas#game {
     <div id="elevator-feedback" role="status" aria-live="polite"></div>
     <div id="recycler-feedback" role="status" aria-live="polite"></div>
     <div id="hatch-feedback" role="status" aria-live="polite"></div>
+    <div id="piston-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -904,6 +919,7 @@ canvas#game {
     <button class="tool-btn" data-tool="elevator" style="color:#4de3ff;" title="Tap the canvas to place an elevator; tap the platform to send it up or down" aria-label="Place a moving elevator platform or send an existing elevator up or down"><span class="icon">↕</span>Elevator</button>
     <button class="tool-btn" data-tool="recycler" style="color:#62ffb0;" title="Tap the canvas to place a recycler; feed it loose objects, then tap it to eject a scrap ball" aria-label="Place a recycler that converts loose objects into an ejectable scrap ball"><span class="icon">♻</span>Recycler</button>
     <button class="tool-btn" data-tool="hatch" style="color:#ffc857;" title="Tap the canvas to place a trapdoor; tap the hatch to open or close it" aria-label="Place a hinged hatch or open and close an existing hatch"><span class="icon">▰</span>Hatch</button>
+    <button class="tool-btn" data-tool="piston" style="color:#ff6b4a;" title="Tap the canvas to place a piston; tap the ram to extend or retract it" aria-label="Place a physical piston or extend and retract its ram"><span class="icon">⇥</span>Piston</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1202,6 +1218,8 @@ let recyclers = []; // {body, stored, nextDirection} sensor intakes that convert
 let recyclerFeedbackTimer = 0;
 let hatches = []; // {body, pivotX, pivotY, direction, targetAngle} reusable hinged trapdoors
 let hatchFeedbackTimer = 0;
+let pistons = []; // {body, retractedX, extendedX, y, direction, targetX} reusable horizontal rams
+let pistonFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -2051,6 +2069,14 @@ function resetHatchFeedback(silent = false) {
   feedback.textContent = '';
 }
 
+function resetPistonFeedback(silent = false) {
+  if (!silent) return;
+  clearTimeout(pistonFeedbackTimer);
+  const feedback = document.getElementById('piston-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -2141,6 +2167,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'elevator') resetElevatorFeedback(true);
       if (tool !== 'recycler') resetRecyclerFeedback(true);
       if (tool !== 'hatch') resetHatchFeedback(true);
+      if (tool !== 'piston') resetPistonFeedback(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -3574,6 +3601,7 @@ function finishClear(playFeedback = true) {
   elevators = [];
   recyclers = [];
   hatches = [];
+  pistons = [];
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -3622,6 +3650,7 @@ function finishClear(playFeedback = true) {
   resetElevatorFeedback(true);
   resetRecyclerFeedback(true);
   resetHatchFeedback(true);
+  resetPistonFeedback(true);
   flippers = [];
   nextFlipperSide = 'left';
   clearTimeout(flipperFeedbackTimer);
@@ -3846,7 +3875,8 @@ function getToolAccentColor(tool) {
     'domino-run': '#ff9f43',
     elevator: '#4de3ff',
     recycler: '#62ffb0',
-    hatch: '#ffc857'
+    hatch: '#ffc857',
+    piston: '#ff6b4a'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -3984,6 +4014,7 @@ function eraseBodyAt(pos) {
   elevators = elevators.filter(entry => !removedBodyIds.has(entry.body.id));
   recyclers = recyclers.filter(entry => !removedBodyIds.has(entry.body.id));
   hatches = hatches.filter(entry => !removedBodyIds.has(entry.body.id));
+  pistons = pistons.filter(entry => !removedBodyIds.has(entry.body.id));
   ropes = ropes.filter(r => !constraintsToRemove.has(r));
   struts = struts.filter(strut => !constraintsToRemove.has(strut));
   hinges = hinges.filter(hinge => !constraintsToRemove.has(hinge));
@@ -8868,6 +8899,167 @@ function updateHatches(timeScale = 1) {
   });
 }
 
+const PISTON_WIDTH = 28;
+const PISTON_HEIGHT = 72;
+const PISTON_TRAVEL = 96;
+const PISTON_SPEED = 7;
+
+function getPistonPlacement(pos, canvasWidth, canvasHeight) {
+  const halfWidth = PISTON_WIDTH / 2;
+  const halfHeight = PISTON_HEIGHT / 2;
+  const direction = pos.x <= canvasWidth / 2 ? 1 : -1;
+  const minX = direction === 1
+    ? halfWidth + 18
+    : PISTON_TRAVEL + halfWidth + 18;
+  const maxX = direction === 1
+    ? canvasWidth - PISTON_TRAVEL - halfWidth - 18
+    : canvasWidth - halfWidth - 18;
+  const retractedX = Math.max(minX, Math.min(maxX, pos.x));
+  const y = Math.max(halfHeight + 20, Math.min(canvasHeight - halfHeight - 28, pos.y));
+  return {
+    retractedX,
+    extendedX:retractedX + direction * PISTON_TRAVEL,
+    y,
+    direction
+  };
+}
+
+function getPistonStep(currentX, targetX, maxStep = PISTON_SPEED) {
+  const delta = targetX - currentX;
+  if (Math.abs(delta) <= maxStep) return { x:targetX, reached:true, direction:0 };
+  const direction = Math.sign(delta);
+  return { x:currentX + direction * maxStep, reached:false, direction };
+}
+
+function createPistonBody(placement) {
+  const body = Bodies.rectangle(placement.retractedX, placement.y, PISTON_WIDTH, PISTON_HEIGHT, {
+    isStatic:true,
+    chamfer:{ radius:4 },
+    friction:0.88,
+    restitution:0.05,
+    label:'piston',
+    render:{
+      type:'piston',
+      color:'#ff6b4a',
+      width:PISTON_WIDTH,
+      height:PISTON_HEIGHT,
+      direction:placement.direction,
+      retractedX:placement.retractedX
+    }
+  });
+  body.isPiston = true;
+  body.pistonExtended = false;
+  body.pistonTargetX = placement.retractedX;
+  body.material = 'metal';
+  return body;
+}
+
+function prunePistons() {
+  pistons = pistons.filter(entry => Composite.get(world, entry.body.id, 'body'));
+}
+
+function findPistonAt(pos) {
+  prunePistons();
+  const bodies = pistons.map(entry => entry.body);
+  let body = Matter.Query.point(bodies, pos).pop();
+  if (!body) {
+    let nearestDist = 58;
+    bodies.forEach(candidate => {
+      const distance = Math.hypot(candidate.position.x - pos.x, candidate.position.y - pos.y);
+      if (distance < nearestDist) {
+        body = candidate;
+        nearestDist = distance;
+      }
+    });
+  }
+  return body ? pistons.find(entry => entry.body === body) || null : null;
+}
+
+function showPistonFeedback(message) {
+  const feedback = document.getElementById('piston-feedback');
+  feedback.textContent = message;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(pistonFeedbackTimer);
+  pistonFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 900);
+}
+
+function addPistonBurst(entry, extending) {
+  const faceX = entry.body.position.x + entry.direction * PISTON_WIDTH / 2;
+  for (let i = 0; i < 16; i++) {
+    const spread = (Math.random() - 0.5) * 3.4;
+    const speed = 1.4 + Math.random() * 3;
+    particles.push({
+      x:faceX,
+      y:entry.y + spread * 6,
+      vx:entry.direction * speed * (extending ? 1 : -0.35),
+      vy:spread,
+      size:2 + Math.random() * 2.5,
+      life:0.25 + Math.random() * 0.3,
+      color:i % 3 === 0 ? '#fff2c8' : '#ff6b4a'
+    });
+  }
+}
+
+function togglePiston(entry) {
+  const extending = entry.targetX === entry.retractedX;
+  entry.targetX = extending ? entry.extendedX : entry.retractedX;
+  entry.body.pistonTargetX = entry.targetX;
+  entry.body.pistonExtended = extending;
+  addPistonBurst(entry, extending);
+  showPistonFeedback(extending ? 'PISTON FIRING • PUSH!' : 'PISTON RETRACTING');
+  playSound(extending ? 170 : 410, 0.12, 'sawtooth', 0.07);
+  playSound(extending ? 620 : 290, 0.06, 'square', 0.045);
+  haptic(extending ? [12, 8, 16] : [8]);
+  shakeIntensity = Math.max(shakeIntensity, extending ? 2.5 : 1.5);
+  return { ...entry, placed:false, extending };
+}
+
+function placeOrTogglePistonAt(pos) {
+  const existing = findPistonAt(pos);
+  if (existing) return togglePiston(existing);
+
+  const placement = getPistonPlacement(pos, canvas.width, canvas.height);
+  const body = createPistonBody(placement);
+  const entry = {
+    body,
+    retractedX:placement.retractedX,
+    extendedX:placement.extendedX,
+    y:placement.y,
+    direction:placement.direction,
+    targetX:placement.retractedX
+  };
+  Composite.add(world, body);
+  pistons.push(entry);
+  markSpawnPop(body);
+  addPistonBurst(entry, false);
+  showPistonFeedback('PISTON ARMED • TAP TO PUSH');
+  playSpawn();
+  playSound(460, 0.09, 'triangle', 0.055);
+  haptic([7]);
+  return { ...entry, placed:true, extending:false };
+}
+
+function updatePistons(timeScale = 1) {
+  prunePistons();
+  pistons.forEach(entry => {
+    const step = getPistonStep(entry.body.position.x, entry.targetX, PISTON_SPEED * timeScale);
+    Body.setPosition(entry.body, { x:step.x, y:entry.y }, true);
+    Body.setVelocity(entry.body, { x:0, y:0 });
+    if (step.direction !== 0) {
+      Composite.allBodies(world).forEach(body => {
+        if (body.isStatic || body === entry.body) return;
+        const ahead = (body.position.x - entry.body.position.x) * entry.direction;
+        const verticalGap = Math.abs(body.position.y - entry.y);
+        if (ahead > -PISTON_WIDTH && ahead < 82 && verticalGap < PISTON_HEIGHT) {
+          Matter.Sleeping.set(body, false);
+        }
+      });
+    }
+  });
+}
+
 const ELEVATOR_WIDTH = 112;
 const ELEVATOR_HEIGHT = 16;
 const ELEVATOR_TRAVEL = 132;
@@ -9810,6 +10002,13 @@ function onDown(e) {
   // Hatch tool — place a colliding trapdoor or swing an existing hatch open or closed.
   if (currentTool === 'hatch') {
     placeOrToggleHatchAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Piston tool — place a horizontal ram or send it to the opposite stop.
+  if (currentTool === 'piston') {
+    placeOrTogglePistonAt(pos);
     pointerDown = false;
     return;
   }
@@ -11117,6 +11316,71 @@ function drawBody(b) {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(b.hatchOpen ? 'OPEN' : 'HATCH', direction * 8, 1);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      break;
+    }
+    case 'piston': {
+      const width = r.width || PISTON_WIDTH;
+      const height = r.height || PISTON_HEIGHT;
+      const direction = r.direction === -1 ? -1 : 1;
+      const retractedLocalX = (r.retractedX ?? b.position.x) - b.position.x;
+      const baseCenterX = retractedLocalX - direction * 27;
+      const moving = Math.abs((b.pistonTargetX ?? b.position.x) - b.position.x) > 0.5;
+      const pulse = 0.72 + Math.sin(performance.now() / 120 + b.id) * 0.18;
+
+      ctx.save();
+      ctx.shadowColor = '#ff6b4a';
+      ctx.shadowBlur = moving ? 18 : 11;
+      ctx.fillStyle = '#111820';
+      ctx.strokeStyle = '#ff6b4a';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.roundRect(baseCenterX - 21, -height / 2 - 8, 42, height + 16, 5);
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      const rodStart = baseCenterX + direction * 14;
+      const rodEnd = -direction * width / 2;
+      ctx.fillStyle = '#dffcff';
+      ctx.strokeStyle = '#4de3ff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(rodStart, -9);
+      ctx.lineTo(rodEnd, -9);
+      ctx.lineTo(rodEnd, 9);
+      ctx.lineTo(rodStart, 9);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.globalAlpha = 0.24 + pulse * 0.18;
+      ctx.fillStyle = '#ff6b4a';
+      ctx.fillRect(baseCenterX - 14, -height / 2, 28, height);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = `rgba(255,107,74,${0.18 + pulse * 0.08})`;
+      ctx.strokeStyle = '#fff2c8';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.roundRect(-width / 2, -height / 2, width, height, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.strokeStyle = '#ff6b4a';
+      ctx.lineWidth = 2;
+      for (let y = -height / 2 + 10; y < height / 2 - 4; y += 14) {
+        ctx.beginPath();
+        ctx.moveTo(-width / 2 + 4, y);
+        ctx.lineTo(width / 2 - 4, y + 7);
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#fff2c8';
+      ctx.font = 'bold 11px VT323';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(direction === 1 ? '→' : '←', baseCenterX, 1);
+      ctx.restore();
       ctx.textAlign = 'left';
       ctx.textBaseline = 'alphabetic';
       break;
@@ -14291,6 +14555,7 @@ function loop(timestamp) {
     applyWeldLocks();
     updateElevators(timeScale);
     updateHatches(timeScale);
+    updatePistons(timeScale);
     Engine.update(engine, (1000/60) * timeScale);
   }
 
