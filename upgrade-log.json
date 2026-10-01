@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-10-01",
+      "ideas": [
+        "New tool: Deploy or release a gravity-aware Parachute on one dynamic part"
+      ],
+      "summary": "Implemented Parachute tool (🪂) — the final button in the existing object toolbar now toggles a visible CRT canopy on one dynamic part and applies capped, speed-dependent drag opposite the current gravity direction while preserving gravity, collisions, rotation, and connections; exact plus 46px touch targeting, gentle lateral damping, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make controlled air-drops reliable and reversible on desktop and mobile."
+    },
+    {
       "date": "2026-09-30",
       "ideas": [
         "New tool: Place a reusable Piston and tap it to push nearby physics objects horizontally"

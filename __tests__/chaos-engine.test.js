@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch', 'piston'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch', 'piston', 'parachute'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 77 tool buttons', () => {
+  it('should have exactly 78 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(77);
+    expect(buttons.length).toBe(78);
   });
 
-  it('should append Piston after Hatch at the end of the object toolbar', () => {
+  it('should append Parachute after Piston at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('piston');
-    expect(toolbar.lastElementChild?.textContent).toContain('Piston');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('hatch');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('recycler');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('parachute');
+    expect(toolbar.lastElementChild?.textContent).toContain('Chute');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('piston');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('hatch');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,16 +67,75 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// PARACHUTE TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Parachute Tool', () => {
+  it('should expose Parachute as the final selectable toolbar tool', () => {
+    const parachuteBtn = document.querySelector('[data-tool="parachute"]');
+    expect(parachuteBtn).not.toBeNull();
+    expect(parachuteBtn?.getAttribute('aria-label')).toContain('Deploy or release a parachute');
+    expect(parachuteBtn?.previousElementSibling?.dataset.tool).toBe('piston');
+    expect(parachuteBtn?.nextElementSibling).toBeNull();
+    expect(scriptContent).toContain("currentTool === 'parachute'");
+    expect(scriptContent).toContain('toggleParachuteAt(pos)');
+  });
+
+  it('should apply capped gravity-aware drag only while descending', () => {
+    const forceSource = scriptContent.match(/function getParachuteForce\([\s\S]*?\n\}/)?.[0];
+    expect(forceSource).toBeTruthy();
+    const getParachuteForce = new Function(`
+      const PARACHUTE_DRAG_COEFFICIENT = 0.00005;
+      const PARACHUTE_LATERAL_COEFFICIENT = 0.000012;
+      ${forceSource}
+      return getParachuteForce;
+    `)();
+
+    expect(getParachuteForce({ x:0, y:10 }, 2, { x:0, y:1 }, 0.001)).toEqual({ x:-0, y:-0.0037 });
+    expect(getParachuteForce({ x:0, y:-4 }, 2, { x:0, y:1 }, 0.001)).toEqual({ x:0, y:0 });
+    expect(getParachuteForce({ x:6, y:0 }, 1, { x:1, y:0 }, 0.001).x).toBeCloseTo(-0.0018);
+    expect(getParachuteForce({ x:3, y:10 }, 2, { x:0, y:1 }, 0.001).x).toBeLessThan(0);
+  });
+
+  it('should toggle real persistent drag on a touch-friendly dynamic target', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('const PARACHUTE_DRAG_COEFFICIENT'),
+      scriptContent.indexOf('const ELEVATOR_WIDTH')
+    );
+    expect(source).toContain("body.label !== 'wall'");
+    expect(source).toContain('!body.isTarget && !body.isStatic');
+    expect(source).toContain('Matter.Query.point(candidates, pos)');
+    expect(source).toContain('let nearestDist = 46');
+    expect(source).toContain('parachuteBodies.add(target)');
+    expect(source).toContain('parachuteBodies.delete(target)');
+    expect(source).toContain('target.isParachute = true');
+    expect(source).toContain('Body.applyForce(body, body.position, force)');
+    expect(scriptContent).toContain('applyParachuteForces();');
+  });
+
+  it('should render a visible canopy and clean state on tool change, Eraser, and Clear', () => {
+    expect(document.getElementById('parachute-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('function drawParachuteMarkers(timestamp)');
+    expect(scriptContent).toContain('drawParachuteMarkers(timestamp)');
+    expect(scriptContent).toContain("if (tool !== 'parachute') resetParachuteFeedback(true)");
+    expect(scriptContent).toContain('parachuteBodies.delete(b);');
+    expect(scriptContent).toContain('parachuteBodies.clear();');
+    expect(scriptContent).toContain('resetParachuteFeedback(true);');
+    expect(scriptContent).toContain("parachute: '#7dd3fc'");
+  });
+});
+
+// ============================================
 // PISTON TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Piston Tool', () => {
-  it('should expose Piston as the final selectable toolbar tool', () => {
+  it('should keep Piston selectable immediately before Parachute', () => {
     const pistonBtn = document.querySelector('[data-tool="piston"]');
     expect(pistonBtn).not.toBeNull();
     expect(pistonBtn?.getAttribute('aria-label')).toContain('extend and retract');
     expect(pistonBtn?.previousElementSibling?.dataset.tool).toBe('hatch');
-    expect(pistonBtn?.nextElementSibling).toBeNull();
+    expect(pistonBtn?.nextElementSibling?.dataset.tool).toBe('parachute');
     expect(scriptContent).toContain("currentTool === 'piston'");
     expect(scriptContent).toContain('placeOrTogglePistonAt(pos)');
   });

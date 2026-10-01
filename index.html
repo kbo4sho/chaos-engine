@@ -632,6 +632,19 @@ canvas#game {
 #piston-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#parachute-feedback {
+  position:absolute; top:184px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#7dd3fc;
+  font-size:19px; letter-spacing:2px; line-height:1;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none; white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#parachute-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -758,6 +771,7 @@ canvas#game {
   #recycler-feedback { top:14px; font-size:19px; }
   #hatch-feedback { top:14px; font-size:19px; }
   #piston-feedback { top:14px; font-size:19px; }
+  #parachute-feedback { top:14px; font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -838,6 +852,7 @@ canvas#game {
     <div id="recycler-feedback" role="status" aria-live="polite"></div>
     <div id="hatch-feedback" role="status" aria-live="polite"></div>
     <div id="piston-feedback" role="status" aria-live="polite"></div>
+    <div id="parachute-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -920,6 +935,7 @@ canvas#game {
     <button class="tool-btn" data-tool="recycler" style="color:#62ffb0;" title="Tap the canvas to place a recycler; feed it loose objects, then tap it to eject a scrap ball" aria-label="Place a recycler that converts loose objects into an ejectable scrap ball"><span class="icon">♻</span>Recycler</button>
     <button class="tool-btn" data-tool="hatch" style="color:#ffc857;" title="Tap the canvas to place a trapdoor; tap the hatch to open or close it" aria-label="Place a hinged hatch or open and close an existing hatch"><span class="icon">▰</span>Hatch</button>
     <button class="tool-btn" data-tool="piston" style="color:#ff6b4a;" title="Tap the canvas to place a piston; tap the ram to extend or retract it" aria-label="Place a physical piston or extend and retract its ram"><span class="icon">⇥</span>Piston</button>
+    <button class="tool-btn" data-tool="parachute" style="color:#7dd3fc;" title="Tap a dynamic part to deploy or release a gravity-aware parachute" aria-label="Deploy or release a parachute on a dynamic part"><span class="icon">🪂</span>Chute</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1220,6 +1236,8 @@ let hatches = []; // {body, pivotX, pivotY, direction, targetAngle} reusable hin
 let hatchFeedbackTimer = 0;
 let pistons = []; // {body, retractedX, extendedX, y, direction, targetX} reusable horizontal rams
 let pistonFeedbackTimer = 0;
+let parachuteBodies = new Set(); // dynamic parts slowed by a visible gravity-aware canopy
+let parachuteFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -2077,6 +2095,14 @@ function resetPistonFeedback(silent = false) {
   feedback.textContent = '';
 }
 
+function resetParachuteFeedback(silent = false) {
+  if (!silent) return;
+  clearTimeout(parachuteFeedbackTimer);
+  const feedback = document.getElementById('parachute-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -2168,6 +2194,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'recycler') resetRecyclerFeedback(true);
       if (tool !== 'hatch') resetHatchFeedback(true);
       if (tool !== 'piston') resetPistonFeedback(true);
+      if (tool !== 'parachute') resetParachuteFeedback(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -3602,6 +3629,7 @@ function finishClear(playFeedback = true) {
   recyclers = [];
   hatches = [];
   pistons = [];
+  parachuteBodies.clear();
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -3651,6 +3679,7 @@ function finishClear(playFeedback = true) {
   resetRecyclerFeedback(true);
   resetHatchFeedback(true);
   resetPistonFeedback(true);
+  resetParachuteFeedback(true);
   flippers = [];
   nextFlipperSide = 'left';
   clearTimeout(flipperFeedbackTimer);
@@ -3876,7 +3905,8 @@ function getToolAccentColor(tool) {
     elevator: '#4de3ff',
     recycler: '#62ffb0',
     hatch: '#ffc857',
-    piston: '#ff6b4a'
+    piston: '#ff6b4a',
+    parachute: '#7dd3fc'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -4000,6 +4030,7 @@ function eraseBodyAt(pos) {
     gyroBodies.delete(b);
     liftedBodies.delete(b);
     orbitingBodies.delete(b);
+    parachuteBodies.delete(b);
   });
 
   rocketBodies = rocketBodies.filter(b => !removedBodyIds.has(b.id));
@@ -9060,6 +9091,125 @@ function updatePistons(timeScale = 1) {
   });
 }
 
+const PARACHUTE_DRAG_COEFFICIENT = 0.00005;
+const PARACHUTE_LATERAL_COEFFICIENT = 0.000012;
+
+function getParachuteForce(velocity, mass, gravity, gravityScale = 0.001) {
+  const gx = Number.isFinite(gravity?.x) ? gravity.x : 0;
+  const gy = Number.isFinite(gravity?.y) ? gravity.y : 0;
+  const gravityMagnitude = Math.hypot(gx, gy);
+  const safeMass = Number.isFinite(mass) && mass > 0 ? mass : 0;
+  if (gravityMagnitude < 0.0001 || safeMass === 0) return { x:0, y:0 };
+
+  const direction = { x:gx / gravityMagnitude, y:gy / gravityMagnitude };
+  const vx = Number.isFinite(velocity?.x) ? velocity.x : 0;
+  const vy = Number.isFinite(velocity?.y) ? velocity.y : 0;
+  const descentSpeed = vx * direction.x + vy * direction.y;
+  if (descentSpeed <= 0) return { x:0, y:0 };
+
+  const gravityForce = safeMass * gravityMagnitude * Math.max(0, gravityScale);
+  const lift = Math.min(
+    gravityForce * 1.85,
+    safeMass * descentSpeed * descentSpeed * PARACHUTE_DRAG_COEFFICIENT
+  );
+  const lateral = {
+    x:vx - direction.x * descentSpeed,
+    y:vy - direction.y * descentSpeed
+  };
+  const lateralScale = safeMass * PARACHUTE_LATERAL_COEFFICIENT * Math.min(descentSpeed, 10);
+  return {
+    x:-direction.x * lift - lateral.x * lateralScale,
+    y:-direction.y * lift - lateral.y * lateralScale
+  };
+}
+
+function isParachutableBody(body) {
+  return Boolean(body && body.label !== 'wall' && !body.isTarget && !body.isStatic && body.parent === body);
+}
+
+function findParachutableBodyAt(pos) {
+  const candidates = Composite.allBodies(world).filter(isParachutableBody);
+  const exact = Matter.Query.point(candidates, pos).filter(isParachutableBody).pop();
+  if (exact) return exact;
+
+  let target = null;
+  let nearestDist = 46;
+  candidates.forEach(body => {
+    const distance = Math.hypot(body.position.x - pos.x, body.position.y - pos.y);
+    if (distance < nearestDist) {
+      target = body;
+      nearestDist = distance;
+    }
+  });
+  return target;
+}
+
+function showParachuteFeedback(enabled, message = '') {
+  const feedback = document.getElementById('parachute-feedback');
+  feedback.textContent = message || (enabled ? 'PARACHUTE DEPLOYED' : 'PARACHUTE RELEASED');
+  feedback.style.color = enabled ? '#7dd3fc' : '#aaaaaa';
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(parachuteFeedbackTimer);
+  parachuteFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 900);
+}
+
+function addParachuteBurst(body, enabled) {
+  for (let i = 0; i < 18; i++) {
+    const angle = Math.PI * 2 * i / 18;
+    const speed = 1.2 + Math.random() * 2.8;
+    particles.push({
+      x:body.position.x,
+      y:body.position.y,
+      vx:Math.cos(angle) * speed,
+      vy:Math.sin(angle) * speed - (enabled ? 1.2 : 0),
+      size:2 + Math.random() * 2.5,
+      life:0.28 + Math.random() * 0.32,
+      color:i % 3 === 0 ? '#fff2a8' : '#7dd3fc'
+    });
+  }
+}
+
+function toggleParachuteAt(pos) {
+  const target = findParachutableBodyAt(pos);
+  if (!target) {
+    showParachuteFeedback(false, 'CHUTE: NO OBJECT');
+    haptic([3]);
+    return false;
+  }
+
+  const enabled = !parachuteBodies.has(target);
+  if (enabled) {
+    parachuteBodies.add(target);
+    target.isParachute = true;
+    Matter.Sleeping.set(target, false);
+  } else {
+    parachuteBodies.delete(target);
+    delete target.isParachute;
+  }
+  addParachuteBurst(target, enabled);
+  showParachuteFeedback(enabled);
+  playSound(enabled ? 740 : 320, 0.1, 'triangle', 0.06);
+  playSound(enabled ? 420 : 180, 0.08, 'square', 0.04);
+  haptic(enabled ? [7, 6, 10] : [6]);
+  return enabled ? 'deployed' : 'released';
+}
+
+function applyParachuteForces() {
+  parachuteBodies.forEach(body => {
+    if (!Composite.get(world, body.id, 'body')) {
+      parachuteBodies.delete(body);
+      return;
+    }
+    if (body.isStatic) return;
+    const force = getParachuteForce(body.velocity, body.mass, engine.gravity, engine.gravity.scale);
+    if (force.x === 0 && force.y === 0) return;
+    Matter.Sleeping.set(body, false);
+    Body.applyForce(body, body.position, force);
+  });
+}
+
 const ELEVATOR_WIDTH = 112;
 const ELEVATOR_HEIGHT = 16;
 const ELEVATOR_TRAVEL = 132;
@@ -10009,6 +10159,13 @@ function onDown(e) {
   // Piston tool — place a horizontal ram or send it to the opposite stop.
   if (currentTool === 'piston') {
     placeOrTogglePistonAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Parachute tool — deploy or release gravity-aware drag on one dynamic part.
+  if (currentTool === 'parachute') {
+    toggleParachuteAt(pos);
     pointerDown = false;
     return;
   }
@@ -12960,6 +13117,85 @@ function drawLiftMarkers(timestamp) {
   });
 }
 
+function drawParachuteMarkers(timestamp) {
+  const gx = engine.gravity.x || 0;
+  const gy = engine.gravity.y || 0;
+  const gravityMagnitude = Math.hypot(gx, gy);
+  const direction = gravityMagnitude > 0.0001
+    ? { x:gx / gravityMagnitude, y:gy / gravityMagnitude }
+    : { x:0, y:1 };
+  const up = { x:-direction.x, y:-direction.y };
+  const tangent = { x:-direction.y, y:direction.x };
+
+  parachuteBodies.forEach(body => {
+    if (!Composite.get(world, body.id, 'body')) {
+      parachuteBodies.delete(body);
+      return;
+    }
+    const halfW = (body.bounds.max.x - body.bounds.min.x) / 2;
+    const halfH = (body.bounds.max.y - body.bounds.min.y) / 2;
+    const bodyRadius = Math.max(16, Math.min(52, Math.hypot(halfW, halfH)));
+    const halfCanopy = Math.max(28, Math.min(48, bodyRadius + 13));
+    const canopyDistance = bodyRadius + 38;
+    const center = {
+      x:body.position.x + up.x * canopyDistance,
+      y:body.position.y + up.y * canopyDistance
+    };
+    const left = { x:center.x - tangent.x * halfCanopy, y:center.y - tangent.y * halfCanopy };
+    const right = { x:center.x + tangent.x * halfCanopy, y:center.y + tangent.y * halfCanopy };
+    const crown = { x:center.x + up.x * 23, y:center.y + up.y * 23 };
+    const skirt = { x:center.x + direction.x * 8, y:center.y + direction.y * 8 };
+    const sway = Math.sin(timestamp / 130 + body.id) * 2.5;
+    const pulse = 0.78 + Math.sin(timestamp / 100 + body.id) * 0.16;
+
+    ctx.save();
+    ctx.globalAlpha = pulse;
+    ctx.strokeStyle = '#7dd3fc';
+    ctx.fillStyle = 'rgba(125,211,252,0.18)';
+    ctx.shadowColor = '#7dd3fc';
+    ctx.shadowBlur = 14;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(left.x + tangent.x * sway, left.y + tangent.y * sway);
+    ctx.quadraticCurveTo(crown.x + tangent.x * sway, crown.y + tangent.y * sway, right.x + tangent.x * sway, right.y + tangent.y * sway);
+    ctx.quadraticCurveTo(skirt.x + tangent.x * sway, skirt.y + tangent.y * sway, left.x + tangent.x * sway, left.y + tangent.y * sway);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    const attachLeft = {
+      x:body.position.x - tangent.x * bodyRadius * 0.42 + up.x * bodyRadius * 0.22,
+      y:body.position.y - tangent.y * bodyRadius * 0.42 + up.y * bodyRadius * 0.22
+    };
+    const attachRight = {
+      x:body.position.x + tangent.x * bodyRadius * 0.42 + up.x * bodyRadius * 0.22,
+      y:body.position.y + tangent.y * bodyRadius * 0.42 + up.y * bodyRadius * 0.22
+    };
+    ctx.strokeStyle = '#fff2a8';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(left.x + tangent.x * sway, left.y + tangent.y * sway);
+    ctx.lineTo(attachLeft.x, attachLeft.y);
+    ctx.moveTo(right.x + tangent.x * sway, right.y + tangent.y * sway);
+    ctx.lineTo(attachRight.x, attachRight.y);
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(255,242,168,0.78)';
+    for (const offset of [-0.36, 0, 0.36]) {
+      const rib = {
+        x:center.x + tangent.x * halfCanopy * offset + tangent.x * sway,
+        y:center.y + tangent.y * halfCanopy * offset + tangent.y * sway
+      };
+      ctx.beginPath();
+      ctx.moveTo(rib.x, rib.y);
+      ctx.lineTo(crown.x + tangent.x * sway, crown.y + tangent.y * sway);
+      ctx.stroke();
+    }
+    ctx.restore();
+  });
+}
+
 function drawOrbitMarkers(timestamp) {
   if (orbitSelection && Composite.get(world, orbitSelection.id, 'body')) {
     const radius = Math.max(26, Math.min(70, Math.hypot(
@@ -14550,6 +14786,7 @@ function loop(timestamp) {
     applyLiftForces();
     applyOrbitForces();
     applyThrusterForces();
+    applyParachuteForces();
     applyGyroStabilizers();
     applyChargeForces();
     applyWeldLocks();
@@ -14745,6 +14982,7 @@ function loop(timestamp) {
   drawChargeMarkers(timestamp);
   drawTwistFlash(timestamp);
   drawLiftMarkers(timestamp);
+  drawParachuteMarkers(timestamp);
   drawOrbitMarkers(timestamp);
   drawTethers(timestamp);
   drawWeldMarker(timestamp);

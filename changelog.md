@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-10-01T14:09:48Z — Added: Parachute tool
+**Why:** The toolbar could cancel or invert gravity with Float and Lift, but it had no way to keep gravity active while giving one falling part speed-dependent aerodynamic control. Parachute adds a reversible descent brake that follows the current gravity direction instead of freezing, lifting, or repositioning its target.
+**Goal alignment:** "more fun, more surprising, more satisfying" — players can air-drop blocks into baskets, soften fast falls onto fragile builds, and release the canopy mid-flight to resume a full-speed plunge.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (520/520 passing); browser smoke ✓ (existing Block tool placed a real physics subject, final Parachute button deployed a visible canopy, reduced downward velocity from 12 to 4.13 under live Earth gravity, and released cleanly on a second tap); mobile ✓ (390×844, final Parachute button was fully reachable at 52×50px and x=330–382 at the toolbar's true maximum scroll, existing Ball worked, and the canopy reduced downward velocity from 10 to 1.11); cleanup ✓ (Clear removed the payload, canopy state, and feedback); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-09-30T14:19:28Z — Added: Piston tool
 **Why:** The toolbar could lift, rotate, launch, catch, and release physics objects, but it had no reusable machine for delivering a deliberate horizontal shove from inside a contraption. Piston adds a compact inward-facing ram with deterministic retracted and extended stops.
 **Goal alignment:** "more fun, more surprising, more satisfying" — players can push balls into ramps, knock blocks into chains, or drive payloads through gates with the same visible machine, then retract it and fire again.
