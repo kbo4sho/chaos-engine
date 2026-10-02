@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch', 'piston', 'parachute'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch', 'piston', 'parachute', 'saw'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 78 tool buttons', () => {
+  it('should have exactly 79 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(78);
+    expect(buttons.length).toBe(79);
   });
 
-  it('should append Parachute after Piston at the end of the object toolbar', () => {
+  it('should append Saw after Parachute at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('parachute');
-    expect(toolbar.lastElementChild?.textContent).toContain('Chute');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('piston');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('hatch');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('saw');
+    expect(toolbar.lastElementChild?.textContent).toContain('Saw');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('parachute');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('piston');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,16 +67,81 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// SAW TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Saw Tool', () => {
+  it('should expose Saw as the final selectable toolbar tool', () => {
+    const sawBtn = document.querySelector('[data-tool="saw"]');
+    expect(sawBtn).not.toBeNull();
+    expect(sawBtn?.getAttribute('aria-label')).toContain('slices loose parts');
+    expect(sawBtn?.previousElementSibling?.dataset.tool).toBe('parachute');
+    expect(sawBtn?.nextElementSibling).toBeNull();
+    expect(scriptContent).toContain("currentTool === 'saw'");
+    expect(scriptContent).toContain('placeOrReverseSawAt(pos)');
+  });
+
+  it('should clamp placement and reverse between equal spin speeds', () => {
+    const placementSource = scriptContent.match(/function getSawPlacement\([\s\S]*?\n\}/)?.[0];
+    const spinSource = scriptContent.match(/function getSawSpin\([\s\S]*?\n\}/)?.[0];
+    expect(placementSource).toBeTruthy();
+    expect(spinSource).toBeTruthy();
+    const helpers = new Function(`
+      const SAW_RADIUS = 42;
+      const SAW_SPIN_SPEED = 0.48;
+      ${placementSource}
+      ${spinSource}
+      return { getSawPlacement, getSawSpin };
+    `)();
+
+    expect(helpers.getSawPlacement({ x:2, y:4 }, 390, 500)).toEqual({ x:54, y:54 });
+    expect(helpers.getSawPlacement({ x:388, y:498 }, 390, 500)).toEqual({ x:336, y:426 });
+    expect(helpers.getSawSpin(1)).toEqual({ angularVelocity:0.48, nextDirection:-1 });
+    expect(helpers.getSawSpin(-1)).toEqual({ angularVelocity:-0.48, nextDirection:1 });
+  });
+
+  it('should create a pinned physical blade and split eligible contact bodies', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('const SAW_RADIUS'),
+      scriptContent.indexOf('const ELEVATOR_WIDTH')
+    );
+    expect(source).toContain("label:'saw'");
+    expect(source).toContain('body.isSaw = true');
+    expect(source).toContain('Constraint.create({');
+    expect(source).toContain('Body.setAngularVelocity(entry.body, targetSpeed)');
+    expect(source).toContain('function isSawCuttableBody(body)');
+    expect(source).toContain('!Composite.allConstraints(world).some');
+    expect(source).toContain('const half = createBodyClone(source, position)');
+    expect(source).toContain('half.sawCutDepth = (source.sawCutDepth || 0) + 1');
+    expect(scriptContent).toContain('setTimeout(() => sliceBodyWithSaw(sawBody, sawCandidate), 0)');
+    expect(scriptContent).toContain('updateSaws();');
+  });
+
+  it('should provide visible feedback, touch targeting, rendering, and cleanup', () => {
+    expect(document.getElementById('saw-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain("case 'saw':");
+    expect(scriptContent).toContain('let nearestDist = 58');
+    expect(scriptContent).toContain("if (tool !== 'saw') resetSawFeedback(true)");
+    expect(scriptContent).toContain('saws = saws.filter(entry => !removedBodyIds.has(entry.body.id)');
+    expect(scriptContent).toContain('saws = [];');
+    expect(scriptContent).toContain('sawCutDebounce.clear();');
+    expect(scriptContent).toContain('resetSawFeedback(true);');
+    expect(scriptContent).toContain("saw: '#ff5f57'");
+    expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?#saw-feedback \{ top:14px; font-size:19px/);
+  });
+});
+
+// ============================================
 // PARACHUTE TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Parachute Tool', () => {
-  it('should expose Parachute as the final selectable toolbar tool', () => {
+  it('should keep Parachute selectable immediately before Saw', () => {
     const parachuteBtn = document.querySelector('[data-tool="parachute"]');
     expect(parachuteBtn).not.toBeNull();
     expect(parachuteBtn?.getAttribute('aria-label')).toContain('Deploy or release a parachute');
     expect(parachuteBtn?.previousElementSibling?.dataset.tool).toBe('piston');
-    expect(parachuteBtn?.nextElementSibling).toBeNull();
+    expect(parachuteBtn?.nextElementSibling?.dataset.tool).toBe('saw');
     expect(scriptContent).toContain("currentTool === 'parachute'");
     expect(scriptContent).toContain('toggleParachuteAt(pos)');
   });

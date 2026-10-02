@@ -645,6 +645,19 @@ canvas#game {
 #parachute-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#saw-feedback {
+  position:absolute; top:218px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#ff5f57;
+  font-size:19px; letter-spacing:2px; line-height:1;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none; white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#saw-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -772,6 +785,7 @@ canvas#game {
   #hatch-feedback { top:14px; font-size:19px; }
   #piston-feedback { top:14px; font-size:19px; }
   #parachute-feedback { top:14px; font-size:19px; }
+  #saw-feedback { top:14px; font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -853,6 +867,7 @@ canvas#game {
     <div id="hatch-feedback" role="status" aria-live="polite"></div>
     <div id="piston-feedback" role="status" aria-live="polite"></div>
     <div id="parachute-feedback" role="status" aria-live="polite"></div>
+    <div id="saw-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -936,6 +951,7 @@ canvas#game {
     <button class="tool-btn" data-tool="hatch" style="color:#ffc857;" title="Tap the canvas to place a trapdoor; tap the hatch to open or close it" aria-label="Place a hinged hatch or open and close an existing hatch"><span class="icon">▰</span>Hatch</button>
     <button class="tool-btn" data-tool="piston" style="color:#ff6b4a;" title="Tap the canvas to place a piston; tap the ram to extend or retract it" aria-label="Place a physical piston or extend and retract its ram"><span class="icon">⇥</span>Piston</button>
     <button class="tool-btn" data-tool="parachute" style="color:#7dd3fc;" title="Tap a dynamic part to deploy or release a gravity-aware parachute" aria-label="Deploy or release a parachute on a dynamic part"><span class="icon">🪂</span>Chute</button>
+    <button class="tool-btn" data-tool="saw" style="color:#ff5f57;" title="Tap the canvas to place a spinning saw; tap the blade to reverse it" aria-label="Place a spinning saw that slices loose parts or reverse an existing saw"><span class="icon">✹</span>Saw</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1238,6 +1254,9 @@ let pistons = []; // {body, retractedX, extendedX, y, direction, targetX} reusab
 let pistonFeedbackTimer = 0;
 let parachuteBodies = new Set(); // dynamic parts slowed by a visible gravity-aware canopy
 let parachuteFeedbackTimer = 0;
+let saws = []; // {body, constraint} pinned spinning blades that slice loose parts on contact
+let sawFeedbackTimer = 0;
+let sawCutDebounce = new Set(); // body ids already queued for a saw cut
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -2103,6 +2122,14 @@ function resetParachuteFeedback(silent = false) {
   feedback.textContent = '';
 }
 
+function resetSawFeedback(silent = false) {
+  if (!silent) return;
+  clearTimeout(sawFeedbackTimer);
+  const feedback = document.getElementById('saw-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -2195,6 +2222,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'hatch') resetHatchFeedback(true);
       if (tool !== 'piston') resetPistonFeedback(true);
       if (tool !== 'parachute') resetParachuteFeedback(true);
+      if (tool !== 'saw') resetSawFeedback(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -3630,6 +3658,8 @@ function finishClear(playFeedback = true) {
   hatches = [];
   pistons = [];
   parachuteBodies.clear();
+  saws = [];
+  sawCutDebounce.clear();
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -3680,6 +3710,7 @@ function finishClear(playFeedback = true) {
   resetHatchFeedback(true);
   resetPistonFeedback(true);
   resetParachuteFeedback(true);
+  resetSawFeedback(true);
   flippers = [];
   nextFlipperSide = 'left';
   clearTimeout(flipperFeedbackTimer);
@@ -3906,7 +3937,8 @@ function getToolAccentColor(tool) {
     recycler: '#62ffb0',
     hatch: '#ffc857',
     piston: '#ff6b4a',
-    parachute: '#7dd3fc'
+    parachute: '#7dd3fc',
+    saw: '#ff5f57'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -4046,6 +4078,7 @@ function eraseBodyAt(pos) {
   recyclers = recyclers.filter(entry => !removedBodyIds.has(entry.body.id));
   hatches = hatches.filter(entry => !removedBodyIds.has(entry.body.id));
   pistons = pistons.filter(entry => !removedBodyIds.has(entry.body.id));
+  saws = saws.filter(entry => !removedBodyIds.has(entry.body.id) && !constraintsToRemove.has(entry.constraint));
   ropes = ropes.filter(r => !constraintsToRemove.has(r));
   struts = struts.filter(strut => !constraintsToRemove.has(strut));
   hinges = hinges.filter(hinge => !constraintsToRemove.has(hinge));
@@ -9210,6 +9243,221 @@ function applyParachuteForces() {
   });
 }
 
+const SAW_RADIUS = 42;
+const SAW_SPIN_SPEED = 0.48;
+const SAW_SLICE_SCALE = Math.SQRT1_2;
+const MAX_SAW_CUT_DEPTH = 2;
+
+function getSawPlacement(pos, canvasWidth, canvasHeight) {
+  return {
+    x:Math.max(SAW_RADIUS + 12, Math.min(canvasWidth - SAW_RADIUS - 12, pos.x)),
+    y:Math.max(SAW_RADIUS + 12, Math.min(canvasHeight - SAW_RADIUS - 32, pos.y))
+  };
+}
+
+function getSawSpin(direction = 1) {
+  const normalizedDirection = direction === -1 ? -1 : 1;
+  return {
+    angularVelocity:normalizedDirection * SAW_SPIN_SPEED,
+    nextDirection:-normalizedDirection
+  };
+}
+
+function createSawAssembly(position) {
+  const body = Bodies.circle(position.x, position.y, SAW_RADIUS, {
+    friction:0.24,
+    frictionAir:0.008,
+    restitution:0.32,
+    density:0.018,
+    label:'saw',
+    render:{ type:'saw', color:'#ff5f57', radius:SAW_RADIUS }
+  });
+  body.isSaw = true;
+  body.sawDirection = 1;
+  body.material = 'metal';
+  Body.setAngularVelocity(body, SAW_SPIN_SPEED);
+
+  const constraint = Constraint.create({
+    pointA:{ x:position.x, y:position.y },
+    bodyB:body,
+    pointB:{ x:0, y:0 },
+    length:0,
+    stiffness:1,
+    damping:0.16,
+    render:{ visible:false, type:'saw-pin' }
+  });
+  return { body, constraint };
+}
+
+function pruneSaws() {
+  saws = saws.filter(entry => (
+    Composite.get(world, entry.body.id, 'body') && Composite.get(world, entry.constraint.id, 'constraint')
+  ));
+}
+
+function findSawAt(pos) {
+  pruneSaws();
+  const bodies = saws.map(entry => entry.body);
+  let body = Matter.Query.point(bodies, pos).pop();
+  if (!body) {
+    let nearestDist = 58;
+    bodies.forEach(candidate => {
+      const distance = Math.hypot(candidate.position.x - pos.x, candidate.position.y - pos.y);
+      if (distance < nearestDist) {
+        body = candidate;
+        nearestDist = distance;
+      }
+    });
+  }
+  return body ? saws.find(entry => entry.body === body) || null : null;
+}
+
+function showSawFeedback(message, color = '#ff5f57') {
+  const feedback = document.getElementById('saw-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(sawFeedbackTimer);
+  sawFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 900);
+}
+
+function addSawBurst(position, direction = 1) {
+  for (let i = 0; i < 20; i++) {
+    const angle = Math.PI * 2 * i / 20;
+    const tangent = angle + direction * Math.PI / 2;
+    const speed = 2 + Math.random() * 4.5;
+    particles.push({
+      x:position.x + Math.cos(angle) * 10,
+      y:position.y + Math.sin(angle) * 10,
+      vx:Math.cos(tangent) * speed,
+      vy:Math.sin(tangent) * speed,
+      size:2 + Math.random() * 2.5,
+      life:0.25 + Math.random() * 0.35,
+      color:i % 4 === 0 ? '#fff2c8' : '#ff5f57'
+    });
+  }
+}
+
+function placeOrReverseSawAt(pos) {
+  const existing = findSawAt(pos);
+  if (existing) {
+    existing.body.sawDirection *= -1;
+    const spin = getSawSpin(existing.body.sawDirection);
+    Body.setAngularVelocity(existing.body, spin.angularVelocity);
+    addSawBurst(existing.body.position, existing.body.sawDirection);
+    showSawFeedback(existing.body.sawDirection === 1 ? 'SAW: CLOCKWISE' : 'SAW: COUNTER-CLOCKWISE');
+    playSound(existing.body.sawDirection === 1 ? 780 : 520, 0.11, 'sawtooth', 0.065);
+    haptic([8, 8, 8]);
+    return { ...existing, placed:false, direction:existing.body.sawDirection };
+  }
+
+  const placement = getSawPlacement(pos, canvas.width, canvas.height);
+  const assembly = createSawAssembly(placement);
+  Composite.add(world, [assembly.body, assembly.constraint]);
+  saws.push(assembly);
+  markSpawnPop(assembly.body);
+  addSawBurst(assembly.body.position, 1);
+  showSawFeedback('SAW ARMED • DROP A LOOSE PART');
+  playSpawn();
+  playSound(620, 0.1, 'sawtooth', 0.06);
+  haptic([8]);
+  return { ...assembly, placed:true, direction:1 };
+}
+
+function updateSaws() {
+  pruneSaws();
+  saws.forEach(entry => {
+    const targetSpeed = entry.body.sawDirection * SAW_SPIN_SPEED;
+    Body.setAngularVelocity(entry.body, targetSpeed);
+    Matter.Sleeping.set(entry.body, false);
+  });
+}
+
+function isSawCuttableBody(body) {
+  if (!body || body.label === 'wall' || body.label === 'chain-link' || body.isTarget || body.isStatic || body.isSaw || body.isFragment) return false;
+  if (body.parent !== body || body.parts.length !== 1 || (body.sawCutDepth || 0) >= MAX_SAW_CUT_DEPTH) return false;
+  const width = body.bounds.max.x - body.bounds.min.x;
+  const height = body.bounds.max.y - body.bounds.min.y;
+  if (Math.min(width, height) < 14) return false;
+  return !Composite.allConstraints(world).some(c => c.bodyA === body || c.bodyB === body);
+}
+
+function getSawSliceLayout(source, sawPosition, canvasWidth, canvasHeight, scale = Math.SQRT1_2) {
+  const width = source.bounds.max.x - source.bounds.min.x;
+  const height = source.bounds.max.y - source.bounds.min.y;
+  const dx = source.position.x - sawPosition.x;
+  const dy = source.position.y - sawPosition.y;
+  const distance = Math.hypot(dx, dy) || 1;
+  const tangent = { x:-dy / distance, y:dx / distance };
+  const offset = Math.max(12, Math.min(30, Math.max(width, height) * 0.38));
+  const halfWidth = width * scale / 2;
+  const halfHeight = height * scale / 2;
+  const clamp = sign => ({
+    x:Math.max(halfWidth + 8, Math.min(canvasWidth - halfWidth - 8, source.position.x + tangent.x * offset * sign)),
+    y:Math.max(halfHeight + 8, Math.min(canvasHeight - halfHeight - 28, source.position.y + tangent.y * offset * sign))
+  });
+  return { first:clamp(-1), second:clamp(1), direction:tangent };
+}
+
+function sliceBodyWithSaw(sawBody, source) {
+  if (!Composite.get(world, sawBody.id, 'body') || !Composite.get(world, source.id, 'body') || !isSawCuttableBody(source)) {
+    sawCutDebounce.delete(source.id);
+    return false;
+  }
+  const layout = getSawSliceLayout(source, sawBody.position, canvas.width, canvas.height, SAW_SLICE_SCALE);
+  const sourceVelocity = { x:source.velocity.x, y:source.velocity.y };
+  const sourceAngularVelocity = source.angularVelocity;
+  const sourceColor = source.render?.color || '#ff5f57';
+  const sourceMegaBounceRestitution = megaBounceOriginal.get(source);
+  const halves = [layout.first, layout.second].map((position, index) => {
+    const sign = index === 0 ? -1 : 1;
+    const half = createBodyClone(source, position);
+    Body.scale(half, SAW_SLICE_SCALE, SAW_SLICE_SCALE);
+    half.resizeScale = (source.resizeScale || 1) * SAW_SLICE_SCALE;
+    half.sawCutDepth = (source.sawCutDepth || 0) + 1;
+    Body.setVelocity(half, {
+      x:sourceVelocity.x * 0.72 + layout.direction.x * sign * 3.8,
+      y:sourceVelocity.y * 0.72 + layout.direction.y * sign * 3.8 - 0.8
+    });
+    Body.setAngularVelocity(half, sourceAngularVelocity * 0.55 + sign * sawBody.sawDirection * 0.16);
+    markSpawnPop(half);
+    return half;
+  });
+
+  Composite.remove(world, source, true);
+  Composite.add(world, halves);
+  bodyTrails.delete(source.id);
+  shatterDebounce.delete(source.id);
+  portalCooldowns.delete(source.id);
+  anchoredBodies.delete(source);
+  motorizedBodies.delete(source);
+  thrusterBodies.delete(source);
+  phaseBodies.delete(source);
+  gyroBodies.delete(source);
+  liftedBodies.delete(source);
+  orbitingBodies.delete(source);
+  parachuteBodies.delete(source);
+  megaBounceOriginal.delete(source);
+  halves.forEach(half => {
+    if (half.isLifted) liftedBodies.add(half);
+    if (sourceMegaBounceRestitution !== undefined) megaBounceOriginal.set(half, sourceMegaBounceRestitution);
+  });
+  rocketBodies = rocketBodies.filter(body => body !== source);
+  if (source.render?.type === 'rocket') rocketBodies.push(...halves);
+  sawCutDebounce.delete(source.id);
+
+  addSawBurst(source.position, sawBody.sawDirection);
+  addFissionBurst(source.position, sourceColor);
+  showSawFeedback('SAW CUT ×2');
+  playSound(190, 0.09, 'sawtooth', 0.07);
+  playSound(980, 0.08, 'square', 0.055);
+  haptic([10, 10, 14]);
+  shakeIntensity = Math.max(shakeIntensity, 3.5);
+  return halves;
+}
+
 const ELEVATOR_WIDTH = 112;
 const ELEVATOR_HEIGHT = 16;
 const ELEVATOR_TRAVEL = 132;
@@ -10170,6 +10418,13 @@ function onDown(e) {
     return;
   }
 
+  // Saw tool — place a pinned cutting blade or reverse an existing blade.
+  if (currentTool === 'saw') {
+    placeOrReverseSawAt(pos);
+    pointerDown = false;
+    return;
+  }
+
   // Snip tool — cut one visible physical connection without removing its bodies.
   if (currentTool === 'snip') {
     snipConstraintAt(pos);
@@ -10432,6 +10687,15 @@ canvas.addEventListener('touchend', onUp, {passive:false});
 // ── COLLISION EVENTS ──
 Events.on(engine, 'collisionStart', (e) => {
   e.pairs.forEach(pair => {
+    // Saw blades split loose standalone parts on contact without consuming the reusable machine.
+    const sawBody = pair.bodyA.isSaw ? pair.bodyA : (pair.bodyB.isSaw ? pair.bodyB : null);
+    const rawSawCandidate = sawBody === pair.bodyA ? pair.bodyB : pair.bodyA;
+    const sawCandidate = rawSawCandidate?.parent || rawSawCandidate;
+    if (sawBody && isSawCuttableBody(sawCandidate) && !sawCutDebounce.has(sawCandidate.id)) {
+      sawCutDebounce.add(sawCandidate.id);
+      setTimeout(() => sliceBodyWithSaw(sawBody, sawCandidate), 0);
+    }
+
     // Recycler sensors consume one loose standalone part and bank it as scrap.
     const recyclerBody = pair.bodyA.isRecycler ? pair.bodyA : (pair.bodyB.isRecycler ? pair.bodyB : null);
     const recyclerCandidate = recyclerBody === pair.bodyA ? pair.bodyB : pair.bodyA;
@@ -11538,6 +11802,56 @@ function drawBody(b) {
       ctx.textBaseline = 'middle';
       ctx.fillText(direction === 1 ? '→' : '←', baseCenterX, 1);
       ctx.restore();
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      break;
+    }
+    case 'saw': {
+      const radius = r.radius || SAW_RADIUS;
+      const pulse = 0.74 + Math.sin(performance.now() / 90 + b.id) * 0.18;
+      ctx.shadowColor = '#ff5f57';
+      ctx.shadowBlur = 16;
+      ctx.fillStyle = `rgba(255,95,87,${0.14 + pulse * 0.08})`;
+      ctx.strokeStyle = '#ff5f57';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      for (let i = 0; i < 32; i++) {
+        const angle = Math.PI * 2 * i / 32;
+        const toothRadius = i % 2 === 0 ? radius + 7 : radius - 2;
+        const x = Math.cos(angle) * toothRadius;
+        const y = Math.sin(angle) * toothRadius;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      ctx.strokeStyle = '#fff2c8';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius * 0.67, 0, Math.PI * 2);
+      ctx.stroke();
+      for (let i = 0; i < 6; i++) {
+        const angle = Math.PI * 2 * i / 6;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(angle) * 10, Math.sin(angle) * 10);
+        ctx.lineTo(Math.cos(angle) * radius * 0.62, Math.sin(angle) * radius * 0.62);
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#080c10';
+      ctx.strokeStyle = '#4de3ff';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, 10, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#fff2c8';
+      ctx.font = 'bold 15px VT323';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(b.sawDirection === -1 ? '↺' : '↻', 0, 1);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'alphabetic';
       break;
@@ -14166,6 +14480,7 @@ function loop(timestamp) {
   prunePivots();
   pruneWebTraps();
   prunePinwheels();
+  pruneSaws();
   pruneElevators();
   pruneHatches();
 
@@ -14793,6 +15108,7 @@ function loop(timestamp) {
     updateElevators(timeScale);
     updateHatches(timeScale);
     updatePistons(timeScale);
+    updateSaws();
     Engine.update(engine, (1000/60) * timeScale);
   }
 

@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-10-02T14:13:07Z — Added: Saw tool
+**Why:** The toolbar could split a tapped part with Fission and place a harmless spinning obstacle with Pinwheel, but it had no reusable machine that physically transforms loose parts when they collide with it. Saw adds a persistent contact-driven cutter that stays in the scene and can be reversed in place.
+**Goal alignment:** "more fun, more surprising, more satisfying" — players can feed balls and blocks into a glowing blade, turn one falling object into ricocheting fragments, and reverse the spin to reshape how the pieces leave the cut.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (525/525 passing); browser smoke ✓ (existing Block tool worked, final Saw button placed one pinned physical blade, a falling Block became two smaller live bodies, and tapping the blade reversed it to counter-clockwise); mobile ✓ (390×844, final Saw button was fully reachable at 52×50px and x=330–382 at the toolbar's true maximum scroll, existing Ball worked, and blade contact created three live fragments across two eligible cuts); cleanup ✓ (Clear removed the blade, constraint, fragments, queued cuts, and feedback); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-10-01T14:09:48Z — Added: Parachute tool
 **Why:** The toolbar could cancel or invert gravity with Float and Lift, but it had no way to keep gravity active while giving one falling part speed-dependent aerodynamic control. Parachute adds a reversible descent brake that follows the current gravity direction instead of freezing, lifting, or repositioning its target.
 **Goal alignment:** "more fun, more surprising, more satisfying" — players can air-drop blocks into baskets, soften fast falls onto fragile builds, and release the canopy mid-flight to resume a full-speed plunge.

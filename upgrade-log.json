@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-10-02",
+      "ideas": [
+        "New tool: Place a reusable spinning Saw that slices loose parts on contact"
+      ],
+      "summary": "Implemented Saw tool (✹) — the final button in the existing object toolbar now places a canvas-clamped physical blade on a fixed world pin, maintains its spin, slices eligible loose standalone parts into two smaller momentum-carrying pieces on contact, and reverses direction when tapped; capped two-pass cutting, 58px touch targeting, CRT tooth/hub rendering, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make collision-driven cutting reliable and reusable on desktop and mobile."
+    },
+    {
       "date": "2026-10-01",
       "ideas": [
         "New tool: Deploy or release a gravity-aware Parachute on one dynamic part"
