@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch', 'piston', 'parachute', 'saw'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch', 'piston', 'parachute', 'saw', 'funnel'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 79 tool buttons', () => {
+  it('should have exactly 80 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(79);
+    expect(buttons.length).toBe(80);
   });
 
-  it('should append Saw after Parachute at the end of the object toolbar', () => {
+  it('should append Funnel after Saw at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('saw');
-    expect(toolbar.lastElementChild?.textContent).toContain('Saw');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('parachute');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('piston');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('funnel');
+    expect(toolbar.lastElementChild?.textContent).toContain('Funnel');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('saw');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('parachute');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,16 +67,84 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// FUNNEL TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Funnel Tool', () => {
+  it('should expose Funnel as the final selectable toolbar tool', () => {
+    const funnelBtn = document.querySelector('[data-tool="funnel"]');
+    expect(funnelBtn).not.toBeNull();
+    expect(funnelBtn?.getAttribute('aria-label')).toContain('reroute objects');
+    expect(funnelBtn?.previousElementSibling?.dataset.tool).toBe('saw');
+    expect(funnelBtn?.nextElementSibling).toBeNull();
+    expect(scriptContent).toContain("currentTool === 'funnel'");
+    expect(scriptContent).toContain('placeOrRotateFunnelAt(pos)');
+  });
+
+  it('should clamp placement and calculate quarter-turn rail layouts', () => {
+    const placementSource = scriptContent.match(/function getFunnelPlacement\([\s\S]*?\n\}/)?.[0];
+    const layoutSource = scriptContent.match(/function getFunnelRailLayout\([\s\S]*?\n\}/)?.[0];
+    expect(placementSource).toBeTruthy();
+    expect(layoutSource).toBeTruthy();
+    const helpers = new Function(`
+      const FUNNEL_BOUND_RADIUS = 52;
+      const FUNNEL_RAIL_OFFSET = 28;
+      const FUNNEL_RAIL_ANGLE = 1.12;
+      ${placementSource}
+      ${layoutSource}
+      return { getFunnelPlacement, getFunnelRailLayout };
+    `)();
+
+    expect(helpers.getFunnelPlacement({ x:2, y:4 }, 390, 500)).toEqual({ x:64, y:64 });
+    expect(helpers.getFunnelPlacement({ x:388, y:498 }, 390, 500)).toEqual({ x:326, y:416 });
+    const down = helpers.getFunnelRailLayout({ x:200, y:180 }, 0);
+    expect(down.map(rail => [rail.x, rail.y])).toEqual([[172, 180], [228, 180]]);
+    const left = helpers.getFunnelRailLayout({ x:200, y:180 }, 1);
+    expect(left[0].x).toBeCloseTo(200);
+    expect(left[0].y).toBeCloseTo(152);
+    expect(left[1].x).toBeCloseTo(200);
+    expect(left[1].y).toBeCloseTo(208);
+  });
+
+  it('should create two real static rails and rotate their collision geometry', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('const FUNNEL_RAIL_LENGTH'),
+      scriptContent.indexOf('const ELEVATOR_WIDTH')
+    );
+    expect(source).toContain('Bodies.rectangle(rail.x, rail.y, FUNNEL_RAIL_LENGTH, FUNNEL_RAIL_THICKNESS');
+    expect(source).toContain('isStatic:true');
+    expect(source).toContain("label:'funnel-rail'");
+    expect(source).toContain('Body.setPosition(body');
+    expect(source).toContain('Body.setAngle(body');
+    expect(source).toContain('setFunnelOrientation(existing, existing.orientation + 1)');
+    expect(source).toContain('Composite.add(world, assembly.bodies)');
+  });
+
+  it('should provide rendering, touch targeting, feedback, and complete cleanup', () => {
+    expect(document.getElementById('funnel-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain("case 'funnel-rail':");
+    expect(scriptContent).toContain('let nearestDist = 58');
+    expect(scriptContent).toContain("if (tool !== 'funnel') resetFunnelFeedback(true)");
+    expect(scriptContent).toContain('funnels = funnels.filter(entry => {');
+    expect(scriptContent).toContain('entry.bodies.forEach(body => bodiesToRemove.add(body))');
+    expect(scriptContent).toContain('funnels = [];');
+    expect(scriptContent).toContain('resetFunnelFeedback(true);');
+    expect(scriptContent).toContain("funnel: '#ffc857'");
+    expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?#funnel-feedback \{ top:14px; font-size:19px/);
+  });
+});
+
+// ============================================
 // SAW TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Saw Tool', () => {
-  it('should expose Saw as the final selectable toolbar tool', () => {
+  it('should keep Saw selectable immediately before Funnel', () => {
     const sawBtn = document.querySelector('[data-tool="saw"]');
     expect(sawBtn).not.toBeNull();
     expect(sawBtn?.getAttribute('aria-label')).toContain('slices loose parts');
     expect(sawBtn?.previousElementSibling?.dataset.tool).toBe('parachute');
-    expect(sawBtn?.nextElementSibling).toBeNull();
+    expect(sawBtn?.nextElementSibling?.dataset.tool).toBe('funnel');
     expect(scriptContent).toContain("currentTool === 'saw'");
     expect(scriptContent).toContain('placeOrReverseSawAt(pos)');
   });

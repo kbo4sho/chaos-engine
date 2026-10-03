@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-10-03",
+      "ideas": [
+        "New tool: Place a physical Funnel and rotate it to reroute moving objects"
+      ],
+      "summary": "Implemented Funnel tool (▽) — the final button in the existing object toolbar now places a canvas-clamped two-rail static collision chute and rotates both rails through exact quarter-turns on repeat taps so falling or launched objects can be redirected down, left, up, or right; 58px touch targeting, amber/cyan CRT rail rendering, payload wake-up, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make reusable routing reliable on desktop and mobile."
+    },
+    {
       "date": "2026-10-02",
       "ideas": [
         "New tool: Place a reusable spinning Saw that slices loose parts on contact"

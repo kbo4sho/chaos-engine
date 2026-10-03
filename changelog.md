@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-10-03T14:14:12Z — Added: Funnel tool
+**Why:** The toolbar could catch objects with Basket, redirect them with Ramp, and release them through Hatch, but it had no compact two-sided terrain piece that could channel loose objects and be reoriented in place. Funnel adds a reusable physical chute without duplicating those one-sided or container behaviors.
+**Goal alignment:** "more fun, more surprising, more satisfying" — players can route falling balls into baskets, turn sideways funnels into ricochet channels, and rotate the same piece through all four directions as a contraption evolves.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (530/530 passing); browser smoke ✓ (existing Block tool worked, final Funnel button placed two real static collision rails, and a repeat tap rotated both rails one exact quarter-turn to route left before the launched Block struck the chute); mobile ✓ (390×844, final Funnel button was fully reachable at 52×50px and x=330–382 at the toolbar's true maximum scroll, placement/rotation feedback remained readable, and existing Ball worked); cleanup ✓ (Clear removed both rails, the Ball, and feedback); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-10-02T14:13:07Z — Added: Saw tool
 **Why:** The toolbar could split a tapped part with Fission and place a harmless spinning obstacle with Pinwheel, but it had no reusable machine that physically transforms loose parts when they collide with it. Saw adds a persistent contact-driven cutter that stays in the scene and can be reversed in place.
 **Goal alignment:** "more fun, more surprising, more satisfying" — players can feed balls and blocks into a glowing blade, turn one falling object into ricocheting fragments, and reverse the spin to reshape how the pieces leave the cut.
