@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch', 'piston', 'parachute', 'saw', 'funnel'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch', 'piston', 'parachute', 'saw', 'funnel', 'catapult'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 80 tool buttons', () => {
+  it('should have exactly 81 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(80);
+    expect(buttons.length).toBe(81);
   });
 
-  it('should append Funnel after Saw at the end of the object toolbar', () => {
+  it('should append Catapult after Funnel at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('funnel');
-    expect(toolbar.lastElementChild?.textContent).toContain('Funnel');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('saw');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('parachute');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('catapult');
+    expect(toolbar.lastElementChild?.textContent).toContain('Catapult');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('funnel');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('saw');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,6 +67,80 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// CATAPULT TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Catapult Tool', () => {
+  it('should expose Catapult as the final selectable toolbar tool', () => {
+    const catapultBtn = document.querySelector('[data-tool="catapult"]');
+    expect(catapultBtn).not.toBeNull();
+    expect(catapultBtn?.getAttribute('aria-label')).toContain('launch objects loaded in its cup');
+    expect(catapultBtn?.previousElementSibling?.dataset.tool).toBe('funnel');
+    expect(catapultBtn?.nextElementSibling).toBeNull();
+    expect(scriptContent).toContain("currentTool === 'catapult'");
+    expect(scriptContent).toContain('placeOrFireCatapultAt(pos)');
+  });
+
+  it('should clamp placement, face inward, and animate through a full firing cycle', () => {
+    const placementSource = scriptContent.slice(
+      scriptContent.indexOf('function getCatapultPlacement'),
+      scriptContent.indexOf('\nfunction getCatapultPose')
+    );
+    const poseSource = scriptContent.slice(
+      scriptContent.indexOf('function getCatapultPose'),
+      scriptContent.indexOf('\nfunction getCatapultLaunchVelocity')
+    );
+    const launchSource = scriptContent.slice(
+      scriptContent.indexOf('function getCatapultLaunchVelocity'),
+      scriptContent.indexOf('\nfunction createCatapultAssembly')
+    );
+    const helpers = new Function(`
+      const CATAPULT_ARM_LENGTH = 96;
+      ${placementSource}
+      ${poseSource}
+      ${launchSource}
+      return { getCatapultPlacement, getCatapultPose, getCatapultLaunchVelocity };
+    `)();
+
+    expect(helpers.getCatapultPlacement({ x:2, y:4 }, 390, 500)).toEqual({ pivot:{ x:28, y:54 }, direction:1 });
+    expect(helpers.getCatapultPlacement({ x:388, y:498 }, 390, 500)).toEqual({ pivot:{ x:362, y:436 }, direction:-1 });
+    const rest = helpers.getCatapultPose({ x:100, y:200 }, 1, 0);
+    const fired = helpers.getCatapultPose({ x:100, y:200 }, 1, 0.24);
+    const returned = helpers.getCatapultPose({ x:100, y:200 }, 1, 1);
+    expect(fired.tip.y).toBeLessThan(rest.tip.y - 50);
+    expect(returned.angle).toBeCloseTo(rest.angle);
+    expect(helpers.getCatapultLaunchVelocity(1)).toEqual({ x:10.8, y:-12.6 });
+    expect(helpers.getCatapultLaunchVelocity(-1)).toEqual({ x:-10.8, y:-12.6 });
+  });
+
+  it('should create a real colliding arm and launch nearby existing dynamic objects', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('const CATAPULT_ARM_LENGTH'),
+      scriptContent.indexOf('const ELEVATOR_WIDTH')
+    );
+    expect(source).toContain('Bodies.rectangle(pose.center.x, pose.center.y, CATAPULT_ARM_LENGTH, CATAPULT_ARM_HEIGHT');
+    expect(source).toContain('isStatic:true');
+    expect(source).toContain("label:'catapult-arm'");
+    expect(source).toContain('Math.hypot(body.position.x - cup.x, body.position.y - cup.y) <= CATAPULT_LOAD_RADIUS');
+    expect(source).toContain('Body.setVelocity(body');
+    expect(source).toContain('Body.setAngularVelocity(body');
+    expect(source).toContain('updateCatapults(timestamp)');
+  });
+
+  it('should provide feedback, touch targeting, rendering, and complete cleanup', () => {
+    expect(document.getElementById('catapult-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain("case 'catapult-arm':");
+    expect(scriptContent).toContain('let nearestDist = 62');
+    expect(scriptContent).toContain("if (tool !== 'catapult') resetCatapultFeedback(true)");
+    expect(scriptContent).toContain('catapults = catapults.filter(entry => {');
+    expect(scriptContent).toContain('catapults = [];');
+    expect(scriptContent).toContain('resetCatapultFeedback(true);');
+    expect(scriptContent).toContain("catapult: '#ff9f43'");
+    expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?#catapult-feedback \{ top:14px; font-size:19px/);
+  });
+});
+
+// ============================================
 // FUNNEL TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
@@ -76,7 +150,7 @@ describe('Funnel Tool', () => {
     expect(funnelBtn).not.toBeNull();
     expect(funnelBtn?.getAttribute('aria-label')).toContain('reroute objects');
     expect(funnelBtn?.previousElementSibling?.dataset.tool).toBe('saw');
-    expect(funnelBtn?.nextElementSibling).toBeNull();
+    expect(funnelBtn?.nextElementSibling?.dataset.tool).toBe('catapult');
     expect(scriptContent).toContain("currentTool === 'funnel'");
     expect(scriptContent).toContain('placeOrRotateFunnelAt(pos)');
   });

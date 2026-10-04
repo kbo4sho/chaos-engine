@@ -671,6 +671,19 @@ canvas#game {
 #funnel-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#catapult-feedback {
+  position:absolute; top:286px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#ff9f43;
+  font-size:19px; letter-spacing:2px; line-height:1;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none; white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#catapult-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -800,6 +813,7 @@ canvas#game {
   #parachute-feedback { top:14px; font-size:19px; }
   #saw-feedback { top:14px; font-size:19px; }
   #funnel-feedback { top:14px; font-size:19px; }
+  #catapult-feedback { top:14px; font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -883,6 +897,7 @@ canvas#game {
     <div id="parachute-feedback" role="status" aria-live="polite"></div>
     <div id="saw-feedback" role="status" aria-live="polite"></div>
     <div id="funnel-feedback" role="status" aria-live="polite"></div>
+    <div id="catapult-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -968,6 +983,7 @@ canvas#game {
     <button class="tool-btn" data-tool="parachute" style="color:#7dd3fc;" title="Tap a dynamic part to deploy or release a gravity-aware parachute" aria-label="Deploy or release a parachute on a dynamic part"><span class="icon">🪂</span>Chute</button>
     <button class="tool-btn" data-tool="saw" style="color:#ff5f57;" title="Tap the canvas to place a spinning saw; tap the blade to reverse it" aria-label="Place a spinning saw that slices loose parts or reverse an existing saw"><span class="icon">✹</span>Saw</button>
     <button class="tool-btn" data-tool="funnel" style="color:#ffc857;" title="Tap the canvas to place a solid funnel; tap its rails to rotate the chute" aria-label="Place a physical funnel or rotate an existing funnel to reroute objects"><span class="icon">▽</span>Funnel</button>
+    <button class="tool-btn" data-tool="catapult" style="color:#ff9f43;" title="Tap the canvas to place a catapult; load its cup with an object, then tap the arm to launch it" aria-label="Place a reusable catapult or launch objects loaded in its cup"><span class="icon">⤴</span>Catapult</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1275,6 +1291,8 @@ let sawFeedbackTimer = 0;
 let sawCutDebounce = new Set(); // body ids already queued for a saw cut
 let funnels = []; // {bodies, center, orientation} two-rail static chutes rotated in quarter-turns
 let funnelFeedbackTimer = 0;
+let catapults = []; // {body, pivot, direction, firedAt} reusable static arms that launch existing objects
+let catapultFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -2156,6 +2174,14 @@ function resetFunnelFeedback(silent = false) {
   feedback.textContent = '';
 }
 
+function resetCatapultFeedback(silent = false) {
+  if (!silent) return;
+  clearTimeout(catapultFeedbackTimer);
+  const feedback = document.getElementById('catapult-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -2250,6 +2276,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'parachute') resetParachuteFeedback(true);
       if (tool !== 'saw') resetSawFeedback(true);
       if (tool !== 'funnel') resetFunnelFeedback(true);
+      if (tool !== 'catapult') resetCatapultFeedback(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -3688,6 +3715,7 @@ function finishClear(playFeedback = true) {
   saws = [];
   sawCutDebounce.clear();
   funnels = [];
+  catapults = [];
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -3740,6 +3768,7 @@ function finishClear(playFeedback = true) {
   resetParachuteFeedback(true);
   resetSawFeedback(true);
   resetFunnelFeedback(true);
+  resetCatapultFeedback(true);
   flippers = [];
   nextFlipperSide = 'left';
   clearTimeout(flipperFeedbackTimer);
@@ -3968,7 +3997,8 @@ function getToolAccentColor(tool) {
     piston: '#ff6b4a',
     parachute: '#7dd3fc',
     saw: '#ff5f57',
-    funnel: '#ffc857'
+    funnel: '#ffc857',
+    catapult: '#ff9f43'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -4066,6 +4096,12 @@ function eraseBodyAt(pos) {
     return false;
   });
 
+  catapults = catapults.filter(entry => {
+    if (entry.body !== target) return true;
+    bodiesToRemove.add(entry.body);
+    return false;
+  });
+
   Composite.allConstraints(world).forEach(c => {
     if (bodiesToRemove.has(c.bodyA) || bodiesToRemove.has(c.bodyB)) {
       constraintsToRemove.add(c);
@@ -4116,6 +4152,7 @@ function eraseBodyAt(pos) {
   pistons = pistons.filter(entry => !removedBodyIds.has(entry.body.id));
   saws = saws.filter(entry => !removedBodyIds.has(entry.body.id) && !constraintsToRemove.has(entry.constraint));
   funnels = funnels.filter(entry => entry.bodies.every(body => !removedBodyIds.has(body.id)));
+  catapults = catapults.filter(entry => !removedBodyIds.has(entry.body.id));
   ropes = ropes.filter(r => !constraintsToRemove.has(r));
   struts = struts.filter(strut => !constraintsToRemove.has(strut));
   hinges = hinges.filter(hinge => !constraintsToRemove.has(hinge));
@@ -9642,6 +9679,183 @@ function placeOrRotateFunnelAt(pos) {
   return { ...assembly, placed:true };
 }
 
+const CATAPULT_ARM_LENGTH = 96;
+const CATAPULT_ARM_HEIGHT = 14;
+const CATAPULT_LOAD_RADIUS = 62;
+const CATAPULT_CYCLE_MS = 560;
+
+function getCatapultPlacement(pos, canvasWidth, canvasHeight) {
+  const direction = pos.x <= canvasWidth / 2 ? 1 : -1;
+  const minX = direction === 1 ? 28 : CATAPULT_ARM_LENGTH + 28;
+  const maxX = direction === 1 ? canvasWidth - CATAPULT_ARM_LENGTH - 28 : canvasWidth - 28;
+  return {
+    pivot:{
+      x:Math.max(minX, Math.min(maxX, pos.x)),
+      y:Math.max(54, Math.min(canvasHeight - 64, pos.y))
+    },
+    direction
+  };
+}
+
+function getCatapultPose(pivot, direction = 1, progress = 0) {
+  const normalizedDirection = direction === -1 ? -1 : 1;
+  const normalizedProgress = Math.max(0, Math.min(1, progress));
+  const restAngle = normalizedDirection === 1 ? -0.14 : Math.PI + 0.14;
+  const fireAngle = restAngle - normalizedDirection * 1.02;
+  const liftProgress = Math.min(normalizedProgress / 0.24, 1);
+  const returnProgress = normalizedProgress <= 0.38 ? 0 : Math.min((normalizedProgress - 0.38) / 0.62, 1);
+  const fireBlend = Math.sin(liftProgress * Math.PI / 2) * (1 - returnProgress * returnProgress);
+  const angle = restAngle + (fireAngle - restAngle) * fireBlend;
+  return {
+    angle,
+    center:{
+      x:pivot.x + Math.cos(angle) * CATAPULT_ARM_LENGTH / 2,
+      y:pivot.y + Math.sin(angle) * CATAPULT_ARM_LENGTH / 2
+    },
+    tip:{
+      x:pivot.x + Math.cos(angle) * (CATAPULT_ARM_LENGTH + 8),
+      y:pivot.y + Math.sin(angle) * (CATAPULT_ARM_LENGTH + 8)
+    },
+    fireBlend
+  };
+}
+
+function getCatapultLaunchVelocity(direction = 1) {
+  const normalizedDirection = direction === -1 ? -1 : 1;
+  return { x:normalizedDirection * 10.8, y:-12.6 };
+}
+
+function createCatapultAssembly(placement) {
+  const pose = getCatapultPose(placement.pivot, placement.direction, 0);
+  const body = Bodies.rectangle(pose.center.x, pose.center.y, CATAPULT_ARM_LENGTH, CATAPULT_ARM_HEIGHT, {
+    isStatic:true,
+    angle:pose.angle,
+    chamfer:{ radius:CATAPULT_ARM_HEIGHT / 2 },
+    friction:0.94,
+    restitution:0.16,
+    label:'catapult-arm',
+    render:{ type:'catapult-arm', color:'#ff9f43', width:CATAPULT_ARM_LENGTH, height:CATAPULT_ARM_HEIGHT }
+  });
+  body.isCatapultArm = true;
+  body.catapultDirection = placement.direction;
+  body.material = 'wood';
+  return { body, pivot:{ ...placement.pivot }, direction:placement.direction, firedAt:0 };
+}
+
+function pruneCatapults() {
+  catapults = catapults.filter(entry => Composite.get(world, entry.body.id, 'body'));
+}
+
+function findCatapultAt(pos) {
+  pruneCatapults();
+  let body = Matter.Query.point(catapults.map(entry => entry.body), pos).pop();
+  if (!body) {
+    let nearestDist = 62;
+    catapults.forEach(entry => {
+      const distance = Math.min(
+        Math.hypot(entry.body.position.x - pos.x, entry.body.position.y - pos.y),
+        Math.hypot(entry.pivot.x - pos.x, entry.pivot.y - pos.y)
+      );
+      if (distance < nearestDist) {
+        body = entry.body;
+        nearestDist = distance;
+      }
+    });
+  }
+  return body ? catapults.find(entry => entry.body === body) || null : null;
+}
+
+function showCatapultFeedback(message, color = '#ff9f43') {
+  const feedback = document.getElementById('catapult-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(catapultFeedbackTimer);
+  catapultFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 900);
+}
+
+function addCatapultBurst(entry, payloadCount) {
+  const pose = getCatapultPose(entry.pivot, entry.direction, 0);
+  for (let i = 0; i < 18; i++) {
+    const angle = -Math.PI / 2 + (Math.random() - 0.5) * 1.5;
+    const speed = 1.8 + Math.random() * 4.2;
+    particles.push({
+      x:pose.tip.x,
+      y:pose.tip.y,
+      vx:Math.cos(angle) * speed + entry.direction * 1.2,
+      vy:Math.sin(angle) * speed,
+      size:2 + Math.random() * 2.8,
+      life:0.28 + Math.random() * 0.34,
+      color:i % 3 === 0 ? '#4de3ff' : '#ff9f43'
+    });
+  }
+  explosions.push({ x:pose.tip.x, y:pose.tip.y, r:4, maxR:34 + payloadCount * 7, alpha:0.56, isBirthRing:true });
+}
+
+function fireCatapult(entry) {
+  const now = performance.now();
+  if (entry.firedAt && now - entry.firedAt < CATAPULT_CYCLE_MS) {
+    showCatapultFeedback('CATAPULT RELOADING', '#aaaaaa');
+    haptic([3]);
+    return { ...entry, placed:false, payloads:[] };
+  }
+
+  const cup = getCatapultPose(entry.pivot, entry.direction, 0).tip;
+  const launch = getCatapultLaunchVelocity(entry.direction);
+  const payloads = Composite.allBodies(world).filter(body => (
+    body !== entry.body && !body.isStatic && !body.isTarget && body.parent === body &&
+    Math.hypot(body.position.x - cup.x, body.position.y - cup.y) <= CATAPULT_LOAD_RADIUS
+  ));
+
+  payloads.forEach(body => {
+    Matter.Sleeping.set(body, false);
+    Body.setVelocity(body, {
+      x:body.velocity.x * 0.3 + launch.x,
+      y:Math.min(body.velocity.y * 0.2, 0) + launch.y
+    });
+    Body.setAngularVelocity(body, body.angularVelocity + entry.direction * 0.16);
+  });
+  entry.firedAt = now;
+  entry.body.catapultFiredAt = now;
+  addCatapultBurst(entry, payloads.length);
+  showCatapultFeedback(payloads.length ? `CATAPULT LAUNCHED ${payloads.length}` : 'CATAPULT FIRED • LOAD THE CUP');
+  playSound(180, 0.1, 'square', 0.08);
+  playSound(620, 0.08, 'triangle', 0.055);
+  haptic(payloads.length ? [12, 12, 8] : [8]);
+  shakeIntensity = Math.max(shakeIntensity, payloads.length ? 5 : 3);
+  return { ...entry, placed:false, payloads, launch };
+}
+
+function placeOrFireCatapultAt(pos) {
+  const existing = findCatapultAt(pos);
+  if (existing) return fireCatapult(existing);
+
+  const placement = getCatapultPlacement(pos, canvas.width, canvas.height);
+  const entry = createCatapultAssembly(placement);
+  Composite.add(world, entry.body);
+  catapults.push(entry);
+  markSpawnPop(entry.body);
+  showCatapultFeedback(placement.direction === 1 ? 'CATAPULT READY • LOAD RIGHT CUP' : 'CATAPULT READY • LOAD LEFT CUP');
+  playSpawn();
+  playSound(380, 0.1, 'triangle', 0.06);
+  haptic([7]);
+  return { ...entry, placed:true };
+}
+
+function updateCatapults(timestamp) {
+  pruneCatapults();
+  catapults.forEach(entry => {
+    const progress = entry.firedAt ? Math.min((timestamp - entry.firedAt) / CATAPULT_CYCLE_MS, 1) : 0;
+    const pose = getCatapultPose(entry.pivot, entry.direction, progress);
+    Body.setPosition(entry.body, pose.center, true);
+    Body.setAngle(entry.body, pose.angle, true);
+    Body.setVelocity(entry.body, { x:0, y:0 });
+    if (progress >= 1) entry.firedAt = 0;
+  });
+}
+
 const ELEVATOR_WIDTH = 112;
 const ELEVATOR_HEIGHT = 16;
 const ELEVATOR_TRAVEL = 132;
@@ -10612,6 +10826,13 @@ function onDown(e) {
   // Funnel tool — place a two-rail chute or rotate an existing funnel a quarter-turn.
   if (currentTool === 'funnel') {
     placeOrRotateFunnelAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Catapult tool — place a reusable arm or launch objects resting in its cup.
+  if (currentTool === 'catapult') {
+    placeOrFireCatapultAt(pos);
     pointerDown = false;
     return;
   }
@@ -12075,6 +12296,72 @@ function drawBody(b) {
         ctx.arc(x, 0, 2.5, 0, Math.PI * 2);
         ctx.fill();
       });
+      break;
+    }
+    case 'catapult-arm': {
+      const width = r.width || CATAPULT_ARM_LENGTH;
+      const height = r.height || CATAPULT_ARM_HEIGHT;
+      const firedAge = performance.now() - (b.catapultFiredAt || -1000);
+      const firing = firedAge >= 0 && firedAge < CATAPULT_CYCLE_MS;
+      const pulse = 0.68 + Math.sin(performance.now() / 110 + b.id) * 0.18;
+
+      ctx.shadowColor = '#ff9f43';
+      ctx.shadowBlur = firing ? 18 : 11;
+      ctx.fillStyle = `rgba(255,159,67,${0.16 + pulse * 0.08})`;
+      ctx.strokeStyle = '#ff9f43';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.roundRect(-width / 2, -height / 2, width, height, height / 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      ctx.strokeStyle = '#4de3ff';
+      ctx.lineWidth = 1.5;
+      for (let x = -width / 2 + 14; x < width / 2 - 8; x += 18) {
+        ctx.beginPath();
+        ctx.moveTo(x - 5, -height / 2 + 2);
+        ctx.lineTo(x + 3, height / 2 - 2);
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = '#fff2c8';
+      ctx.fillStyle = '#080c10';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(width / 2 + 5, -7, 15, 0.08, Math.PI - 0.08);
+      ctx.lineTo(width / 2 - 10, 2);
+      ctx.lineTo(width / 2 + 20, 2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.save();
+      ctx.translate(-width / 2, 0);
+      ctx.rotate(-b.angle);
+      ctx.fillStyle = '#111820';
+      ctx.strokeStyle = '#ff9f43';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(-20, 29);
+      ctx.lineTo(20, 29);
+      ctx.lineTo(10, 0);
+      ctx.lineTo(-10, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#4de3ff';
+      ctx.beginPath();
+      ctx.arc(0, 0, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fff2c8';
+      ctx.font = 'bold 10px VT323';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('FIRE', 0, 18);
+      ctx.restore();
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
       break;
     }
     case 'conveyor': {
@@ -14703,6 +14990,7 @@ function loop(timestamp) {
   prunePinwheels();
   pruneSaws();
   pruneFunnels();
+  pruneCatapults();
   pruneElevators();
   pruneHatches();
 
@@ -15331,6 +15619,7 @@ function loop(timestamp) {
     updateHatches(timeScale);
     updatePistons(timeScale);
     updateSaws();
+    updateCatapults(timestamp);
     Engine.update(engine, (1000/60) * timeScale);
   }
 

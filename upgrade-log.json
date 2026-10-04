@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-10-04",
+      "ideas": [
+        "New tool: Place a reusable Catapult and launch existing objects loaded in its cup"
+      ],
+      "summary": "Implemented Catapult tool (⤴) — the final button in the existing object toolbar now places a canvas-clamped inward-facing static collision arm, launches nearby loose existing objects from its cup with mirrored velocity and spin, and visibly cycles through a full fire-and-return motion on repeat taps; 62px touch targeting, amber/cyan CRT rendering, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make reusable contraption launches reliable on desktop and mobile."
+    },
+    {
       "date": "2026-10-03",
       "ideas": [
         "New tool: Place a physical Funnel and rotate it to reroute moving objects"

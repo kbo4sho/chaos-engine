@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-10-04T14:09:10Z — Added: Catapult tool
+**Why:** The toolbar could spawn projectiles with Cannon and directly retarget an existing part with Launch, but it had no reusable physical machine that players could load with whatever loose object was already in the scene. Catapult adds a placeable catching arm whose cup and payload remain part of the shared sandbox.
+**Goal alignment:** "more fun, more surprising, more satisfying" — players can load balls, blocks, or improvised debris into an inward-facing arm, fire several nearby pieces together, and reuse the same machine for rapid contraption launches.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (535/535 passing); browser smoke ✓ (existing Block tool placed a paused payload in the final Catapult's cup, firing produced velocity +10.80/−12.60 with spin, and the physical arm completed its visible fire/return cycle); mobile ✓ (390×844, final Catapult button was fully reachable at 52×50px and x=330–382 at the toolbar's true maximum scroll, existing Ball worked, and Catapult launched it at +10.80/−12.60); cleanup ✓ (Clear removed the arm, Ball, state, and feedback); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-10-03T14:14:12Z — Added: Funnel tool
 **Why:** The toolbar could catch objects with Basket, redirect them with Ramp, and release them through Hatch, but it had no compact two-sided terrain piece that could channel loose objects and be reoriented in place. Funnel adds a reusable physical chute without duplicating those one-sided or container behaviors.
 **Goal alignment:** "more fun, more surprising, more satisfying" — players can route falling balls into baskets, turn sideways funnels into ricochet channels, and rotate the same piece through all four directions as a contraption evolves.
