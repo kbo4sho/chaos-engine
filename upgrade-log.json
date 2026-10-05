@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-10-05",
+      "ideas": [
+        "New tool: Place a reusable Hydraulic Press that flattens and ejects loose objects"
+      ],
+      "summary": "Implemented Hydraulic Press tool (⇩) — the final button in the existing object toolbar now places a canvas-clamped pair of real static collision plates, closes the animated ram on repeat tap, flattens eligible loose standalone payloads by 1.35×/0.72× for up to three passes, and ejects them to alternating sides before reopening; 64px touch targeting, magenta/gold CRT rendering, press-specific shatter protection, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make reusable compression contraptions reliable on desktop and mobile."
+    },
+    {
       "date": "2026-10-04",
       "ideas": [
         "New tool: Place a reusable Catapult and launch existing objects loaded in its cup"

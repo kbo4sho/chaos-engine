@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch', 'piston', 'parachute', 'saw', 'funnel', 'catapult'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch', 'piston', 'parachute', 'saw', 'funnel', 'catapult', 'press'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 81 tool buttons', () => {
+  it('should have exactly 82 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(81);
+    expect(buttons.length).toBe(82);
   });
 
-  it('should append Catapult after Funnel at the end of the object toolbar', () => {
+  it('should append Press after Catapult at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('catapult');
-    expect(toolbar.lastElementChild?.textContent).toContain('Catapult');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('funnel');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('saw');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('press');
+    expect(toolbar.lastElementChild?.textContent).toContain('Press');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('catapult');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('funnel');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,6 +67,78 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// PRESS TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Press Tool', () => {
+  it('should expose Press as the final selectable toolbar tool', () => {
+    const pressBtn = document.querySelector('[data-tool="press"]');
+    expect(pressBtn).not.toBeNull();
+    expect(pressBtn?.getAttribute('aria-label')).toContain('flatten and eject loose parts');
+    expect(pressBtn?.previousElementSibling?.dataset.tool).toBe('catapult');
+    expect(pressBtn?.nextElementSibling).toBeNull();
+    expect(scriptContent).toContain("currentTool === 'press'");
+    expect(scriptContent).toContain('placeOrTogglePressAt(pos)');
+  });
+
+  it('should clamp placement and step the ram exactly to either stop', () => {
+    const placementSource = scriptContent.slice(
+      scriptContent.indexOf('function getPressPlacement'),
+      scriptContent.indexOf('\nfunction getPressStep')
+    );
+    const stepSource = scriptContent.slice(
+      scriptContent.indexOf('function getPressStep'),
+      scriptContent.indexOf('\nfunction createPressAssembly')
+    );
+    const helpers = new Function(`
+      const PRESS_WIDTH = 112;
+      const PRESS_OPEN_OFFSET = 96;
+      const PRESS_CLOSED_OFFSET = 44;
+      const PRESS_SPEED = 5;
+      ${placementSource}
+      ${stepSource}
+      return { getPressPlacement, getPressStep };
+    `)();
+
+    expect(helpers.getPressPlacement({ x:2, y:4 }, 390, 500)).toEqual({ x:68, bedY:116, openY:20, closedY:72 });
+    expect(helpers.getPressPlacement({ x:388, y:498 }, 390, 500)).toEqual({ x:322, bedY:464, openY:368, closedY:420 });
+    expect(helpers.getPressStep(20, 72)).toBe(25);
+    expect(helpers.getPressStep(70, 72)).toBe(72);
+    expect(helpers.getPressStep(72, 20)).toBe(67);
+  });
+
+  it('should create real colliding plates and flatten then eject eligible payloads', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('const PRESS_WIDTH'),
+      scriptContent.indexOf('const ELEVATOR_WIDTH')
+    );
+    expect(source).toContain('Bodies.rectangle(placement.x, y, PRESS_WIDTH, PRESS_PLATE_HEIGHT');
+    expect(source).toContain('isStatic:true');
+    expect(source).toContain("label:`press-${role}`");
+    expect(source).toContain('body.isPressPart = true');
+    expect(source).toContain('Body.scale(body, PRESS_SCALE_X, PRESS_SCALE_Y)');
+    expect(source).toContain('body.pressCount = (body.pressCount || 0) + 1');
+    expect(source).toContain('Body.setVelocity(body');
+    expect(source).toContain('function updatePresses(timeScale = 1)');
+    expect(scriptContent).toContain('updatePresses(timeScale);');
+    expect(scriptContent).toContain('!pair.bodyA.isPressPart && !pair.bodyB.isPressPart');
+    expect(source).toContain('PRESS_MAX_PASSES = 3');
+  });
+
+  it('should provide touch targeting, CRT rendering, feedback, and complete cleanup', () => {
+    expect(document.getElementById('press-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain("case 'press-plate':");
+    expect(scriptContent).toContain('let nearestDist = 64');
+    expect(scriptContent).toContain("if (tool !== 'press') resetPressFeedback(true)");
+    expect(scriptContent).toContain('presses = presses.filter(entry => {');
+    expect(scriptContent).toContain('presses = [];');
+    expect(scriptContent).toContain('resetPressFeedback(true);');
+    expect(scriptContent).toContain("press: '#e879f9'");
+    expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?#press-feedback \{ top:14px; font-size:19px/);
+  });
+});
+
+// ============================================
 // CATAPULT TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
@@ -76,7 +148,7 @@ describe('Catapult Tool', () => {
     expect(catapultBtn).not.toBeNull();
     expect(catapultBtn?.getAttribute('aria-label')).toContain('launch objects loaded in its cup');
     expect(catapultBtn?.previousElementSibling?.dataset.tool).toBe('funnel');
-    expect(catapultBtn?.nextElementSibling).toBeNull();
+    expect(catapultBtn?.nextElementSibling?.dataset.tool).toBe('press');
     expect(scriptContent).toContain("currentTool === 'catapult'");
     expect(scriptContent).toContain('placeOrFireCatapultAt(pos)');
   });

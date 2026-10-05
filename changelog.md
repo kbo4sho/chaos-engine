@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-10-05T14:24:14Z — Added: Hydraulic Press tool
+**Why:** The toolbar could reshape one tapped part with Squash and move payloads with Piston, but it had no reusable canvas machine that physically closes around loose objects and transforms them as part of a contraption. Hydraulic Press adds a two-plate environmental transformer with a visible open/load/close/reopen cycle.
+**Goal alignment:** "more fun, more surprising, more satisfying" — players can load blocks, balls, or debris between real collision plates, flatten up to three passes, and watch each compressed payload eject to alternating sides for another trip through the sandbox.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (540/540 passing); browser smoke ✓ (existing Block tool placed a paused payload inside the final Press, the physical ram closed exactly to its lower stop, transformed the Block with 1.35×/0.72× geometry, ejected it, and reopened exactly to its upper stop); mobile ✓ (390×844, final Press button was fully reachable at 52×50px and x=330–382 at the toolbar's true maximum scroll, and a Block completed the flatten cycle without triggering legacy shatter behavior); cleanup ✓ (Clear removed both plates, payload, state, and feedback); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-10-04T14:09:10Z — Added: Catapult tool
 **Why:** The toolbar could spawn projectiles with Cannon and directly retarget an existing part with Launch, but it had no reusable physical machine that players could load with whatever loose object was already in the scene. Catapult adds a placeable catching arm whose cup and payload remain part of the shared sandbox.
 **Goal alignment:** "more fun, more surprising, more satisfying" — players can load balls, blocks, or improvised debris into an inward-facing arm, fire several nearby pieces together, and reuse the same machine for rapid contraption launches.

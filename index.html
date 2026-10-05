@@ -684,6 +684,19 @@ canvas#game {
 #catapult-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#press-feedback {
+  position:absolute; top:320px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#e879f9;
+  font-size:19px; letter-spacing:2px; line-height:1;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none; white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#press-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -814,6 +827,7 @@ canvas#game {
   #saw-feedback { top:14px; font-size:19px; }
   #funnel-feedback { top:14px; font-size:19px; }
   #catapult-feedback { top:14px; font-size:19px; }
+  #press-feedback { top:14px; font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -898,6 +912,7 @@ canvas#game {
     <div id="saw-feedback" role="status" aria-live="polite"></div>
     <div id="funnel-feedback" role="status" aria-live="polite"></div>
     <div id="catapult-feedback" role="status" aria-live="polite"></div>
+    <div id="press-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -984,6 +999,7 @@ canvas#game {
     <button class="tool-btn" data-tool="saw" style="color:#ff5f57;" title="Tap the canvas to place a spinning saw; tap the blade to reverse it" aria-label="Place a spinning saw that slices loose parts or reverse an existing saw"><span class="icon">✹</span>Saw</button>
     <button class="tool-btn" data-tool="funnel" style="color:#ffc857;" title="Tap the canvas to place a solid funnel; tap its rails to rotate the chute" aria-label="Place a physical funnel or rotate an existing funnel to reroute objects"><span class="icon">▽</span>Funnel</button>
     <button class="tool-btn" data-tool="catapult" style="color:#ff9f43;" title="Tap the canvas to place a catapult; load its cup with an object, then tap the arm to launch it" aria-label="Place a reusable catapult or launch objects loaded in its cup"><span class="icon">⤴</span>Catapult</button>
+    <button class="tool-btn" data-tool="press" style="color:#e879f9;" title="Tap the canvas to place a hydraulic press; load a loose part, then tap the press to flatten and eject it" aria-label="Place a hydraulic press or flatten and eject loose parts loaded inside"><span class="icon">⇩</span>Press</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1293,6 +1309,8 @@ let funnels = []; // {bodies, center, orientation} two-rail static chutes rotate
 let funnelFeedbackTimer = 0;
 let catapults = []; // {body, pivot, direction, firedAt} reusable static arms that launch existing objects
 let catapultFeedbackTimer = 0;
+let presses = []; // {bodies, bed, ram, x, bedY, openY, closedY, targetY} reusable flattening machines
+let pressFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -2182,6 +2200,14 @@ function resetCatapultFeedback(silent = false) {
   feedback.textContent = '';
 }
 
+function resetPressFeedback(silent = false) {
+  if (!silent) return;
+  clearTimeout(pressFeedbackTimer);
+  const feedback = document.getElementById('press-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -2277,6 +2303,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'saw') resetSawFeedback(true);
       if (tool !== 'funnel') resetFunnelFeedback(true);
       if (tool !== 'catapult') resetCatapultFeedback(true);
+      if (tool !== 'press') resetPressFeedback(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -3716,6 +3743,7 @@ function finishClear(playFeedback = true) {
   sawCutDebounce.clear();
   funnels = [];
   catapults = [];
+  presses = [];
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -3769,6 +3797,7 @@ function finishClear(playFeedback = true) {
   resetSawFeedback(true);
   resetFunnelFeedback(true);
   resetCatapultFeedback(true);
+  resetPressFeedback(true);
   flippers = [];
   nextFlipperSide = 'left';
   clearTimeout(flipperFeedbackTimer);
@@ -3998,7 +4027,8 @@ function getToolAccentColor(tool) {
     parachute: '#7dd3fc',
     saw: '#ff5f57',
     funnel: '#ffc857',
-    catapult: '#ff9f43'
+    catapult: '#ff9f43',
+    press: '#e879f9'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -4102,6 +4132,12 @@ function eraseBodyAt(pos) {
     return false;
   });
 
+  presses = presses.filter(entry => {
+    if (!entry.bodies.includes(target)) return true;
+    entry.bodies.forEach(body => bodiesToRemove.add(body));
+    return false;
+  });
+
   Composite.allConstraints(world).forEach(c => {
     if (bodiesToRemove.has(c.bodyA) || bodiesToRemove.has(c.bodyB)) {
       constraintsToRemove.add(c);
@@ -4153,6 +4189,7 @@ function eraseBodyAt(pos) {
   saws = saws.filter(entry => !removedBodyIds.has(entry.body.id) && !constraintsToRemove.has(entry.constraint));
   funnels = funnels.filter(entry => entry.bodies.every(body => !removedBodyIds.has(body.id)));
   catapults = catapults.filter(entry => !removedBodyIds.has(entry.body.id));
+  presses = presses.filter(entry => entry.bodies.every(body => !removedBodyIds.has(body.id)));
   ropes = ropes.filter(r => !constraintsToRemove.has(r));
   struts = struts.filter(strut => !constraintsToRemove.has(strut));
   hinges = hinges.filter(hinge => !constraintsToRemove.has(hinge));
@@ -4395,6 +4432,9 @@ function createBodyClone(source, position) {
   clone.squashMode = source.squashMode || 'normal';
   clone.squashScaleX = source.squashScaleX || 1;
   clone.squashScaleY = source.squashScaleY || 1;
+  clone.pressScaleX = source.pressScaleX || 1;
+  clone.pressScaleY = source.pressScaleY || 1;
+  clone.pressCount = source.pressCount || 0;
   clone.isBomb = Boolean(source.isBomb);
   clone.isBalloon = Boolean(source.isBalloon);
   clone.isDuck = Boolean(source.isDuck);
@@ -9856,6 +9896,196 @@ function updateCatapults(timestamp) {
   });
 }
 
+const PRESS_WIDTH = 112;
+const PRESS_PLATE_HEIGHT = 16;
+const PRESS_OPEN_OFFSET = 96;
+const PRESS_CLOSED_OFFSET = 44;
+const PRESS_SPEED = 5;
+const PRESS_SCALE_X = 1.35;
+const PRESS_SCALE_Y = 0.72;
+const PRESS_MAX_PASSES = 3;
+
+function getPressPlacement(pos, canvasWidth, canvasHeight) {
+  const xMargin = PRESS_WIDTH / 2 + 12;
+  const bedY = Math.max(116, Math.min(canvasHeight - 36, pos.y + 48));
+  return {
+    x:Math.max(xMargin, Math.min(canvasWidth - xMargin, pos.x)),
+    bedY,
+    openY:bedY - PRESS_OPEN_OFFSET,
+    closedY:bedY - PRESS_CLOSED_OFFSET
+  };
+}
+
+function getPressStep(currentY, targetY, speed = PRESS_SPEED) {
+  const delta = targetY - currentY;
+  if (Math.abs(delta) <= speed) return targetY;
+  return currentY + Math.sign(delta) * speed;
+}
+
+function createPressAssembly(placement) {
+  const makePlate = (y, role) => {
+    const body = Bodies.rectangle(placement.x, y, PRESS_WIDTH, PRESS_PLATE_HEIGHT, {
+      isStatic:true,
+      chamfer:{ radius:3 },
+      friction:0.92,
+      restitution:0.08,
+      label:`press-${role}`,
+      render:{ type:'press-plate', color:'#e879f9', width:PRESS_WIDTH, height:PRESS_PLATE_HEIGHT, role }
+    });
+    body.isPressPart = true;
+    body.pressRole = role;
+    body.material = 'metal';
+    return body;
+  };
+  const bed = makePlate(placement.bedY, 'bed');
+  const ram = makePlate(placement.openY, 'ram');
+  return {
+    bodies:[bed, ram],
+    bed,
+    ram,
+    ...placement,
+    targetY:placement.openY,
+    closing:false,
+    crushed:false,
+    nextDirection:1
+  };
+}
+
+function prunePresses() {
+  presses = presses.filter(entry => {
+    const liveBodies = entry.bodies.filter(body => Composite.get(world, body.id, 'body'));
+    if (liveBodies.length === entry.bodies.length) return true;
+    liveBodies.forEach(body => Composite.remove(world, body, true));
+    return false;
+  });
+}
+
+function findPressAt(pos) {
+  prunePresses();
+  const body = Matter.Query.point(presses.flatMap(entry => entry.bodies), pos).pop();
+  if (body) return presses.find(entry => entry.bodies.includes(body)) || null;
+
+  let nearest = null;
+  let nearestDist = 64;
+  presses.forEach(entry => {
+    const centerY = (entry.ram.position.y + entry.bedY) / 2;
+    const distance = Math.hypot(entry.x - pos.x, centerY - pos.y);
+    if (distance < nearestDist) {
+      nearest = entry;
+      nearestDist = distance;
+    }
+  });
+  return nearest;
+}
+
+function isPressableBody(body) {
+  if (!body || body.isStatic || body.isTarget || body.isPressPart || body.label === 'wall' || body.label === 'chain-link') return false;
+  if (body.parent !== body || body.parts.length !== 1 || (body.pressCount || 0) >= PRESS_MAX_PASSES) return false;
+  return !Composite.allConstraints(world).some(constraint => constraint.bodyA === body || constraint.bodyB === body);
+}
+
+function getPressPayloads(entry) {
+  const left = entry.x - PRESS_WIDTH / 2 + 8;
+  const right = entry.x + PRESS_WIDTH / 2 - 8;
+  return Composite.allBodies(world).filter(body => (
+    isPressableBody(body) &&
+    body.bounds.max.x >= left && body.bounds.min.x <= right &&
+    body.position.y >= entry.openY - 12 && body.position.y <= entry.bedY + 4
+  ));
+}
+
+function showPressFeedback(message, color = '#e879f9') {
+  const feedback = document.getElementById('press-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(pressFeedbackTimer);
+  pressFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 900);
+}
+
+function addPressBurst(entry, payloadCount) {
+  for (let i = 0; i < 20; i++) {
+    const direction = i % 2 === 0 ? -1 : 1;
+    particles.push({
+      x:entry.x + direction * (18 + Math.random() * 28),
+      y:entry.bedY - 28 + (Math.random() - 0.5) * 16,
+      vx:direction * (1.5 + Math.random() * 4),
+      vy:-1.5 - Math.random() * 3,
+      size:2 + Math.random() * 2.8,
+      life:0.28 + Math.random() * 0.35,
+      color:i % 4 === 0 ? '#ffc857' : '#e879f9'
+    });
+  }
+  explosions.push({ x:entry.x, y:entry.bedY - 28, r:4, maxR:38 + payloadCount * 8, alpha:0.58, isBirthRing:true });
+}
+
+function flattenPressPayloads(entry) {
+  const payloads = getPressPayloads(entry);
+  payloads.forEach(body => {
+    const direction = entry.nextDirection;
+    entry.nextDirection *= -1;
+    Body.scale(body, PRESS_SCALE_X, PRESS_SCALE_Y);
+    body.pressScaleX = (body.pressScaleX || 1) * PRESS_SCALE_X;
+    body.pressScaleY = (body.pressScaleY || 1) * PRESS_SCALE_Y;
+    body.pressCount = (body.pressCount || 0) + 1;
+    Matter.Sleeping.set(body, false);
+    Body.setPosition(body, {
+      x:Math.max(24, Math.min(canvas.width - 24, entry.x + direction * 18)),
+      y:entry.bedY - 32
+    });
+    Body.setVelocity(body, { x:direction * (4.2 + body.pressCount), y:-4.1 });
+    Body.setAngularVelocity(body, direction * 0.12);
+  });
+  addPressBurst(entry, payloads.length);
+  showPressFeedback(payloads.length ? `PRESS FLATTENED ${payloads.length}` : 'PRESS EMPTY • OPEN TO LOAD', payloads.length ? '#e879f9' : '#aaaaaa');
+  playSound(payloads.length ? 150 : 260, 0.12, 'sawtooth', 0.075);
+  playSound(payloads.length ? 760 : 420, 0.07, 'square', 0.045);
+  haptic(payloads.length ? [14, 10, 18] : [6]);
+  shakeIntensity = Math.max(shakeIntensity, payloads.length ? 5 : 2);
+  return payloads;
+}
+
+function togglePress(entry) {
+  entry.closing = !entry.closing;
+  entry.targetY = entry.closing ? entry.closedY : entry.openY;
+  entry.crushed = false;
+  showPressFeedback(entry.closing ? 'PRESS CLOSING' : 'PRESS OPEN • LOAD A LOOSE PART', entry.closing ? '#ffc857' : '#e879f9');
+  playSound(entry.closing ? 240 : 520, 0.1, 'square', 0.055);
+  haptic([7]);
+  return entry.closing ? 'closing' : 'opening';
+}
+
+function placeOrTogglePressAt(pos) {
+  const existing = findPressAt(pos);
+  if (existing) return { entry:existing, placed:false, action:togglePress(existing) };
+
+  const placement = getPressPlacement(pos, canvas.width, canvas.height);
+  const entry = createPressAssembly(placement);
+  Composite.add(world, entry.bodies);
+  presses.push(entry);
+  markSpawnPop(entry.bodies);
+  showPressFeedback('PRESS OPEN • LOAD A LOOSE PART');
+  playSpawn();
+  playSound(460, 0.1, 'triangle', 0.06);
+  haptic([7]);
+  return { entry, placed:true, action:'placed' };
+}
+
+function updatePresses(timeScale = 1) {
+  prunePresses();
+  presses.forEach(entry => {
+    const nextY = getPressStep(entry.ram.position.y, entry.targetY, PRESS_SPEED * timeScale);
+    Body.setPosition(entry.ram, { x:entry.x, y:nextY }, true);
+    Body.setVelocity(entry.ram, { x:0, y:0 });
+    if (entry.closing && nextY === entry.closedY && !entry.crushed) {
+      entry.crushed = true;
+      flattenPressPayloads(entry);
+    }
+  });
+}
+
 const ELEVATOR_WIDTH = 112;
 const ELEVATOR_HEIGHT = 16;
 const ELEVATOR_TRAVEL = 132;
@@ -10837,6 +11067,13 @@ function onDown(e) {
     return;
   }
 
+  // Press tool — place a hydraulic press or close/open an existing machine.
+  if (currentTool === 'press') {
+    placeOrTogglePressAt(pos);
+    pointerDown = false;
+    return;
+  }
+
   // Snip tool — cut one visible physical connection without removing its bodies.
   if (currentTool === 'snip') {
     snipConstraintAt(pos);
@@ -11281,7 +11518,7 @@ Events.on(engine, 'collisionStart', (e) => {
         });
       }
       // Block shattering on hard impact
-      if (relVel > 9) {
+      if (relVel > 9 && !pair.bodyA.isPressPart && !pair.bodyB.isPressPart) {
         [pair.bodyA, pair.bodyB].forEach(b => {
           if (!b.isStatic && b.render?.type === 'block' && !b.isFragment && !shatterDebounce.has(b.id)) {
             shatterDebounce.add(b.id);
@@ -11355,10 +11592,12 @@ function drawBody(b) {
   const resizeScale = b.resizeScale || 1;
   const squashScaleX = b.squashScaleX || 1;
   const squashScaleY = b.squashScaleY || 1;
-  if (spawnScale !== 1 || clearScale !== 1 || resizeScale !== 1 || squashScaleX !== 1 || squashScaleY !== 1) {
+  const pressScaleX = b.pressScaleX || 1;
+  const pressScaleY = b.pressScaleY || 1;
+  if (spawnScale !== 1 || clearScale !== 1 || resizeScale !== 1 || squashScaleX !== 1 || squashScaleY !== 1 || pressScaleX !== 1 || pressScaleY !== 1) {
     ctx.scale(
-      spawnScale * clearScale * resizeScale * squashScaleX,
-      spawnScale * clearScale * resizeScale * squashScaleY
+      spawnScale * clearScale * resizeScale * squashScaleX * pressScaleX,
+      spawnScale * clearScale * resizeScale * squashScaleY * pressScaleY
     );
   }
 
@@ -12360,6 +12599,56 @@ function drawBody(b) {
       ctx.textBaseline = 'middle';
       ctx.fillText('FIRE', 0, 18);
       ctx.restore();
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      break;
+    }
+    case 'press-plate': {
+      const width = r.width || PRESS_WIDTH;
+      const height = r.height || PRESS_PLATE_HEIGHT;
+      const isRam = r.role === 'ram';
+      const pulse = 0.68 + Math.sin(performance.now() / 130 + b.id) * 0.16;
+
+      if (isRam) {
+        ctx.fillStyle = '#111820';
+        ctx.strokeStyle = '#4de3ff';
+        ctx.lineWidth = 2;
+        ctx.fillRect(-13, -42, 26, 36);
+        ctx.strokeRect(-13, -42, 26, 36);
+      } else {
+        ctx.fillStyle = '#111820';
+        ctx.strokeStyle = '#4de3ff';
+        ctx.lineWidth = 2;
+        ctx.fillRect(-width / 2 + 8, 7, 14, 22);
+        ctx.fillRect(width / 2 - 22, 7, 14, 22);
+        ctx.strokeRect(-width / 2 + 8, 7, 14, 22);
+        ctx.strokeRect(width / 2 - 22, 7, 14, 22);
+      }
+
+      ctx.shadowColor = '#e879f9';
+      ctx.shadowBlur = 11 + pulse * 5;
+      ctx.fillStyle = `rgba(232,121,249,${0.15 + pulse * 0.08})`;
+      ctx.strokeStyle = '#e879f9';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.roundRect(-width / 2, -height / 2, width, height, 3);
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      ctx.strokeStyle = '#ffc857';
+      ctx.lineWidth = 2;
+      for (let x = -width / 2 + 8; x < width / 2 - 2; x += 18) {
+        ctx.beginPath();
+        ctx.moveTo(x, -height / 2 + 2);
+        ctx.lineTo(x + 9, height / 2 - 2);
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#fff2c8';
+      ctx.font = 'bold 10px VT323';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(isRam ? 'PRESS' : 'LOAD', 0, 1);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'alphabetic';
       break;
@@ -14991,6 +15280,7 @@ function loop(timestamp) {
   pruneSaws();
   pruneFunnels();
   pruneCatapults();
+  prunePresses();
   pruneElevators();
   pruneHatches();
 
@@ -15620,6 +15910,7 @@ function loop(timestamp) {
     updatePistons(timeScale);
     updateSaws();
     updateCatapults(timestamp);
+    updatePresses(timeScale);
     Engine.update(engine, (1000/60) * timeScale);
   }
 
