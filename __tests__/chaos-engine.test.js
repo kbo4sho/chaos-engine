@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch', 'piston', 'parachute', 'saw', 'funnel', 'catapult', 'press'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch', 'piston', 'parachute', 'saw', 'funnel', 'catapult', 'press', 'zipline'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 82 tool buttons', () => {
+  it('should have exactly 83 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(82);
+    expect(buttons.length).toBe(83);
   });
 
-  it('should append Press after Catapult at the end of the object toolbar', () => {
+  it('should append Zipline after Press at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('press');
-    expect(toolbar.lastElementChild?.textContent).toContain('Press');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('catapult');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('funnel');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('zipline');
+    expect(toolbar.lastElementChild?.textContent).toContain('Zipline');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('press');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('catapult');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,6 +67,72 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// ZIPLINE TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Zipline Tool', () => {
+  it('should expose Zipline as the final selectable toolbar tool', () => {
+    const ziplineBtn = document.querySelector('[data-tool="zipline"]');
+    expect(ziplineBtn).not.toBeNull();
+    expect(ziplineBtn?.getAttribute('aria-label')).toContain('powered zipline');
+    expect(ziplineBtn?.previousElementSibling?.dataset.tool).toBe('press');
+    expect(ziplineBtn?.nextElementSibling).toBeNull();
+    expect(scriptContent).toContain("currentTool === 'zipline'");
+    expect(scriptContent).toContain('ziplineBodyAt(pos)');
+  });
+
+  it('should clamp endpoints and calculate exact cable geometry and travel steps', () => {
+    const endpointSource = scriptContent.slice(
+      scriptContent.indexOf('function getZiplineEndpoint'),
+      scriptContent.indexOf('\nfunction getZiplineGeometry')
+    );
+    const geometrySource = scriptContent.slice(
+      scriptContent.indexOf('function getZiplineGeometry'),
+      scriptContent.indexOf('\nfunction getZiplineStep')
+    );
+    const stepSource = scriptContent.slice(
+      scriptContent.indexOf('function getZiplineStep'),
+      scriptContent.indexOf('\nfunction isZiplineableBody')
+    );
+    const helpers = new Function(`${endpointSource}\n${geometrySource}\n${stepSource}; return { getZiplineEndpoint, getZiplineGeometry, getZiplineStep };`)();
+
+    expect(helpers.getZiplineEndpoint({ x:2, y:4 }, 390, 500)).toEqual({ x:24, y:24 });
+    expect(helpers.getZiplineEndpoint({ x:388, y:498 }, 390, 500)).toEqual({ x:366, y:458 });
+    expect(helpers.getZiplineGeometry({ x:10, y:20 }, { x:130, y:110 })).toEqual({ length:150, tangent:{ x:0.8, y:0.6 } });
+    expect(helpers.getZiplineStep(0.25, 5, 100)).toBeCloseTo(0.3);
+    expect(helpers.getZiplineStep(0.98, 5, 100)).toBe(1);
+  });
+
+  it('should select a loose body, create a powered ride, and release with momentum', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('const ZIPLINE_MIN_LENGTH'),
+      scriptContent.indexOf('const ELEVATOR_WIDTH')
+    );
+    expect(source).toContain('let nearestDist = 46');
+    expect(source).toContain('Composite.allConstraints(world).some');
+    expect(source).toContain('ziplines.push(entry)');
+    expect(source).toContain('body.isZiplining = true');
+    expect(source).toContain('function updateZiplines(timeScale = 1)');
+    expect(source).toContain('entry.progress = getZiplineStep');
+    expect(source).toContain('Body.setPosition(entry.body');
+    expect(source).toContain('if (entry.progress >= 1) releaseZipline(entry, true)');
+    expect(scriptContent).toContain('updateZiplines(timeScale);');
+  });
+
+  it('should render cable feedback and clean selection and rides on tool change, Eraser, or Clear', () => {
+    expect(document.getElementById('zipline-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('function drawZiplines(timestamp)');
+    expect(scriptContent).toContain('drawZiplines(timestamp);');
+    expect(scriptContent).toContain("if (tool !== 'zipline') resetZiplineSelection(true)");
+    expect(scriptContent).toContain('ziplines = ziplines.filter(entry => !removedBodyIds.has(entry.body.id))');
+    expect(scriptContent).toContain('ziplines = [];');
+    expect(scriptContent).toContain('resetZiplineSelection(true);');
+    expect(scriptContent).toContain("zipline: '#4de3ff'");
+    expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?#zipline-feedback \{ top:14px; font-size:19px/);
+  });
+});
+
+// ============================================
 // PRESS TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
@@ -76,7 +142,7 @@ describe('Press Tool', () => {
     expect(pressBtn).not.toBeNull();
     expect(pressBtn?.getAttribute('aria-label')).toContain('flatten and eject loose parts');
     expect(pressBtn?.previousElementSibling?.dataset.tool).toBe('catapult');
-    expect(pressBtn?.nextElementSibling).toBeNull();
+    expect(pressBtn?.nextElementSibling?.dataset.tool).toBe('zipline');
     expect(scriptContent).toContain("currentTool === 'press'");
     expect(scriptContent).toContain('placeOrTogglePressAt(pos)');
   });

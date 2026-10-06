@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-10-06",
+      "ideas": [
+        "New tool: Send one loose part along a powered Zipline to a tapped destination"
+      ],
+      "summary": "Implemented Zipline tool (🚡) — the final button in the existing object toolbar now selects one loose standalone part and a canvas-clamped destination, renders a persistent cyan-and-gold cable with a powered trolley, carries the part along the exact route, and releases it with forward momentum at the endpoint; an 80px minimum route, exact plus 46px touch targeting, tap-to-release behavior, gravity-aware powered speed, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make point-to-point transport reliable on desktop and mobile."
+    },
+    {
       "date": "2026-10-05",
       "ideas": [
         "New tool: Place a reusable Hydraulic Press that flattens and ejects loose objects"

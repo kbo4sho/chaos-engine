@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-10-06T14:12:19Z — Added: Zipline tool
+**Why:** The toolbar could tether a part to one point, launch it instantly, orbit it around a center, or carry it on a placed elevator, but it had no way to draw a visible point-to-point route that transports an existing loose object. Zipline adds a compact two-tap cable ride with a clear start, destination, trolley, and momentum-preserving exit.
+**Goal alignment:** "more fun, more surprising, more satisfying" — players can send balls and blocks across gaps, feed moving parts into machines from a distance, and build repeatable diagonal routes without adding another projectile launcher or static platform.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (545/545 passing); browser smoke ✓ (existing Block tool placed a paused payload, final Zipline connected it to a 632px destination, the visible powered trolley completed the route, and the payload released with forward momentum); mobile ✓ (390×844, final Zipline button was fully reachable at 52×50px and x=330–382 at the toolbar's true maximum scroll, existing Ball worked, and the Ball completed a 319px cable ride); cleanup ✓ (Clear removed the payload, ride state, selection, and feedback); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-10-05T14:24:14Z — Added: Hydraulic Press tool
 **Why:** The toolbar could reshape one tapped part with Squash and move payloads with Piston, but it had no reusable canvas machine that physically closes around loose objects and transforms them as part of a contraption. Hydraulic Press adds a two-plate environmental transformer with a visible open/load/close/reopen cycle.
 **Goal alignment:** "more fun, more surprising, more satisfying" — players can load blocks, balls, or debris between real collision plates, flatten up to three passes, and watch each compressed payload eject to alternating sides for another trip through the sandbox.
