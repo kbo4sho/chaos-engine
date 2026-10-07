@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch', 'piston', 'parachute', 'saw', 'funnel', 'catapult', 'press', 'zipline'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch', 'piston', 'parachute', 'saw', 'funnel', 'catapult', 'press', 'zipline', 'siphon'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 83 tool buttons', () => {
+  it('should have exactly 84 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(83);
+    expect(buttons.length).toBe(84);
   });
 
-  it('should append Zipline after Press at the end of the object toolbar', () => {
+  it('should append Siphon after Zipline at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('zipline');
-    expect(toolbar.lastElementChild?.textContent).toContain('Zipline');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('press');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('catapult');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('siphon');
+    expect(toolbar.lastElementChild?.textContent).toContain('Siphon');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('zipline');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('press');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,16 +67,79 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// SIPHON TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Siphon Tool', () => {
+  it('should expose Siphon as the final selectable toolbar tool', () => {
+    const siphonBtn = document.querySelector('[data-tool="siphon"]');
+    expect(siphonBtn).not.toBeNull();
+    expect(siphonBtn?.getAttribute('aria-label')).toContain('physical area');
+    expect(siphonBtn?.previousElementSibling?.dataset.tool).toBe('zipline');
+    expect(siphonBtn?.nextElementSibling).toBeNull();
+    expect(scriptContent).toContain("currentTool === 'siphon'");
+    expect(scriptContent).toContain('siphonBodiesAt(pos)');
+  });
+
+  it('should calculate a capped area-conserving transfer', () => {
+    const transferSource = scriptContent.slice(
+      scriptContent.indexOf('function getSiphonTransfer'),
+      scriptContent.indexOf('\nfunction isSiphonableBody')
+    );
+    const getSiphonTransfer = new Function(`
+      const SIPHON_MIN_AREA = 180;
+      const SIPHON_MAX_AREA = 24000;
+      const SIPHON_PORTION = 0.22;
+      ${transferSource}
+      return getSiphonTransfer;
+    `)();
+
+    const transfer = getSiphonTransfer(1000, 500);
+    expect(transfer.amount).toBe(220);
+    expect(1000 * transfer.donorFactor ** 2).toBeCloseTo(780);
+    expect(500 * transfer.receiverFactor ** 2).toBeCloseTo(720);
+    expect(getSiphonTransfer(180, 500)).toBeNull();
+    expect(getSiphonTransfer(1000, 24000)).toBeNull();
+  });
+
+  it('should select two loose parts and physically scale both in opposite directions', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('const SIPHON_MIN_AREA'),
+      scriptContent.indexOf('const ELEVATOR_WIDTH')
+    );
+    expect(source).toContain('let nearestDist = 46');
+    expect(source).toContain('Composite.allConstraints(world).some');
+    expect(source).toContain("return 'selected'");
+    expect(source).toContain('Body.scale(donor, transfer.donorFactor, transfer.donorFactor)');
+    expect(source).toContain('Body.scale(target, transfer.receiverFactor, transfer.receiverFactor)');
+    expect(source).toContain('Matter.Sleeping.set(donor, false)');
+    expect(source).toContain('return { donor, receiver:target, ...transfer }');
+  });
+
+  it('should render accessible feedback and clean selection on tool change, Eraser, or Clear', () => {
+    expect(document.getElementById('siphon-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('function drawSiphonMarker(timestamp)');
+    expect(scriptContent).toContain('drawSiphonMarker(timestamp);');
+    expect(scriptContent).toContain("if (tool !== 'siphon') resetSiphonSelection(true)");
+    expect(scriptContent).toContain('if (siphonDonor && removedBodyIds.has(siphonDonor.id)) resetSiphonSelection(true)');
+    expect(scriptContent).toContain('siphonDonor = null;');
+    expect(scriptContent).toContain('siphonFlash = null;');
+    expect(scriptContent).toContain("siphon: '#7dff7a'");
+    expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?#siphon-feedback \{ top:14px; font-size:19px/);
+  });
+});
+
+// ============================================
 // ZIPLINE TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Zipline Tool', () => {
-  it('should expose Zipline as the final selectable toolbar tool', () => {
+  it('should expose Zipline before Siphon in the toolbar', () => {
     const ziplineBtn = document.querySelector('[data-tool="zipline"]');
     expect(ziplineBtn).not.toBeNull();
     expect(ziplineBtn?.getAttribute('aria-label')).toContain('powered zipline');
     expect(ziplineBtn?.previousElementSibling?.dataset.tool).toBe('press');
-    expect(ziplineBtn?.nextElementSibling).toBeNull();
+    expect(ziplineBtn?.nextElementSibling?.dataset.tool).toBe('siphon');
     expect(scriptContent).toContain("currentTool === 'zipline'");
     expect(scriptContent).toContain('ziplineBodyAt(pos)');
   });

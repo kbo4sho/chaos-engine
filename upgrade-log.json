@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-10-07",
+      "ideas": [
+        "New tool: Siphon physical area from one loose part into another"
+      ],
+      "summary": "Implemented Siphon tool (⇄) — the final button in the existing object toolbar now selects a loose donor part and a loose receiver, transfers a capped 22% chunk of the donor's physical area with exact area conservation, and visibly shrinks one body while growing the other; 46px touch targeting, minimum/maximum size guards, animated donor/receiver markers and transfer beads, status/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make two-part size transfer reliable on desktop and mobile."
+    },
+    {
       "date": "2026-10-06",
       "ideas": [
         "New tool: Send one loose part along a powered Zipline to a tapped destination"

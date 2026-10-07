@@ -710,6 +710,19 @@ canvas#game {
 #zipline-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#siphon-feedback {
+  position:absolute; top:388px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#7dff7a;
+  font-size:19px; letter-spacing:2px; line-height:1;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none; white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#siphon-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -842,6 +855,7 @@ canvas#game {
   #catapult-feedback { top:14px; font-size:19px; }
   #press-feedback { top:14px; font-size:19px; }
   #zipline-feedback { top:14px; font-size:19px; }
+  #siphon-feedback { top:14px; font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -928,6 +942,7 @@ canvas#game {
     <div id="catapult-feedback" role="status" aria-live="polite"></div>
     <div id="press-feedback" role="status" aria-live="polite"></div>
     <div id="zipline-feedback" role="status" aria-live="polite"></div>
+    <div id="siphon-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -1016,6 +1031,7 @@ canvas#game {
     <button class="tool-btn" data-tool="catapult" style="color:#ff9f43;" title="Tap the canvas to place a catapult; load its cup with an object, then tap the arm to launch it" aria-label="Place a reusable catapult or launch objects loaded in its cup"><span class="icon">⤴</span>Catapult</button>
     <button class="tool-btn" data-tool="press" style="color:#e879f9;" title="Tap the canvas to place a hydraulic press; load a loose part, then tap the press to flatten and eject it" aria-label="Place a hydraulic press or flatten and eject loose parts loaded inside"><span class="icon">⇩</span>Press</button>
     <button class="tool-btn" data-tool="zipline" style="color:#4de3ff;" title="Tap a loose part, then tap a destination to send it along a powered zipline" aria-label="Send a loose part along a powered zipline to a tapped destination"><span class="icon">🚡</span>Zipline</button>
+    <button class="tool-btn" data-tool="siphon" style="color:#7dff7a;" title="Tap a loose donor part, then another loose part to transfer physical area between them" aria-label="Transfer physical area from one loose part to another"><span class="icon">⇄</span>Siphon</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1330,6 +1346,9 @@ let pressFeedbackTimer = 0;
 let ziplineSelection = null; // loose dynamic part waiting for a tapped destination
 let ziplines = []; // {body, start, end, tangent, length, progress, speed} powered cable rides
 let ziplineFeedbackTimer = 0;
+let siphonDonor = null; // loose dynamic part waiting to transfer area to a receiver
+let siphonFlash = null; // {donorPosition, receiverPosition, amount, startedAt} transfer feedback
+let siphonFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -2236,6 +2255,16 @@ function resetZiplineSelection(silent = false) {
   feedback.textContent = '';
 }
 
+function resetSiphonSelection(silent = false) {
+  siphonDonor = null;
+  if (!silent) return;
+  siphonFlash = null;
+  clearTimeout(siphonFeedbackTimer);
+  const feedback = document.getElementById('siphon-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -2333,6 +2362,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'catapult') resetCatapultFeedback(true);
       if (tool !== 'press') resetPressFeedback(true);
       if (tool !== 'zipline') resetZiplineSelection(true);
+      if (tool !== 'siphon') resetSiphonSelection(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -3775,6 +3805,8 @@ function finishClear(playFeedback = true) {
   presses = [];
   ziplines = [];
   ziplineSelection = null;
+  siphonDonor = null;
+  siphonFlash = null;
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -3830,6 +3862,7 @@ function finishClear(playFeedback = true) {
   resetCatapultFeedback(true);
   resetPressFeedback(true);
   resetZiplineSelection(true);
+  resetSiphonSelection(true);
   flippers = [];
   nextFlipperSide = 'left';
   clearTimeout(flipperFeedbackTimer);
@@ -4061,7 +4094,8 @@ function getToolAccentColor(tool) {
     funnel: '#ffc857',
     catapult: '#ff9f43',
     press: '#e879f9',
-    zipline: '#4de3ff'
+    zipline: '#4de3ff',
+    siphon: '#7dff7a'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -4238,6 +4272,7 @@ function eraseBodyAt(pos) {
   if (twistFlash && removedBodyIds.has(twistFlash.body.id)) twistFlash = null;
   if (orbitSelection && removedBodyIds.has(orbitSelection.id)) resetOrbitSelection(true);
   if (ziplineSelection && removedBodyIds.has(ziplineSelection.id)) resetZiplineSelection(true);
+  if (siphonDonor && removedBodyIds.has(siphonDonor.id)) resetSiphonSelection(true);
   if (ropeFirstBody && removedBodyIds.has(ropeFirstBody.id)) ropeFirstBody = null;
   if (grabBody && removedBodyIds.has(grabBody.id)) {
     grabActive = false;
@@ -10302,6 +10337,130 @@ function updateZiplines(timeScale = 1) {
   });
 }
 
+const SIPHON_MIN_AREA = 180;
+const SIPHON_MAX_AREA = 24000;
+const SIPHON_PORTION = 0.22;
+
+function getSiphonTransfer(donorArea, receiverArea) {
+  const amount = Math.min(
+    donorArea * SIPHON_PORTION,
+    donorArea - SIPHON_MIN_AREA,
+    SIPHON_MAX_AREA - receiverArea
+  );
+  if (!Number.isFinite(amount) || amount <= 1) return null;
+  return {
+    amount,
+    donorFactor:Math.sqrt((donorArea - amount) / donorArea),
+    receiverFactor:Math.sqrt((receiverArea + amount) / receiverArea)
+  };
+}
+
+function isSiphonableBody(body) {
+  if (!body || body.label === 'wall' || body.label === 'chain-link' || body.isTarget || body.isStatic || body.isFragment || body.isZiplining || body.parent !== body || body.parts.length > 1) return false;
+  return !Composite.allConstraints(world).some(constraint => constraint.bodyA === body || constraint.bodyB === body);
+}
+
+function findSiphonableBodyAt(pos) {
+  const candidates = Composite.allBodies(world).filter(isSiphonableBody);
+  const exact = Matter.Query.point(candidates, pos).filter(isSiphonableBody).pop();
+  if (exact) return exact;
+
+  let target = null;
+  let nearestDist = 46;
+  candidates.forEach(body => {
+    const distance = Math.hypot(body.position.x - pos.x, body.position.y - pos.y);
+    if (distance < nearestDist) {
+      target = body;
+      nearestDist = distance;
+    }
+  });
+  return target;
+}
+
+function showSiphonFeedback(message, color = '#7dff7a') {
+  const feedback = document.getElementById('siphon-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(siphonFeedbackTimer);
+  siphonFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 950);
+}
+
+function addSiphonBurst(donorPosition, receiverPosition) {
+  const dx = receiverPosition.x - donorPosition.x;
+  const dy = receiverPosition.y - donorPosition.y;
+  for (let i = 0; i < 20; i++) {
+    const progress = i / 19;
+    particles.push({
+      x:donorPosition.x + dx * progress,
+      y:donorPosition.y + dy * progress,
+      vx:dx * 0.012 + (Math.random() - 0.5) * 1.4,
+      vy:dy * 0.012 + (Math.random() - 0.5) * 1.4,
+      size:1.8 + Math.random() * 2.4,
+      life:0.3 + progress * 0.28,
+      color:i % 4 === 0 ? '#ffcf40' : '#7dff7a'
+    });
+  }
+}
+
+function siphonBodiesAt(pos) {
+  if (siphonDonor && !Composite.get(world, siphonDonor.id, 'body')) siphonDonor = null;
+  const target = findSiphonableBodyAt(pos);
+  if (!target) {
+    showSiphonFeedback('SIPHON: NO LOOSE PART', '#888888');
+    haptic([3]);
+    return false;
+  }
+
+  if (!siphonDonor) {
+    siphonDonor = target;
+    showSiphonFeedback('DONOR SET • PICK RECEIVER');
+    playSound(520, 0.08, 'sine', 0.055);
+    haptic([6]);
+    return 'selected';
+  }
+
+  if (target === siphonDonor) {
+    resetSiphonSelection();
+    showSiphonFeedback('SIPHON CANCELLED', '#aaaaaa');
+    playSound(240, 0.08, 'square', 0.04);
+    haptic([4]);
+    return 'cancelled';
+  }
+
+  const donor = siphonDonor;
+  const transfer = getSiphonTransfer(donor.area, target.area);
+  if (!transfer) {
+    resetSiphonSelection();
+    showSiphonFeedback('SIPHON LIMIT REACHED', '#ff9966');
+    playSound(180, 0.1, 'square', 0.05);
+    haptic([4, 24, 4]);
+    return false;
+  }
+
+  const donorPosition = { x:donor.position.x, y:donor.position.y };
+  const receiverPosition = { x:target.position.x, y:target.position.y };
+  Body.scale(donor, transfer.donorFactor, transfer.donorFactor);
+  Body.scale(target, transfer.receiverFactor, transfer.receiverFactor);
+  donor.resizeScale = (donor.resizeScale || 1) * transfer.donorFactor;
+  target.resizeScale = (target.resizeScale || 1) * transfer.receiverFactor;
+  Body.setPosition(donor, getCanvasSafeBodyPosition(donor, canvas.width, canvas.height));
+  Body.setPosition(target, getCanvasSafeBodyPosition(target, canvas.width, canvas.height));
+  Matter.Sleeping.set(donor, false);
+  Matter.Sleeping.set(target, false);
+  addSiphonBurst(donorPosition, receiverPosition);
+  siphonFlash = { donorPosition, receiverPosition, amount:transfer.amount, startedAt:performance.now() };
+  resetSiphonSelection();
+  showSiphonFeedback(`TRANSFERRED ${Math.round(transfer.amount)}PX²`);
+  playSound(430, 0.11, 'triangle', 0.07);
+  playSound(780, 0.12, 'sine', 0.065);
+  haptic([7, 10, 11]);
+  shakeIntensity = Math.max(shakeIntensity, 1.8);
+  return { donor, receiver:target, ...transfer };
+}
+
 const ELEVATOR_WIDTH = 112;
 const ELEVATOR_HEIGHT = 16;
 const ELEVATOR_TRAVEL = 132;
@@ -11293,6 +11452,13 @@ function onDown(e) {
   // Zipline tool — select one loose part, then send it along a powered cable.
   if (currentTool === 'zipline') {
     ziplineBodyAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Siphon tool — transfer physical area from one loose part to another.
+  if (currentTool === 'siphon') {
+    siphonBodiesAt(pos);
     pointerDown = false;
     return;
   }
@@ -14897,6 +15063,75 @@ function drawMirrorFlash(timestamp) {
   ctx.restore();
 }
 
+function drawSiphonMarker(timestamp) {
+  if (siphonDonor && currentTool === 'siphon') {
+    if (!Composite.get(world, siphonDonor.id, 'body')) {
+      siphonDonor = null;
+    } else {
+      const width = siphonDonor.bounds.max.x - siphonDonor.bounds.min.x;
+      const height = siphonDonor.bounds.max.y - siphonDonor.bounds.min.y;
+      const radius = Math.max(24, Math.min(72, Math.hypot(width, height) * 0.55 + 10));
+      const pulse = 0.72 + Math.sin(timestamp / 95) * 0.2;
+      ctx.save();
+      ctx.translate(siphonDonor.position.x, siphonDonor.position.y);
+      ctx.globalAlpha = pulse;
+      ctx.strokeStyle = '#ffcf40';
+      ctx.fillStyle = '#ffcf40';
+      ctx.shadowColor = '#ffcf40';
+      ctx.shadowBlur = 14;
+      ctx.lineWidth = 3;
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.font = '18px VT323';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('DONOR', 0, 1);
+      ctx.restore();
+    }
+  }
+
+  if (!siphonFlash) return;
+  const progress = (timestamp - siphonFlash.startedAt) / 720;
+  if (progress >= 1) {
+    siphonFlash = null;
+    return;
+  }
+  const { donorPosition, receiverPosition } = siphonFlash;
+  const dx = receiverPosition.x - donorPosition.x;
+  const dy = receiverPosition.y - donorPosition.y;
+  const alpha = 1 - progress;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = '#7dff7a';
+  ctx.fillStyle = '#7dff7a';
+  ctx.shadowColor = '#7dff7a';
+  ctx.shadowBlur = 14;
+  ctx.lineWidth = 3;
+  ctx.setLineDash([7, 5]);
+  ctx.beginPath();
+  ctx.moveTo(donorPosition.x, donorPosition.y);
+  ctx.lineTo(receiverPosition.x, receiverPosition.y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  for (let i = 0; i < 4; i++) {
+    const beadProgress = (progress * 1.6 + i / 4) % 1;
+    ctx.beginPath();
+    ctx.arc(donorPosition.x + dx * beadProgress, donorPosition.y + dy * beadProgress, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.font = 'bold 16px VT323';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#ffcf40';
+  ctx.fillText('−AREA', donorPosition.x, donorPosition.y - 24);
+  ctx.fillStyle = '#7dff7a';
+  ctx.fillText('+AREA', receiverPosition.x, receiverPosition.y - 24);
+  ctx.restore();
+}
+
 function drawRelayMarker(timestamp) {
   if (relayFirstBody && currentTool === 'relay') {
     if (!Composite.get(world, relayFirstBody.id, 'body')) {
@@ -16420,6 +16655,7 @@ function loop(timestamp) {
   drawSwapMarker(timestamp);
   drawStackMarker(timestamp);
   drawMirrorFlash(timestamp);
+  drawSiphonMarker(timestamp);
   drawRelayMarker(timestamp);
   drawStrutMarker(timestamp);
   drawRotateFlash(timestamp);
