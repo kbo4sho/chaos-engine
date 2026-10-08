@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch', 'piston', 'parachute', 'saw', 'funnel', 'catapult', 'press', 'zipline', 'siphon'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch', 'piston', 'parachute', 'saw', 'funnel', 'catapult', 'press', 'zipline', 'siphon', 'gearbox'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 84 tool buttons', () => {
+  it('should have exactly 85 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(84);
+    expect(buttons.length).toBe(85);
   });
 
-  it('should append Siphon after Zipline at the end of the object toolbar', () => {
+  it('should append Gearbox after Siphon at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('siphon');
-    expect(toolbar.lastElementChild?.textContent).toContain('Siphon');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('zipline');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('press');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('gearbox');
+    expect(toolbar.lastElementChild?.textContent).toContain('Gearbox');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('siphon');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('zipline');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,6 +67,76 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// GEARBOX TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Gearbox Tool', () => {
+  it('should expose Gearbox as the final selectable toolbar tool', () => {
+    const gearboxBtn = document.querySelector('[data-tool="gearbox"]');
+    expect(gearboxBtn).not.toBeNull();
+    expect(gearboxBtn?.getAttribute('aria-label')).toContain('opposite-spinning gearbox');
+    expect(gearboxBtn?.previousElementSibling?.dataset.tool).toBe('siphon');
+    expect(gearboxBtn?.nextElementSibling).toBeNull();
+    expect(scriptContent).toContain("currentTool === 'gearbox'");
+    expect(scriptContent).toContain('gearboxBodiesAt(pos)');
+  });
+
+  it('should calculate exact opposite edge speeds with idle motion and a safety cap', () => {
+    const couplingSource = scriptContent.slice(
+      scriptContent.indexOf('function getGearboxCoupling'),
+      scriptContent.indexOf('\nfunction getGearboxRadius')
+    );
+    const getGearboxCoupling = new Function(`
+      const GEARBOX_IDLE_SPEED = 0.18;
+      const GEARBOX_MAX_SPEED = 0.72;
+      ${couplingSource}
+      return getGearboxCoupling;
+    `)();
+
+    expect(getGearboxCoupling(0, 0, 20, 40)).toEqual({ angularVelocityA:0.18, angularVelocityB:-0.09, ratio:0.5 });
+    expect(getGearboxCoupling(0.3, 0.05, 30, 15)).toEqual({ angularVelocityA:0.3, angularVelocityB:-0.6, ratio:2 });
+    expect(getGearboxCoupling(4, 0, 40, 10)).toEqual({ angularVelocityA:0.18, angularVelocityB:-0.72, ratio:4 });
+  });
+
+  it('should select two loose parts, link them, and disengage from either member', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('const GEARBOX_IDLE_SPEED'),
+      scriptContent.indexOf('const ELEVATOR_WIDTH')
+    );
+    expect(source).toContain('let nearestDist = 46');
+    expect(source).toContain('Composite.allConstraints(world).some');
+    expect(source).toContain("return 'selected'");
+    expect(source).toContain('gearboxes.push(entry)');
+    expect(source).toContain('bodyA.isGearboxed = true');
+    expect(source).toContain('Body.setAngularVelocity(bodyA, coupling.angularVelocityA)');
+    expect(source).toContain('function releaseGearbox(entry, silent = false)');
+    expect(source).toContain("return 'released'");
+  });
+
+  it('should keep live gearboxes counter-rotating and render a visible transmission', () => {
+    expect(scriptContent).toContain('function updateGearboxes()');
+    expect(scriptContent).toContain('updateGearboxes();');
+    expect(scriptContent).toContain('const motorA = motorizedBodies.has(entry.bodyA)');
+    expect(scriptContent).toContain('if (motorB && !motorA) angularVelocityA = 0');
+    expect(scriptContent).toContain('Body.setAngularVelocity(entry.bodyB, coupling.angularVelocityB)');
+    expect(scriptContent).toContain('function drawGearboxes(timestamp)');
+    expect(scriptContent).toContain('drawGearboxes(timestamp);');
+    expect(scriptContent).toContain("ctx.fillText(direction > 0 ? '↻' : '↺'");
+    expect(scriptContent).toContain("gearbox: '#ffb347'");
+  });
+
+  it('should provide accessible feedback and clean selection and links on tool change, Eraser, or Clear', () => {
+    expect(document.getElementById('gearbox-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain("if (tool !== 'gearbox') resetGearboxSelection(true)");
+    expect(scriptContent).toContain('if (gearboxSelection && removedBodyIds.has(gearboxSelection.id)) resetGearboxSelection(true)');
+    expect(scriptContent).toContain('delete entry.bodyA.isGearboxed;');
+    expect(scriptContent).toContain('gearboxes = [];');
+    expect(scriptContent).toContain('resetGearboxSelection(true);');
+    expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?#gearbox-feedback \{ top:14px; font-size:19px/);
+  });
+});
+
+// ============================================
 // SIPHON TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
@@ -76,7 +146,7 @@ describe('Siphon Tool', () => {
     expect(siphonBtn).not.toBeNull();
     expect(siphonBtn?.getAttribute('aria-label')).toContain('physical area');
     expect(siphonBtn?.previousElementSibling?.dataset.tool).toBe('zipline');
-    expect(siphonBtn?.nextElementSibling).toBeNull();
+    expect(siphonBtn?.nextElementSibling?.dataset.tool).toBe('gearbox');
     expect(scriptContent).toContain("currentTool === 'siphon'");
     expect(scriptContent).toContain('siphonBodiesAt(pos)');
   });

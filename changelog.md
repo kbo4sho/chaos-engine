@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-10-08T14:11:07Z — Added: Gearbox tool
+**Why:** The toolbar could motorize one part, rigidly weld two parts, or join them with positional constraints, but it had no way to transmit rotation between two existing loose objects. Gearbox adds a compact two-part spin connection whose angular speeds adapt to each member's visible size.
+**Goal alignment:** "more fun, more surprising, more satisfying" — players can mesh differently sized Balls and Blocks, drive a transmission with an existing Motor or collision, and disengage it directly without deleting either part.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (556/556 passing); browser smoke ✓ (existing Block and Ball tools worked, final Gearbox linked two paused parts with exact equal-and-opposite edge speeds and visibly rendered gear rings/transmission, live physics preserved the ratio, and tapping either linked part disengaged it); mobile ✓ (390×844, final Gearbox button was fully reachable at 52×50px and x=330–382 at the toolbar's true maximum scroll, and two Balls linked at +4.5675/−4.5675 edge speed); cleanup ✓ (tool change, Eraser, and Clear remove pending selection/link state, and mobile Clear returned the scene to zero objects); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-10-07T14:08:53Z — Added: Siphon tool
 **Why:** The toolbar could independently resize one object, fuse two objects into one, split one object into twins, or exchange motion, but it had no way to transfer physical size between two existing parts while keeping both in the scene. Siphon adds a compact donor-to-receiver transform with exact area conservation.
 **Goal alignment:** "more fun, more surprising, more satisfying" — players can feed a tiny Ball from a large Block, rebalance contraptions without spawning replacements, and watch a readable stream carry area between moving parts.

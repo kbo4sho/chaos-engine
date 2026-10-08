@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-10-08",
+      "ideas": [
+        "New tool: Couple two loose parts in a ratio-aware Gearbox"
+      ],
+      "summary": "Implemented Gearbox tool (⛭) — the final button in the existing object toolbar now selects two loose standalone parts and persistently couples their angular motion with exact equal-and-opposite edge speeds derived from each member's visible size; an automatic starter turn, 46px touch targeting, 0.72 rad/frame safety cap, direct tap-to-disengage behavior, neon gear-ring/transmission rendering, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make reusable rotational transmissions reliable on desktop and mobile."
+    },
+    {
       "date": "2026-10-07",
       "ideas": [
         "New tool: Siphon physical area from one loose part into another"
