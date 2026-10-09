@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch', 'piston', 'parachute', 'saw', 'funnel', 'catapult', 'press', 'zipline', 'siphon', 'gearbox'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch', 'piston', 'parachute', 'saw', 'funnel', 'catapult', 'press', 'zipline', 'siphon', 'gearbox', 'rail'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 85 tool buttons', () => {
+  it('should have exactly 86 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(85);
+    expect(buttons.length).toBe(86);
   });
 
-  it('should append Gearbox after Siphon at the end of the object toolbar', () => {
+  it('should append Rail after Gearbox at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('gearbox');
-    expect(toolbar.lastElementChild?.textContent).toContain('Gearbox');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('siphon');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('zipline');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('rail');
+    expect(toolbar.lastElementChild?.textContent).toContain('Rail');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('gearbox');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('siphon');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,16 +67,100 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// RAIL TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Rail Tool', () => {
+  it('should expose Rail as the final selectable toolbar tool', () => {
+    const railBtn = document.querySelector('[data-tool="rail"]');
+    expect(railBtn).not.toBeNull();
+    expect(railBtn?.getAttribute('aria-label')).toContain('finite sliding rail');
+    expect(railBtn?.previousElementSibling?.dataset.tool).toBe('gearbox');
+    expect(railBtn?.nextElementSibling).toBeNull();
+    expect(scriptContent).toContain("currentTool === 'rail'");
+    expect(scriptContent).toContain('railBodyAt(pos)');
+  });
+
+  it('should clamp endpoints and project motion onto the finite guide with endpoint bounce', () => {
+    const endpointSource = scriptContent.slice(
+      scriptContent.indexOf('function getRailEndpoint'),
+      scriptContent.indexOf('\nfunction getRailGeometry')
+    );
+    const geometrySource = scriptContent.slice(
+      scriptContent.indexOf('function getRailGeometry'),
+      scriptContent.indexOf('\nfunction getRailConstrainedMotion')
+    );
+    const motionSource = scriptContent.slice(
+      scriptContent.indexOf('function getRailConstrainedMotion'),
+      scriptContent.indexOf('\nfunction isRailableBody')
+    );
+    const helpers = new Function(`
+      const RAIL_EDGE_BOUNCE = 0.42;
+      ${endpointSource}
+      ${geometrySource}
+      ${motionSource}
+      return { getRailEndpoint, getRailGeometry, getRailConstrainedMotion };
+    `)();
+
+    expect(helpers.getRailEndpoint({ x:2, y:4 }, 390, 500)).toEqual({ x:24, y:24 });
+    expect(helpers.getRailEndpoint({ x:388, y:498 }, 390, 500)).toEqual({ x:366, y:458 });
+    expect(helpers.getRailGeometry({ x:0, y:0 }, { x:60, y:80 })).toEqual({ length:100, tangent:{ x:0.6, y:0.8 } });
+    expect(helpers.getRailConstrainedMotion({ x:40, y:30 }, { x:5, y:8 }, { x:0, y:0 }, { x:100, y:0 })).toMatchObject({
+      progress:0.4,
+      position:{ x:40, y:0 },
+      velocity:{ x:5, y:0 }
+    });
+    expect(helpers.getRailConstrainedMotion({ x:-5, y:0 }, { x:-10, y:3 }, { x:0, y:0 }, { x:100, y:0 })).toMatchObject({
+      progress:0,
+      position:{ x:0, y:0 },
+      velocity:{ x:4.2, y:0 }
+    });
+  });
+
+  it('should select one loose part, create a persistent guide, and release the rider directly', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('const RAIL_MIN_LENGTH'),
+      scriptContent.indexOf('const ELEVATOR_WIDTH')
+    );
+    expect(source).toContain('let nearestDist = 46');
+    expect(source).toContain('Composite.allConstraints(world).some');
+    expect(source).toContain("return 'selected'");
+    expect(source).toContain('rails.push(entry)');
+    expect(source).toContain('body.isRailed = true');
+    expect(source).toContain('Body.setPosition(body, start)');
+    expect(source).toContain('function updateRails()');
+    expect(source).toContain('getRailConstrainedMotion(entry.body.position');
+    expect(source).toContain('function releaseRail(entry, silent = false)');
+    expect(source).toContain("return 'released'");
+    expect(scriptContent).toContain('updateRails();');
+  });
+
+  it('should render accessible CRT feedback and clean selection and guides on tool change, Eraser, or Clear', () => {
+    expect(document.getElementById('rail-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('function drawRails(timestamp)');
+    expect(scriptContent).toContain('drawRails(timestamp);');
+    expect(scriptContent).toContain("ctx.fillText('RIDER'");
+    expect(scriptContent).toContain("if (tool !== 'rail') resetRailSelection(true)");
+    expect(scriptContent).toContain('if (railSelection && removedBodyIds.has(railSelection.id)) resetRailSelection(true)');
+    expect(scriptContent).toContain('delete entry.body.isRailed;');
+    expect(scriptContent).toContain('rails = [];');
+    expect(scriptContent).toContain('resetRailSelection(true);');
+    expect(scriptContent).toContain("rail: '#67e8ff'");
+    expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?#rail-feedback \{ top:14px; font-size:19px/);
+  });
+});
+
+// ============================================
 // GEARBOX TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Gearbox Tool', () => {
-  it('should expose Gearbox as the final selectable toolbar tool', () => {
+  it('should expose Gearbox immediately before Rail', () => {
     const gearboxBtn = document.querySelector('[data-tool="gearbox"]');
     expect(gearboxBtn).not.toBeNull();
     expect(gearboxBtn?.getAttribute('aria-label')).toContain('opposite-spinning gearbox');
     expect(gearboxBtn?.previousElementSibling?.dataset.tool).toBe('siphon');
-    expect(gearboxBtn?.nextElementSibling).toBeNull();
+    expect(gearboxBtn?.nextElementSibling?.dataset.tool).toBe('rail');
     expect(scriptContent).toContain("currentTool === 'gearbox'");
     expect(scriptContent).toContain('gearboxBodiesAt(pos)');
   });

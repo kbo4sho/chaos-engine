@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-10-09",
+      "ideas": [
+        "New tool: Guide one loose part along a finite passive Rail"
+      ],
+      "summary": "Implemented Rail tool (═) — the final button in the existing object toolbar now selects one loose standalone part and a canvas-clamped destination, then persistently projects the rider's position and velocity onto a visible finite guide with a small starter kick and damped endpoint reversals; 46px touch targeting, direct tap-to-release behavior, cyan sleeper-track and gold carriage rendering, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make reusable linear sliders reliable on desktop and mobile."
+    },
+    {
       "date": "2026-10-08",
       "ideas": [
         "New tool: Couple two loose parts in a ratio-aware Gearbox"

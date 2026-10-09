@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-10-09T14:04:33Z — Added: Rail tool
+**Why:** The toolbar could tether a part to one point, send it on a powered one-way Zipline, or orbit it around a center, but it had no passive finite guide that lets an existing object keep moving back and forth along one deliberate axis. Rail adds a persistent linear constraint with visible endpoints and direct release.
+**Goal alignment:** "more fun, more surprising, more satisfying" — players can turn Balls and Blocks into guided shuttles, gravity-driven sliders, and reusable moving parts whose momentum and collisions still matter without letting the rider leave its track.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (561/561 passing); browser smoke ✓ (existing Block tool placed a paused rider, final Rail created a visible 411px guide, live physics moved the Block along the exact axis with zero meaningful lateral drift, tapping the rider released it, and Clear returned the scene to zero objects); mobile ✓ (390×844, final Rail button was fully reachable at 52×50px and x=330–382 at the toolbar's true maximum scroll, existing Ball worked, and a 284px rail held the moving Ball to 2.84e-14px lateral deviation); cleanup ✓ (tool change, Eraser, direct release, and Clear remove pending or active Rail state); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-10-08T14:11:07Z — Added: Gearbox tool
 **Why:** The toolbar could motorize one part, rigidly weld two parts, or join them with positional constraints, but it had no way to transmit rotation between two existing loose objects. Gearbox adds a compact two-part spin connection whose angular speeds adapt to each member's visible size.
 **Goal alignment:** "more fun, more surprising, more satisfying" — players can mesh differently sized Balls and Blocks, drive a transmission with an existing Motor or collision, and disengage it directly without deleting either part.
