@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-10-10T14:06:59Z — Added: Sieve tool
+**Why:** The toolbar could redirect objects with Funnel, release them with Hatch, or remove them with Recycler, but it had no adjustable physical opening for sorting loose parts by size. Sieve adds a compact reusable filter whose real collision gap changes in place.
+**Goal alignment:** "more fun, more surprising, more satisfying" — players can catch larger payloads while smaller pieces fall through, then cycle the same machine through narrow, medium, and wide settings as a contraption changes.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (566/566 passing); browser smoke ✓ (existing Block tool placed a payload, the final Sieve caught it above a 12px narrow opening at y=336.94, and a fresh Block fell through the 68px wide opening to y=841.90); mobile ✓ (390×844, final Sieve button was fully reachable at 52×50px and x=330–382 at the toolbar's true maximum scroll, narrow Sieve caught a Block above the filter, and a tap changed both physical bars to a 44px medium opening); cleanup ✓ (Eraser grouping, tool-change feedback, and Clear remove the full assembly/state; browser Clear returned the scene to zero objects); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-10-09T14:04:33Z — Added: Rail tool
 **Why:** The toolbar could tether a part to one point, send it on a powered one-way Zipline, or orbit it around a center, but it had no passive finite guide that lets an existing object keep moving back and forth along one deliberate axis. Rail adds a persistent linear constraint with visible endpoints and direct release.
 **Goal alignment:** "more fun, more surprising, more satisfying" — players can turn Balls and Blocks into guided shuttles, gravity-driven sliders, and reusable moving parts whose momentum and collisions still matter without letting the rider leave its track.

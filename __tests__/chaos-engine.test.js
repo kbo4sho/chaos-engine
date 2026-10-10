@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch', 'piston', 'parachute', 'saw', 'funnel', 'catapult', 'press', 'zipline', 'siphon', 'gearbox', 'rail'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch', 'piston', 'parachute', 'saw', 'funnel', 'catapult', 'press', 'zipline', 'siphon', 'gearbox', 'rail', 'sieve'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 86 tool buttons', () => {
+  it('should have exactly 87 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(86);
+    expect(buttons.length).toBe(87);
   });
 
-  it('should append Rail after Gearbox at the end of the object toolbar', () => {
+  it('should append Sieve after Rail at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('rail');
-    expect(toolbar.lastElementChild?.textContent).toContain('Rail');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('gearbox');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('siphon');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('sieve');
+    expect(toolbar.lastElementChild?.textContent).toContain('Sieve');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('rail');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('gearbox');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,16 +67,91 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// SIEVE TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Sieve Tool', () => {
+  it('should expose Sieve as the final selectable toolbar tool', () => {
+    const sieveBtn = document.querySelector('[data-tool="sieve"]');
+    expect(sieveBtn).not.toBeNull();
+    expect(sieveBtn?.getAttribute('aria-label')).toContain('size-sorting sieve');
+    expect(sieveBtn?.previousElementSibling?.dataset.tool).toBe('rail');
+    expect(sieveBtn?.nextElementSibling).toBeNull();
+    expect(scriptContent).toContain("currentTool === 'sieve'");
+    expect(scriptContent).toContain('placeOrCycleSieveAt(pos)');
+  });
+
+  it('should clamp placement and calculate exact narrow, medium, and wide bar layouts', () => {
+    const placementSource = scriptContent.slice(
+      scriptContent.indexOf('function getSievePlacement'),
+      scriptContent.indexOf('\nfunction getSieveBarLayout')
+    );
+    const layoutSource = scriptContent.slice(
+      scriptContent.indexOf('function getSieveBarLayout'),
+      scriptContent.indexOf('\nfunction createSieveAssembly')
+    );
+    const helpers = new Function(`
+      const SIEVE_TOTAL_WIDTH = 168;
+      const SIEVE_GAPS = [12, 44, 68];
+      const SIEVE_HALF_WIDTH = SIEVE_TOTAL_WIDTH / 2;
+      ${placementSource}
+      ${layoutSource}
+      return { getSievePlacement, getSieveBarLayout };
+    `)();
+
+    expect(helpers.getSievePlacement({ x:2, y:4 }, 390, 500)).toEqual({ x:96, y:34 });
+    expect(helpers.getSievePlacement({ x:388, y:498 }, 390, 500)).toEqual({ x:294, y:458 });
+    expect(helpers.getSieveBarLayout({ x:200, y:180 }, 0)).toMatchObject({
+      gapIndex:0,
+      gap:12,
+      width:78,
+      bars:[{ side:'left', x:155, y:180 }, { side:'right', x:245, y:180 }]
+    });
+    expect(helpers.getSieveBarLayout({ x:200, y:180 }, 1)).toMatchObject({ gapIndex:1, gap:44, width:62 });
+    expect(helpers.getSieveBarLayout({ x:200, y:180 }, 2)).toMatchObject({ gapIndex:2, gap:68, width:50 });
+    expect(helpers.getSieveBarLayout({ x:200, y:180 }, 3).gapIndex).toBe(0);
+  });
+
+  it('should create two real static bars and cycle their physical opening', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('const SIEVE_TOTAL_WIDTH'),
+      scriptContent.indexOf('const ELEVATOR_WIDTH')
+    );
+    expect(source).toContain('Bodies.rectangle(bar.x, bar.y, layout.width, SIEVE_BAR_THICKNESS');
+    expect(source).toContain('isStatic:true');
+    expect(source).toContain("label:'sieve-bar'");
+    expect(source).toContain('Body.scale(body, layout.width / body.sieveWidth, 1)');
+    expect(source).toContain('Body.setPosition(body');
+    expect(source).toContain('setSieveGap(existing, existing.gapIndex + 1)');
+    expect(source).toContain('Composite.add(world, assembly.bodies)');
+    expect(source).toContain('sieves.push(assembly)');
+  });
+
+  it('should provide touch targeting, rendering, feedback, and complete cleanup', () => {
+    expect(document.getElementById('sieve-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain("case 'sieve-bar':");
+    expect(scriptContent).toContain('let nearestDist = 62');
+    expect(scriptContent).toContain("if (tool !== 'sieve') resetSieveFeedback(true)");
+    expect(scriptContent).toContain('sieves = sieves.filter(entry => {');
+    expect(scriptContent).toContain('entry.bodies.forEach(body => bodiesToRemove.add(body))');
+    expect(scriptContent).toContain('sieves = [];');
+    expect(scriptContent).toContain('resetSieveFeedback(true);');
+    expect(scriptContent).toContain("sieve: '#a7f3d0'");
+    expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?#sieve-feedback \{ top:14px; font-size:19px/);
+  });
+});
+
+// ============================================
 // RAIL TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Rail Tool', () => {
-  it('should expose Rail as the final selectable toolbar tool', () => {
+  it('should keep Rail selectable immediately before Sieve', () => {
     const railBtn = document.querySelector('[data-tool="rail"]');
     expect(railBtn).not.toBeNull();
     expect(railBtn?.getAttribute('aria-label')).toContain('finite sliding rail');
     expect(railBtn?.previousElementSibling?.dataset.tool).toBe('gearbox');
-    expect(railBtn?.nextElementSibling).toBeNull();
+    expect(railBtn?.nextElementSibling?.dataset.tool).toBe('sieve');
     expect(scriptContent).toContain("currentTool === 'rail'");
     expect(scriptContent).toContain('railBodyAt(pos)');
   });

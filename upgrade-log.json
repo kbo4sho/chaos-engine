@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-10-10",
+      "ideas": [
+        "New tool: Place an adjustable physical Sieve that sorts loose parts by size"
+      ],
+      "summary": "Implemented Sieve tool (▔◇▔) — the final button in the existing object toolbar now places a canvas-clamped pair of real static collision bars and cycles their center opening through exact 12px, 44px, and 68px gaps on repeat taps so larger payloads can be caught while smaller parts fall through; 62px touch targeting, mint/cyan CRT rendering, status/particle/audio/haptic feedback, grouped Eraser behavior, and tool-change/Clear cleanup make adjustable physical sorting reliable on desktop and mobile."
+    },
+    {
       "date": "2026-10-09",
       "ideas": [
         "New tool: Guide one loose part along a finite passive Rail"

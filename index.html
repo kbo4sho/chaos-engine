@@ -749,6 +749,19 @@ canvas#game {
 #rail-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#sieve-feedback {
+  position:absolute; top:388px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#a7f3d0;
+  font-size:22px; letter-spacing:1px; text-shadow:0 0 8px currentColor;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none; white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#sieve-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -884,6 +897,7 @@ canvas#game {
   #siphon-feedback { top:14px; font-size:19px; }
   #gearbox-feedback { top:14px; font-size:19px; }
   #rail-feedback { top:14px; font-size:19px; }
+  #sieve-feedback { top:14px; font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -973,6 +987,7 @@ canvas#game {
     <div id="siphon-feedback" role="status" aria-live="polite"></div>
     <div id="gearbox-feedback" role="status" aria-live="polite"></div>
     <div id="rail-feedback" role="status" aria-live="polite"></div>
+    <div id="sieve-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -1064,6 +1079,7 @@ canvas#game {
     <button class="tool-btn" data-tool="siphon" style="color:#7dff7a;" title="Tap a loose donor part, then another loose part to transfer physical area between them" aria-label="Transfer physical area from one loose part to another"><span class="icon">⇄</span>Siphon</button>
     <button class="tool-btn" data-tool="gearbox" style="color:#ffb347;" title="Tap two loose parts to couple their spin; tap either linked part to disengage" aria-label="Couple two loose parts in an opposite-spinning gearbox"><span class="icon">⛭</span>Gearbox</button>
     <button class="tool-btn" data-tool="rail" style="color:#67e8ff;" title="Tap a loose part, then a destination to lock it onto a finite sliding rail; tap the rider to release" aria-label="Guide a loose part along a finite sliding rail or release it"><span class="icon">═</span>Rail</button>
+    <button class="tool-btn" data-tool="sieve" style="color:#a7f3d0;" title="Tap the canvas to place a size-sorting sieve; tap it to cycle the opening" aria-label="Place a physical size-sorting sieve or cycle its opening"><span class="icon">▔◇▔</span>Sieve</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1387,6 +1403,8 @@ let gearboxFeedbackTimer = 0;
 let railSelection = null; // loose dynamic part waiting for a rail endpoint
 let rails = []; // {body, start, end, tangent, length} finite passive slider guides
 let railFeedbackTimer = 0;
+let sieves = []; // {bodies, center, gapIndex} adjustable two-bar physical size filters
+let sieveFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -2321,6 +2339,14 @@ function resetRailSelection(silent = false) {
   feedback.textContent = '';
 }
 
+function resetSieveFeedback(silent = false) {
+  if (!silent) return;
+  clearTimeout(sieveFeedbackTimer);
+  const feedback = document.getElementById('sieve-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -2421,6 +2447,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'siphon') resetSiphonSelection(true);
       if (tool !== 'gearbox') resetGearboxSelection(true);
       if (tool !== 'rail') resetRailSelection(true);
+      if (tool !== 'sieve') resetSieveFeedback(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -3869,6 +3896,7 @@ function finishClear(playFeedback = true) {
   gearboxSelection = null;
   rails = [];
   railSelection = null;
+  sieves = [];
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -3927,6 +3955,7 @@ function finishClear(playFeedback = true) {
   resetSiphonSelection(true);
   resetGearboxSelection(true);
   resetRailSelection(true);
+  resetSieveFeedback(true);
   flippers = [];
   nextFlipperSide = 'left';
   clearTimeout(flipperFeedbackTimer);
@@ -4161,7 +4190,8 @@ function getToolAccentColor(tool) {
     zipline: '#4de3ff',
     siphon: '#7dff7a',
     gearbox: '#ffb347',
-    rail: '#67e8ff'
+    rail: '#67e8ff',
+    sieve: '#a7f3d0'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -4259,6 +4289,12 @@ function eraseBodyAt(pos) {
     return false;
   });
 
+  sieves = sieves.filter(entry => {
+    if (!entry.bodies.includes(target)) return true;
+    entry.bodies.forEach(body => bodiesToRemove.add(body));
+    return false;
+  });
+
   catapults = catapults.filter(entry => {
     if (entry.body !== target) return true;
     bodiesToRemove.add(entry.body);
@@ -4323,6 +4359,7 @@ function eraseBodyAt(pos) {
   pistons = pistons.filter(entry => !removedBodyIds.has(entry.body.id));
   saws = saws.filter(entry => !removedBodyIds.has(entry.body.id) && !constraintsToRemove.has(entry.constraint));
   funnels = funnels.filter(entry => entry.bodies.every(body => !removedBodyIds.has(body.id)));
+  sieves = sieves.filter(entry => entry.bodies.every(body => !removedBodyIds.has(body.id)));
   catapults = catapults.filter(entry => !removedBodyIds.has(entry.body.id));
   presses = presses.filter(entry => entry.bodies.every(body => !removedBodyIds.has(body.id)));
   ziplines = ziplines.filter(entry => !removedBodyIds.has(entry.body.id));
@@ -10935,6 +10972,153 @@ function updateRails() {
   });
 }
 
+const SIEVE_TOTAL_WIDTH = 168;
+const SIEVE_BAR_THICKNESS = 14;
+const SIEVE_GAPS = [12, 44, 68];
+const SIEVE_GAP_NAMES = ['NARROW', 'MEDIUM', 'WIDE'];
+const SIEVE_HALF_WIDTH = SIEVE_TOTAL_WIDTH / 2;
+
+function getSievePlacement(pos, canvasWidth, canvasHeight) {
+  return {
+    x:Math.max(SIEVE_HALF_WIDTH + 12, Math.min(canvasWidth - SIEVE_HALF_WIDTH - 12, pos.x)),
+    y:Math.max(34, Math.min(canvasHeight - 42, pos.y))
+  };
+}
+
+function getSieveBarLayout(center, gapIndex = 0) {
+  const normalized = ((gapIndex % SIEVE_GAPS.length) + SIEVE_GAPS.length) % SIEVE_GAPS.length;
+  const gap = SIEVE_GAPS[normalized];
+  const width = (SIEVE_TOTAL_WIDTH - gap) / 2;
+  const offset = gap / 2 + width / 2;
+  return {
+    gapIndex:normalized,
+    gap,
+    width,
+    bars:[
+      { side:'left', x:center.x - offset, y:center.y },
+      { side:'right', x:center.x + offset, y:center.y }
+    ]
+  };
+}
+
+function createSieveAssembly(position, gapIndex = 0) {
+  const layout = getSieveBarLayout(position, gapIndex);
+  const bodies = layout.bars.map(bar => {
+    const body = Bodies.rectangle(bar.x, bar.y, layout.width, SIEVE_BAR_THICKNESS, {
+      isStatic:true,
+      chamfer:{ radius:2 },
+      friction:0.88,
+      restitution:0.1,
+      label:'sieve-bar',
+      render:{
+        type:'sieve-bar',
+        color:'#a7f3d0',
+        width:layout.width,
+        height:SIEVE_BAR_THICKNESS,
+        side:bar.side
+      }
+    });
+    body.isSieveBar = true;
+    body.sieveSide = bar.side;
+    body.sieveWidth = layout.width;
+    body.sieveGapIndex = layout.gapIndex;
+    body.material = 'metal';
+    return body;
+  });
+  return { bodies, center:{ ...position }, gapIndex:layout.gapIndex };
+}
+
+function setSieveGap(entry, gapIndex) {
+  const layout = getSieveBarLayout(entry.center, gapIndex);
+  entry.bodies.forEach((body, index) => {
+    Body.scale(body, layout.width / body.sieveWidth, 1);
+    Body.setPosition(body, { x:layout.bars[index].x, y:layout.bars[index].y });
+    body.sieveWidth = layout.width;
+    body.sieveGapIndex = layout.gapIndex;
+    body.render.width = layout.width;
+  });
+  entry.gapIndex = layout.gapIndex;
+  return layout;
+}
+
+function pruneSieves() {
+  sieves = sieves.filter(entry => entry.bodies.every(body => Composite.get(world, body.id, 'body')));
+}
+
+function findSieveAt(pos) {
+  pruneSieves();
+  const body = Matter.Query.point(sieves.flatMap(entry => entry.bodies), pos).pop();
+  if (body) return sieves.find(entry => entry.bodies.includes(body)) || null;
+
+  let nearest = null;
+  let nearestDist = 62;
+  sieves.forEach(entry => {
+    const distance = Math.hypot(entry.center.x - pos.x, entry.center.y - pos.y);
+    if (distance < nearestDist) {
+      nearest = entry;
+      nearestDist = distance;
+    }
+  });
+  return nearest;
+}
+
+function showSieveFeedback(message) {
+  const feedback = document.getElementById('sieve-feedback');
+  feedback.textContent = message;
+  feedback.style.color = '#a7f3d0';
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(sieveFeedbackTimer);
+  sieveFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 950);
+}
+
+function addSieveBurst(entry, layout) {
+  for (let i = 0; i < 18; i++) {
+    const side = i % 2 === 0 ? -1 : 1;
+    particles.push({
+      x:entry.center.x + side * (layout.gap / 2 + Math.random() * 16),
+      y:entry.center.y + (Math.random() - 0.5) * 10,
+      vx:side * (0.8 + Math.random() * 2.2),
+      vy:(Math.random() - 0.5) * 2.4,
+      size:1.5 + Math.random() * 2.5,
+      life:0.24 + Math.random() * 0.3,
+      color:i % 3 === 0 ? '#ffc857' : '#a7f3d0'
+    });
+  }
+  explosions.push({ x:entry.center.x, y:entry.center.y, r:layout.gap / 2, maxR:layout.gap, alpha:0.5, isBirthRing:true });
+}
+
+function placeOrCycleSieveAt(pos) {
+  const existing = findSieveAt(pos);
+  if (existing) {
+    const layout = setSieveGap(existing, existing.gapIndex + 1);
+    Composite.allBodies(world).forEach(body => {
+      if (!body.isStatic && Math.abs(body.position.x - existing.center.x) < SIEVE_HALF_WIDTH + 24 && Math.abs(body.position.y - existing.center.y) < 72) {
+        Matter.Sleeping.set(body, false);
+      }
+    });
+    addSieveBurst(existing, layout);
+    showSieveFeedback(`SIEVE ${SIEVE_GAP_NAMES[layout.gapIndex]} • ${layout.gap}PX GAP`);
+    playSound(520 + layout.gapIndex * 120, 0.1, 'square', 0.06);
+    haptic([7, 7, 7]);
+    return { ...existing, placed:false, gap:layout.gap };
+  }
+
+  const placement = getSievePlacement(pos, canvas.width, canvas.height);
+  const assembly = createSieveAssembly(placement, 0);
+  const layout = getSieveBarLayout(placement, 0);
+  Composite.add(world, assembly.bodies);
+  sieves.push(assembly);
+  markSpawnPop(assembly.bodies);
+  addSieveBurst(assembly, layout);
+  showSieveFeedback(`SIEVE NARROW • ${layout.gap}PX • TAP TO WIDEN`);
+  playSpawn();
+  playSound(720, 0.09, 'triangle', 0.055);
+  haptic([7]);
+  return { ...assembly, placed:true, gap:layout.gap };
+}
+
 const ELEVATOR_WIDTH = 112;
 const ELEVATOR_HEIGHT = 16;
 const ELEVATOR_TRAVEL = 132;
@@ -11947,6 +12131,13 @@ function onDown(e) {
   // Rail tool — select a loose part, then constrain it to a finite sliding guide.
   if (currentTool === 'rail') {
     railBodyAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Sieve tool — place a physical size filter or cycle its center opening.
+  if (currentTool === 'sieve') {
+    placeOrCycleSieveAt(pos);
     pointerDown = false;
     return;
   }
@@ -13412,6 +13603,37 @@ function drawBody(b) {
         ctx.arc(x, 0, 2.5, 0, Math.PI * 2);
         ctx.fill();
       });
+      break;
+    }
+    case 'sieve-bar': {
+      const width = r.width || b.sieveWidth || 72;
+      const height = r.height || SIEVE_BAR_THICKNESS;
+      const pulse = 0.68 + Math.sin(performance.now() / 150 + b.id) * 0.14;
+      ctx.shadowColor = '#a7f3d0';
+      ctx.shadowBlur = 9 + pulse * 5;
+      ctx.fillStyle = `rgba(167,243,208,${0.12 + pulse * 0.08})`;
+      ctx.strokeStyle = '#a7f3d0';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.roundRect(-width / 2, -height / 2, width, height, height / 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      ctx.strokeStyle = '#4de3ff';
+      ctx.lineWidth = 1.5;
+      const direction = b.sieveSide === 'left' ? 1 : -1;
+      for (let x = -width / 2 + 14; x <= width / 2 - 14; x += 22) {
+        ctx.beginPath();
+        ctx.moveTo(x - direction * 4, -4);
+        ctx.lineTo(x + direction * 2, 0);
+        ctx.lineTo(x - direction * 4, 4);
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#ffc857';
+      ctx.beginPath();
+      ctx.arc(b.sieveSide === 'left' ? width / 2 - 7 : -width / 2 + 7, 0, 2.8, 0, Math.PI * 2);
+      ctx.fill();
       break;
     }
     case 'catapult-arm': {
@@ -16490,6 +16712,7 @@ function loop(timestamp) {
   prunePinwheels();
   pruneSaws();
   pruneFunnels();
+  pruneSieves();
   pruneCatapults();
   prunePresses();
   pruneZiplines();
