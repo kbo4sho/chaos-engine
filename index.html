@@ -762,6 +762,19 @@ canvas#game {
 #sieve-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#winch-feedback {
+  position:absolute; top:388px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#ffd166;
+  font-size:22px; letter-spacing:1px; text-shadow:0 0 8px currentColor;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none; white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#winch-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -898,6 +911,7 @@ canvas#game {
   #gearbox-feedback { top:14px; font-size:19px; }
   #rail-feedback { top:14px; font-size:19px; }
   #sieve-feedback { top:14px; font-size:19px; }
+  #winch-feedback { top:14px; font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -988,6 +1002,7 @@ canvas#game {
     <div id="gearbox-feedback" role="status" aria-live="polite"></div>
     <div id="rail-feedback" role="status" aria-live="polite"></div>
     <div id="sieve-feedback" role="status" aria-live="polite"></div>
+    <div id="winch-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -1080,6 +1095,7 @@ canvas#game {
     <button class="tool-btn" data-tool="gearbox" style="color:#ffb347;" title="Tap two loose parts to couple their spin; tap either linked part to disengage" aria-label="Couple two loose parts in an opposite-spinning gearbox"><span class="icon">⛭</span>Gearbox</button>
     <button class="tool-btn" data-tool="rail" style="color:#67e8ff;" title="Tap a loose part, then a destination to lock it onto a finite sliding rail; tap the rider to release" aria-label="Guide a loose part along a finite sliding rail or release it"><span class="icon">═</span>Rail</button>
     <button class="tool-btn" data-tool="sieve" style="color:#a7f3d0;" title="Tap the canvas to place a size-sorting sieve; tap it to cycle the opening" aria-label="Place a physical size-sorting sieve or cycle its opening"><span class="icon">▔◇▔</span>Sieve</button>
+    <button class="tool-btn" data-tool="winch" style="color:#ffd166;" title="Tap a loose part, then an anchor point to suspend it; tap the spool to reel in or out" aria-label="Suspend a loose part from a powered winch and reel it in or out"><span class="icon">◉</span>Winch</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1405,6 +1421,9 @@ let rails = []; // {body, start, end, tangent, length} finite passive slider gui
 let railFeedbackTimer = 0;
 let sieves = []; // {bodies, center, gapIndex} adjustable two-bar physical size filters
 let sieveFeedbackTimer = 0;
+let winchSelection = null; // loose dynamic part waiting for a remote winch anchor
+let winches = []; // {body, constraint, anchor, minLength, maxLength, targetLength} powered world cables
+let winchFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -2347,6 +2366,15 @@ function resetSieveFeedback(silent = false) {
   feedback.textContent = '';
 }
 
+function resetWinchSelection(silent = false) {
+  winchSelection = null;
+  if (!silent) return;
+  clearTimeout(winchFeedbackTimer);
+  const feedback = document.getElementById('winch-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -2448,6 +2476,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'gearbox') resetGearboxSelection(true);
       if (tool !== 'rail') resetRailSelection(true);
       if (tool !== 'sieve') resetSieveFeedback(true);
+      if (tool !== 'winch') resetWinchSelection(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -3897,6 +3926,8 @@ function finishClear(playFeedback = true) {
   rails = [];
   railSelection = null;
   sieves = [];
+  winches = [];
+  winchSelection = null;
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -3956,6 +3987,7 @@ function finishClear(playFeedback = true) {
   resetGearboxSelection(true);
   resetRailSelection(true);
   resetSieveFeedback(true);
+  resetWinchSelection(true);
   flippers = [];
   nextFlipperSide = 'left';
   clearTimeout(flipperFeedbackTimer);
@@ -4191,7 +4223,8 @@ function getToolAccentColor(tool) {
     siphon: '#7dff7a',
     gearbox: '#ffb347',
     rail: '#67e8ff',
-    sieve: '#a7f3d0'
+    sieve: '#a7f3d0',
+    winch: '#ffd166'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -4374,6 +4407,11 @@ function eraseBodyAt(pos) {
     delete entry.body.isRailed;
     return false;
   });
+  winches = winches.filter(entry => {
+    if (!removedBodyIds.has(entry.body.id) && !constraintsToRemove.has(entry.constraint)) return true;
+    delete entry.body.isWinched;
+    return false;
+  });
   ropes = ropes.filter(r => !constraintsToRemove.has(r));
   struts = struts.filter(strut => !constraintsToRemove.has(strut));
   hinges = hinges.filter(hinge => !constraintsToRemove.has(hinge));
@@ -4390,6 +4428,7 @@ function eraseBodyAt(pos) {
   if (siphonDonor && removedBodyIds.has(siphonDonor.id)) resetSiphonSelection(true);
   if (gearboxSelection && removedBodyIds.has(gearboxSelection.id)) resetGearboxSelection(true);
   if (railSelection && removedBodyIds.has(railSelection.id)) resetRailSelection(true);
+  if (winchSelection && removedBodyIds.has(winchSelection.id)) resetWinchSelection(true);
   if (ropeFirstBody && removedBodyIds.has(ropeFirstBody.id)) ropeFirstBody = null;
   if (grabBody && removedBodyIds.has(grabBody.id)) {
     grabActive = false;
@@ -10972,6 +11011,218 @@ function updateRails() {
   });
 }
 
+const WINCH_MIN_ROUTE = 80;
+const WINCH_MIN_CABLE = 52;
+const WINCH_REEL_SPEED = 2.1;
+
+function getWinchAnchor(pos, canvasWidth, canvasHeight) {
+  return {
+    x:Math.max(26, Math.min(canvasWidth - 26, pos.x)),
+    y:Math.max(26, Math.min(canvasHeight - 44, pos.y))
+  };
+}
+
+function getWinchNextLength(current, target, speed = WINCH_REEL_SPEED) {
+  if (Math.abs(target - current) <= speed) return target;
+  return current + Math.sign(target - current) * speed;
+}
+
+function isWinchableBody(body) {
+  if (!body || body.label === 'wall' || body.label === 'chain-link' || body.isTarget || body.isStatic || body.isFragment || body.isZiplining || body.isRailed || body.isGearboxed || body.isWinched || body.parent !== body || body.parts.length > 1) return false;
+  return !Composite.allConstraints(world).some(constraint => constraint.bodyA === body || constraint.bodyB === body);
+}
+
+function findWinchableBodyAt(pos) {
+  const candidates = Composite.allBodies(world).filter(isWinchableBody);
+  const exact = Matter.Query.point(candidates, pos).filter(isWinchableBody).pop();
+  if (exact) return exact;
+
+  let target = null;
+  let nearestDist = 46;
+  candidates.forEach(body => {
+    const distance = Math.hypot(body.position.x - pos.x, body.position.y - pos.y);
+    if (distance < nearestDist) {
+      target = body;
+      nearestDist = distance;
+    }
+  });
+  return target;
+}
+
+function showWinchFeedback(message, color = '#ffd166') {
+  const feedback = document.getElementById('winch-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(winchFeedbackTimer);
+  winchFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 1050);
+}
+
+function addWinchBurst(start, end, color = '#ffd166') {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  for (let i = 0; i < 14; i++) {
+    const progress = i / 13;
+    particles.push({
+      x:start.x + dx * progress,
+      y:start.y + dy * progress,
+      vx:(Math.random() - 0.5) * 2.2,
+      vy:(Math.random() - 0.5) * 2.2,
+      size:1.5 + Math.random() * 2,
+      life:0.24 + Math.random() * 0.28,
+      color:i % 3 === 0 ? '#67e8ff' : color
+    });
+  }
+}
+
+function findWinchAt(pos) {
+  pruneWinches();
+  let match = null;
+  let nearestDist = 58;
+  winches.forEach(entry => {
+    const anchorDistance = Math.hypot(entry.anchor.x - pos.x, entry.anchor.y - pos.y);
+    const bodyDistance = Math.hypot(entry.body.position.x - pos.x, entry.body.position.y - pos.y);
+    const distance = Math.min(anchorDistance, bodyDistance);
+    if (distance < nearestDist) {
+      match = { entry, anchorDistance, bodyDistance };
+      nearestDist = distance;
+    }
+  });
+  return match;
+}
+
+function releaseWinch(entry, silent = false) {
+  winches = winches.filter(candidate => candidate !== entry);
+  if (Composite.get(world, entry.constraint.id, 'constraint')) Composite.remove(world, entry.constraint, true);
+  delete entry.body.isWinched;
+  if (!silent) {
+    addWinchBurst(entry.anchor, entry.body.position, '#aaaaaa');
+    showWinchFeedback('WINCH: PAYLOAD RELEASED', '#aaaaaa');
+    playSound(300, 0.1, 'square', 0.05);
+    haptic([6]);
+  }
+  return 'released';
+}
+
+function toggleWinch(entry) {
+  const reelingOut = entry.targetLength === entry.minLength;
+  entry.targetLength = reelingOut ? entry.maxLength : entry.minLength;
+  entry.direction = reelingOut ? 1 : -1;
+  entry.arrivedTarget = null;
+  Matter.Sleeping.set(entry.body, false);
+  addWinchBurst(entry.anchor, entry.body.position);
+  showWinchFeedback(reelingOut ? 'WINCH: REELING OUT' : 'WINCH: REELING IN');
+  playSound(reelingOut ? 420 : 680, 0.12, 'sawtooth', 0.055);
+  haptic([7, 6, 7]);
+  return entry.targetLength;
+}
+
+function winchBodyAt(pos) {
+  if (winchSelection && !Composite.get(world, winchSelection.id, 'body')) winchSelection = null;
+  if (!winchSelection) {
+    const active = findWinchAt(pos);
+    if (active) {
+      return active.anchorDistance <= active.bodyDistance
+        ? toggleWinch(active.entry)
+        : releaseWinch(active.entry);
+    }
+  }
+
+  if (!winchSelection) {
+    const target = findWinchableBodyAt(pos);
+    if (!target) {
+      showWinchFeedback('WINCH: NO LOOSE PART', '#888888');
+      haptic([3]);
+      return false;
+    }
+    winchSelection = target;
+    showWinchFeedback('PAYLOAD SET • PICK ANCHOR');
+    playSound(540, 0.08, 'triangle', 0.055);
+    haptic([6]);
+    return 'selected';
+  }
+
+  if (Math.hypot(winchSelection.position.x - pos.x, winchSelection.position.y - pos.y) < 46) {
+    resetWinchSelection();
+    showWinchFeedback('WINCH: CANCELLED', '#aaaaaa');
+    haptic([4]);
+    return 'cancelled';
+  }
+
+  const body = winchSelection;
+  const anchor = getWinchAnchor(pos, canvas.width, canvas.height);
+  const distance = Math.hypot(body.position.x - anchor.x, body.position.y - anchor.y);
+  if (distance < WINCH_MIN_ROUTE) {
+    showWinchFeedback(`WINCH: ANCHOR ${WINCH_MIN_ROUTE}PX AWAY`, '#ffc857');
+    haptic([3]);
+    return false;
+  }
+
+  const minLength = Math.max(WINCH_MIN_CABLE, Math.min(96, distance * 0.38));
+  const constraint = Constraint.create({
+    pointA:{ ...anchor },
+    bodyB:body,
+    pointB:{ x:0, y:0 },
+    length:distance,
+    stiffness:0.18,
+    damping:0.08,
+    render:{ type:'winch-cable' }
+  });
+  const entry = {
+    body,
+    constraint,
+    anchor,
+    minLength,
+    maxLength:distance,
+    targetLength:minLength,
+    direction:-1,
+    arrivedTarget:null
+  };
+  body.isWinched = true;
+  winches.push(entry);
+  Composite.add(world, constraint);
+  winchSelection = null;
+  Matter.Sleeping.set(body, false);
+  addWinchBurst(anchor, body.position);
+  showWinchFeedback(`WINCH LOCKED • REELING TO ${Math.round(minLength)}PX`);
+  playSound(620, 0.12, 'square', 0.06);
+  playSound(900, 0.16, 'triangle', 0.045);
+  haptic([7, 8, 10]);
+  return entry;
+}
+
+function pruneWinches() {
+  const liveBodies = new Set(Composite.allBodies(world));
+  winches = winches.filter(entry => {
+    const live = liveBodies.has(entry.body) && Composite.get(world, entry.constraint.id, 'constraint');
+    if (!live) delete entry.body.isWinched;
+    return live;
+  });
+  if (winchSelection && !liveBodies.has(winchSelection)) resetWinchSelection(true);
+}
+
+function updateWinches(timeScale = 1) {
+  pruneWinches();
+  winches.forEach(entry => {
+    const nextLength = getWinchNextLength(
+      entry.constraint.length,
+      entry.targetLength,
+      WINCH_REEL_SPEED * timeScale
+    );
+    entry.constraint.length = nextLength;
+    if (nextLength !== entry.targetLength) {
+      Matter.Sleeping.set(entry.body, false);
+      return;
+    }
+    if (entry.arrivedTarget === entry.targetLength) return;
+    entry.arrivedTarget = entry.targetLength;
+    showWinchFeedback(entry.direction < 0 ? 'WINCH: FULLY IN' : 'WINCH: FULLY OUT');
+    playSound(entry.direction < 0 ? 760 : 380, 0.08, 'square', 0.04);
+  });
+}
+
 const SIEVE_TOTAL_WIDTH = 168;
 const SIEVE_BAR_THICKNESS = 14;
 const SIEVE_GAPS = [12, 44, 68];
@@ -11681,6 +11932,11 @@ function snipConstraintAt(pos) {
   springs = springs.filter(spring => spring !== constraint);
   welds = welds.filter(weld => weld.constraint !== constraint);
   tethers = tethers.filter(tether => tether.constraint !== constraint);
+  winches = winches.filter(entry => {
+    if (entry.constraint !== constraint) return true;
+    delete entry.body.isWinched;
+    return false;
+  });
   webTraps.forEach(entry => {
     entry.attachments = entry.attachments.filter(attachment => attachment.constraint !== constraint);
   });
@@ -12138,6 +12394,13 @@ function onDown(e) {
   // Sieve tool — place a physical size filter or cycle its center opening.
   if (currentTool === 'sieve') {
     placeOrCycleSieveAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Winch tool — suspend one loose part from a powered cable or operate its spool.
+  if (currentTool === 'winch') {
+    winchBodyAt(pos);
     pointerDown = false;
     return;
   }
@@ -16695,6 +16958,84 @@ function drawRails(timestamp) {
   ctx.restore();
 }
 
+function drawWinches(timestamp) {
+  pruneWinches();
+  winches.forEach(entry => {
+    const end = entry.body.position;
+    const dx = end.x - entry.anchor.x;
+    const dy = end.y - entry.anchor.y;
+    const distance = Math.hypot(dx, dy) || 1;
+    const nx = -dy / distance;
+    const ny = dx / distance;
+    const pulse = 0.78 + Math.sin(timestamp / 105 + entry.body.id) * 0.14;
+    ctx.save();
+    ctx.globalAlpha = pulse;
+    ctx.strokeStyle = '#67e8ff';
+    ctx.shadowColor = '#67e8ff';
+    ctx.shadowBlur = 9;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(entry.anchor.x, entry.anchor.y);
+    const segments = Math.max(5, Math.min(18, Math.round(distance / 20)));
+    for (let i = 1; i < segments; i++) {
+      const progress = i / segments;
+      const braid = (i % 2 === 0 ? -1 : 1) * 2.5;
+      ctx.lineTo(
+        entry.anchor.x + dx * progress + nx * braid,
+        entry.anchor.y + dy * progress + ny * braid
+      );
+    }
+    ctx.lineTo(end.x, end.y);
+    ctx.stroke();
+
+    ctx.translate(entry.anchor.x, entry.anchor.y);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#080c10';
+    ctx.strokeStyle = '#ffd166';
+    ctx.shadowColor = '#ffd166';
+    ctx.shadowBlur = 13;
+    ctx.lineWidth = 3;
+    ctx.fillRect(-18, -13, 36, 26);
+    ctx.strokeRect(-18, -13, 36, 26);
+    ctx.beginPath();
+    ctx.arc(0, 0, 8, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = '#ffd166';
+    ctx.font = '17px VT323';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(entry.direction < 0 ? '↑' : '↓', 0, 1);
+    ctx.restore();
+  });
+
+  if (!winchSelection || currentTool !== 'winch') return;
+  if (!Composite.get(world, winchSelection.id, 'body')) {
+    winchSelection = null;
+    return;
+  }
+  const width = winchSelection.bounds.max.x - winchSelection.bounds.min.x;
+  const height = winchSelection.bounds.max.y - winchSelection.bounds.min.y;
+  const radius = Math.max(28, Math.min(62, Math.hypot(width, height) * 0.64));
+  ctx.save();
+  ctx.translate(winchSelection.position.x, winchSelection.position.y);
+  ctx.globalAlpha = 0.72 + Math.sin(timestamp / 95) * 0.2;
+  ctx.strokeStyle = '#ffd166';
+  ctx.fillStyle = '#ffd166';
+  ctx.shadowColor = '#ffd166';
+  ctx.shadowBlur = 14;
+  ctx.lineWidth = 3;
+  ctx.setLineDash([7, 5]);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.font = '17px VT323';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('LOAD', 0, 1);
+  ctx.restore();
+}
+
 // ── MAIN LOOP ──
 let lastTime = 0;
 
@@ -16717,6 +17058,7 @@ function loop(timestamp) {
   prunePresses();
   pruneZiplines();
   pruneRails();
+  pruneWinches();
   pruneElevators();
   pruneHatches();
 
@@ -17348,6 +17690,7 @@ function loop(timestamp) {
     updateCatapults(timestamp);
     updatePresses(timeScale);
     updateGearboxes();
+    updateWinches(timeScale);
     Engine.update(engine, (1000/60) * timeScale);
     updateZiplines(timeScale);
     updateRails();
@@ -17551,6 +17894,7 @@ function loop(timestamp) {
   drawSiphonMarker(timestamp);
   drawGearboxes(timestamp);
   drawRails(timestamp);
+  drawWinches(timestamp);
   drawRelayMarker(timestamp);
   drawStrutMarker(timestamp);
   drawRotateFlash(timestamp);

@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch', 'piston', 'parachute', 'saw', 'funnel', 'catapult', 'press', 'zipline', 'siphon', 'gearbox', 'rail', 'sieve'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch', 'piston', 'parachute', 'saw', 'funnel', 'catapult', 'press', 'zipline', 'siphon', 'gearbox', 'rail', 'sieve', 'winch'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 87 tool buttons', () => {
+  it('should have exactly 88 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(87);
+    expect(buttons.length).toBe(88);
   });
 
-  it('should append Sieve after Rail at the end of the object toolbar', () => {
+  it('should append Winch after Sieve at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('sieve');
-    expect(toolbar.lastElementChild?.textContent).toContain('Sieve');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('rail');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('gearbox');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('winch');
+    expect(toolbar.lastElementChild?.textContent).toContain('Winch');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('sieve');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('rail');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,16 +67,85 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// WINCH TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Winch Tool', () => {
+  it('should expose Winch as the final selectable toolbar tool', () => {
+    const winchBtn = document.querySelector('[data-tool="winch"]');
+    expect(winchBtn).not.toBeNull();
+    expect(winchBtn?.getAttribute('aria-label')).toContain('powered winch');
+    expect(winchBtn?.previousElementSibling?.dataset.tool).toBe('sieve');
+    expect(winchBtn?.nextElementSibling).toBeNull();
+    expect(scriptContent).toContain("currentTool === 'winch'");
+    expect(scriptContent).toContain('winchBodyAt(pos)');
+  });
+
+  it('should clamp anchors and step cable length exactly toward either stop', () => {
+    const anchorSource = scriptContent.slice(
+      scriptContent.indexOf('function getWinchAnchor'),
+      scriptContent.indexOf('\nfunction getWinchNextLength')
+    );
+    const stepSource = scriptContent.slice(
+      scriptContent.indexOf('function getWinchNextLength'),
+      scriptContent.indexOf('\nfunction isWinchableBody')
+    );
+    const helpers = new Function(`
+      const WINCH_REEL_SPEED = 2.1;
+      ${anchorSource}
+      ${stepSource}
+      return { getWinchAnchor, getWinchNextLength };
+    `)();
+
+    expect(helpers.getWinchAnchor({ x:2, y:4 }, 390, 500)).toEqual({ x:26, y:26 });
+    expect(helpers.getWinchAnchor({ x:388, y:498 }, 390, 500)).toEqual({ x:364, y:456 });
+    expect(helpers.getWinchNextLength(160, 80)).toBe(157.9);
+    expect(helpers.getWinchNextLength(80, 160, 3)).toBe(83);
+    expect(helpers.getWinchNextLength(81, 80, 3)).toBe(80);
+  });
+
+  it('should suspend one loose part on a real powered constraint and reverse from the spool', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('const WINCH_MIN_ROUTE'),
+      scriptContent.indexOf('const SIEVE_TOTAL_WIDTH')
+    );
+    expect(source).toContain('let nearestDist = 46');
+    expect(source).toContain('Composite.allConstraints(world).some');
+    expect(source).toContain('Constraint.create({');
+    expect(source).toContain("render:{ type:'winch-cable' }");
+    expect(source).toContain('body.isWinched = true');
+    expect(source).toContain('winches.push(entry)');
+    expect(source).toContain('function toggleWinch(entry)');
+    expect(source).toContain('entry.targetLength = reelingOut ? entry.maxLength : entry.minLength');
+    expect(source).toContain('entry.constraint.length = nextLength');
+    expect(scriptContent).toContain('updateWinches(timeScale);');
+  });
+
+  it('should render accessible feedback and clean selection/cables on tool change, Snip, Eraser, or Clear', () => {
+    expect(document.getElementById('winch-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('function drawWinches(timestamp)');
+    expect(scriptContent).toContain('drawWinches(timestamp);');
+    expect(scriptContent).toContain("ctx.fillText(entry.direction < 0 ? '↑' : '↓'");
+    expect(scriptContent).toContain("if (tool !== 'winch') resetWinchSelection(true)");
+    expect(scriptContent).toContain('delete entry.body.isWinched;');
+    expect(scriptContent).toContain('winches = [];');
+    expect(scriptContent).toContain('resetWinchSelection(true);');
+    expect(scriptContent).toContain("winch: '#ffd166'");
+    expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?#winch-feedback \{ top:14px; font-size:19px/);
+  });
+});
+
+// ============================================
 // SIEVE TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Sieve Tool', () => {
-  it('should expose Sieve as the final selectable toolbar tool', () => {
+  it('should keep Sieve selectable immediately before Winch', () => {
     const sieveBtn = document.querySelector('[data-tool="sieve"]');
     expect(sieveBtn).not.toBeNull();
     expect(sieveBtn?.getAttribute('aria-label')).toContain('size-sorting sieve');
     expect(sieveBtn?.previousElementSibling?.dataset.tool).toBe('rail');
-    expect(sieveBtn?.nextElementSibling).toBeNull();
+    expect(sieveBtn?.nextElementSibling?.dataset.tool).toBe('winch');
     expect(scriptContent).toContain("currentTool === 'sieve'");
     expect(scriptContent).toContain('placeOrCycleSieveAt(pos)');
   });

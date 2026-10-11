@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-10-11",
+      "ideas": [
+        "New tool: Suspend one loose part from a powered Winch and reel it in or out"
+      ],
+      "summary": "Implemented Winch tool (◉) — the final button in the existing object toolbar now selects one loose standalone part and a canvas-clamped remote anchor, creates a real body-to-world cable, powers its length between a 52–96px raised stop and the original lowered stop, and reverses direction when the spool is tapped while the payload remains free to swing and collide; 46/58px touch targeting, amber/cyan CRT rendering, status/particle/audio/haptic feedback, tool-change selection cleanup, and direct/Snip/Eraser/Clear cable release make reusable hoisting reliable on desktop and mobile."
+    },
+    {
       "date": "2026-10-10",
       "ideas": [
         "New tool: Place an adjustable physical Sieve that sorts loose parts by size"

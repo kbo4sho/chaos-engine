@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-10-11T14:05:42Z — Added: Winch tool
+**Why:** The toolbar could tether a part at a fixed elastic length, guide it along a Rail, or carry it on a Zipline, but it had no powered world cable that repeatedly lifts and lowers an existing payload while leaving it free to swing and collide. Winch adds a compact reusable hoist with direct spool control.
+**Goal alignment:** "more fun, more surprising, more satisfying" — players can suspend Balls and Blocks, lift them into contraptions, lower them as swinging weights, and reverse the same cable without replacing the payload.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (571/571 passing); browser smoke ✓ (existing Block tool placed a paused payload, final Winch created a real body-to-world constraint, reeled the cable from 493px to 96px, then reversed and paid it back out to 373px while the Block remained physical); mobile ✓ (390×844, final Winch button was fully reachable at 52×50px and x=330–382 at the toolbar's true maximum scroll, existing Ball worked, and Winch reeled it from 261px to 96px while it swung); cleanup ✓ (tool change clears pending selection; Snip, Eraser, direct payload release, and Clear remove cable state; browser Clear returned the scene to zero bodies and constraints); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-10-10T14:06:59Z — Added: Sieve tool
 **Why:** The toolbar could redirect objects with Funnel, release them with Hatch, or remove them with Recycler, but it had no adjustable physical opening for sorting loose parts by size. Sieve adds a compact reusable filter whose real collision gap changes in place.
 **Goal alignment:** "more fun, more surprising, more satisfying" — players can catch larger payloads while smaller pieces fall through, then cycle the same machine through narrow, medium, and wide settings as a contraption changes.
