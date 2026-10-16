@@ -788,6 +788,19 @@ canvas#game {
 #tripwire-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#ratchet-feedback {
+  position:absolute; top:388px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#ffd166;
+  font-size:22px; letter-spacing:1px; text-shadow:0 0 8px currentColor;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none; white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#ratchet-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -926,6 +939,7 @@ canvas#game {
   #sieve-feedback { top:14px; font-size:19px; }
   #winch-feedback { top:14px; font-size:19px; }
   #tripwire-feedback { top:14px; font-size:19px; }
+  #ratchet-feedback { top:14px; font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -1018,6 +1032,7 @@ canvas#game {
     <div id="sieve-feedback" role="status" aria-live="polite"></div>
     <div id="winch-feedback" role="status" aria-live="polite"></div>
     <div id="tripwire-feedback" role="status" aria-live="polite"></div>
+    <div id="ratchet-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -1112,6 +1127,7 @@ canvas#game {
     <button class="tool-btn" data-tool="sieve" style="color:#a7f3d0;" title="Tap the canvas to place a size-sorting sieve; tap it to cycle the opening" aria-label="Place a physical size-sorting sieve or cycle its opening"><span class="icon">▔◇▔</span>Sieve</button>
     <button class="tool-btn" data-tool="winch" style="color:#ffd166;" title="Tap a loose part, then an anchor point to suspend it; tap the spool to reel in or out" aria-label="Suspend a loose part from a powered winch and reel it in or out"><span class="icon">◉</span>Winch</button>
     <button class="tool-btn" data-tool="tripwire" style="color:#ff5fd7;" title="Tap two points to stretch a launch tripwire; tap the beam to reverse its kick" aria-label="Place a launch tripwire or reverse its kick direction"><span class="icon">⚡</span>Tripwire</button>
+    <button class="tool-btn" data-tool="ratchet" style="color:#ffd166;" title="Tap a part to cycle clockwise-only rotation, counter-clockwise-only, then off" aria-label="Ratchet a part through clockwise-only, counter-clockwise-only, and free rotation"><span class="icon">⥁</span>Ratchet</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1444,6 +1460,8 @@ let tripwireStart = null; // first endpoint waiting for the second tripwire post
 let tripwires = []; // {id, start, end, geometry, direction, cooldowns} crossing-triggered launch beams
 let nextTripwireId = 1;
 let tripwireFeedbackTimer = 0;
+let ratchetBodies = new Map(); // body -> {direction, stopAngle, blockedUntil} passive one-way spin locks
+let ratchetFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -2404,6 +2422,14 @@ function resetTripwireSelection(silent = false) {
   feedback.textContent = '';
 }
 
+function resetRatchetFeedback(silent = false) {
+  if (!silent) return;
+  clearTimeout(ratchetFeedbackTimer);
+  const feedback = document.getElementById('ratchet-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -2507,6 +2533,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'sieve') resetSieveFeedback(true);
       if (tool !== 'winch') resetWinchSelection(true);
       if (tool !== 'tripwire') resetTripwireSelection(true);
+      if (tool !== 'ratchet') resetRatchetFeedback(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -3960,6 +3987,8 @@ function finishClear(playFeedback = true) {
   winchSelection = null;
   tripwires = [];
   tripwireStart = null;
+  ratchetBodies.clear();
+  resetRatchetFeedback(true);
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -4258,7 +4287,8 @@ function getToolAccentColor(tool) {
     rail: '#67e8ff',
     sieve: '#a7f3d0',
     winch: '#ffd166',
-    tripwire: '#ff5fd7'
+    tripwire: '#ff5fd7',
+    ratchet: '#ffd166'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -4404,6 +4434,7 @@ function eraseBodyAt(pos) {
     thrusterBodies.delete(b);
     phaseBodies.delete(b);
     gyroBodies.delete(b);
+    ratchetBodies.delete(b);
     liftedBodies.delete(b);
     orbitingBodies.delete(b);
     parachuteBodies.delete(b);
@@ -4886,6 +4917,7 @@ function fissionBodyAt(pos) {
   thrusterBodies.delete(source);
   phaseBodies.delete(source);
   gyroBodies.delete(source);
+  ratchetBodies.delete(source);
   liftedBodies.delete(source);
   orbitingBodies.delete(source);
   delete source.isOrbiting;
@@ -7830,6 +7862,7 @@ function removeFusionSourceTracking(body) {
   thrusterBodies.delete(body);
   phaseBodies.delete(body);
   gyroBodies.delete(body);
+  ratchetBodies.delete(body);
   liftedBodies.delete(body);
   orbitingBodies.delete(body);
   megaBounceOriginal.delete(body.id);
@@ -9811,6 +9844,7 @@ function sliceBodyWithSaw(sawBody, source) {
   thrusterBodies.delete(source);
   phaseBodies.delete(source);
   gyroBodies.delete(source);
+  ratchetBodies.delete(source);
   liftedBodies.delete(source);
   orbitingBodies.delete(source);
   parachuteBodies.delete(source);
@@ -11495,6 +11529,90 @@ function updateTripwires() {
   });
 }
 
+// Ratchet is passive: it only rejects reverse spin and never adds forward energy.
+function getRatchetStep(angle, stopAngle, angularVelocity, direction) {
+  const blocked = (angle - stopAngle) * direction < 0 || angularVelocity * direction < 0;
+  const nextAngle = (angle - stopAngle) * direction < 0 ? stopAngle : angle;
+  return {
+    angle:nextAngle,
+    stopAngle:nextAngle,
+    angularVelocity:angularVelocity * direction < 0 ? 0 : angularVelocity,
+    blocked
+  };
+}
+
+function findRatchetBodyAt(pos) {
+  const candidates = Composite.allBodies(world).filter(body => isGyroableBody(body) || ratchetBodies.has(body));
+  const exact = Matter.Query.point(candidates, pos);
+  if (exact.length) return exact[exact.length - 1];
+  let target = null;
+  let nearestDistance = 46;
+  candidates.forEach(body => {
+    const distance = Math.hypot(body.position.x - pos.x, body.position.y - pos.y);
+    if (distance < nearestDistance) {
+      target = body;
+      nearestDistance = distance;
+    }
+  });
+  return target;
+}
+
+function showRatchetFeedback(message, color = '#ffd166') {
+  const feedback = document.getElementById('ratchet-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(ratchetFeedbackTimer);
+  ratchetFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 1050);
+}
+
+function cycleRatchetAt(pos) {
+  const body = findRatchetBodyAt(pos);
+  if (!body) {
+    showRatchetFeedback('RATCHET: TAP A PART', '#aaaaaa');
+    haptic([3]);
+    return false;
+  }
+  const previous = ratchetBodies.get(body);
+  const direction = !previous ? 1 : previous.direction === 1 ? -1 : 0;
+  if (direction) {
+    ratchetBodies.set(body, { direction, stopAngle:body.angle, blockedUntil:0 });
+    Matter.Sleeping.set(body, false);
+    updateRatchets();
+  } else {
+    ratchetBodies.delete(body);
+  }
+  addTripwireBurst(body.position, null, direction ? '#ffd166' : '#aaaaaa');
+  showRatchetFeedback(direction === 1 ? 'RATCHET: CW ONLY' : direction === -1 ? 'RATCHET: CCW ONLY' : 'RATCHET: FREE SPIN');
+  playSound(direction ? 720 : 320, 0.08, 'square', 0.045);
+  haptic(direction ? [6, 7, 6] : [8]);
+  return direction;
+}
+
+function pruneRatchets() {
+  ratchetBodies.forEach((entry, body) => {
+    if (!Composite.get(world, body.id, 'body')) ratchetBodies.delete(body);
+  });
+}
+
+function updateRatchets() {
+  pruneRatchets();
+  ratchetBodies.forEach((entry, body) => {
+    // Anchoring suspends the clutch; releasing starts at the part's current angle.
+    if (body.isStatic) {
+      entry.stopAngle = body.angle;
+      return;
+    }
+    const step = getRatchetStep(body.angle, entry.stopAngle, body.angularVelocity, entry.direction);
+    if (step.angle !== body.angle) Body.setAngle(body, step.angle);
+    if (step.angularVelocity !== body.angularVelocity) Body.setAngularVelocity(body, step.angularVelocity);
+    entry.stopAngle = step.stopAngle;
+    if (step.blocked) entry.blockedUntil = performance.now() + 180;
+  });
+}
+
 const SIEVE_TOTAL_WIDTH = 168;
 const SIEVE_BAR_THICKNESS = 14;
 const SIEVE_GAPS = [12, 44, 68];
@@ -12680,6 +12798,13 @@ function onDown(e) {
   // Tripwire tool — stretch a crossing sensor or reverse an existing beam's launch side.
   if (currentTool === 'tripwire') {
     placeOrReverseTripwireAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Ratchet tool — cycle a passive one-way rotational lock on an existing part.
+  if (currentTool === 'ratchet') {
+    cycleRatchetAt(pos);
     pointerDown = false;
     return;
   }
@@ -17315,6 +17440,48 @@ function drawWinches(timestamp) {
   ctx.restore();
 }
 
+function drawRatchetMarkers(timestamp) {
+  ratchetBodies.forEach((entry, body) => {
+    const halfW = (body.bounds.max.x - body.bounds.min.x) / 2;
+    const halfH = (body.bounds.max.y - body.bounds.min.y) / 2;
+    const radius = Math.max(27, Math.min(72, Math.hypot(halfW, halfH) + 10));
+    const blocked = entry.blockedUntil > timestamp;
+    ctx.save();
+    ctx.translate(body.position.x, body.position.y);
+    ctx.strokeStyle = '#ffd166';
+    ctx.fillStyle = blocked ? '#dffcff' : '#0abdc6';
+    ctx.shadowColor = '#ffd166';
+    ctx.shadowBlur = blocked ? 18 : 8;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    // Teeth turn with the part; the fixed pawl makes the one-way stop readable.
+    ctx.save();
+    ctx.rotate(body.angle);
+    for (let i = 0; i < 12; i++) {
+      ctx.rotate(Math.PI / 6);
+      ctx.beginPath();
+      ctx.moveTo(radius - 5, -3 * entry.direction);
+      ctx.lineTo(radius + 4, 0);
+      ctx.lineTo(radius - 5, 3 * entry.direction);
+      ctx.stroke();
+    }
+    ctx.restore();
+    ctx.beginPath();
+    ctx.moveTo(radius + 10, -9 * entry.direction);
+    ctx.lineTo(radius - 3, 0);
+    ctx.lineTo(radius + 10, 9 * entry.direction);
+    ctx.closePath();
+    ctx.fill();
+    ctx.font = '16px VT323';
+    ctx.textAlign = 'center';
+    ctx.fillText(entry.direction === 1 ? 'CW ONLY ↻' : 'CCW ONLY ↺', 0, -radius - 10);
+    if (blocked) ctx.fillText('LOCK', 0, radius + 18);
+    ctx.restore();
+  });
+}
+
 function drawTripwires(timestamp) {
   tripwires.forEach(entry => {
     const pulse = 0.72 + Math.sin(timestamp / 90 + entry.id) * 0.2;
@@ -17434,6 +17601,7 @@ function loop(timestamp) {
   pruneRails();
   pruneWinches();
   pruneElevators();
+  pruneRatchets();
   pruneHatches();
 
   // Smooth gravity transition (skip during anti-grav pulse and gravity flip)
@@ -18069,6 +18237,7 @@ function loop(timestamp) {
     updateTripwires();
     updateZiplines(timeScale);
     updateRails();
+    updateRatchets();
   }
 
   // Update object count
@@ -18271,6 +18440,7 @@ function loop(timestamp) {
   drawGearboxes(timestamp);
   drawRails(timestamp);
   drawWinches(timestamp);
+  drawRatchetMarkers(timestamp);
   drawRelayMarker(timestamp);
   drawStrutMarker(timestamp);
   drawRotateFlash(timestamp);

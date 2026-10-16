@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch', 'piston', 'parachute', 'saw', 'funnel', 'catapult', 'press', 'zipline', 'siphon', 'gearbox', 'rail', 'sieve', 'winch', 'tripwire'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch', 'piston', 'parachute', 'saw', 'funnel', 'catapult', 'press', 'zipline', 'siphon', 'gearbox', 'rail', 'sieve', 'winch', 'tripwire', 'ratchet'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 89 tool buttons', () => {
+  it('should have exactly 90 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(89);
+    expect(buttons.length).toBe(90);
   });
 
-  it('should append Tripwire after Winch at the end of the object toolbar', () => {
+  it('should append Ratchet after Tripwire at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('tripwire');
-    expect(toolbar.lastElementChild?.textContent).toContain('Tripwire');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('winch');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('sieve');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('ratchet');
+    expect(toolbar.lastElementChild?.textContent).toContain('Ratchet');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('tripwire');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('winch');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,16 +67,196 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// RATCHET TOOL TESTS (DOM Wiring + Executable Physics Logic)
+// ============================================
+
+describe('Ratchet Tool', () => {
+  function createRatchetHarness() {
+    const testDocument = new JSDOM(html).window.document;
+    const bodies = [];
+    const Body = {
+      setAngle: (body, angle) => { body.angle = angle; },
+      setAngularVelocity: (body, velocity) => { body.angularVelocity = velocity; }
+    };
+    const Composite = {
+      allBodies: () => bodies,
+      get: (world, id) => bodies.find(body => body.id === id)
+    };
+    const Matter = {
+      Query: { point: (candidates, pos) => candidates.filter(body =>
+        Math.hypot(body.position.x - pos.x, body.position.y - pos.y) <= 10
+      ) },
+      Sleeping: { set: () => {} }
+    };
+    const source = scriptContent.slice(
+      scriptContent.indexOf('function getRatchetStep'),
+      scriptContent.indexOf('const SIEVE_TOTAL_WIDTH')
+    );
+    const eligibility = scriptContent.slice(
+      scriptContent.indexOf('function isGyroableBody'),
+      scriptContent.indexOf('function findGyroableBodyAt')
+    );
+    const api = new Function('document', 'Body', 'Composite', 'Matter', `
+      const world = {};
+      const ratchetBodies = new Map();
+      let ratchetFeedbackTimer = 0;
+      const performance = { now: () => 100 };
+      const setTimeout = () => 1;
+      const clearTimeout = () => {};
+      const haptic = () => {};
+      const playSound = () => {};
+      const addTripwireBurst = () => {};
+      ${eligibility}
+      ${source}
+      return { getRatchetStep, findRatchetBodyAt, cycleRatchetAt, updateRatchets, pruneRatchets, ratchetBodies };
+    `)(testDocument, Body, Composite, Matter);
+    const addBody = (overrides = {}) => {
+      const body = { id:bodies.length + 1, label:'ball', isStatic:false,
+        position:{ x:100, y:100 }, velocity:{ x:3, y:4 }, angle:0, angularVelocity:0, ...overrides };
+      body.parent = body;
+      bodies.push(body);
+      return body;
+    };
+    return { ...api, bodies, addBody, document:testDocument };
+  }
+
+  it('should select the final Ratchet button through the real shared toolbar listener', () => {
+    const testDocument = new JSDOM(html).window.document;
+    const listener = scriptContent.slice(
+      scriptContent.indexOf("document.querySelectorAll('.tool-btn').forEach(btn =>"),
+      scriptContent.indexOf('const FLIPPER_WIDTH')
+    );
+    const resetNames = [...new Set([...listener.matchAll(/\b(reset[A-Za-z]+)\(/g)].map(match => match[1]))];
+    const state = new Function('document', ...resetNames, `
+      let currentTool = 'ball';
+      let drawMode = false;
+      const playSound = () => {};
+      ${listener}
+      return { getTool: () => currentTool };
+    `)(testDocument, ...resetNames.map(() => () => {}));
+    const button = testDocument.querySelector('[data-tool="ratchet"]');
+    expect(button.getAttribute('aria-label')).toContain('clockwise-only');
+    expect(button.title).toContain('then off');
+    button.click();
+    expect(state.getTool()).toBe('ratchet');
+    expect(button.classList.contains('active')).toBe(true);
+    expect(testDocument.querySelector('[data-tool="ball"]').classList.contains('active')).toBe(false);
+    testDocument.querySelector('[data-tool="block"]').click();
+    expect(state.getTool()).toBe('block');
+    expect(button.classList.contains('active')).toBe(false);
+    expect(scriptContent).toContain("if (currentTool === 'ratchet') {\n    cycleRatchetAt(pos);");
+  });
+
+  it('should allow forward spin, block reverse spin, and remain passive at rest', () => {
+    const { getRatchetStep } = createRatchetHarness();
+    expect(getRatchetStep(0.8, 0.5, 0.2, 1)).toEqual({ angle:0.8, stopAngle:0.8, angularVelocity:0.2, blocked:false });
+    expect(getRatchetStep(0.2, 0.5, -0.3, 1)).toEqual({ angle:0.5, stopAngle:0.5, angularVelocity:0, blocked:true });
+    expect(getRatchetStep(-0.8, -0.5, -0.2, -1)).toEqual({ angle:-0.8, stopAngle:-0.8, angularVelocity:-0.2, blocked:false });
+    expect(getRatchetStep(-0.2, -0.5, 0.3, -1)).toEqual({ angle:-0.5, stopAngle:-0.5, angularVelocity:0, blocked:true });
+    expect(getRatchetStep(0.5, 0.5, 0, 1)).toMatchObject({ angularVelocity:0, blocked:false });
+    expect(getRatchetStep(20, 19, 0.2, 1).angle).toBe(20);
+    expect(getRatchetStep(-20, -19, -0.2, -1).angle).toBe(-20);
+  });
+
+  it('should cycle CW, CCW, and off without moving or spawning parts', () => {
+    const api = createRatchetHarness();
+    const body = api.addBody({ angle:1, angularVelocity:-0.3 });
+    expect(api.cycleRatchetAt(body.position)).toBe(1);
+    expect(api.ratchetBodies.get(body)).toMatchObject({ direction:1, stopAngle:1 });
+    expect(body.angularVelocity).toBe(0);
+    body.angle = 2;
+    expect(api.cycleRatchetAt(body.position)).toBe(-1);
+    expect(api.ratchetBodies.get(body)).toMatchObject({ direction:-1, stopAngle:2 });
+    expect(api.cycleRatchetAt(body.position)).toBe(0);
+    expect(api.ratchetBodies.size).toBe(0);
+    expect(api.document.getElementById('ratchet-feedback').textContent).toBe('RATCHET: FREE SPIN');
+    expect(api.bodies).toEqual([body]);
+    expect(body.position).toEqual({ x:100, y:100 });
+    expect(body.velocity).toEqual({ x:3, y:4 });
+  });
+
+  it('should advance its stop only forward and reject backward angle and torque', () => {
+    const api = createRatchetHarness();
+    const body = api.addBody();
+    api.cycleRatchetAt(body.position);
+    body.angle = 0.75;
+    body.angularVelocity = 0.15;
+    api.updateRatchets();
+    expect(api.ratchetBodies.get(body).stopAngle).toBe(0.75);
+    body.angle = 0.65;
+    body.angularVelocity = -0.1;
+    api.updateRatchets();
+    expect(body.angle).toBe(0.75);
+    expect(body.angularVelocity).toBe(0);
+    expect(api.ratchetBodies.get(body).blockedUntil).toBe(280);
+    expect(body.velocity).toEqual({ x:3, y:4 });
+    api.cycleRatchetAt(body.position);
+    body.angle = 0.5;
+    body.angularVelocity = -0.1;
+    api.updateRatchets();
+    expect(api.ratchetBodies.get(body).stopAngle).toBe(0.5);
+    body.angle = 0.6;
+    body.angularVelocity = 0.1;
+    api.updateRatchets();
+    expect(body.angle).toBe(0.5);
+    expect(body.angularVelocity).toBe(0);
+    expect(scriptContent).toMatch(/Engine.update\(engine,[\s\S]*?updateRatchets\(\);/);
+  });
+
+  it('should target parts within 46px and recover from empty or ineligible taps', () => {
+    const api = createRatchetHarness();
+    const body = api.addBody();
+    api.addBody({ label:'wall', position:{ x:200, y:100 }, isStatic:true });
+    expect(api.findRatchetBodyAt({ x:145, y:100 })).toBe(body);
+    expect(api.findRatchetBodyAt({ x:147, y:100 })).toBeNull();
+    expect(api.cycleRatchetAt({ x:200, y:100 })).toBe(false);
+    expect(api.ratchetBodies.size).toBe(0);
+    expect(api.document.getElementById('ratchet-feedback').textContent).toBe('RATCHET: TAP A PART');
+  });
+
+  it('should suspend on anchored parts and prune removed parts even while paused', () => {
+    const api = createRatchetHarness();
+    const body = api.addBody();
+    api.cycleRatchetAt(body.position);
+    body.isStatic = true;
+    body.angle = 1.25;
+    api.updateRatchets();
+    expect(api.ratchetBodies.get(body).stopAngle).toBe(1.25);
+    expect(api.findRatchetBodyAt(body.position)).toBe(body);
+    body.isStatic = false;
+    body.angle = 1.1;
+    body.angularVelocity = -0.1;
+    api.updateRatchets();
+    expect(body.angle).toBe(1.25);
+    api.bodies.length = 0;
+    api.pruneRatchets();
+    expect(api.ratchetBodies.size).toBe(0);
+  });
+
+  it('should render directional teeth, announce state, and clear feedback and tracking', () => {
+    expect(document.getElementById('ratchet-feedback').getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('drawRatchetMarkers(timestamp);');
+    expect(scriptContent).toContain("ctx.fillText(entry.direction === 1 ? 'CW ONLY ↻' : 'CCW ONLY ↺'");
+    expect(scriptContent).toContain("if (tool !== 'ratchet') resetRatchetFeedback(true);");
+    expect(scriptContent).toContain('ratchetBodies.clear();');
+    expect(scriptContent).toContain('ratchetBodies.delete(b);');
+    expect(scriptContent).toContain('ratchetBodies.delete(source);');
+    expect(scriptContent).toContain("ratchet: '#ffd166'");
+    expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?#ratchet-feedback \{ top:14px; font-size:19px/);
+  });
+});
+
+// ============================================
 // TRIPWIRE TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
 describe('Tripwire Tool', () => {
-  it('should expose Tripwire as the final selectable toolbar tool', () => {
+  it('should keep Tripwire selectable immediately before Ratchet', () => {
     const tripwireBtn = document.querySelector('[data-tool="tripwire"]');
     expect(tripwireBtn).not.toBeNull();
     expect(tripwireBtn?.getAttribute('aria-label')).toContain('launch tripwire');
     expect(tripwireBtn?.previousElementSibling?.dataset.tool).toBe('winch');
-    expect(tripwireBtn?.nextElementSibling).toBeNull();
+    expect(tripwireBtn?.nextElementSibling?.dataset.tool).toBe('ratchet');
     expect(scriptContent).toContain("currentTool === 'tripwire'");
     expect(scriptContent).toContain('placeOrReverseTripwireAt(pos)');
   });

@@ -5,6 +5,13 @@
     {
       "date": "2026-10-16",
       "ideas": [
+        "New tool: Give an existing part a passive one-way Ratchet that blocks reverse rotation"
+      ],
+      "summary": "Implemented Ratchet tool (⥁) — the final button after Tripwire cycles a tapped part through clockwise-only rotation, counter-clockwise-only rotation, and free spin; the passive clutch advances its stop angle only in the allowed direction, rejects backward angle and angular velocity after each physics step without changing linear travel or adding spin, and suspends safely on anchored parts. A visible amber tooth ring, cyan pawl, direction label and lock flash, 46px touch targeting, accessible status, particle/audio/haptic feedback, keyboard selection, tool-change feedback cleanup, source-removal/Eraser pruning, and Clear reset support desktop and mobile contraptions."
+    },
+    {
+      "date": "2026-10-16",
+      "ideas": [
         "New tool: Stretch a directional Tripwire that launches crossing physics objects"
       ],
       "summary": "Implemented Tripwire tool (⚡) — the final button in the existing object toolbar now places a canvas-clamped two-post sensor beam with two taps, detects real frame-to-frame body crossings, preserves along-wire momentum while replacing perpendicular speed with a directional 11.5 px/frame kick, and reverses the launch side when the beam is tapped; 52px touch targeting, magenta/cyan CRT rendering with a gold direction arrow, re-arm protection, status/particle/audio/haptic feedback, Eraser support, and tool-change/Clear cleanup make reusable launch gates reliable on desktop and mobile."

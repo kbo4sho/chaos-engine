@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-10-16T18:42:37Z — Added: Ratchet tool
+**Why:** The toolbar could drive spin with Motor, kick it with Twist, stop it with Brake, or restore an orientation with Gyro, but it had no passive one-way rotational lock. Ratchet lets a part advance freely in one direction while holding its latest angle against reverse motion without adding energy or stopping its travel.
+**Goal alignment:** "more fun, more surprising, more satisfying" — players can build one-way rotors, hold rotational progress against collisions or reverse kicks, and change the permitted direction or release the same part with repeat taps.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (585/585 passing); browser smoke ✓ (existing Block, Twist, and Brake worked; clockwise rotation reached 3.31568 radians, a −0.32 reverse Twist held that exact angle at zero spin, switching Ratchet allowed counter-clockwise motion, and a third tap restored free spin); mobile ✓ (390×844 with real touch input and reduced motion, final Ratchet button was fully reachable at 52×50px and x=330–382 at maximum toolbar scroll, existing Ball spun forward and held its exact 3.81513-radian stop against reverse Twist); keyboard ✓ (Enter selected Ratchet); cleanup ✓ (tool change clears feedback while preserving the lock; Eraser, transformed/removed source cleanup, and Clear remove tracking); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-10-16T18:33:23Z — Added: Tripwire tool
 **Why:** The toolbar could block, guide, carry, or directly launch objects, but it had no reusable non-solid trigger that reacts when a moving part crosses a player-defined line. Tripwire adds a compact two-post sensor that redirects motion without becoming another wall or transport constraint.
 **Goal alignment:** "more fun, more surprising, more satisfying" — players can bounce falling Balls back into contraptions, build invisible-feeling launch gates across open space, and reverse the same beam from an upward kick to a downward slam with one tap.
