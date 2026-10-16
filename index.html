@@ -7,8 +7,16 @@
 <link rel="icon" href="data:,">
 <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.20.0/matter.min.js"></script>
+<script src="save-codec.js"></script>
 <style>
 /* ── RESET & BASE ── */
+:root { scrollbar-color:#0abdc6 #0d1117; scrollbar-width:thin; }
+*::-webkit-scrollbar { width:6px; height:6px; }
+*::-webkit-scrollbar-track { background:#0d1117; }
+*::-webkit-scrollbar-thumb { background:#0abdc6; border-radius:3px; }
+*::-webkit-scrollbar-thumb:hover { background:#dffcff; }
+*::-webkit-scrollbar-thumb:active { background:#00ff41; }
+@media(forced-colors:active) { :root { scrollbar-color:auto; } }
 *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
 html, body {
   width:100%; height:100%; overflow:hidden;
@@ -838,7 +846,7 @@ canvas#game {
 
 /* ── CHAOS BUTTONS ── */
 #chaos-bar {
-  display:flex; align-items:center; justify-content:center;
+  display:flex; align-items:center; justify-content:flex-start;
   gap:4px; padding:6px 8px; flex-shrink:0;
   background:#0d1117;
   border-top:2px solid #00ff41;
@@ -860,6 +868,36 @@ canvas#game {
 .chaos-btn.safe { border-color:#0abdc6; color:#0abdc6; background:#0a1a1a; }
 .chaos-btn.safe:hover { background:#0a2a2a; box-shadow:0 0 12px rgba(10,189,198,0.4); }
 
+/* Saves share the safe controls and the canvas status language. */
+#save-slot {
+  flex-shrink:0; width:148px; height:52px; padding:4px;
+  background:#0a1a1a; color:#0abdc6; border:2px solid #0abdc6;
+  border-radius:3px; font:16px 'VT323',monospace; cursor:pointer;
+}
+#save-slot:hover { background:#0a2a2a; }
+.chaos-btn:focus-visible, #save-slot:focus-visible, #save-confirm button:focus-visible {
+  outline:2px solid #dffcff; outline-offset:2px;
+}
+.chaos-btn:disabled { opacity:.45; cursor:default; box-shadow:none; }
+#save-feedback {
+  position:absolute; bottom:16px; left:50%; transform:translateX(-50%);
+  z-index:3; max-width:calc(100% - 24px); padding:8px 12px;
+  border:1px solid #0abdc6; background:#080c10; color:#dffcff;
+  text-align:center; pointer-events:none;
+}
+#save-feedback:empty { display:none; }
+#save-confirm {
+  margin:auto; width:min(420px, calc(100% - 32px)); max-height:calc(100% - 32px);
+  overflow:auto; padding:20px; background:#0d1117; color:#dffcff;
+  border:2px solid #0abdc6; border-radius:3px; font:20px 'VT323',monospace;
+}
+#save-confirm::backdrop { background:rgba(0,0,0,.75); }
+#save-confirm h2 { color:#0abdc6; font-size:26px; font-weight:normal; }
+#save-confirm p { margin:12px 0 20px; line-height:1.3; }
+#save-confirm .actions { display:flex; gap:12px; justify-content:flex-end; }
+#save-confirm button { min-height:46px; font-size:18px; }
+@media(max-width:600px) { #save-slot { height:46px; width:132px; } }
+
 .tool-btn.shortcut-flash,
 .chaos-btn.shortcut-flash {
   animation: shortcut-pulse .18s ease-out;
@@ -874,9 +912,7 @@ canvas#game {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x;
-  scrollbar-width: none;
 }
-#toolbar::-webkit-scrollbar, #chaos-bar::-webkit-scrollbar { display:none; }
 
 /* ── COLLAPSE TOGGLES ── */
 .bar-toggle {
@@ -899,7 +935,6 @@ canvas#game {
     overflow-x:auto; -webkit-overflow-scrolling:touch;
     touch-action:pan-x; padding:2px 0;
   }
-  #gravity-panel::-webkit-scrollbar { display:none; }
   #gravity-panel .planet-btn { font-size:13px; padding:4px 8px; min-height:32px; }
   #stats { font-size:14px; }
   .tool-btn { min-width:52px; height:50px; font-size:11px; }
@@ -1152,10 +1187,26 @@ canvas#game {
     <button class="chaos-btn" id="btn-jenga" style="border-color:#ffaa44;color:#ffaa44;background:#1a1500;"><span class="icon">🏗️</span>JENGA</button>
     <button class="chaos-btn safe" id="btn-ambient" style="border-color:#6699cc;color:#6699cc;"><span class="icon">🔊</span>AMBIENT</button>
     <button class="chaos-btn safe" id="btn-screenshot"><span class="icon">📸</span>SNAP</button>
+    <select id="save-slot" aria-label="Save slot" title="Three game saves stored in this browser">
+      <option value="1">Slot 1 · empty</option>
+      <option value="2">Slot 2 · empty</option>
+      <option value="3">Slot 3 · empty</option>
+    </select>
+    <button class="chaos-btn safe" id="btn-save" title="Save the current game in the selected slot on this browser"><span class="icon">💾</span>SAVE</button>
+    <button class="chaos-btn safe" id="btn-load" title="Load the selected save, replacing the current game"><span class="icon">📂</span>LOAD</button>
     <button class="chaos-btn safe" id="btn-clear"><span class="icon">🗑️</span>CLEAR</button>
     <button class="chaos-btn safe" id="btn-pause"><span class="icon">⏸️</span>PAUSE</button>
   </div>
 </div>
+
+<dialog id="save-confirm" aria-labelledby="save-confirm-title" aria-describedby="save-confirm-description">
+  <h2 id="save-confirm-title"></h2>
+  <p id="save-confirm-description"></p>
+  <div class="actions">
+    <button type="button" class="chaos-btn safe" id="save-cancel" autofocus>Cancel</button>
+    <button type="button" class="chaos-btn safe" id="save-accept">Load game</button>
+  </div>
+</dialog>
 
 <script>
 // ═══════════════════════════════════════════════
@@ -1208,6 +1259,11 @@ const CHAOS_SHORTCUTS = {
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const wrap = document.getElementById('canvas-wrap');
+const saveFeedback = document.createElement('div');
+saveFeedback.id = 'save-feedback';
+saveFeedback.setAttribute('role', 'status');
+saveFeedback.setAttribute('aria-live', 'polite');
+wrap.appendChild(saveFeedback);
 
 function resize() {
   canvas.width = wrap.clientWidth;
@@ -1464,6 +1520,7 @@ let ratchetBodies = new Map(); // body -> {direction, stopAngle, blockedUntil} p
 let ratchetFeedbackTimer = 0;
 
 // Block shattering
+let pendingPhysicsActions = []; // Serializable delayed rain and collision work
 let shatterDebounce = new Set(); // prevent double-shattering same body
 
 // Per-body speed trails (line-based)
@@ -3267,9 +3324,7 @@ function explodeBomb(bomb) {
     const dist = Math.sqrt(dx*dx + dy*dy);
     if (dist < chainRadius) {
       const delay = 120 + Math.random() * 100; // 120-220ms stagger
-      setTimeout(() => {
-        if (Composite.get(world, b.id, 'body')) explodeBomb(b);
-      }, delay);
+      schedulePhysicsAction('bomb', { body:b }, delay);
     }
   });
 
@@ -3280,7 +3335,7 @@ function explodeBomb(bomb) {
 
 // ── BLOCK SHATTERING ──
 function shatterBlock(b) {
-  if (!Composite.get(world, b.id, 'body')) return; // already removed
+  if (Composite.get(world, b.id, 'body') !== b) return; // removed or replaced by a save
   const pos = { x: b.position.x, y: b.position.y };
   const vel = { x: b.velocity.x, y: b.velocity.y };
   const color = b.render?.color || '#00ff41';
@@ -3487,20 +3542,7 @@ document.getElementById('btn-timewarp').addEventListener('click', () => {
 });
 
 document.getElementById('btn-rain').addEventListener('click', () => {
-  const objectTypes = ['ball','block','star','bomb','balloon'];
-  const savedTool = currentTool;
-  for (let i = 0; i < 20; i++) {
-    setTimeout(() => {
-      const randType = objectTypes[Math.floor(Math.random() * objectTypes.length)];
-      const oldTool = currentTool;
-      currentTool = randType;
-      const x = 30 + Math.random() * (canvas.width - 60);
-      const y = -10 - Math.random() * 80;
-      spawnObject(x, y, (Math.random()-0.5)*3, 1 + Math.random()*3);
-      currentTool = oldTool;
-    }, i * 80); // staggered for visual drama
-  }
-  currentTool = savedTool;
+  for (let i = 0; i < 20; i++) schedulePhysicsAction('rain', {}, i * 80);
   playSound(1200, 0.2, 'sine', 0.08);
   playSound(800, 0.3, 'square', 0.04);
   shakeIntensity = 6;
@@ -3912,6 +3954,7 @@ function drawClearVortex(timestamp) {
 function finishClear(playFeedback = true) {
   clearAnimating = false;
   clearVortex = null;
+  pendingPhysicsActions = [];
 
   // Remove ALL constraints first
   const allConstraints = Composite.allConstraints(world);
@@ -9810,7 +9853,7 @@ function getSawSliceLayout(source, sawPosition, canvasWidth, canvasHeight, scale
 }
 
 function sliceBodyWithSaw(sawBody, source) {
-  if (!Composite.get(world, sawBody.id, 'body') || !Composite.get(world, source.id, 'body') || !isSawCuttableBody(source)) {
+  if (Composite.get(world, sawBody.id, 'body') !== sawBody || Composite.get(world, source.id, 'body') !== source || !isSawCuttableBody(source)) {
     sawCutDebounce.delete(source.id);
     return false;
   }
@@ -13077,7 +13120,7 @@ Events.on(engine, 'collisionStart', (e) => {
     const sawCandidate = rawSawCandidate?.parent || rawSawCandidate;
     if (sawBody && isSawCuttableBody(sawCandidate) && !sawCutDebounce.has(sawCandidate.id)) {
       sawCutDebounce.add(sawCandidate.id);
-      setTimeout(() => sliceBodyWithSaw(sawBody, sawCandidate), 0);
+      schedulePhysicsAction('saw', { saw:sawBody, body:sawCandidate });
     }
 
     // Recycler sensors consume one loose standalone part and bank it as scrap.
@@ -13257,7 +13300,7 @@ Events.on(engine, 'collisionStart', (e) => {
         [pair.bodyA, pair.bodyB].forEach(b => {
           if (!b.isStatic && b.render?.type === 'block' && !b.isFragment && !shatterDebounce.has(b.id)) {
             shatterDebounce.add(b.id);
-            setTimeout(() => shatterBlock(b), 0);
+            schedulePhysicsAction('shatter', { body:b });
           }
         });
       }
@@ -17582,6 +17625,11 @@ let lastTime = 0;
 
 function loop(timestamp) {
   requestAnimationFrame(loop);
+  if (document.getElementById('save-confirm').open) {
+    lastTime = timestamp;
+    return;
+  }
+  runPendingPhysicsActions(timestamp);
   const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
   lastTime = timestamp;
   pruneStruts();
@@ -19189,6 +19237,7 @@ function triggerShortcutButton(btn) {
 }
 
 function handleKeyboardShortcut(e) {
+  if (e.defaultPrevented || e.isComposing || e.ctrlKey || e.metaKey || e.altKey || document.getElementById('save-confirm').open) return false;
   if (isEditableShortcutTarget(e.target)) return false;
   const key = e.key.toLowerCase();
 
@@ -19237,6 +19286,7 @@ function handleKeyboardShortcut(e) {
 
 // Keyboard shortcuts and Konami code listener
 document.addEventListener('keydown', (e) => {
+  if (document.getElementById('save-confirm').open) return;
   konamiBuffer.push(e.key);
   if (konamiBuffer.length > konamiCode.length) konamiBuffer.shift();
   if (konamiBuffer.length === konamiCode.length &&
@@ -19363,7 +19413,7 @@ function checkLessonGoals() {
 }
 
 // Check goals periodically during lesson mode
-setInterval(() => { if (lessonState.active && !paused) checkLessonGoals(); }, 250);
+setInterval(() => { if (lessonState.active && !paused && !document.getElementById('save-confirm').open) checkLessonGoals(); }, 250);
 
 window.ChaosEngine = {
   // Load a lesson configuration
@@ -19513,6 +19563,289 @@ Events.on(engine, 'collisionStart', (e) => {
     });
   });
 });
+
+// Delayed physics work is data rather than opaque browser timer callbacks.
+function schedulePhysicsAction(kind, data = {}, delay = 0) {
+  pendingPhysicsActions.push({ kind, ...data, dueAt:performance.now() + delay });
+}
+
+function runPendingPhysicsActions(now) {
+  const ready = pendingPhysicsActions.filter(action => action.dueAt <= now);
+  pendingPhysicsActions = pendingPhysicsActions.filter(action => action.dueAt > now);
+  for (const action of ready) {
+    if (action.kind === 'rain') {
+      const oldTool = currentTool;
+      const types = ['ball','block','star','bomb','balloon'];
+      currentTool = types[Math.floor(Math.random() * types.length)];
+      spawnObject(30 + Math.random() * (canvas.width - 60), -10 - Math.random() * 80,
+        (Math.random() - 0.5) * 3, 1 + Math.random() * 3);
+      currentTool = oldTool;
+    } else if (Composite.get(world, action.body.id, 'body') === action.body) {
+      if (action.kind === 'bomb') explodeBomb(action.body);
+      if (action.kind === 'shatter') shatterBlock(action.body);
+      if (action.kind === 'saw') sliceBodyWithSaw(action.saw, action.body);
+    }
+  }
+}
+
+// ── SAVE / LOAD ──
+const SAVE_VERSION = 1;
+const SAVE_PREFIX = 'chaos-engine-save-';
+const saveSlot = document.getElementById('save-slot');
+const saveDialog = document.getElementById('save-confirm');
+let pendingSaveAction = null;
+let saveFeedbackTimer = 0;
+
+function captureGameState() {
+  return {
+    bodies: Composite.allBodies(world).filter(body => body.label !== 'wall'),
+    constraints: Composite.allConstraints(world),
+    state: {
+      paused, currentTool, drawMode, rocketBodies, windForce, windTimer,
+      gravityTarget, blackHoleActive, blackHoleTimer, blackHolePos, blackHoleAlpha, antiGravActive,
+      antiGravTimer, timeWarpActive, timeWarpTimer, portals, portalCooldowns, bumpers,
+      gravityAngle, megaBounceActive, megaBounceTimer, megaBounceOriginal, seesaws, oceanMode,
+      ultraChaosActive, ultraChaosTimer, tornadoActive, tornadoTimer, tornadoX, tornadoDir,
+      freezeActive, freezeTimer, frozenVelocities, conveyors, popcornActive, popcornTimer,
+      destructionMeter, lastDestructionLevel, comboCount, comboTimer, comboBest, wreckingBalls,
+      discoMode, discoTimer, targetMode, targetTimer, targetScore, targetBodies,
+      targetCleared, targetClearedTimer, magnets, ropes, chainLinks, sloMoActive,
+      anchoredBodies, resizeMode, motorizedBodies, flippers, nextFlipperSide, struts,
+      rotateDirection, hinges, springs, pivots, curveDirection, swirlDirection,
+      thrusterBodies, phaseBodies, gyroBodies, twistDirection, liftedBodies, orbitingBodies,
+      welds, tethers, webTraps, ramps, pinwheels, baskets,
+      cannons, elevators, recyclers, hatches, pistons, parachuteBodies,
+      saws, funnels, catapults, presses, ziplines, gearboxes,
+      rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies,
+      vortexActive, vortexTimer, vortexCenter, pendingPhysicsActions
+    },
+    gravity: { ...engine.gravity },
+    timing: { timestamp:engine.timing.timestamp, lastDelta:engine.timing.lastDelta, timeScale:engine.timing.timeScale },
+    counters: {
+      nextId:Matter.Common._nextId,
+      nonCollidingGroup:Body._nextNonCollidingGroupId,
+      collidingGroup:Body._nextCollidingGroupId
+    },
+    planetName:document.getElementById('planet-name').textContent,
+    clock:performance.now(),
+    lesson: {
+      active:lessonState.active, config:lessonState.config, goals:lessonState.goals,
+      spawnedLessonObjects:lessonState.spawnedLessonObjects, goalsReached:lessonState.goalsReached
+    }
+  };
+}
+
+function serializeGameState() {
+  const graph = ChaosSaveCodec.encode(captureGameState());
+  return JSON.stringify({
+    version:SAVE_VERSION,
+    savedAt:new Date().toISOString(),
+    checksum:ChaosSaveCodec.checksum(graph),
+    graph
+  });
+}
+
+function readGameSave(serialized) {
+  const save = JSON.parse(serialized);
+  if (save?.version !== SAVE_VERSION || !Number.isFinite(Date.parse(save.savedAt))) throw new Error('Unsupported save');
+  if (save.checksum !== ChaosSaveCodec.checksum(save.graph)) throw new Error('Damaged save');
+  const game = ChaosSaveCodec.decode(save.graph);
+  const vector = value => value && Number.isFinite(value.x) && Number.isFinite(value.y);
+  if (!game || !Array.isArray(game.bodies) || !Array.isArray(game.constraints) || !game.state ||
+      !vector(game.gravity) || !Number.isFinite(game.gravity.scale) || !Number.isFinite(game.clock) ||
+      typeof game.planetName !== 'string' || !game.timing || !game.counters || !game.lesson ||
+      !(game.lesson.goalsReached instanceof Set) || !Array.isArray(game.lesson.goals) ||
+      !Array.isArray(game.lesson.spawnedLessonObjects) || typeof game.lesson.active !== 'boolean') throw new Error('Invalid game save');
+  // Validate the full snapshot before touching the live world. New state fields
+  // must be added to capture/apply together; older formats need an explicit migration.
+  const expected = captureGameState().state;
+  for (const [key, value] of Object.entries(expected)) {
+    const actual = game.state[key];
+    if (value instanceof Map ? !(actual instanceof Map) : value instanceof Set ? !(actual instanceof Set) :
+        Array.isArray(value) ? !Array.isArray(actual) : typeof actual !== typeof value || actual === null) throw new Error('Missing game state');
+    if (typeof actual === 'number' && !Number.isFinite(actual) && !(key === 'discoTimer' && actual === Infinity)) throw new Error('Invalid state number');
+  }
+  for (const key of ['timestamp', 'lastDelta', 'timeScale']) if (!Number.isFinite(game.timing[key]) || game.timing[key] < 0) throw new Error('Invalid timing');
+  for (const key of ['nextId', 'nonCollidingGroup', 'collidingGroup']) if (!Number.isInteger(game.counters[key])) throw new Error('Invalid counters');
+  if (game.state.pendingPhysicsActions.some(action => !action || !['rain', 'bomb', 'shatter', 'saw'].includes(action.kind) || !Number.isFinite(action.dueAt))) throw new Error('Invalid delayed action');
+  const parts = new Set(game.bodies.flatMap(body => body?.parts || []));
+  const ids = new Set();
+  for (const body of new Set([...game.bodies, ...parts])) {
+    if (!body || body.type !== 'body' || !Number.isInteger(body.id) || ids.has(body.id) ||
+        !vector(body.position) || !vector(body.positionPrev) || !vector(body.velocity) ||
+        !Number.isFinite(body.angle) || !Number.isFinite(body.angularVelocity) || !body.render ||
+        !Array.isArray(body.parts) || !body.parts.length || !body.vertices?.every(vector) ||
+        !Array.isArray(body.axes) || !body.bounds || !vector(body.bounds.min) || !vector(body.bounds.max) ||
+        !parts.has(body.parent)) throw new Error('Invalid saved body');
+    ids.add(body.id);
+  }
+  for (const constraint of game.constraints) {
+    if (!constraint || constraint.type !== 'constraint' ||
+        (constraint.bodyA && !parts.has(constraint.bodyA)) || (constraint.bodyB && !parts.has(constraint.bodyB)) ||
+        !vector(constraint.pointA) || !vector(constraint.pointB) || !Number.isFinite(constraint.length) ||
+        !Number.isFinite(constraint.stiffness)) throw new Error('Invalid saved connection');
+  }
+  return game;
+}
+
+function restoreGameState(game) {
+  finishClear(false);
+  Composite.clear(world, false, true);
+  Engine.clear(engine);
+  // The same decoded objects populate both the world and the tool registries.
+  ({
+    paused, currentTool, drawMode, rocketBodies, windForce, windTimer,
+    gravityTarget, blackHoleActive, blackHoleTimer, blackHolePos, blackHoleAlpha, antiGravActive,
+    antiGravTimer, timeWarpActive, timeWarpTimer, portals, portalCooldowns, bumpers,
+    gravityAngle, megaBounceActive, megaBounceTimer, megaBounceOriginal, seesaws, oceanMode,
+    ultraChaosActive, ultraChaosTimer, tornadoActive, tornadoTimer, tornadoX, tornadoDir,
+    freezeActive, freezeTimer, frozenVelocities, conveyors, popcornActive, popcornTimer,
+    destructionMeter, lastDestructionLevel, comboCount, comboTimer, comboBest, wreckingBalls,
+    discoMode, discoTimer, targetMode, targetTimer, targetScore, targetBodies,
+    targetCleared, targetClearedTimer, magnets, ropes, chainLinks, sloMoActive,
+    anchoredBodies, resizeMode, motorizedBodies, flippers, nextFlipperSide, struts,
+    rotateDirection, hinges, springs, pivots, curveDirection, swirlDirection,
+    thrusterBodies, phaseBodies, gyroBodies, twistDirection, liftedBodies, orbitingBodies,
+    welds, tethers, webTraps, ramps, pinwheels, baskets,
+    cannons, elevators, recyclers, hatches, pistons, parachuteBodies,
+    saws, funnels, catapults, presses, ziplines, gearboxes,
+    rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies,
+    vortexActive, vortexTimer, vortexCenter, pendingPhysicsActions
+  } = game.state);
+  Object.assign(lessonState, game.lesson); // Keep host callbacks registered in this page.
+  Object.assign(engine.gravity, game.gravity);
+  Object.assign(engine.timing, game.timing);
+  Matter.Common._nextId = Math.max(Matter.Common._nextId, game.counters.nextId);
+  Body._nextNonCollidingGroupId = Math.min(Body._nextNonCollidingGroupId, game.counters.nonCollidingGroup);
+  Body._nextCollidingGroupId = Math.max(Body._nextCollidingGroupId, game.counters.collidingGroup);
+  Composite.add(world, [...game.bodies, ...game.constraints]);
+  walls = [];
+  rebuildWalls(); // Boundaries match this viewport, with fresh, non-conflicting IDs.
+  if (megaBounceActive) walls.forEach(wall => { wall.restitution = 1.2; });
+  const elapsed = performance.now() - game.clock;
+  const visited = new Set();
+  const pending = [game];
+  while (pending.length) {
+    const value = pending.pop();
+    if (!value || typeof value !== 'object' || visited.has(value)) continue;
+    visited.add(value);
+    if (value instanceof Map) value.forEach((item, key) => pending.push(key, item));
+    else if (value instanceof Set) value.forEach(item => pending.push(item));
+    else Object.entries(value).forEach(([key, item]) => {
+      if (['spawnTime', 'firedAt', 'cannonFiredAt', 'catapultFiredAt', 'blockedUntil', 'dueAt'].includes(key) && typeof item === 'number' && item !== 0) value[key] += elapsed;
+      else pending.push(item);
+    });
+  }
+  pointerDown = false;
+  slingStart = slingCurrent = null;
+  drawPoints = [];
+  drawMode = currentTool === 'draw';
+  lastTime = performance.now();
+  document.querySelectorAll('.tool-btn').forEach(button => {
+    button.classList.toggle('active', button.dataset.tool === currentTool || (button.dataset.tool === 'slomo' && sloMoActive));
+  });
+  updateResizeButton();
+  pauseBtn.querySelector('.icon').textContent = paused ? '▶️' : '⏸️';
+  pauseBtn.querySelector('.icon').nextSibling.textContent = paused ? 'PLAY' : 'PAUSE';
+  document.getElementById('planet-name').textContent = game.planetName;
+  document.querySelectorAll('.planet-btn').forEach(button => button.classList.toggle('active', button.dataset.name.toUpperCase() === game.planetName.toUpperCase()));
+  const oceanButton = document.getElementById('btn-ocean');
+  oceanButton.style.background = oceanMode ? '#002255' : '#000a2a';
+  oceanButton.style.boxShadow = oceanMode ? '0 0 12px #0066ff88' : 'none';
+  document.getElementById('obj-count').textContent = game.bodies.filter(body => !body.isStatic).length;
+  for (const id of ['toolbar', 'chaos-bar', 'gravity-panel']) document.getElementById(id).style.display = lessonState.active && lessonState.config?.hideControls ? 'none' : '';
+  window._gravFlipTimer = 0;
+}
+
+function showSaveFeedback(message) {
+  clearTimeout(saveFeedbackTimer);
+  saveFeedback.textContent = message;
+  saveFeedbackTimer = setTimeout(() => { saveFeedback.textContent = ''; }, 5000);
+}
+
+function refreshSaveSlots() {
+  for (const option of saveSlot.options) {
+    try {
+      const raw = localStorage.getItem(SAVE_PREFIX + option.value);
+      if (!raw) { option.textContent = `Slot ${option.value} · empty`; continue; }
+      const metadata = JSON.parse(raw);
+      const date = new Date(metadata.savedAt);
+      option.textContent = metadata.version === SAVE_VERSION && Number.isFinite(date.getTime()) ?
+        `Slot ${option.value} · ${date.toLocaleString(undefined, { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' })}` : `Slot ${option.value} · unreadable`;
+    } catch {
+      option.textContent = `Slot ${option.value} · unavailable`;
+    }
+  }
+}
+
+function requestSaveConfirmation(title, description, label, action) {
+  pendingSaveAction = action;
+  document.getElementById('save-confirm-title').textContent = title;
+  document.getElementById('save-confirm-description').textContent = description;
+  document.getElementById('save-accept').textContent = label;
+  saveDialog.showModal();
+  document.getElementById('save-cancel').focus();
+}
+
+document.getElementById('save-cancel').addEventListener('click', () => saveDialog.close());
+// Native dialog supplies Escape, inert background and focus restoration.
+// Wrap Tab explicitly so keyboard focus stays on its two actions.
+saveDialog.addEventListener('keydown', event => {
+  if (event.key !== 'Tab') return;
+  const first = document.getElementById('save-cancel');
+  const last = document.getElementById('save-accept');
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+});
+// Clear a pending action on cancel as well as after a successful confirmation.
+saveDialog.addEventListener('close', () => { if (!saveDialog.open) pendingSaveAction = null; });
+document.getElementById('save-accept').addEventListener('click', () => {
+  const action = pendingSaveAction;
+  pendingSaveAction = null;
+  saveDialog.close();
+  action?.();
+});
+
+document.getElementById('btn-save').addEventListener('click', () => {
+  if (clearAnimating) { showSaveFeedback('CLEARING · WAIT BEFORE SAVING'); return; }
+  const slot = saveSlot.value;
+  const write = () => {
+    try {
+      localStorage.setItem(SAVE_PREFIX + slot, serializeGameState());
+      refreshSaveSlots();
+      showSaveFeedback(`SAVED TO SLOT ${slot} · STORED IN THIS BROWSER`);
+      playSound(800, 0.12, 'sine', 0.06);
+    } catch {
+      showSaveFeedback('SAVE FAILED · FREE BROWSER STORAGE OR ALLOW SITE DATA, THEN RETRY');
+    }
+  };
+  try {
+    if (localStorage.getItem(SAVE_PREFIX + slot)) requestSaveConfirmation(`Replace Slot ${slot}?`, 'This replaces the game saved in this slot. Your other slots stay available.', 'Replace save', write);
+    else write();
+  } catch {
+    showSaveFeedback('SAVE FAILED · ALLOW SITE DATA IN THIS BROWSER, THEN RETRY');
+  }
+});
+
+document.getElementById('btn-load').addEventListener('click', () => {
+  const slot = saveSlot.value;
+  let raw;
+  try { raw = localStorage.getItem(SAVE_PREFIX + slot); }
+  catch { showSaveFeedback('LOAD FAILED · ALLOW SITE DATA IN THIS BROWSER, THEN RETRY'); return; }
+  if (!raw) { showSaveFeedback(`SLOT ${slot} IS EMPTY · SAVE A GAME FIRST`); return; }
+  let game;
+  try { game = readGameSave(raw); }
+  catch { showSaveFeedback(`SLOT ${slot} CANNOT BE LOADED · TRY ANOTHER SLOT OR SAVE AGAIN`); return; }
+  requestSaveConfirmation(`Load Slot ${slot}?`, 'This replaces your current game. Save it to another slot first if you want to keep it.', 'Load game', () => {
+    restoreGameState(game);
+    showSaveFeedback(`LOADED SLOT ${slot}`);
+    playSound(600, 0.12, 'sine', 0.06);
+  });
+});
+
+saveSlot.addEventListener('change', refreshSaveSlots);
+window.addEventListener('storage', event => { if (event.key?.startsWith(SAVE_PREFIX) || event.key === null) refreshSaveSlots(); });
+refreshSaveSlots();
 
 console.log('⚡ CHAOS ENGINE initialized');
 </script>

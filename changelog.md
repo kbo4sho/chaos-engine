@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-10-16T19:08:08Z — Added: Save and load games
+**Why:** Players could build elaborate contraptions but lost their work on refresh. Three browser-local save slots now preserve exact body geometry and motion, physical connections, tool attachments, portals, gravity, active effects, score, pause/slow-motion state, and lesson progress. Save and Load sit beside SNAP in the existing safe controls, with timestamps and confirmation before replacing a save or the live game.
+**Implementation:** A versioned graph codec preserves cyclic Matter.js data, Maps/Sets, object identity and static-body infinities. Checksums and validation reject damaged or unsupported saves before changing the world. Delayed rain, bomb-chain, saw and shatter actions are serializable; loading clears the old scene, resets collision caches and rebuilds viewport walls with unique IDs. Storage failures preserve existing saves and the live game.
+**Verified:** 595/595 tests passed, including real Matter.js round trips, connected/compound objects, reusable machines, independent slots across fresh pages, pending effects, corrupt data, quota/denied storage, cancellation, and Clear. Playwright desktop and 390×844 checks passed for refresh/load, pause/position restoration, empty/corrupt/quota feedback, keyboard focus wrapping, Escape and focus restoration, native slot selection, reduced motion and reachable 46px controls; no browser errors or warnings. The strict UI audit resolves native-select ownership but reports 122 false positives for buttons wired with addEventListener (the baseline already had 118); runtime tests verify the added controls.
+**Design:** Retained the existing CRT palette and shared safe-button geometry; documented the slot picker/dialog contract and made horizontal toolbar scrollbars visible.
+**Status:** shipped
+
 ## 2026-10-16T18:42:37Z — Added: Ratchet tool
 **Why:** The toolbar could drive spin with Motor, kick it with Twist, stop it with Brake, or restore an orientation with Gyro, but it had no passive one-way rotational lock. Ratchet lets a part advance freely in one direction while holding its latest angle against reverse motion without adding energy or stopping its travel.
 **Goal alignment:** "more fun, more surprising, more satisfying" — players can build one-way rotors, hold rotational progress against collisions or reverse kicks, and change the permitted direction or release the same part with repeat taps.

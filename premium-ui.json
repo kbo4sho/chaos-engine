@@ -1,0 +1,12 @@
+{
+  "locale": "en",
+  "ownership": {
+    "Select/Listbox": "native"
+  },
+  "commands": {
+    "unit": "npm test"
+  },
+  "evidence": {
+    "failurePaths": "__tests__/save-load.test.js"
+  }
+}

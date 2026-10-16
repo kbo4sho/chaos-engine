@@ -5,6 +5,13 @@
     {
       "date": "2026-10-16",
       "ideas": [
+        "Save and load current games across browser sessions"
+      ],
+      "summary": "Added three timestamped browser-local save slots with Save/Load controls, overwrite/load confirmations, exact cyclic Matter.js body and constraint restoration, persistent tool attachments, gravity, score, pause and lesson state, and resumable delayed effects. Version/checksum validation, corruption and storage-failure feedback preserve the running game and existing saves; desktop/mobile and keyboard flows are verified."
+    },
+    {
+      "date": "2026-10-16",
+      "ideas": [
         "New tool: Give an existing part a passive one-way Ratchet that blocks reverse rotation"
       ],
       "summary": "Implemented Ratchet tool (⥁) — the final button after Tripwire cycles a tapped part through clockwise-only rotation, counter-clockwise-only rotation, and free spin; the passive clutch advances its stop angle only in the allowed direction, rejects backward angle and angular velocity after each physics step without changing linear travel or adding spin, and suspends safely on anchored parts. A visible amber tooth ring, cyan pawl, direction label and lock flash, 46px touch targeting, accessible status, particle/audio/haptic feedback, keyboard selection, tool-change feedback cleanup, source-removal/Eraser pruning, and Clear reset support desktop and mobile contraptions."

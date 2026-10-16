@@ -103,7 +103,11 @@ There is no route navigation. The top bar reports gravity and live object count;
 
 ### Forms and overlays
 
-There are no forms or modal overlays. Tool feedback uses the existing `role="status"` canvas overlay pattern and must not intercept pointer input.
+Save and Load use three browser-local slots in the safe section of the chaos bar. The slot picker is a native select, accepting platform-owned popup styling and keyboard behavior. Slot labels distinguish empty, saved (with local date/time), and unreadable states. Saves persist across refreshes on this browser and origin; Clear leaves saved slots intact.
+
+Replacing a saved slot or loading over the current game uses the shared `#save-confirm` native dialog. It names the slot and consequence, focuses Cancel, wraps Tab/Shift+Tab between actions, supports Escape, makes the background inert, and restores focus to the trigger. The simulation and lesson goal checks stop while this dialog is open. Tool and save feedback use `role="status"` canvas overlays that do not intercept pointer input.
+
+All owned scrolling surfaces inherit the document's thin cyan scrollbar over the dark surface, with bright hover and green pressed states; forced-colors mode uses system colors. The chaos bar starts at the left and scrolls horizontally so both the first chaos action and the final safe controls remain reachable.
 
 ### Iconography
 

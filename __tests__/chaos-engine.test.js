@@ -1046,7 +1046,7 @@ describe('Saw Tool', () => {
     expect(source).toContain('!Composite.allConstraints(world).some');
     expect(source).toContain('const half = createBodyClone(source, position)');
     expect(source).toContain('half.sawCutDepth = (source.sawCutDepth || 0) + 1');
-    expect(scriptContent).toContain('setTimeout(() => sliceBodyWithSaw(sawBody, sawCandidate), 0)');
+    expect(scriptContent).toContain("schedulePhysicsAction('saw', { saw:sawBody, body:sawCandidate })");
     expect(scriptContent).toContain('updateSaws();');
   });
 
@@ -4142,9 +4142,9 @@ describe('Chaos Button Existence', () => {
     });
   });
 
-  it('should have exactly 21 chaos buttons', () => {
-    const buttons = document.querySelectorAll('.chaos-btn');
-    expect(buttons.length).toBe(21);
+  it('should have exactly 23 chaos bar buttons, including Save and Load', () => {
+    const buttons = document.querySelectorAll('#chaos-bar .chaos-btn');
+    expect(buttons.length).toBe(23);
   });
 
   it('should have clear and pause as safe buttons', () => {

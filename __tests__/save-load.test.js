@@ -1,0 +1,250 @@
+import { describe, it, expect, vi } from 'vitest';
+import { JSDOM, VirtualConsole } from 'jsdom';
+import fs from 'node:fs';
+import { createRequire } from 'node:module';
+
+const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+const codec = fs.readFileSync(new URL('../save-codec.js', import.meta.url), 'utf8');
+const matter = fs.readFileSync(createRequire(import.meta.url).resolve('matter-js'), 'utf8');
+
+// Execute the real game with Matter 0.20.0. Only browser rendering, audio and
+// scheduling are stubbed; bodies, constraints, registries and storage are real.
+function gameHarness(stored = {}) {
+  const errors = [];
+  const virtualConsole = new VirtualConsole();
+  virtualConsole.on('jsdomError', error => errors.push(error));
+  const dom = new JSDOM(html, { url:'http://localhost', runScripts:'outside-only', virtualConsole });
+  const { window } = dom;
+  window.eval(matter);
+  const gradient = { addColorStop() {} };
+  const context = new Proxy({}, { get:(_, key) => key.startsWith('create') ? () => gradient : () => {} });
+  window.HTMLCanvasElement.prototype.getContext = () => context;
+  Object.defineProperty(window.HTMLElement.prototype, 'clientWidth', { get:() => 1024 });
+  Object.defineProperty(window.HTMLElement.prototype, 'clientHeight', { get:() => 600 });
+  const timers = [];
+  window.setTimeout = callback => { timers.push(callback); return timers.length; };
+  window.clearTimeout = () => {};
+  window.setInterval = () => 1;
+  window.requestAnimationFrame = () => 1;
+  window.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+  window.HTMLDialogElement.prototype.close = function () { this.open = false; this.dispatchEvent(new window.Event('close')); };
+  for (const [key, value] of Object.entries(stored)) window.localStorage.setItem(key, value);
+  window.eval(codec);
+  window.eval(script + '\nwindow.__runGame = code => eval(code);');
+  const run = code => window.__runGame(code);
+  const click = id => window.document.getElementById(id).click();
+  const feedback = () => window.document.getElementById('save-feedback').textContent;
+  return { window, run, click, feedback, errors, timers };
+}
+
+const key = 'chaos-engine-save-1';
+
+describe('Game save and load', () => {
+  it('round-trips actual Matter bodies, compound geometry, nested composites and constraints', () => {
+    const api = gameHarness();
+    api.run(`
+      paused = true;
+      for (const tool of ['ball','block','car','ragdoll','basket','seesaw','wrecking','ramp','draw','magnet','rocket']) {
+        currentTool = tool;
+        spawnObject(300, 200, 2, -3);
+      }
+      Body.setAngle(Composite.allBodies(world).find(b => !b.isStatic), 0.7);
+      window.before = captureGameState();
+      window.saved = serializeGameState();
+      restoreGameState(readGameSave(window.saved));
+    `);
+    const before = api.window.before;
+    const after = api.run('captureGameState()');
+    expect(after.bodies.length).toBe(before.bodies.length);
+    expect(after.constraints.length).toBe(before.constraints.length);
+    expect(after.bodies.map(b => [b.id, b.position.x, b.position.y, b.angle, b.velocity.x, b.velocity.y, b.render.type]))
+      .toEqual(before.bodies.map(b => [b.id, b.position.x, b.position.y, b.angle, b.velocity.x, b.velocity.y, b.render.type]));
+    const parts = new Set(after.bodies.flatMap(b => b.parts));
+    for (const body of after.bodies) {
+      expect(body.parent).toBe(body);
+      for (const part of body.parts) {
+        expect(parts.has(part.parent)).toBe(true);
+        for (const vertex of part.vertices) expect(vertex.body).toBe(part);
+      }
+    }
+    for (const connection of after.constraints) {
+      if (connection.bodyA) expect(parts.has(connection.bodyA)).toBe(true);
+      if (connection.bodyB) expect(parts.has(connection.bodyB)).toBe(true);
+    }
+    expect(api.run('walls.length')).toBe(4);
+    expect(api.run('new Set(Composite.allBodies(world).flatMap(b => b.parts).map(b => b.id)).size')).toBe(parts.size + 4);
+    expect(() => api.run('Engine.update(engine, 1000 / 60)')).not.toThrow();
+    expect(api.errors).toEqual([]);
+  });
+
+  it('preserves tool Map/Set identity, portal links, gravity, pause, slow motion and score', () => {
+    const api = gameHarness();
+    api.run(`
+      currentTool = 'ball'; const savedBall = spawnObject(200, 200);
+      motorizedBodies.set(savedBall, -1);
+      ratchetBodies.set(savedBall, { direction:-1, stopAngle:0, blockedUntil:0 });
+      thrusterBodies.add(savedBall);
+      anchoredBodies.add(savedBall);
+      Body.setStatic(savedBall, true);
+      placePortal(200, 100); placePortal(700, 100);
+      paused = true; sloMoActive = true; gravityTarget = 0.38;
+      engine.gravity.x = 0.38; engine.gravity.y = 0; gravityAngle = 1;
+      destructionMeter = 1234; comboBest = 15; targetScore = 42;
+      window.saved = serializeGameState();
+      finishClear(false);
+      restoreGameState(readGameSave(window.saved));
+    `);
+    expect(api.run('motorizedBodies.has(Composite.allBodies(world).find(b => b.render.type === "ball"))')).toBe(true);
+    expect(api.run('[...thrusterBodies][0] === [...anchoredBodies][0]')).toBe(true);
+    expect(api.run('ratchetBodies.has([...thrusterBodies][0])')).toBe(true);
+    expect(api.run('portals[0].partner === 1 && portals[1].partner === 0')).toBe(true);
+    expect(api.run('[paused, sloMoActive, gravityTarget, gravityAngle, destructionMeter, comboBest, targetScore]')).toEqual([true, true, 0.38, 1, 1234, 15, 42]);
+    expect(api.run('[engine.gravity.x, engine.gravity.y]')).toEqual([0.38, 0]);
+    expect(api.window.document.getElementById('btn-pause').textContent).toContain('PLAY');
+  });
+
+  it('keeps three independent saves across a fresh page and can save an empty game', () => {
+    const api = gameHarness();
+    api.click('btn-save');
+    const empty = api.window.localStorage.getItem(key);
+    api.run("currentTool = 'ball'; spawnObject(200, 200); paused = true;");
+    api.window.document.getElementById('save-slot').value = '2';
+    api.click('btn-save');
+    const populated = api.window.localStorage.getItem('chaos-engine-save-2');
+    expect(api.window.localStorage.getItem(key)).toBe(empty);
+    const fresh = gameHarness({ [key]:empty, 'chaos-engine-save-2':populated });
+    fresh.window.document.getElementById('save-slot').value = '2';
+    fresh.click('btn-load'); fresh.click('save-accept');
+    expect(fresh.run('captureGameState().bodies.length')).toBe(1);
+    expect(fresh.run('paused')).toBe(true);
+    fresh.window.document.getElementById('save-slot').value = '1';
+    fresh.click('btn-load'); fresh.click('save-accept');
+    expect(fresh.run('captureGameState().bodies.length')).toBe(0);
+    expect(fresh.run('walls.length')).toBe(4);
+  });
+
+  it('requires confirmation before replacing a save or the current game, and cancel preserves both', () => {
+    const api = gameHarness();
+    api.click('btn-save');
+    const first = api.window.localStorage.getItem(key);
+    api.run('spawnObject(250, 200);');
+    api.click('btn-save');
+    expect(api.window.document.getElementById('save-confirm').open).toBe(true);
+    api.click('save-cancel');
+    expect(api.window.localStorage.getItem(key)).toBe(first);
+    api.click('btn-load'); api.click('save-cancel');
+    expect(api.run('captureGameState().bodies.length')).toBe(1);
+    api.click('btn-save'); api.click('save-accept');
+    expect(api.window.localStorage.getItem(key)).not.toBe(first);
+    expect(api.feedback()).toContain('SAVED TO SLOT 1');
+  });
+
+  it('handles empty slots, unavailable storage and quota failures without losing the world or previous save', () => {
+    const api = gameHarness();
+    api.run('spawnObject(200, 200);');
+    api.click('btn-load');
+    expect(api.feedback()).toContain('IS EMPTY');
+    api.click('btn-save');
+    const previous = api.window.localStorage.getItem(key);
+    const spy = vi.spyOn(api.window.Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
+    api.click('btn-save'); api.click('save-accept');
+    expect(api.feedback()).toContain('SAVE FAILED');
+    expect(api.window.localStorage.getItem(key)).toBe(previous);
+    spy.mockRestore();
+    const getSpy = vi.spyOn(api.window.Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('denied'); });
+    api.click('btn-load');
+    expect(api.feedback()).toContain('LOAD FAILED');
+    getSpy.mockRestore();
+    expect(api.run('captureGameState().bodies.length')).toBe(1);
+    expect(api.errors).toEqual([]);
+  });
+
+  it('rejects corrupt and future saves before changing the running game', () => {
+    const api = gameHarness();
+    api.run('spawnObject(200, 200);');
+    for (const raw of ['not json', '{}', '{"version":999}', '{"version":1,"savedAt":"2026-10-16T12:00:00Z","graph":{"entry":{"ref":999},"nodes":[]}}']) {
+      api.window.localStorage.setItem(key, raw);
+      api.click('btn-load');
+      expect(api.feedback()).toContain('CANNOT BE LOADED');
+      expect(api.run('captureGameState().bodies.length')).toBe(1);
+    }
+    expect(api.errors).toEqual([]);
+  });
+
+  it('rejects damaged payloads, invalid connections and unsafe graph keys without mutating the game', () => {
+    const api = gameHarness();
+    api.run('spawnObject(200, 200);');
+    api.click('btn-save');
+    const saved = api.window.localStorage.getItem(key);
+    const damaged = JSON.parse(saved);
+    damaged.graph.nodes.pop();
+    api.window.localStorage.setItem(key, JSON.stringify(damaged));
+    api.click('btn-load');
+    expect(api.feedback()).toContain('CANNOT BE LOADED');
+    expect(api.run('captureGameState().bodies.length')).toBe(1);
+    expect(() => api.run(`ChaosSaveCodec.decode({entry:{ref:0}, nodes:[{kind:'object',values:[['__proto__', null]]}]})`)).toThrow('Invalid save key');
+    api.run(`
+      const invalid = captureGameState();
+      invalid.constraints.push({ type:'constraint', bodyA:{}, pointA:{x:0,y:0}, pointB:{x:0,y:0}, length:5, stiffness:1 });
+      const graph = ChaosSaveCodec.encode(invalid);
+      window.invalidSave = JSON.stringify({version:1, savedAt:new Date().toISOString(), graph, checksum:ChaosSaveCodec.checksum(graph)});
+    `);
+    expect(() => api.run('readGameSave(window.invalidSave)')).toThrow('Invalid saved connection');
+    expect(api.run('captureGameState().bodies.length')).toBe(1);
+  });
+
+  it('restores reusable machines and keeps their registries linked to live bodies', () => {
+    const api = gameHarness();
+    api.run(`
+      for (const place of [placeOrTipBasketAt, placeOrFlipRampAt, placeOrKickPinwheelAt,
+        placeOrFireCannonAt, placeOrToggleElevatorAt, placeOrEjectRecyclerAt,
+        placeOrToggleHatchAt, placeOrTogglePistonAt, placeOrReverseSawAt,
+        placeOrRotateFunnelAt, placeOrFireCatapultAt, placeOrTogglePressAt, placeOrCycleSieveAt]) {
+        place({ x:300, y:250 });
+      }
+      window.saved = serializeGameState();
+      restoreGameState(readGameSave(window.saved));
+    `);
+    expect(api.run('[baskets, ramps, pinwheels, cannons, elevators, recyclers, hatches, pistons, saws, funnels, catapults, presses, sieves].every(list => list.length > 0)')).toBe(true);
+    expect(api.run('[...baskets, ...ramps, ...cannons].every(body => Composite.get(world, body.id, "body") === body)')).toBe(true);
+    expect(() => api.run('loop(performance.now() + 16)')).not.toThrow();
+    expect(api.errors).toEqual([]);
+  });
+
+  it('restores in-flight rain and delayed bomb work and discards work from the replaced scene', () => {
+    const api = gameHarness();
+    api.click('btn-rain');
+    api.run(`
+      currentTool = 'bomb'; const bomb = spawnObject(200, 200);
+      schedulePhysicsAction('bomb', { body:bomb }, 500);
+      window.saved = serializeGameState();
+      finishClear(false);
+      schedulePhysicsAction('rain', {}, 10000);
+      restoreGameState(readGameSave(window.saved));
+    `);
+    expect(api.run('pendingPhysicsActions.length')).toBe(21);
+    expect(api.run('pendingPhysicsActions.find(a => a.kind === "bomb").body === captureGameState().bodies[0]')).toBe(true);
+    api.run('runPendingPhysicsActions(performance.now() + 2000)');
+    expect(api.run('pendingPhysicsActions.length')).toBe(0);
+    expect(api.run('captureGameState().bodies.length')).toBe(20);
+    expect(api.errors).toEqual([]);
+  });
+
+  it('blocks saving during Clear and stops the world and shortcuts while confirming', () => {
+    const api = gameHarness();
+    api.run('spawnObject(200, 200);');
+    api.click('btn-save'); api.click('btn-clear'); api.click('btn-save');
+    expect(api.feedback()).toContain('WAIT BEFORE SAVING');
+    api.run('finishClear(false)');
+    api.click('btn-load');
+    const state = api.run('[paused, destructionMeter, engine.timing.timestamp]');
+    api.run('loop(performance.now() + 1000)');
+    expect(api.run('captureGameState().bodies.length')).toBe(0);
+    api.window.document.dispatchEvent(new api.window.KeyboardEvent('keydown', { key:'e', bubbles:true }));
+    expect(api.run('explosions.length')).toBe(0);
+    api.click('save-cancel');
+    expect(api.window.document.getElementById('save-confirm').open).toBe(false);
+    expect(api.run('[paused, destructionMeter, engine.timing.timestamp]')).toEqual(state);
+  });
+});
