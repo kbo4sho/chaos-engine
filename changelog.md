@@ -4,6 +4,13 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-10-16T18:33:23Z — Added: Tripwire tool
+**Why:** The toolbar could block, guide, carry, or directly launch objects, but it had no reusable non-solid trigger that reacts when a moving part crosses a player-defined line. Tripwire adds a compact two-post sensor that redirects motion without becoming another wall or transport constraint.
+**Goal alignment:** "more fun, more surprising, more satisfying" — players can bounce falling Balls back into contraptions, build invisible-feeling launch gates across open space, and reverse the same beam from an upward kick to a downward slam with one tap.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, changelog.md, upgrade-log.json
+**Verified:** tests ✓ (577/577 passing); browser smoke ✓ (existing Block crossed a 440px horizontal beam and fired upward with negative vertical velocity, then tapping the beam reversed its visible arrow/status to KICK DOWN); mobile ✓ (390×844, final Tripwire button was fully reachable at 52×50px and x=330–382 at the toolbar's true maximum scroll, existing Ball crossed a 290px beam and launched upward at −10.63 px/frame); cleanup ✓ (tool change clears pending placement; Eraser removes beams; Clear removed the Ball, beam, pending state, and feedback); console ✓ (0 errors, 0 warnings); live ✓ (http://192.168.68.52:3003)
+**Status:** shipped
+
 ## 2026-10-11T14:05:42Z — Added: Winch tool
 **Why:** The toolbar could tether a part at a fixed elastic length, guide it along a Rail, or carry it on a Zipline, but it had no powered world cable that repeatedly lifts and lowers an existing payload while leaving it free to swing and collide. Winch adds a compact reusable hoist with direct spool control.
 **Goal alignment:** "more fun, more surprising, more satisfying" — players can suspend Balls and Blocks, lift them into contraptions, lower them as swinging weights, and reverse the same cable without replacing the payload.

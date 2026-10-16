@@ -775,6 +775,19 @@ canvas#game {
 #winch-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#tripwire-feedback {
+  position:absolute; top:388px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#ff5fd7;
+  font-size:22px; letter-spacing:1px; text-shadow:0 0 8px currentColor;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none; white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#tripwire-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -912,6 +925,7 @@ canvas#game {
   #rail-feedback { top:14px; font-size:19px; }
   #sieve-feedback { top:14px; font-size:19px; }
   #winch-feedback { top:14px; font-size:19px; }
+  #tripwire-feedback { top:14px; font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -1003,6 +1017,7 @@ canvas#game {
     <div id="rail-feedback" role="status" aria-live="polite"></div>
     <div id="sieve-feedback" role="status" aria-live="polite"></div>
     <div id="winch-feedback" role="status" aria-live="polite"></div>
+    <div id="tripwire-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -1096,6 +1111,7 @@ canvas#game {
     <button class="tool-btn" data-tool="rail" style="color:#67e8ff;" title="Tap a loose part, then a destination to lock it onto a finite sliding rail; tap the rider to release" aria-label="Guide a loose part along a finite sliding rail or release it"><span class="icon">═</span>Rail</button>
     <button class="tool-btn" data-tool="sieve" style="color:#a7f3d0;" title="Tap the canvas to place a size-sorting sieve; tap it to cycle the opening" aria-label="Place a physical size-sorting sieve or cycle its opening"><span class="icon">▔◇▔</span>Sieve</button>
     <button class="tool-btn" data-tool="winch" style="color:#ffd166;" title="Tap a loose part, then an anchor point to suspend it; tap the spool to reel in or out" aria-label="Suspend a loose part from a powered winch and reel it in or out"><span class="icon">◉</span>Winch</button>
+    <button class="tool-btn" data-tool="tripwire" style="color:#ff5fd7;" title="Tap two points to stretch a launch tripwire; tap the beam to reverse its kick" aria-label="Place a launch tripwire or reverse its kick direction"><span class="icon">⚡</span>Tripwire</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1424,6 +1440,10 @@ let sieveFeedbackTimer = 0;
 let winchSelection = null; // loose dynamic part waiting for a remote winch anchor
 let winches = []; // {body, constraint, anchor, minLength, maxLength, targetLength} powered world cables
 let winchFeedbackTimer = 0;
+let tripwireStart = null; // first endpoint waiting for the second tripwire post
+let tripwires = []; // {id, start, end, geometry, direction, cooldowns} crossing-triggered launch beams
+let nextTripwireId = 1;
+let tripwireFeedbackTimer = 0;
 
 // Block shattering
 let shatterDebounce = new Set(); // prevent double-shattering same body
@@ -2375,6 +2395,15 @@ function resetWinchSelection(silent = false) {
   feedback.textContent = '';
 }
 
+function resetTripwireSelection(silent = false) {
+  tripwireStart = null;
+  if (!silent) return;
+  clearTimeout(tripwireFeedbackTimer);
+  const feedback = document.getElementById('tripwire-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -2477,6 +2506,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'rail') resetRailSelection(true);
       if (tool !== 'sieve') resetSieveFeedback(true);
       if (tool !== 'winch') resetWinchSelection(true);
+      if (tool !== 'tripwire') resetTripwireSelection(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -3928,6 +3958,8 @@ function finishClear(playFeedback = true) {
   sieves = [];
   winches = [];
   winchSelection = null;
+  tripwires = [];
+  tripwireStart = null;
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -3988,6 +4020,7 @@ function finishClear(playFeedback = true) {
   resetRailSelection(true);
   resetSieveFeedback(true);
   resetWinchSelection(true);
+  resetTripwireSelection(true);
   flippers = [];
   nextFlipperSide = 'left';
   clearTimeout(flipperFeedbackTimer);
@@ -4224,7 +4257,8 @@ function getToolAccentColor(tool) {
     gearbox: '#ffb347',
     rail: '#67e8ff',
     sieve: '#a7f3d0',
-    winch: '#ffd166'
+    winch: '#ffd166',
+    tripwire: '#ff5fd7'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -4280,7 +4314,7 @@ function eraseBodyAt(pos) {
     });
   }
 
-  if (!target) return false;
+  if (!target) return eraseTripwireAt(pos);
 
   const bodiesToRemove = new Set([target]);
   const constraintsToRemove = new Set();
@@ -11223,6 +11257,244 @@ function updateWinches(timeScale = 1) {
   });
 }
 
+const TRIPWIRE_MIN_LENGTH = 72;
+const TRIPWIRE_KICK_SPEED = 11.5;
+const TRIPWIRE_TOUCH_RADIUS = 52;
+const TRIPWIRE_REARM_FRAMES = 18;
+
+function getTripwirePoint(pos, canvasWidth, canvasHeight) {
+  return {
+    x:Math.max(20, Math.min(canvasWidth - 20, pos.x)),
+    y:Math.max(20, Math.min(canvasHeight - 44, pos.y))
+  };
+}
+
+function getTripwireGeometry(start, end) {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const length = Math.hypot(dx, dy);
+  const safeLength = length || 1;
+  return {
+    length,
+    tangent:{ x:dx / safeLength, y:dy / safeLength },
+    normal:{ x:-dy / safeLength, y:dx / safeLength }
+  };
+}
+
+function getPointToTripwire(point, start, end) {
+  const geometry = getTripwireGeometry(start, end);
+  const dx = point.x - start.x;
+  const dy = point.y - start.y;
+  const along = dx * geometry.tangent.x + dy * geometry.tangent.y;
+  const progress = geometry.length ? along / geometry.length : 0;
+  const clampedAlong = Math.max(0, Math.min(geometry.length, along));
+  const closest = {
+    x:start.x + geometry.tangent.x * clampedAlong,
+    y:start.y + geometry.tangent.y * clampedAlong
+  };
+  return {
+    distance:Math.hypot(point.x - closest.x, point.y - closest.y),
+    progress,
+    signedDistance:dx * geometry.normal.x + dy * geometry.normal.y,
+    closest
+  };
+}
+
+function getTripwireCrossing(previous, current, start, end) {
+  const geometry = getTripwireGeometry(start, end);
+  const previousMetric = getPointToTripwire(previous, start, end);
+  const currentMetric = getPointToTripwire(current, start, end);
+  const denominator = previousMetric.signedDistance - currentMetric.signedDistance;
+  if (Math.abs(denominator) < 0.000001) {
+    return { crossed:false, progress:currentMetric.progress, point:currentMetric.closest };
+  }
+  const travelProgress = previousMetric.signedDistance / denominator;
+  if (travelProgress < 0 || travelProgress > 1) {
+    return { crossed:false, progress:currentMetric.progress, point:currentMetric.closest };
+  }
+  const point = {
+    x:previous.x + (current.x - previous.x) * travelProgress,
+    y:previous.y + (current.y - previous.y) * travelProgress
+  };
+  const along = (point.x - start.x) * geometry.tangent.x + (point.y - start.y) * geometry.tangent.y;
+  return {
+    crossed:along >= 0 && along <= geometry.length,
+    progress:geometry.length ? along / geometry.length : 0,
+    point
+  };
+}
+
+function getTripwireKickVelocity(velocity, geometry, direction, speed = TRIPWIRE_KICK_SPEED) {
+  const tangentSpeed = velocity.x * geometry.tangent.x + velocity.y * geometry.tangent.y;
+  const normalSpeed = velocity.x * geometry.normal.x + velocity.y * geometry.normal.y;
+  const kickSpeed = direction * Math.max(speed, Math.abs(normalSpeed));
+  return {
+    x:geometry.tangent.x * tangentSpeed + geometry.normal.x * kickSpeed,
+    y:geometry.tangent.y * tangentSpeed + geometry.normal.y * kickSpeed
+  };
+}
+
+function getTripwireDefaultDirection(geometry, midpoint, canvasWidth) {
+  if (Math.abs(geometry.normal.y) >= 0.35) return geometry.normal.y > 0 ? -1 : 1;
+  const towardCenter = Math.sign(canvasWidth / 2 - midpoint.x) || 1;
+  return geometry.normal.x * towardCenter >= 0 ? 1 : -1;
+}
+
+function getTripwireDirectionName(entry) {
+  const x = entry.geometry.normal.x * entry.direction;
+  const y = entry.geometry.normal.y * entry.direction;
+  if (Math.abs(y) >= Math.abs(x)) return y < 0 ? 'UP' : 'DOWN';
+  return x < 0 ? 'LEFT' : 'RIGHT';
+}
+
+function showTripwireFeedback(message, color = '#ff5fd7') {
+  const feedback = document.getElementById('tripwire-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.remove('active');
+  void feedback.offsetWidth;
+  feedback.classList.add('active');
+  clearTimeout(tripwireFeedbackTimer);
+  tripwireFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 1050);
+}
+
+function addTripwireBurst(point, direction = null, color = '#ff5fd7') {
+  for (let i = 0; i < 16; i++) {
+    const angle = direction
+      ? Math.atan2(direction.y, direction.x) + (Math.random() - 0.5) * 1.1
+      : Math.random() * Math.PI * 2;
+    const speed = 1.8 + Math.random() * 4.4;
+    particles.push({
+      x:point.x,
+      y:point.y,
+      vx:Math.cos(angle) * speed,
+      vy:Math.sin(angle) * speed,
+      size:1.5 + Math.random() * 2.5,
+      life:0.22 + Math.random() * 0.3,
+      color:i % 3 === 0 ? '#67e8ff' : color
+    });
+  }
+}
+
+function findTripwireAt(pos, radius = TRIPWIRE_TOUCH_RADIUS) {
+  let match = null;
+  let nearestDistance = radius;
+  tripwires.forEach(entry => {
+    const metric = getPointToTripwire(pos, entry.start, entry.end);
+    if (metric.progress < -0.08 || metric.progress > 1.08 || metric.distance >= nearestDistance) return;
+    nearestDistance = metric.distance;
+    match = { entry, point:metric.closest, distance:metric.distance };
+  });
+  return match;
+}
+
+function removeTripwire(entry, point, silent = false) {
+  tripwires = tripwires.filter(candidate => candidate !== entry);
+  if (!silent) {
+    addTripwireBurst(point, null, '#aaaaaa');
+    showTripwireFeedback('TRIPWIRE: ERASED', '#aaaaaa');
+    playSound(260, 0.1, 'square', 0.05);
+    haptic([6]);
+  }
+  return true;
+}
+
+function eraseTripwireAt(pos) {
+  const match = findTripwireAt(pos, 44);
+  return match ? removeTripwire(match.entry, match.point) : false;
+}
+
+function placeOrReverseTripwireAt(pos) {
+  if (!tripwireStart) {
+    const existing = findTripwireAt(pos);
+    if (existing) {
+      existing.entry.direction *= -1;
+      existing.entry.cooldowns.clear();
+      const kick = {
+        x:existing.entry.geometry.normal.x * existing.entry.direction,
+        y:existing.entry.geometry.normal.y * existing.entry.direction
+      };
+      addTripwireBurst(existing.point, kick);
+      showTripwireFeedback(`TRIPWIRE: KICK ${getTripwireDirectionName(existing.entry)}`);
+      playSound(existing.entry.direction > 0 ? 840 : 620, 0.1, 'square', 0.06);
+      haptic([7, 6, 7]);
+      return 'reversed';
+    }
+    tripwireStart = getTripwirePoint(pos, canvas.width, canvas.height);
+    showTripwireFeedback('POST SET • PICK WIRE END');
+    addTripwireBurst(tripwireStart, null, '#67e8ff');
+    playSound(520, 0.07, 'triangle', 0.05);
+    haptic([5]);
+    return 'selected';
+  }
+
+  const end = getTripwirePoint(pos, canvas.width, canvas.height);
+  const geometry = getTripwireGeometry(tripwireStart, end);
+  if (geometry.length < TRIPWIRE_MIN_LENGTH) {
+    if (Math.hypot(end.x - tripwireStart.x, end.y - tripwireStart.y) < 24) {
+      resetTripwireSelection();
+      showTripwireFeedback('TRIPWIRE: CANCELLED', '#aaaaaa');
+      haptic([4]);
+      return 'cancelled';
+    }
+    showTripwireFeedback(`TRIPWIRE: END ${TRIPWIRE_MIN_LENGTH}PX AWAY`, '#ffc857');
+    haptic([3]);
+    return false;
+  }
+
+  const start = tripwireStart;
+  const midpoint = { x:(start.x + end.x) / 2, y:(start.y + end.y) / 2 };
+  const entry = {
+    id:nextTripwireId++,
+    start,
+    end,
+    geometry,
+    direction:getTripwireDefaultDirection(geometry, midpoint, canvas.width),
+    cooldowns:new Map()
+  };
+  tripwires.push(entry);
+  tripwireStart = null;
+  addTripwireBurst(start, null, '#67e8ff');
+  addTripwireBurst(end, null, '#67e8ff');
+  showTripwireFeedback(`TRIPWIRE ARMED • KICK ${getTripwireDirectionName(entry)}`);
+  playSound(640, 0.11, 'square', 0.055);
+  playSound(980, 0.14, 'triangle', 0.045);
+  haptic([6, 7, 9]);
+  return entry;
+}
+
+function updateTripwires() {
+  if (!tripwires.length) return;
+  const dynamicBodies = Composite.allBodies(world).filter(body =>
+    !body.isStatic && body.label !== 'wall' && !body.isTarget
+  );
+  tripwires.forEach(entry => {
+    entry.cooldowns.forEach((frames, bodyId) => {
+      if (frames <= 1) entry.cooldowns.delete(bodyId);
+      else entry.cooldowns.set(bodyId, frames - 1);
+    });
+    dynamicBodies.forEach(body => {
+      if (entry.cooldowns.has(body.id)) return;
+      const previous = body.positionPrev || body.position;
+      const contact = getTripwireCrossing(previous, body.position, entry.start, entry.end);
+      if (!contact.crossed) return;
+      const velocity = getTripwireKickVelocity(body.velocity, entry.geometry, entry.direction);
+      Body.setVelocity(body, velocity);
+      Body.setAngularVelocity(body, body.angularVelocity + entry.direction * 0.09);
+      Matter.Sleeping.set(body, false);
+      entry.cooldowns.set(body.id, TRIPWIRE_REARM_FRAMES);
+      const kick = {
+        x:entry.geometry.normal.x * entry.direction,
+        y:entry.geometry.normal.y * entry.direction
+      };
+      addTripwireBurst(contact.point, kick);
+      showTripwireFeedback(`TRIPWIRE FIRED • ${getTripwireDirectionName(entry)}`);
+      playSound(900 + Math.random() * 160, 0.08, 'sawtooth', 0.06);
+      haptic([8, 5, 10]);
+    });
+  });
+}
+
 const SIEVE_TOTAL_WIDTH = 168;
 const SIEVE_BAR_THICKNESS = 14;
 const SIEVE_GAPS = [12, 44, 68];
@@ -12401,6 +12673,13 @@ function onDown(e) {
   // Winch tool — suspend one loose part from a powered cable or operate its spool.
   if (currentTool === 'winch') {
     winchBodyAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Tripwire tool — stretch a crossing sensor or reverse an existing beam's launch side.
+  if (currentTool === 'tripwire') {
+    placeOrReverseTripwireAt(pos);
     pointerDown = false;
     return;
   }
@@ -17036,6 +17315,101 @@ function drawWinches(timestamp) {
   ctx.restore();
 }
 
+function drawTripwires(timestamp) {
+  tripwires.forEach(entry => {
+    const pulse = 0.72 + Math.sin(timestamp / 90 + entry.id) * 0.2;
+    const midpoint = {
+      x:(entry.start.x + entry.end.x) / 2,
+      y:(entry.start.y + entry.end.y) / 2
+    };
+    const kick = {
+      x:entry.geometry.normal.x * entry.direction,
+      y:entry.geometry.normal.y * entry.direction
+    };
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#67e8ff';
+    ctx.shadowColor = '#67e8ff';
+    ctx.shadowBlur = 11;
+    ctx.globalAlpha = 0.34;
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.moveTo(entry.start.x, entry.start.y);
+    ctx.lineTo(entry.end.x, entry.end.y);
+    ctx.stroke();
+
+    ctx.globalAlpha = pulse;
+    ctx.strokeStyle = '#ff5fd7';
+    ctx.shadowColor = '#ff5fd7';
+    ctx.shadowBlur = 9;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([10, 7]);
+    ctx.lineDashOffset = -(timestamp / 28) % 17;
+    ctx.beginPath();
+    ctx.moveTo(entry.start.x, entry.start.y);
+    ctx.lineTo(entry.end.x, entry.end.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    [entry.start, entry.end].forEach(point => {
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#080c10';
+      ctx.strokeStyle = '#67e8ff';
+      ctx.shadowColor = '#67e8ff';
+      ctx.shadowBlur = 10;
+      ctx.lineWidth = 3;
+      ctx.fillRect(point.x - 7, point.y - 11, 14, 22);
+      ctx.strokeRect(point.x - 7, point.y - 11, 14, 22);
+      ctx.fillStyle = '#ff5fd7';
+      ctx.fillRect(point.x - 2, point.y - 3, 4, 6);
+    });
+
+    const arrowStart = { x:midpoint.x - kick.x * 11, y:midpoint.y - kick.y * 11 };
+    const arrowEnd = { x:midpoint.x + kick.x * 24, y:midpoint.y + kick.y * 24 };
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = '#ffc857';
+    ctx.fillStyle = '#ffc857';
+    ctx.shadowColor = '#ffc857';
+    ctx.shadowBlur = 10;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(arrowStart.x, arrowStart.y);
+    ctx.lineTo(arrowEnd.x, arrowEnd.y);
+    ctx.stroke();
+    const arrowAngle = Math.atan2(kick.y, kick.x);
+    ctx.beginPath();
+    ctx.moveTo(arrowEnd.x, arrowEnd.y);
+    ctx.lineTo(arrowEnd.x - Math.cos(arrowAngle - 0.58) * 10, arrowEnd.y - Math.sin(arrowAngle - 0.58) * 10);
+    ctx.lineTo(arrowEnd.x - Math.cos(arrowAngle + 0.58) * 10, arrowEnd.y - Math.sin(arrowAngle + 0.58) * 10);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  });
+
+  if (!tripwireStart || currentTool !== 'tripwire') return;
+  ctx.save();
+  ctx.translate(tripwireStart.x, tripwireStart.y);
+  ctx.globalAlpha = 0.7 + Math.sin(timestamp / 90) * 0.24;
+  ctx.strokeStyle = '#ff5fd7';
+  ctx.fillStyle = '#080c10';
+  ctx.shadowColor = '#ff5fd7';
+  ctx.shadowBlur = 14;
+  ctx.lineWidth = 3;
+  ctx.fillRect(-9, -13, 18, 26);
+  ctx.strokeRect(-9, -13, 18, 26);
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath();
+  ctx.arc(0, 0, 28, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#ff5fd7';
+  ctx.font = '15px VT323';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('POST', 0, 1);
+  ctx.restore();
+}
+
 // ── MAIN LOOP ──
 let lastTime = 0;
 
@@ -17692,6 +18066,7 @@ function loop(timestamp) {
     updateGearboxes();
     updateWinches(timeScale);
     Engine.update(engine, (1000/60) * timeScale);
+    updateTripwires();
     updateZiplines(timeScale);
     updateRails();
   }
@@ -17865,6 +18240,7 @@ function loop(timestamp) {
   // Bodies
   drawDominoRunPreview();
   drawElevatorTracks(timestamp);
+  drawTripwires(timestamp);
   allBodies.forEach(b => {
     if (b.label === 'wall') return;
     drawBody(b);

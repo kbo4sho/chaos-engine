@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch', 'piston', 'parachute', 'saw', 'funnel', 'catapult', 'press', 'zipline', 'siphon', 'gearbox', 'rail', 'sieve', 'winch'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch', 'piston', 'parachute', 'saw', 'funnel', 'catapult', 'press', 'zipline', 'siphon', 'gearbox', 'rail', 'sieve', 'winch', 'tripwire'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 88 tool buttons', () => {
+  it('should have exactly 89 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(88);
+    expect(buttons.length).toBe(89);
   });
 
-  it('should append Winch after Sieve at the end of the object toolbar', () => {
+  it('should append Tripwire after Winch at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('winch');
-    expect(toolbar.lastElementChild?.textContent).toContain('Winch');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('sieve');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('rail');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('tripwire');
+    expect(toolbar.lastElementChild?.textContent).toContain('Tripwire');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('winch');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('sieve');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -67,6 +67,118 @@ describe('Tool Button Existence', () => {
 });
 
 // ============================================
+// TRIPWIRE TOOL TESTS (Code Analysis + Pure Logic)
+// ============================================
+
+describe('Tripwire Tool', () => {
+  it('should expose Tripwire as the final selectable toolbar tool', () => {
+    const tripwireBtn = document.querySelector('[data-tool="tripwire"]');
+    expect(tripwireBtn).not.toBeNull();
+    expect(tripwireBtn?.getAttribute('aria-label')).toContain('launch tripwire');
+    expect(tripwireBtn?.previousElementSibling?.dataset.tool).toBe('winch');
+    expect(tripwireBtn?.nextElementSibling).toBeNull();
+    expect(scriptContent).toContain("currentTool === 'tripwire'");
+    expect(scriptContent).toContain('placeOrReverseTripwireAt(pos)');
+  });
+
+  it('should clamp endpoints and calculate exact beam geometry and crossing points', () => {
+    const pointSource = scriptContent.slice(
+      scriptContent.indexOf('function getTripwirePoint'),
+      scriptContent.indexOf('\nfunction getTripwireGeometry')
+    );
+    const geometrySource = scriptContent.slice(
+      scriptContent.indexOf('function getTripwireGeometry'),
+      scriptContent.indexOf('\nfunction getPointToTripwire')
+    );
+    const metricSource = scriptContent.slice(
+      scriptContent.indexOf('function getPointToTripwire'),
+      scriptContent.indexOf('\nfunction getTripwireCrossing')
+    );
+    const crossingSource = scriptContent.slice(
+      scriptContent.indexOf('function getTripwireCrossing'),
+      scriptContent.indexOf('\nfunction getTripwireKickVelocity')
+    );
+    const helpers = new Function(`
+      ${pointSource}
+      ${geometrySource}
+      ${metricSource}
+      ${crossingSource}
+      return { getTripwirePoint, getTripwireGeometry, getPointToTripwire, getTripwireCrossing };
+    `)();
+
+    expect(helpers.getTripwirePoint({ x:2, y:4 }, 390, 500)).toEqual({ x:20, y:20 });
+    expect(helpers.getTripwirePoint({ x:388, y:498 }, 390, 500)).toEqual({ x:370, y:456 });
+    expect(helpers.getTripwireGeometry({ x:0, y:0 }, { x:100, y:0 })).toEqual({
+      length:100,
+      tangent:{ x:1, y:0 },
+      normal:{ x:-0, y:1 }
+    });
+    expect(helpers.getPointToTripwire({ x:50, y:10 }, { x:0, y:0 }, { x:100, y:0 })).toMatchObject({
+      distance:10,
+      progress:0.5,
+      signedDistance:10,
+      closest:{ x:50, y:0 }
+    });
+    expect(helpers.getTripwireCrossing(
+      { x:50, y:-5 }, { x:50, y:5 }, { x:0, y:0 }, { x:100, y:0 }
+    )).toEqual({ crossed:true, progress:0.5, point:{ x:50, y:0 } });
+  });
+
+  it('should preserve along-wire speed and replace crossing speed with a directional kick', () => {
+    const geometrySource = scriptContent.slice(
+      scriptContent.indexOf('function getTripwireGeometry'),
+      scriptContent.indexOf('\nfunction getPointToTripwire')
+    );
+    const kickSource = scriptContent.slice(
+      scriptContent.indexOf('function getTripwireKickVelocity'),
+      scriptContent.indexOf('\nfunction getTripwireDefaultDirection')
+    );
+    const directionSource = scriptContent.slice(
+      scriptContent.indexOf('function getTripwireDefaultDirection'),
+      scriptContent.indexOf('\nfunction getTripwireDirectionName')
+    );
+    const helpers = new Function(`
+      const TRIPWIRE_KICK_SPEED = 11.5;
+      ${geometrySource}
+      ${kickSource}
+      ${directionSource}
+      return { getTripwireGeometry, getTripwireKickVelocity, getTripwireDefaultDirection };
+    `)();
+    const geometry = helpers.getTripwireGeometry({ x:0, y:0 }, { x:100, y:0 });
+
+    expect(helpers.getTripwireKickVelocity({ x:3, y:6 }, geometry, -1)).toEqual({ x:3, y:-11.5 });
+    expect(helpers.getTripwireKickVelocity({ x:-4, y:-14 }, geometry, 1)).toEqual({ x:-4, y:14 });
+    expect(helpers.getTripwireDefaultDirection(geometry, { x:50, y:100 }, 390)).toBe(-1);
+  });
+
+  it('should arm two-tap beams, reverse them directly, and launch crossing bodies', () => {
+    const source = scriptContent.slice(
+      scriptContent.indexOf('const TRIPWIRE_MIN_LENGTH'),
+      scriptContent.indexOf('const SIEVE_TOTAL_WIDTH')
+    );
+    expect(source).toContain('tripwireStart = getTripwirePoint(pos, canvas.width, canvas.height)');
+    expect(source).toContain('tripwires.push(entry)');
+    expect(source).toContain('existing.entry.direction *= -1');
+    expect(source).toContain('getTripwireCrossing(previous, body.position');
+    expect(source).toContain('Body.setVelocity(body, velocity)');
+    expect(source).toContain('entry.cooldowns.set(body.id, TRIPWIRE_REARM_FRAMES)');
+    expect(scriptContent).toContain('updateTripwires();');
+  });
+
+  it('should render accessible feedback and clean pending or active wire state', () => {
+    expect(document.getElementById('tripwire-feedback')?.getAttribute('role')).toBe('status');
+    expect(scriptContent).toContain('function drawTripwires(timestamp)');
+    expect(scriptContent).toContain('drawTripwires(timestamp);');
+    expect(scriptContent).toContain("if (tool !== 'tripwire') resetTripwireSelection(true)");
+    expect(scriptContent).toContain('return eraseTripwireAt(pos);');
+    expect(scriptContent).toContain('tripwires = [];');
+    expect(scriptContent).toContain('resetTripwireSelection(true);');
+    expect(scriptContent).toContain("tripwire: '#ff5fd7'");
+    expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?#tripwire-feedback \{ top:14px; font-size:19px/);
+  });
+});
+
+// ============================================
 // WINCH TOOL TESTS (Code Analysis + Pure Logic)
 // ============================================
 
@@ -76,7 +188,7 @@ describe('Winch Tool', () => {
     expect(winchBtn).not.toBeNull();
     expect(winchBtn?.getAttribute('aria-label')).toContain('powered winch');
     expect(winchBtn?.previousElementSibling?.dataset.tool).toBe('sieve');
-    expect(winchBtn?.nextElementSibling).toBeNull();
+    expect(winchBtn?.nextElementSibling?.dataset.tool).toBe('tripwire');
     expect(scriptContent).toContain("currentTool === 'winch'");
     expect(scriptContent).toContain('winchBodyAt(pos)');
   });
