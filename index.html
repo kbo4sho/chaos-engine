@@ -809,6 +809,19 @@ canvas#game {
 #ratchet-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#breaklink-feedback {
+  position:absolute; top:14px; left:50%; z-index:3;
+  transform:translate(-50%, -8px) scale(0.9);
+  padding:4px 12px; border:1px solid currentColor;
+  background:rgba(8,12,16,0.88); color:#ffc857;
+  font-size:22px; letter-spacing:1px; text-shadow:0 0 8px currentColor;
+  box-shadow:0 0 14px currentColor;
+  opacity:0; pointer-events:none; white-space:nowrap;
+  transition:opacity .12s, transform .12s;
+}
+#breaklink-feedback.active {
+  opacity:1; transform:translate(-50%, 0) scale(1);
+}
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -975,6 +988,7 @@ canvas#game {
   #winch-feedback { top:14px; font-size:19px; }
   #tripwire-feedback { top:14px; font-size:19px; }
   #ratchet-feedback { top:14px; font-size:19px; }
+  #breaklink-feedback { font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -1068,6 +1082,7 @@ canvas#game {
     <div id="winch-feedback" role="status" aria-live="polite"></div>
     <div id="tripwire-feedback" role="status" aria-live="polite"></div>
     <div id="ratchet-feedback" role="status" aria-live="polite"></div>
+    <div id="breaklink-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -1163,6 +1178,7 @@ canvas#game {
     <button class="tool-btn" data-tool="winch" style="color:#ffd166;" title="Tap a loose part, then an anchor point to suspend it; tap the spool to reel in or out" aria-label="Suspend a loose part from a powered winch and reel it in or out"><span class="icon">◉</span>Winch</button>
     <button class="tool-btn" data-tool="tripwire" style="color:#ff5fd7;" title="Tap two points to stretch a launch tripwire; tap the beam to reverse its kick" aria-label="Place a launch tripwire or reverse its kick direction"><span class="icon">⚡</span>Tripwire</button>
     <button class="tool-btn" data-tool="ratchet" style="color:#ffd166;" title="Tap a part to cycle clockwise-only rotation, counter-clockwise-only, then off" aria-label="Ratchet a part through clockwise-only, counter-clockwise-only, and free rotation"><span class="icon">⥁</span>Ratchet</button>
+    <button class="tool-btn" data-tool="breaklink" style="color:#ffc857;" title="Tap two parts to join them with a weak link that snaps when overstretched; Snip cuts it early" aria-label="Breaklink two parts with a physical link that snaps under tension"><span class="icon">⛓</span>Breaklink</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1518,6 +1534,9 @@ let nextTripwireId = 1;
 let tripwireFeedbackTimer = 0;
 let ratchetBodies = new Map(); // body -> {direction, stopAngle, blockedUntil} passive one-way spin locks
 let ratchetFeedbackTimer = 0;
+let breaklinkSelection = null;
+let breaklinks = []; // physical constraints with a fixed overstretch threshold
+let breaklinkFeedbackTimer = 0;
 
 // Block shattering
 let pendingPhysicsActions = []; // Serializable delayed rain and collision work
@@ -2487,6 +2506,15 @@ function resetRatchetFeedback(silent = false) {
   feedback.textContent = '';
 }
 
+function resetBreaklinkSelection(silent = false) {
+  breaklinkSelection = null;
+  if (!silent) return;
+  clearTimeout(breaklinkFeedbackTimer);
+  const feedback = document.getElementById('breaklink-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -2526,6 +2554,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       return;
     }
     if (tool === 'draw') {
+      resetBreaklinkSelection(true);
       drawMode = !drawMode;
       btn.classList.toggle('active', drawMode);
       if (!drawMode) drawPoints = [];
@@ -2591,6 +2620,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'winch') resetWinchSelection(true);
       if (tool !== 'tripwire') resetTripwireSelection(true);
       if (tool !== 'ratchet') resetRatchetFeedback(true);
+      if (tool !== 'breaklink') resetBreaklinkSelection(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -4032,6 +4062,8 @@ function finishClear(playFeedback = true) {
   tripwireStart = null;
   ratchetBodies.clear();
   resetRatchetFeedback(true);
+  breaklinks = [];
+  resetBreaklinkSelection(true);
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -4331,7 +4363,8 @@ function getToolAccentColor(tool) {
     sieve: '#a7f3d0',
     winch: '#ffd166',
     tripwire: '#ff5fd7',
-    ratchet: '#ffd166'
+    ratchet: '#ffd166',
+    breaklink: '#ffc857'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -4522,6 +4555,7 @@ function eraseBodyAt(pos) {
   });
   ropes = ropes.filter(r => !constraintsToRemove.has(r));
   struts = struts.filter(strut => !constraintsToRemove.has(strut));
+  breaklinks = breaklinks.filter(link => !constraintsToRemove.has(link));
   hinges = hinges.filter(hinge => !constraintsToRemove.has(hinge));
   springs = springs.filter(spring => !constraintsToRemove.has(spring));
   welds = welds.filter(weld => !constraintsToRemove.has(weld.constraint));
@@ -4549,6 +4583,7 @@ function eraseBodyAt(pos) {
   if (mirrorFlash && removedBodyIds.has(mirrorFlash.bodyId)) mirrorFlash = null;
   if (relayFirstBody && removedBodyIds.has(relayFirstBody.id)) resetRelaySelection(true);
   if (strutFirstBody && removedBodyIds.has(strutFirstBody.id)) strutFirstBody = null;
+  if (breaklinkSelection && removedBodyIds.has(breaklinkSelection.id)) resetBreaklinkSelection(true);
   if (rotateFlash && removedBodyIds.has(rotateFlash.body.id)) rotateFlash = null;
   if (fusionFirstBody && removedBodyIds.has(fusionFirstBody.id)) fusionFirstBody = null;
   if (hingeSelection && removedBodyIds.has(hingeSelection.body.id)) hingeSelection = null;
@@ -11572,6 +11607,109 @@ function updateTripwires() {
   });
 }
 
+function getBreaklinkLimit(restLength) {
+  return restLength + Math.max(28, restLength * 0.3);
+}
+
+function getBreaklinkStrain(link) {
+  const distance = getStrutLength(link.bodyA, link.bodyB);
+  return Math.max(0, (distance - link.length) / (link.breakDistance - link.length));
+}
+
+function showBreaklinkFeedback(message, color = '#ffc857') {
+  const feedback = document.getElementById('breaklink-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.add('active');
+  clearTimeout(breaklinkFeedbackTimer);
+  breaklinkFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 1200);
+}
+
+function pruneBreaklinks() {
+  const liveBodies = new Set(Composite.allBodies(world));
+  breaklinks = breaklinks.filter(link => {
+    const inWorld = Composite.get(world, link.id, 'constraint');
+    const hasBothEnds = liveBodies.has(link.bodyA) && liveBodies.has(link.bodyB);
+    if (inWorld && !hasBothEnds) Composite.remove(world, link, true);
+    return Boolean(inWorld && hasBothEnds);
+  });
+  if (breaklinkSelection && !liveBodies.has(breaklinkSelection)) resetBreaklinkSelection(true);
+}
+
+function breaklinkBodiesAt(pos) {
+  pruneBreaklinks();
+  // Reuse the build-part eligibility and 46px touch targeting of Strut.
+  const target = findStrutBodyAt(pos);
+  if (!target) {
+    showBreaklinkFeedback(breaklinkSelection ? 'BREAKLINK: PICK SECOND PART' : 'BREAKLINK: TAP A PART', '#aaaaaa');
+    haptic([3]);
+    return false;
+  }
+  if (!breaklinkSelection) {
+    breaklinkSelection = target;
+    addStrutBurst(target, '#ffc857');
+    showBreaklinkFeedback('BREAKLINK: PICK SECOND PART');
+    haptic([6]);
+    return 'selected';
+  }
+  if (target === breaklinkSelection) {
+    resetBreaklinkSelection();
+    showBreaklinkFeedback('BREAKLINK CANCELLED', '#aaaaaa');
+    return 'cancelled';
+  }
+  const first = breaklinkSelection;
+  if (breaklinks.some(link => (link.bodyA === first && link.bodyB === target) ||
+      (link.bodyB === first && link.bodyA === target))) {
+    resetBreaklinkSelection();
+    showBreaklinkFeedback('BREAKLINK ALREADY JOINED');
+    return false;
+  }
+  const length = getStrutLength(first, target);
+  if (length < 36) {
+    showBreaklinkFeedback('BREAKLINK: PARTS TOO CLOSE', '#aaaaaa');
+    return false;
+  }
+  const link = Constraint.create({
+    bodyA:first, bodyB:target, length,
+    stiffness:0.006, damping:0.025,
+    render:{ type:'breaklink' }
+  });
+  link.breakDistance = getBreaklinkLimit(length);
+  Composite.add(world, link);
+  breaklinks.push(link);
+  [first, target].forEach(body => {
+    Matter.Sleeping.set(body, false);
+    addStrutBurst(body, '#ffc857');
+  });
+  resetBreaklinkSelection();
+  showBreaklinkFeedback('BREAKLINK SET • PULL TO SNAP');
+  playSound(650, 0.08, 'square', 0.05);
+  haptic([6, 8, 6]);
+  return link;
+}
+
+function updateBreaklinks() {
+  pruneBreaklinks();
+  breaklinks = breaklinks.filter(link => {
+    if (getBreaklinkStrain(link) < 1) return true;
+    const point = { x:(link.bodyA.position.x + link.bodyB.position.x) / 2,
+      y:(link.bodyA.position.y + link.bodyB.position.y) / 2 };
+    // Matter caches this frame's constraints before beforeSolve fires.
+    link.stiffness = 0;
+    link.damping = 0;
+    Composite.remove(world, link, true);
+    [link.bodyA, link.bodyB].forEach(body => Matter.Sleeping.set(body, false));
+    addSnipBurst(point);
+    showBreaklinkFeedback('BREAKLINK SNAPPED!', '#ff3333');
+    playSound(180, 0.12, 'sawtooth', 0.06);
+    haptic([10, 8, 14]);
+    return false;
+  });
+}
+
+// Check extension after integration, before the solver can pull the ends back.
+Events.on(engine, 'beforeSolve', updateBreaklinks);
+
 // Ratchet is passive: it only rejects reverse spin and never adds forward energy.
 function getRatchetStep(angle, stopAngle, angularVelocity, direction) {
   const blocked = (angle - stopAngle) * direction < 0 || angularVelocity * direction < 0;
@@ -12361,6 +12499,7 @@ function snipConstraintAt(pos) {
   });
   ropes = ropes.filter(rope => rope !== constraint);
   struts = struts.filter(strut => strut !== constraint);
+  breaklinks = breaklinks.filter(link => link !== constraint);
   hinges = hinges.filter(hinge => hinge !== constraint);
   springs = springs.filter(spring => spring !== constraint);
   welds = welds.filter(weld => weld.constraint !== constraint);
@@ -12848,6 +12987,13 @@ function onDown(e) {
   // Ratchet tool — cycle a passive one-way rotational lock on an existing part.
   if (currentTool === 'ratchet') {
     cycleRatchetAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Breaklink tool — join two parts with an overstretch-triggered release.
+  if (currentTool === 'breaklink') {
+    breaklinkBodiesAt(pos);
     pointerDown = false;
     return;
   }
@@ -14997,6 +15143,7 @@ function drawConstraints() {
   constraints.forEach(c => {
     if (!c.bodyA || !c.bodyB) return;
     if (c.render?.type === 'flipper-pin') return;
+    if (c.render?.type === 'breaklink') return; // Draw strain and weak seam above the parts.
     const pA = Vector.add(c.bodyA.position, Vector.rotate(c.pointA, c.bodyA.angle));
     const pB = Vector.add(c.bodyB.position, Vector.rotate(c.pointB, c.bodyB.angle));
     if (c.render?.type === 'web-attachment') {
@@ -17483,6 +17630,58 @@ function drawWinches(timestamp) {
   ctx.restore();
 }
 
+function drawBreaklinks() {
+  breaklinks.forEach(link => {
+    const a = link.bodyA.position;
+    const b = link.bodyB.position;
+    const strain = Math.min(1, getBreaklinkStrain(link));
+    const color = strain > 0.7 ? '#ff3333' : strain > 0.3 ? '#ffc857' : '#0abdc6';
+    const angle = Math.atan2(b.y - a.y, b.x - a.x);
+    const halfLength = Math.hypot(b.x - a.x, b.y - a.y) / 2;
+    ctx.save();
+    ctx.translate((a.x + b.x) / 2, (a.y + b.y) / 2);
+    ctx.rotate(angle);
+    ctx.strokeStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 8;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(-halfLength, 0);
+    ctx.lineTo(-12, 0);
+    ctx.lineTo(-6, -5);
+    ctx.lineTo(0, 5);
+    ctx.lineTo(6, -5);
+    ctx.lineTo(12, 0);
+    ctx.lineTo(halfLength, 0);
+    ctx.stroke();
+    [-halfLength, halfLength].forEach(x => {
+      ctx.beginPath();
+      ctx.arc(x, 0, 5, 0, Math.PI * 2);
+      ctx.fillStyle = '#080c10';
+      ctx.fill();
+      ctx.stroke();
+    });
+    ctx.rotate(-angle);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#080c10';
+    ctx.fillRect(-35, -28, 70, 18);
+    ctx.fillStyle = '#dffcff';
+    ctx.font = '16px VT323, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`LINK ${Math.round(strain * 100)}%`, 0, -14);
+    ctx.restore();
+  });
+  if (!breaklinkSelection || currentTool !== 'breaklink') return;
+  const body = breaklinkSelection;
+  ctx.save();
+  ctx.strokeStyle = '#ffc857';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 4]);
+  ctx.strokeRect(body.bounds.min.x - 8, body.bounds.min.y - 8,
+    body.bounds.max.x - body.bounds.min.x + 16, body.bounds.max.y - body.bounds.min.y + 16);
+  ctx.restore();
+}
+
 function drawRatchetMarkers(timestamp) {
   ratchetBodies.forEach((entry, body) => {
     const halfW = (body.bounds.max.x - body.bounds.min.x) / 2;
@@ -17633,6 +17832,7 @@ function loop(timestamp) {
   const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
   lastTime = timestamp;
   pruneStruts();
+  pruneBreaklinks();
   pruneHinges();
   pruneSprings();
   pruneWelds();
@@ -18489,6 +18689,7 @@ function loop(timestamp) {
   drawRails(timestamp);
   drawWinches(timestamp);
   drawRatchetMarkers(timestamp);
+  drawBreaklinks();
   drawRelayMarker(timestamp);
   drawStrutMarker(timestamp);
   drawRotateFlash(timestamp);
@@ -19616,7 +19817,7 @@ function captureGameState() {
       welds, tethers, webTraps, ramps, pinwheels, baskets,
       cannons, elevators, recyclers, hatches, pistons, parachuteBodies,
       saws, funnels, catapults, presses, ziplines, gearboxes,
-      rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies,
+      rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks,
       vortexActive, vortexTimer, vortexCenter, pendingPhysicsActions
     },
     gravity: { ...engine.gravity },
@@ -19658,6 +19859,8 @@ function readGameSave(serialized) {
       !Array.isArray(game.lesson.spawnedLessonObjects) || typeof game.lesson.active !== 'boolean') throw new Error('Invalid game save');
   // Validate the full snapshot before touching the live world. New state fields
   // must be added to capture/apply together; older formats need an explicit migration.
+  // Version 1 saves predating Breaklink have no links to restore.
+  if (!Object.hasOwn(game.state, 'breaklinks')) game.state.breaklinks = [];
   const expected = captureGameState().state;
   for (const [key, value] of Object.entries(expected)) {
     const actual = game.state[key];
@@ -19685,6 +19888,9 @@ function readGameSave(serialized) {
         !vector(constraint.pointA) || !vector(constraint.pointB) || !Number.isFinite(constraint.length) ||
         !Number.isFinite(constraint.stiffness)) throw new Error('Invalid saved connection');
   }
+  if (game.state.breaklinks.some(link => !game.constraints.includes(link) ||
+      link.render?.type !== 'breaklink' || !link.bodyA || !link.bodyB ||
+      !Number.isFinite(link.breakDistance) || link.breakDistance <= link.length)) throw new Error('Invalid saved breaklink');
   return game;
 }
 
@@ -19709,7 +19915,7 @@ function restoreGameState(game) {
     welds, tethers, webTraps, ramps, pinwheels, baskets,
     cannons, elevators, recyclers, hatches, pistons, parachuteBodies,
     saws, funnels, catapults, presses, ziplines, gearboxes,
-    rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies,
+    rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks,
     vortexActive, vortexTimer, vortexCenter, pendingPhysicsActions
   } = game.state);
   Object.assign(lessonState, game.lesson); // Keep host callbacks registered in this page.

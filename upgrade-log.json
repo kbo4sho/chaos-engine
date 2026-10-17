@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-10-17",
+      "ideas": [
+        "New tool: Join two parts with a Breaklink that snaps automatically when overstretched"
+      ],
+      "summary": "Implemented Breaklink tool (⛓) — the final button after Ratchet selects two build parts and creates a soft physical constraint that snaps when stretched beyond its initial length plus the larger of 28px or 30%, releasing both payloads without removing them. A pre-solver extension check immediately disables the cached joint, while cyan/amber/red strain rendering, a percentage label, selection outline, 46px touch targeting, accessible status, sparks/audio/haptics, cancellation, duplicate and short-link guards, Snip/Eraser support, tool-change/pruning/Clear cleanup, and backward-compatible save/load make breakaway contraptions usable on desktop and mobile."
+    },
+    {
       "date": "2026-10-16",
       "ideas": [
         "Save and load current games across browser sessions"

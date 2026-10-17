@@ -40,6 +40,188 @@ function gameHarness(stored = {}) {
 
 const key = 'chaos-engine-save-1';
 
+describe('Breaklink tool with real Matter.js', () => {
+  function setup() {
+    const api = gameHarness();
+    api.run(`
+      paused = true;
+      window.a = Bodies.circle(200, 200, 14, { frictionAir:0 });
+      window.b = Bodies.circle(380, 200, 14, { frictionAir:0 });
+      Composite.add(world, [a, b]);
+      engine.gravity.y = 0;
+    `);
+    const select = tool => api.window.document.querySelector('[data-tool="' + tool + '"]').click();
+    const join = () => api.run('breaklinkBodiesAt(a.position); window.link = breaklinkBodiesAt(b.position); link;');
+    return { ...api, select, join };
+  }
+
+  it('selects the final button through the shared listener and connects through canvas events', () => {
+    const api = setup();
+    const button = api.window.document.querySelector('#toolbar > :last-child');
+    expect(button.dataset.tool).toBe('breaklink');
+    expect(button.previousElementSibling.dataset.tool).toBe('ratchet');
+    expect(button.getAttribute('aria-label')).toContain('snaps under tension');
+    expect(button.title).toContain('Snip');
+    api.select('breaklink');
+    expect(api.run('currentTool')).toBe('breaklink');
+    expect(button.classList.contains('active')).toBe(true);
+    expect(api.window.document.querySelector('[data-tool="ball"]').classList.contains('active')).toBe(false);
+    const canvas = api.window.document.querySelector('canvas');
+    canvas.getBoundingClientRect = () => ({ left:0, top:0, width:canvas.width, height:canvas.height });
+    for (const x of [200, 380]) canvas.dispatchEvent(new api.window.MouseEvent('mousedown', { clientX:x, clientY:200, bubbles:true }));
+    expect(api.run('breaklinks.length')).toBe(1);
+    expect(api.run('[breaklinkSelection, pointerDown]')).toEqual([null, false]);
+    expect(api.run('captureGameState().bodies.length')).toBe(2);
+    expect(api.window.document.getElementById('breaklink-feedback').getAttribute('role')).toBe('status');
+    expect(api.errors).toEqual([]);
+  });
+
+  it('creates a real constraint with a fixed threshold without moving either body', () => {
+    const api = setup();
+    const link = api.join();
+    expect(link.bodyA).toBe(api.window.a);
+    expect(link.bodyB).toBe(api.window.b);
+    expect(link.length).toBe(180);
+    expect(link.breakDistance).toBe(234);
+    expect(link.stiffness).toBe(0.006);
+    expect(api.run('Composite.allConstraints(world).includes(link)')).toBe(true);
+    expect(api.run('[a.position.x, b.position.x, a.speed, b.speed]')).toEqual([200, 380, 0, 0]);
+    expect(api.run('getBreaklinkLimit(36)')).toBe(64);
+    expect(api.run('getBreaklinkStrain(link)')).toBe(0);
+    api.run('Body.setPosition(b, {x:407, y:200})');
+    expect(api.run('getBreaklinkStrain(link)')).toBe(0.5);
+  });
+
+  it('holds at rest and under compression through actual physics steps', () => {
+    const api = setup();
+    api.join();
+    api.run('for (let i = 0; i < 120; i++) Engine.update(engine, 1000 / 60)');
+    expect(api.run('breaklinks.length')).toBe(1);
+    expect(api.run('getStrutLength(a, b)')).toBeCloseTo(180, 8);
+    api.run('Body.setPosition(b, {x:320, y:200}); updateBreaklinks()');
+    expect(api.run('getBreaklinkStrain(link)')).toBe(0);
+    expect(api.run('breaklinks.length')).toBe(1);
+  });
+
+  it('snaps from real integrated movement before solving and keeps both payloads alive', () => {
+    const api = setup();
+    api.join();
+    api.run('Body.setVelocity(b, {x:70, y:0}); Engine.update(engine, 1000 / 60)');
+    expect(api.run('breaklinks.length')).toBe(0);
+    expect(api.run('Composite.allConstraints(world).length')).toBe(0);
+    expect(api.run('captureGameState().bodies.length')).toBe(2);
+    expect(api.run('b.velocity.x')).toBeCloseTo(70, 8);
+    expect(api.run('link.stiffness')).toBe(0); // Disable the cached solver entry in the snap frame.
+    expect(api.window.document.getElementById('breaklink-feedback').textContent).toBe('BREAKLINK SNAPPED!');
+    expect(api.run('particles.length > 0 && explosions.length > 0')).toBe(true);
+  });
+
+  it('keeps the link below its limit and snaps at the exact extension threshold', () => {
+    const api = setup();
+    api.join();
+    api.run('Body.setPosition(b, {x:433.99, y:200}); updateBreaklinks()');
+    expect(api.run('breaklinks.length')).toBe(1);
+    api.run('Body.setPosition(b, {x:434, y:200}); updateBreaklinks()');
+    expect(api.run('breaklinks.length')).toBe(0);
+  });
+
+  it('supports 46px touch targeting, cancellation, empty taps and duplicate prevention', () => {
+    const api = setup();
+    expect(api.run('breaklinkBodiesAt({x:155, y:200})')).toBe('selected');
+    expect(api.run('breaklinkSelection === a')).toBe(true);
+    expect(api.run('breaklinkBodiesAt({x:700, y:400})')).toBe(false);
+    expect(api.run('breaklinkSelection === a')).toBe(true);
+    expect(api.run('breaklinkBodiesAt(a.position)')).toBe('cancelled');
+    expect(api.run('breaklinkBodiesAt({x:153, y:200})')).toBe(false);
+    api.join();
+    expect(api.run('breaklinkBodiesAt(b.position); breaklinkBodiesAt(a.position)')).toBe(false);
+    expect(api.run('breaklinks.length')).toBe(1);
+  });
+
+  it('rejects walls and too-close parts while keeping a recoverable selection', () => {
+    const api = setup();
+    api.run('breaklinkBodiesAt({x:0, y:0})');
+    expect(api.run('breaklinkSelection')).toBeNull();
+    api.run('Body.setPosition(b, {x:230, y:200}); breaklinkBodiesAt(a.position)');
+    expect(api.run('breaklinkBodiesAt(b.position)')).toBe(false);
+    expect(api.run('breaklinkSelection === a')).toBe(true);
+    api.run('Body.setPosition(b, {x:380, y:200}); breaklinkBodiesAt(b.position)');
+    expect(api.run('breaklinks.length')).toBe(1);
+  });
+
+  it('reuses anchored build parts and clears pending state on tool changes while retaining links', () => {
+    const api = setup();
+    api.run('toggleAnchorAt(a.position)');
+    expect(api.window.a.isStatic).toBe(true);
+    api.join();
+    api.select('breaklink');
+    api.run('breaklinkBodiesAt(a.position)');
+    api.select('block');
+    expect(api.run('breaklinkSelection')).toBeNull();
+    expect(api.run('breaklinks.length')).toBe(1);
+    expect(api.window.document.getElementById('breaklink-feedback').textContent).toBe('');
+    api.select('breaklink');
+    api.run('breaklinkBodiesAt(b.position)');
+    api.select('draw');
+    expect(api.run('breaklinkSelection')).toBeNull();
+  });
+
+  it('supports Snip, Eraser, missing-body pruning and Clear cleanup', () => {
+    const api = setup();
+    api.join();
+    expect(api.run('snipConstraintAt({x:290, y:200})')).toBe(true);
+    expect(api.run('breaklinks.length')).toBe(0);
+    api.join();
+    api.run('eraseBodyAt(a.position)');
+    expect(api.run('breaklinks.length')).toBe(0);
+    expect(api.run('Composite.allConstraints(world).length')).toBe(0);
+    api.run('window.a = Bodies.circle(200, 200, 14); Composite.add(world, a)');
+    api.join();
+    api.run('breaklinkBodiesAt(a.position); Composite.remove(world, a); pruneBreaklinks()');
+    expect(api.run('[breaklinks.length, breaklinkSelection, Composite.allConstraints(world).length]')).toEqual([0, null, 0]);
+    api.run('breaklinkBodiesAt(b.position); finishClear(false)');
+    expect(api.run('[breaklinks.length, breaklinkSelection, captureGameState().bodies.length]')).toEqual([0, null, 0]);
+    expect(api.window.document.getElementById('breaklink-feedback').textContent).toBe('');
+  });
+
+  it('round-trips live constraint identity and threshold through save/load then still snaps', () => {
+    const api = setup();
+    api.join();
+    api.run('window.saved = serializeGameState(); restoreGameState(readGameSave(window.saved))');
+    expect(api.run('Composite.allConstraints(world)[0] === breaklinks[0]')).toBe(true);
+    expect(api.run('breaklinks[0].bodyA === captureGameState().bodies[0]')).toBe(true);
+    expect(api.run('breaklinks[0].breakDistance')).toBe(234);
+    api.run('Body.setPosition(breaklinks[0].bodyB, {x:440, y:200}); Engine.update(engine, 1000 / 60)');
+    expect(api.run('breaklinks.length')).toBe(0);
+    expect(api.errors).toEqual([]);
+  });
+
+  it('migrates earlier version 1 saves without Breaklink and rejects invalid thresholds', () => {
+    const api = setup();
+    api.run(`
+      const game = captureGameState();
+      delete game.state.breaklinks;
+      const graph = ChaosSaveCodec.encode(game);
+      window.oldSave = JSON.stringify({version:1, savedAt:new Date().toISOString(), graph, checksum:ChaosSaveCodec.checksum(graph)});
+      restoreGameState(readGameSave(window.oldSave));
+    `);
+    expect(api.run('breaklinks.length')).toBe(0);
+    expect(api.run('captureGameState().bodies.length')).toBe(2);
+    api.run('const bodies = captureGameState().bodies; breaklinkBodiesAt(bodies[0].position); breaklinkBodiesAt(bodies[1].position); breaklinks[0].breakDistance = 0;');
+    expect(() => api.run('readGameSave(serializeGameState())')).toThrow('Invalid saved breaklink');
+    expect(api.run('captureGameState().bodies.length')).toBe(2);
+  });
+
+  it('renders selection, low/high strain and snapped states without runtime errors', () => {
+    const api = setup();
+    api.select('breaklink');
+    api.run('breaklinkBodiesAt(a.position); drawBreaklinks()');
+    api.run('breaklinkBodiesAt(b.position); drawBreaklinks(); Body.setPosition(b, {x:430, y:200}); drawBreaklinks()');
+    api.run('Body.setPosition(b, {x:450, y:200}); updateBreaklinks(); drawBreaklinks()');
+    expect(api.errors).toEqual([]);
+  });
+});
+
 describe('Game save and load', () => {
   it('round-trips actual Matter bodies, compound geometry, nested composites and constraints', () => {
     const api = gameHarness();
