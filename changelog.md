@@ -4,6 +4,14 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-10-18T14:07:39Z — Added: Damper tool
+**Why:** Spring, Strut and Breaklink control separation with a restoring force, while Brake stops one part once. Damper adds a passive shock absorber between two build parts that dissipates their relative approach and separation without imposing a rest length or adding energy.
+**Goal alignment:** "more fun, more surprising, more satisfying" — soften a launched payload, tame a spring assembly or cushion moving contraptions while keeping their travel and rotation free.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, __tests__/save-load.test.js, changelog.md, upgrade-log.json
+**Implementation:** Appended Damper (⊣⊢) after Breaklink as the final object-toolbar button. Two taps create a real Matter.js constraint with 0.18 axial damping and zero stiffness set after construction to bypass Matter's default. Moving endpoints share the dissipative impulse according to mass; anchored endpoints work too. A cyan telescoping piston turns amber during relative motion; selection outline, accessible status, 46px build-part targeting, sound, sparks and haptics explain the interaction. Cancellation, duplicate/short-link/static-pair guards, Snip, Eraser, removed-body/constraint pruning, tool changes including Draw, Clear, and backward-compatible save/load are covered.
+**Verified:** tests ✓ (622/622 passing, including 13 new real-Matter Damper cases and new-button coverage); desktop browser ✓ (92/92 final toolbar placement, Enter selection, empty-canvas guidance, existing Ball/Block/Anchor/Launch, launched Block slowed from 24 to 0.17 px/frame, Snip retained both payloads, Clear reset); mobile ✓ (390×844 real touch with reduced motion, final 52×50px button fully reachable at maximum scroll, 150px Damper survived save/refresh/load, launched Ball slowed from 10.33 to 0.05 px/frame, Eraser and Clear worked); console ✓ (0 warnings/errors); live ✓ (http://192.168.68.52:3003). Inline syntax, JSON and diff checks passed. Supplemental static UI audit reports 124 shared-listener actionless-button false positives (baseline 123); executable DOM and browser tests verify the new button's real handler.
+**Status:** shipped
+
 ## 2026-10-17T14:09:39Z — Added: Breaklink tool
 **Why:** Existing ropes, springs, struts and welds hold their connections indefinitely. Breaklink adds a deliberately weak physical connection that releases its two parts automatically when stretched, enabling breakaway traps and sacrificial contraption joints.
 **Goal alignment:** "more fun, more surprising, more satisfying" — tap two build parts, watch the link's strain percentage rise, then pull or launch one end to snap the joint while keeping both payloads alive.

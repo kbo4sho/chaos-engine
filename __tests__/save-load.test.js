@@ -40,6 +40,195 @@ function gameHarness(stored = {}) {
 
 const key = 'chaos-engine-save-1';
 
+describe('Damper tool with real Matter.js', () => {
+  function setup() {
+    const api = gameHarness();
+    api.run(`
+      paused = true;
+      window.a = Bodies.circle(200, 200, 14, { frictionAir:0 });
+      window.b = Bodies.circle(400, 200, 14, { frictionAir:0 });
+      Composite.add(world, [a, b]);
+      engine.gravity.y = 0;
+    `);
+    const select = tool => api.window.document.querySelector('[data-tool="' + tool + '"]').click();
+    const join = () => api.run('dampBodiesAt(a.position); window.link = dampBodiesAt(b.position); link;');
+    return { ...api, select, join };
+  }
+
+  it('selects the final button and connects through the real canvas input handler', () => {
+    const api = setup();
+    const button = api.window.document.querySelector('#toolbar > :last-child');
+    expect(button.dataset.tool).toBe('damper');
+    expect(button.previousElementSibling.dataset.tool).toBe('breaklink');
+    expect(button.getAttribute('aria-label')).toContain('shock absorber');
+    expect(button.title).toContain('Snip');
+    api.select('damper');
+    expect(api.run('currentTool')).toBe('damper');
+    expect(button.classList.contains('active')).toBe(true);
+    expect(api.window.document.querySelector('[data-tool="ball"]').classList.contains('active')).toBe(false);
+    const canvas = api.window.document.querySelector('canvas');
+    canvas.getBoundingClientRect = () => ({ left:0, top:0, width:canvas.width, height:canvas.height });
+    for (const x of [200, 400]) canvas.dispatchEvent(new api.window.MouseEvent('mousedown', { clientX:x, clientY:200, bubbles:true }));
+    expect(api.run('dampers.length')).toBe(1);
+    expect(api.run('[damperSelection, pointerDown]')).toEqual([null, false]);
+    expect(api.window.document.getElementById('damper-feedback').getAttribute('role')).toBe('status');
+    expect(api.errors).toEqual([]);
+  });
+
+  it('creates a passive zero-stiffness joint without changing position or velocity', () => {
+    const api = setup();
+    const link = api.join();
+    expect(link.bodyA).toBe(api.window.a);
+    expect(link.bodyB).toBe(api.window.b);
+    expect(link.length).toBe(200);
+    expect(link.stiffness).toBe(0); // Matter.create otherwise defaults falsy stiffness to 1.
+    expect(link.damping).toBe(0.18);
+    expect(api.run('Composite.allConstraints(world).includes(link)')).toBe(true);
+    expect(api.run('[a.position.x, b.position.x, a.speed, b.speed]')).toEqual([200, 400, 0, 0]);
+  });
+
+  it.each([12, -12])('dissipates relative axial motion (%s) and conserves total momentum', speed => {
+    const api = setup();
+    api.join();
+    api.run(`
+      Body.setMass(a, 2); Body.setMass(b, 5);
+      Body.setAngularVelocity(a, 0.1); Body.setAngularVelocity(b, -0.2);
+      Body.setVelocity(a, {x:${speed}, y:0}); Body.setVelocity(b, {x:0, y:0});
+      window.energyBefore = 0.5 * a.mass * a.speed ** 2;
+      Engine.update(engine, 1000 / 60);
+    `);
+    expect(Math.abs(api.run('a.velocity.x - b.velocity.x'))).toBeLessThan(Math.abs(speed) * 0.7);
+    expect(api.run('a.mass * a.velocity.x + b.mass * b.velocity.x')).toBeCloseTo(2 * speed, 8);
+    expect(api.run('0.5 * a.mass * a.speed ** 2 + 0.5 * b.mass * b.speed ** 2')).toBeLessThan(api.window.energyBefore);
+    expect(api.run('[a.angularVelocity, b.angularVelocity]')).toEqual([0.1, -0.2]);
+    expect(api.run('captureGameState().bodies.length')).toBe(2);
+  });
+
+  it('adds no restoring force after extension or compression at rest', () => {
+    const api = setup();
+    api.join();
+    for (const x of [280, 600]) {
+      api.run(`Body.setPosition(b, {x:${x}, y:200}); for (let i = 0; i < 60; i++) Engine.update(engine, 1000 / 60)`);
+      expect(api.run('[a.position.x, b.position.x, a.speed, b.speed]')).toEqual([200, x, 0, 0]);
+    }
+  });
+
+  it('leaves tangential velocity and common translation free', () => {
+    const api = setup();
+    api.join();
+    // The integrated line is horizontal: tangential travel must not be damped.
+    api.run(`
+      Body.setPosition(a, {x:200, y:196}); Body.setPosition(b, {x:400, y:204});
+      Body.setVelocity(a, {x:3, y:4}); Body.setVelocity(b, {x:3, y:-4});
+      Engine.update(engine, 1000 / 60);
+    `);
+    expect(api.run('[a.velocity.x, b.velocity.x, a.velocity.y, b.velocity.y]')).toEqual([3, 3, 4, -4]);
+  });
+
+  it('supports a static anchor and releases motion when Snip cuts the damper', () => {
+    const api = setup();
+    api.run('Body.setStatic(a, true); a.isAnchored = true; anchoredBodies.add(a)');
+    api.join();
+    api.run('Body.setVelocity(b, {x:12, y:0}); Engine.update(engine, 1000 / 60)');
+    expect(api.run('b.velocity.x')).toBeLessThan(8);
+    expect(api.run('a.position.x')).toBe(200);
+    expect(api.run('snipConstraintAt({x:(a.position.x + b.position.x)/2, y:200})')).toBe(true);
+    expect(api.run('[dampers.length, Composite.allConstraints(world).length]')).toEqual([0, 0]);
+    api.run('Body.setVelocity(b, {x:12, y:0}); Engine.update(engine, 1000 / 60)');
+    expect(api.run('b.velocity.x')).toBeCloseTo(12, 8);
+  });
+
+  it('uses touch targeting, cancellation, duplicate guards and clear failure feedback', () => {
+    const api = setup();
+    expect(api.run('dampBodiesAt({x:50, y:50})')).toBe(false);
+    expect(api.window.document.getElementById('damper-feedback').textContent).toBe('DAMPER: TAP A PART');
+    expect(api.run('dampBodiesAt({x:240, y:200})')).toBe('selected');
+    expect(api.run('dampBodiesAt(a.position)')).toBe('cancelled');
+    api.join();
+    api.run('dampBodiesAt(b.position)');
+    expect(api.run('dampBodiesAt(a.position)')).toBe(false);
+    expect(api.run('dampers.length')).toBe(1);
+    expect(api.run('damperSelection')).toBe(null);
+    api.run('Body.setPosition(b, {x:225, y:200}); dampBodiesAt(a.position)');
+    expect(api.run('dampBodiesAt(b.position)')).toBe(false);
+    // Use fresh bodies to test short spacing independently of duplicate guarding.
+    api.run('finishClear(false); window.a = Bodies.circle(200,200,5); window.b = Bodies.circle(225,200,5); Composite.add(world,[a,b]); dampBodiesAt(a.position)');
+    expect(api.run('dampBodiesAt(b.position)')).toBe(false);
+    expect(api.window.document.getElementById('damper-feedback').textContent).toBe('DAMPER: PARTS TOO CLOSE');
+    api.run('Body.setPosition(b,{x:400,y:200}); Body.setStatic(a,true); Body.setStatic(b,true); a.isAnchored = b.isAnchored = true');
+    expect(api.run('dampBodiesAt(b.position)')).toBe(false);
+    expect(api.window.document.getElementById('damper-feedback').textContent).toBe('DAMPER: ONE PART MUST MOVE');
+  });
+
+  it('cancels pending selection on tool changes including Draw while retaining installed dampers', () => {
+    const api = setup();
+    api.select('damper');
+    api.join();
+    for (const tool of ['block', 'draw']) {
+      api.select('damper');
+      api.run('dampBodiesAt(a.position)');
+      api.select(tool);
+      expect(api.run('damperSelection')).toBe(null);
+      expect(api.window.document.getElementById('damper-feedback').textContent).toBe('');
+      expect(api.run('dampers.length')).toBe(1);
+    }
+  });
+
+  it('cleans up Eraser, removed bodies, removed constraints, pending parts and Clear', () => {
+    const api = setup();
+    api.join();
+    api.run('dampBodiesAt(a.position); eraseBodyAt(a.position)');
+    expect(api.run('[dampers.length, damperSelection, Composite.allConstraints(world).length]')).toEqual([0, null, 0]);
+    api.run('window.a = Bodies.circle(200,200,14); Composite.add(world,a)');
+    api.join();
+    api.run('Composite.remove(world,link); pruneDampers()');
+    expect(api.run('dampers.length')).toBe(0);
+    api.join();
+    api.run('dampBodiesAt(a.position); Composite.remove(world,a); pruneDampers()');
+    expect(api.run('[dampers.length, damperSelection, Composite.allConstraints(world).length]')).toEqual([0, null, 0]);
+    api.run('dampBodiesAt(b.position); finishClear(false)');
+    expect(api.run('[dampers.length, damperSelection, captureGameState().bodies.length]')).toEqual([0, null, 0]);
+    expect(api.window.document.getElementById('damper-feedback').textContent).toBe('');
+  });
+
+  it('round-trips constraint identity and passive physics through save/load', () => {
+    const api = setup();
+    api.join();
+    api.run('restoreGameState(readGameSave(serializeGameState()))');
+    expect(api.run('Composite.allConstraints(world)[0] === dampers[0]')).toBe(true);
+    expect(api.run('dampers[0].bodyA === captureGameState().bodies[0]')).toBe(true);
+    expect(api.run('[dampers[0].stiffness, dampers[0].damping]')).toEqual([0, 0.18]);
+    api.run('Body.setVelocity(dampers[0].bodyB,{x:12,y:0}); Engine.update(engine,1000/60)');
+    expect(Math.abs(api.run('dampers[0].bodyB.velocity.x - dampers[0].bodyA.velocity.x'))).toBeLessThan(8);
+    expect(api.errors).toEqual([]);
+  });
+
+  it('migrates earlier saves and rejects active or malformed dampers before changing the world', () => {
+    const api = setup();
+    api.run(`
+      const game = captureGameState(); delete game.state.dampers;
+      const graph = ChaosSaveCodec.encode(game);
+      restoreGameState(readGameSave(JSON.stringify({version:1,savedAt:new Date().toISOString(),graph,checksum:ChaosSaveCodec.checksum(graph)})));
+      window.a = captureGameState().bodies[0]; window.b = captureGameState().bodies[1];
+    `);
+    expect(api.run('dampers.length')).toBe(0);
+    api.join();
+    for (const mutation of ['link.stiffness = 0.5', 'link.stiffness = 0; link.damping = -1', 'link.damping = 0.18; link.bodyB = link.bodyA']) {
+      api.run(mutation);
+      expect(() => api.run('readGameSave(serializeGameState())')).toThrow('Invalid saved damper');
+      expect(api.run('captureGameState().bodies.length')).toBe(2);
+    }
+  });
+
+  it('renders selected, stationary, moving and coincident states without runtime errors', () => {
+    const api = setup();
+    api.select('damper');
+    api.run('dampBodiesAt(a.position); drawDampers(); dampBodiesAt(b.position); drawDampers()');
+    api.run('Body.setVelocity(b,{x:12,y:0}); drawDampers(); Body.setPosition(b,a.position); drawDampers()');
+    expect(api.errors).toEqual([]);
+  });
+});
+
 describe('Breaklink tool with real Matter.js', () => {
   function setup() {
     const api = gameHarness();
@@ -55,9 +244,9 @@ describe('Breaklink tool with real Matter.js', () => {
     return { ...api, select, join };
   }
 
-  it('selects the final button through the shared listener and connects through canvas events', () => {
+  it('selects Breaklink through the shared listener and connects through canvas events', () => {
     const api = setup();
-    const button = api.window.document.querySelector('#toolbar > :last-child');
+    const button = api.window.document.querySelector('[data-tool="breaklink"]');
     expect(button.dataset.tool).toBe('breaklink');
     expect(button.previousElementSibling.dataset.tool).toBe('ratchet');
     expect(button.getAttribute('aria-label')).toContain('snaps under tension');

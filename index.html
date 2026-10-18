@@ -809,7 +809,7 @@ canvas#game {
 #ratchet-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
-#breaklink-feedback {
+#breaklink-feedback, #damper-feedback {
   position:absolute; top:14px; left:50%; z-index:3;
   transform:translate(-50%, -8px) scale(0.9);
   padding:4px 12px; border:1px solid currentColor;
@@ -819,9 +819,10 @@ canvas#game {
   opacity:0; pointer-events:none; white-space:nowrap;
   transition:opacity .12s, transform .12s;
 }
-#breaklink-feedback.active {
+#breaklink-feedback.active, #damper-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
+#damper-feedback { color:#0abdc6; }
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -988,7 +989,7 @@ canvas#game {
   #winch-feedback { top:14px; font-size:19px; }
   #tripwire-feedback { top:14px; font-size:19px; }
   #ratchet-feedback { top:14px; font-size:19px; }
-  #breaklink-feedback { font-size:19px; }
+  #breaklink-feedback, #damper-feedback { font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -1083,6 +1084,7 @@ canvas#game {
     <div id="tripwire-feedback" role="status" aria-live="polite"></div>
     <div id="ratchet-feedback" role="status" aria-live="polite"></div>
     <div id="breaklink-feedback" role="status" aria-live="polite"></div>
+    <div id="damper-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -1179,6 +1181,7 @@ canvas#game {
     <button class="tool-btn" data-tool="tripwire" style="color:#ff5fd7;" title="Tap two points to stretch a launch tripwire; tap the beam to reverse its kick" aria-label="Place a launch tripwire or reverse its kick direction"><span class="icon">⚡</span>Tripwire</button>
     <button class="tool-btn" data-tool="ratchet" style="color:#ffd166;" title="Tap a part to cycle clockwise-only rotation, counter-clockwise-only, then off" aria-label="Ratchet a part through clockwise-only, counter-clockwise-only, and free rotation"><span class="icon">⥁</span>Ratchet</button>
     <button class="tool-btn" data-tool="breaklink" style="color:#ffc857;" title="Tap two parts to join them with a weak link that snaps when overstretched; Snip cuts it early" aria-label="Breaklink two parts with a physical link that snaps under tension"><span class="icon">⛓</span>Breaklink</button>
+    <button class="tool-btn" data-tool="damper" style="color:#0abdc6;" title="Tap two parts to slow their approach and separation without a spring; Snip disconnects them" aria-label="Connect two parts with a passive shock absorber"><span class="icon">⊣⊢</span>Damper</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1537,6 +1540,9 @@ let ratchetFeedbackTimer = 0;
 let breaklinkSelection = null;
 let breaklinks = []; // physical constraints with a fixed overstretch threshold
 let breaklinkFeedbackTimer = 0;
+let damperSelection = null;
+let dampers = []; // zero-stiffness Matter constraints dissipate axial relative motion
+let damperFeedbackTimer = 0;
 
 // Block shattering
 let pendingPhysicsActions = []; // Serializable delayed rain and collision work
@@ -2515,6 +2521,15 @@ function resetBreaklinkSelection(silent = false) {
   feedback.textContent = '';
 }
 
+function resetDamperSelection(silent = false) {
+  damperSelection = null;
+  if (!silent) return;
+  clearTimeout(damperFeedbackTimer);
+  const feedback = document.getElementById('damper-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -2555,6 +2570,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
     }
     if (tool === 'draw') {
       resetBreaklinkSelection(true);
+      resetDamperSelection(true);
       drawMode = !drawMode;
       btn.classList.toggle('active', drawMode);
       if (!drawMode) drawPoints = [];
@@ -2621,6 +2637,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'tripwire') resetTripwireSelection(true);
       if (tool !== 'ratchet') resetRatchetFeedback(true);
       if (tool !== 'breaklink') resetBreaklinkSelection(true);
+      if (tool !== 'damper') resetDamperSelection(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -4064,6 +4081,8 @@ function finishClear(playFeedback = true) {
   resetRatchetFeedback(true);
   breaklinks = [];
   resetBreaklinkSelection(true);
+  dampers = [];
+  resetDamperSelection(true);
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -4364,7 +4383,8 @@ function getToolAccentColor(tool) {
     winch: '#ffd166',
     tripwire: '#ff5fd7',
     ratchet: '#ffd166',
-    breaklink: '#ffc857'
+    breaklink: '#ffc857',
+    damper: '#0abdc6'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -4556,6 +4576,7 @@ function eraseBodyAt(pos) {
   ropes = ropes.filter(r => !constraintsToRemove.has(r));
   struts = struts.filter(strut => !constraintsToRemove.has(strut));
   breaklinks = breaklinks.filter(link => !constraintsToRemove.has(link));
+  dampers = dampers.filter(link => !constraintsToRemove.has(link));
   hinges = hinges.filter(hinge => !constraintsToRemove.has(hinge));
   springs = springs.filter(spring => !constraintsToRemove.has(spring));
   welds = welds.filter(weld => !constraintsToRemove.has(weld.constraint));
@@ -4584,6 +4605,7 @@ function eraseBodyAt(pos) {
   if (relayFirstBody && removedBodyIds.has(relayFirstBody.id)) resetRelaySelection(true);
   if (strutFirstBody && removedBodyIds.has(strutFirstBody.id)) strutFirstBody = null;
   if (breaklinkSelection && removedBodyIds.has(breaklinkSelection.id)) resetBreaklinkSelection(true);
+  if (damperSelection && removedBodyIds.has(damperSelection.id)) resetDamperSelection(true);
   if (rotateFlash && removedBodyIds.has(rotateFlash.body.id)) rotateFlash = null;
   if (fusionFirstBody && removedBodyIds.has(fusionFirstBody.id)) fusionFirstBody = null;
   if (hingeSelection && removedBodyIds.has(hingeSelection.body.id)) hingeSelection = null;
@@ -11607,6 +11629,82 @@ function updateTripwires() {
   });
 }
 
+function showDamperFeedback(message, color = '#0abdc6') {
+  const feedback = document.getElementById('damper-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.add('active');
+  clearTimeout(damperFeedbackTimer);
+  damperFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 1200);
+}
+
+function pruneDampers() {
+  const liveBodies = new Set(Composite.allBodies(world));
+  dampers = dampers.filter(link => {
+    const inWorld = Composite.get(world, link.id, 'constraint');
+    const hasBothEnds = liveBodies.has(link.bodyA) && liveBodies.has(link.bodyB);
+    if (inWorld && !hasBothEnds) Composite.remove(world, link, true);
+    return Boolean(inWorld && hasBothEnds);
+  });
+  if (damperSelection && !liveBodies.has(damperSelection)) resetDamperSelection(true);
+}
+
+function dampBodiesAt(pos) {
+  pruneDampers();
+  const target = findStrutBodyAt(pos); // shared build-part eligibility and 46px touch targeting
+  if (!target) {
+    showDamperFeedback(damperSelection ? 'DAMPER: PICK SECOND PART' : 'DAMPER: TAP A PART', '#aaaaaa');
+    haptic([3]);
+    return false;
+  }
+  if (!damperSelection) {
+    damperSelection = target;
+    addStrutBurst(target, '#0abdc6');
+    showDamperFeedback('DAMPER: PICK SECOND PART');
+    haptic([6]);
+    return 'selected';
+  }
+  if (target === damperSelection) {
+    resetDamperSelection();
+    showDamperFeedback('DAMPER CANCELLED', '#aaaaaa');
+    return 'cancelled';
+  }
+  const first = damperSelection;
+  if (first.isStatic && target.isStatic) {
+    showDamperFeedback('DAMPER: ONE PART MUST MOVE', '#ffc857');
+    return false;
+  }
+  if (dampers.some(link => (link.bodyA === first && link.bodyB === target) ||
+      (link.bodyB === first && link.bodyA === target))) {
+    resetDamperSelection();
+    showDamperFeedback('DAMPER ALREADY CONNECTED');
+    return false;
+  }
+  const length = getStrutLength(first, target);
+  if (length < 36) {
+    showDamperFeedback('DAMPER: PARTS TOO CLOSE', '#ffc857');
+    return false;
+  }
+  const link = Constraint.create({
+    bodyA:first, bodyB:target, length, damping:0.18,
+    render:{ type:'damper' }
+  });
+  // Matter's constructor replaces a zero stiffness with 1. Set it afterwards:
+  // only relative axial velocity is damped; no rest-length force or torque.
+  link.stiffness = 0;
+  Composite.add(world, link);
+  dampers.push(link);
+  [first, target].forEach(body => {
+    Matter.Sleeping.set(body, false);
+    addStrutBurst(body, '#0abdc6');
+  });
+  resetDamperSelection();
+  showDamperFeedback('DAMPER SET • MOTION SOFTENED');
+  playSound(380, 0.12, 'triangle', 0.05);
+  haptic([6, 8, 6]);
+  return link;
+}
+
 function getBreaklinkLimit(restLength) {
   return restLength + Math.max(28, restLength * 0.3);
 }
@@ -12500,6 +12598,7 @@ function snipConstraintAt(pos) {
   ropes = ropes.filter(rope => rope !== constraint);
   struts = struts.filter(strut => strut !== constraint);
   breaklinks = breaklinks.filter(link => link !== constraint);
+  dampers = dampers.filter(link => link !== constraint);
   hinges = hinges.filter(hinge => hinge !== constraint);
   springs = springs.filter(spring => spring !== constraint);
   welds = welds.filter(weld => weld.constraint !== constraint);
@@ -12994,6 +13093,13 @@ function onDown(e) {
   // Breaklink tool — join two parts with an overstretch-triggered release.
   if (currentTool === 'breaklink') {
     breaklinkBodiesAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Damper tool — dissipate relative motion without storing spring energy.
+  if (currentTool === 'damper') {
+    dampBodiesAt(pos);
     pointerDown = false;
     return;
   }
@@ -15144,6 +15250,7 @@ function drawConstraints() {
     if (!c.bodyA || !c.bodyB) return;
     if (c.render?.type === 'flipper-pin') return;
     if (c.render?.type === 'breaklink') return; // Draw strain and weak seam above the parts.
+    if (c.render?.type === 'damper') return; // Draw the telescoping shock absorber above the parts.
     const pA = Vector.add(c.bodyA.position, Vector.rotate(c.pointA, c.bodyA.angle));
     const pB = Vector.add(c.bodyB.position, Vector.rotate(c.pointB, c.bodyB.angle));
     if (c.render?.type === 'web-attachment') {
@@ -17630,6 +17737,61 @@ function drawWinches(timestamp) {
   ctx.restore();
 }
 
+function drawDampers() {
+  dampers.forEach(link => {
+    const a = link.bodyA.position;
+    const b = link.bodyB.position;
+    const length = Math.hypot(b.x - a.x, b.y - a.y);
+    const half = length / 2;
+    const barrel = Math.min(28, length * 0.25);
+    const activity = length > 0 ? Math.abs(((link.bodyB.velocity.x - link.bodyA.velocity.x) * (b.x - a.x) +
+      (link.bodyB.velocity.y - link.bodyA.velocity.y) * (b.y - a.y)) / length) : 0;
+    const angle = Math.atan2(b.y - a.y, b.x - a.x);
+    ctx.save();
+    ctx.translate((a.x + b.x) / 2, (a.y + b.y) / 2);
+    ctx.rotate(angle);
+    ctx.strokeStyle = activity > 0.5 ? '#ffc857' : '#0abdc6';
+    ctx.fillStyle = '#080c10';
+    ctx.shadowColor = ctx.strokeStyle;
+    ctx.shadowBlur = activity > 0.5 ? 12 : 5;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(-half, 0);
+    ctx.lineTo(half, 0);
+    ctx.stroke();
+    ctx.fillRect(-barrel, -8, barrel * 2, 16);
+    ctx.strokeRect(-barrel, -8, barrel * 2, 16);
+    ctx.beginPath();
+    ctx.moveTo(barrel * 0.35, -6);
+    ctx.lineTo(barrel * 0.35, 6);
+    ctx.stroke();
+    [-half, half].forEach(x => {
+      ctx.beginPath();
+      ctx.arc(x, 0, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    });
+    ctx.rotate(-angle);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#080c10';
+    ctx.fillRect(-31, -31, 62, 18);
+    ctx.fillStyle = '#dffcff';
+    ctx.font = '16px VT323, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('DAMPER', 0, -17);
+    ctx.restore();
+  });
+  if (!damperSelection || currentTool !== 'damper') return;
+  const body = damperSelection;
+  ctx.save();
+  ctx.strokeStyle = '#0abdc6';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 4]);
+  ctx.strokeRect(body.bounds.min.x - 8, body.bounds.min.y - 8,
+    body.bounds.max.x - body.bounds.min.x + 16, body.bounds.max.y - body.bounds.min.y + 16);
+  ctx.restore();
+}
+
 function drawBreaklinks() {
   breaklinks.forEach(link => {
     const a = link.bodyA.position;
@@ -17833,6 +17995,7 @@ function loop(timestamp) {
   lastTime = timestamp;
   pruneStruts();
   pruneBreaklinks();
+  pruneDampers();
   pruneHinges();
   pruneSprings();
   pruneWelds();
@@ -18690,6 +18853,7 @@ function loop(timestamp) {
   drawWinches(timestamp);
   drawRatchetMarkers(timestamp);
   drawBreaklinks();
+  drawDampers();
   drawRelayMarker(timestamp);
   drawStrutMarker(timestamp);
   drawRotateFlash(timestamp);
@@ -19817,7 +19981,7 @@ function captureGameState() {
       welds, tethers, webTraps, ramps, pinwheels, baskets,
       cannons, elevators, recyclers, hatches, pistons, parachuteBodies,
       saws, funnels, catapults, presses, ziplines, gearboxes,
-      rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks,
+      rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers,
       vortexActive, vortexTimer, vortexCenter, pendingPhysicsActions
     },
     gravity: { ...engine.gravity },
@@ -19861,6 +20025,7 @@ function readGameSave(serialized) {
   // must be added to capture/apply together; older formats need an explicit migration.
   // Version 1 saves predating Breaklink have no links to restore.
   if (!Object.hasOwn(game.state, 'breaklinks')) game.state.breaklinks = [];
+  if (!Object.hasOwn(game.state, 'dampers')) game.state.dampers = [];
   const expected = captureGameState().state;
   for (const [key, value] of Object.entries(expected)) {
     const actual = game.state[key];
@@ -19891,6 +20056,9 @@ function readGameSave(serialized) {
   if (game.state.breaklinks.some(link => !game.constraints.includes(link) ||
       link.render?.type !== 'breaklink' || !link.bodyA || !link.bodyB ||
       !Number.isFinite(link.breakDistance) || link.breakDistance <= link.length)) throw new Error('Invalid saved breaklink');
+  if (game.state.dampers.some(link => !game.constraints.includes(link) ||
+      link.render?.type !== 'damper' || !link.bodyA || !link.bodyB || link.bodyA === link.bodyB ||
+      link.length < 36 || link.stiffness !== 0 || link.damping !== 0.18)) throw new Error('Invalid saved damper');
   return game;
 }
 
@@ -19915,7 +20083,7 @@ function restoreGameState(game) {
     welds, tethers, webTraps, ramps, pinwheels, baskets,
     cannons, elevators, recyclers, hatches, pistons, parachuteBodies,
     saws, funnels, catapults, presses, ziplines, gearboxes,
-    rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks,
+    rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers,
     vortexActive, vortexTimer, vortexCenter, pendingPhysicsActions
   } = game.state);
   Object.assign(lessonState, game.lesson); // Keep host callbacks registered in this page.

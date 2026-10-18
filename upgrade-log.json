@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-10-18",
+      "ideas": [
+        "New tool: Connect two parts with a passive Damper that softens relative motion without a spring"
+      ],
+      "summary": "Implemented Damper tool (⊣⊢) — the final button after Breaklink joins two build parts with a real Matter.js shock absorber using 0.18 axial damping and zero stiffness set after construction. It dissipates relative approach and separation while conserving two moving endpoints' total momentum, preserving tangential motion and spin, and adding no rest-length force or energy. A cyan telescoping piston with amber activity feedback, selection outline, accessible status, 46px touch targeting, audio/sparks/haptics, cancellation and duplicate/short-link/static-pair guards, anchored endpoints, Snip/Eraser support, tool-change/pruning/Clear cleanup, and backward-compatible save/load support desktop and mobile contraptions."
+    },
+    {
       "date": "2026-10-17",
       "ideas": [
         "New tool: Join two parts with a Breaklink that snaps automatically when overstretched"
