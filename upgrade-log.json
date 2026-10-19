@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-10-19",
+      "ideas": [
+        "New tool: Route a shared cable through a fixed Pulley so one counterweight lifts the other end"
+      ],
+      "summary": "Implemented Pulley tool (⏀) — the final button after Damper selects two build parts, then places a fixed world wheel routing one shared tension-only cable. A passive inverse-mass solver trades cable length and outward motion between endpoints without driving spin or tangential travel, allows slack, supports anchored ends and caps extreme corrections at the wheel. Amber cable/wheel rendering, sag and taut/slack labels, A/B selection outlines, shared 46px touch targeting, accessible feedback, sound/sparks/haptics, same-part cancellation, duplicate/static-pair/short-leg guards, Snip on either routed leg, Eraser, tool-change/pruning/Clear cleanup and backward-compatible save/load support desktop and mobile counterweight contraptions."
+    },
+    {
       "date": "2026-10-18",
       "ideas": [
         "New tool: Connect two parts with a passive Damper that softens relative motion without a spring"

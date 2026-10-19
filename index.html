@@ -809,7 +809,7 @@ canvas#game {
 #ratchet-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
-#breaklink-feedback, #damper-feedback {
+#breaklink-feedback, #damper-feedback, #pulley-feedback {
   position:absolute; top:14px; left:50%; z-index:3;
   transform:translate(-50%, -8px) scale(0.9);
   padding:4px 12px; border:1px solid currentColor;
@@ -819,10 +819,11 @@ canvas#game {
   opacity:0; pointer-events:none; white-space:nowrap;
   transition:opacity .12s, transform .12s;
 }
-#breaklink-feedback.active, #damper-feedback.active {
+#breaklink-feedback.active, #damper-feedback.active, #pulley-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
 #damper-feedback { color:#0abdc6; }
+#pulley-feedback { color:#ffc857; }
 
 /* ── OBJECT TOOLBAR ── */
 #toolbar {
@@ -989,7 +990,7 @@ canvas#game {
   #winch-feedback { top:14px; font-size:19px; }
   #tripwire-feedback { top:14px; font-size:19px; }
   #ratchet-feedback { top:14px; font-size:19px; }
-  #breaklink-feedback, #damper-feedback { font-size:19px; }
+  #breaklink-feedback, #damper-feedback, #pulley-feedback { font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -1085,6 +1086,7 @@ canvas#game {
     <div id="ratchet-feedback" role="status" aria-live="polite"></div>
     <div id="breaklink-feedback" role="status" aria-live="polite"></div>
     <div id="damper-feedback" role="status" aria-live="polite"></div>
+    <div id="pulley-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -1182,6 +1184,7 @@ canvas#game {
     <button class="tool-btn" data-tool="ratchet" style="color:#ffd166;" title="Tap a part to cycle clockwise-only rotation, counter-clockwise-only, then off" aria-label="Ratchet a part through clockwise-only, counter-clockwise-only, and free rotation"><span class="icon">⥁</span>Ratchet</button>
     <button class="tool-btn" data-tool="breaklink" style="color:#ffc857;" title="Tap two parts to join them with a weak link that snaps when overstretched; Snip cuts it early" aria-label="Breaklink two parts with a physical link that snaps under tension"><span class="icon">⛓</span>Breaklink</button>
     <button class="tool-btn" data-tool="damper" style="color:#0abdc6;" title="Tap two parts to slow their approach and separation without a spring; Snip disconnects them" aria-label="Connect two parts with a passive shock absorber"><span class="icon">⊣⊢</span>Damper</button>
+    <button class="tool-btn" data-tool="pulley" style="color:#ffc857;" title="Tap two parts, then place a fixed pulley wheel; one shared cable lets one end lift the other. Snip cuts either leg" aria-label="Connect two parts through a fixed counterweight pulley"><span class="icon">⏀</span>Pulley</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1543,6 +1546,9 @@ let breaklinkFeedbackTimer = 0;
 let damperSelection = null;
 let dampers = []; // zero-stiffness Matter constraints dissipate axial relative motion
 let damperFeedbackTimer = 0;
+let pulleys = []; // routed, tension-only cables with fixed world sheaves
+let pulleySelection = [];
+let pulleyFeedbackTimer = 0;
 
 // Block shattering
 let pendingPhysicsActions = []; // Serializable delayed rain and collision work
@@ -2530,6 +2536,15 @@ function resetDamperSelection(silent = false) {
   feedback.textContent = '';
 }
 
+function resetPulleySelection(silent = false) {
+  pulleySelection = [];
+  if (!silent) return;
+  clearTimeout(pulleyFeedbackTimer);
+  const feedback = document.getElementById('pulley-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -2571,6 +2586,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
     if (tool === 'draw') {
       resetBreaklinkSelection(true);
       resetDamperSelection(true);
+      resetPulleySelection(true);
       drawMode = !drawMode;
       btn.classList.toggle('active', drawMode);
       if (!drawMode) drawPoints = [];
@@ -2638,6 +2654,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'ratchet') resetRatchetFeedback(true);
       if (tool !== 'breaklink') resetBreaklinkSelection(true);
       if (tool !== 'damper') resetDamperSelection(true);
+      if (tool !== 'pulley') resetPulleySelection(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -4083,6 +4100,8 @@ function finishClear(playFeedback = true) {
   resetBreaklinkSelection(true);
   dampers = [];
   resetDamperSelection(true);
+  pulleys = [];
+  resetPulleySelection(true);
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -4384,7 +4403,8 @@ function getToolAccentColor(tool) {
     tripwire: '#ff5fd7',
     ratchet: '#ffd166',
     breaklink: '#ffc857',
-    damper: '#0abdc6'
+    damper: '#0abdc6',
+    pulley: '#ffc857'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -4577,6 +4597,7 @@ function eraseBodyAt(pos) {
   struts = struts.filter(strut => !constraintsToRemove.has(strut));
   breaklinks = breaklinks.filter(link => !constraintsToRemove.has(link));
   dampers = dampers.filter(link => !constraintsToRemove.has(link));
+  pulleys = pulleys.filter(link => !constraintsToRemove.has(link));
   hinges = hinges.filter(hinge => !constraintsToRemove.has(hinge));
   springs = springs.filter(spring => !constraintsToRemove.has(spring));
   welds = welds.filter(weld => !constraintsToRemove.has(weld.constraint));
@@ -4606,6 +4627,7 @@ function eraseBodyAt(pos) {
   if (strutFirstBody && removedBodyIds.has(strutFirstBody.id)) strutFirstBody = null;
   if (breaklinkSelection && removedBodyIds.has(breaklinkSelection.id)) resetBreaklinkSelection(true);
   if (damperSelection && removedBodyIds.has(damperSelection.id)) resetDamperSelection(true);
+  if (pulleySelection.some(body => removedBodyIds.has(body.id))) resetPulleySelection(true);
   if (rotateFlash && removedBodyIds.has(rotateFlash.body.id)) rotateFlash = null;
   if (fusionFirstBody && removedBodyIds.has(fusionFirstBody.id)) fusionFirstBody = null;
   if (hingeSelection && removedBodyIds.has(hingeSelection.body.id)) hingeSelection = null;
@@ -11629,6 +11651,127 @@ function updateTripwires() {
   });
 }
 
+function showPulleyFeedback(message, color = '#ffc857') {
+  const feedback = document.getElementById('pulley-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.add('active');
+  clearTimeout(pulleyFeedbackTimer);
+  pulleyFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 1400);
+}
+
+function prunePulleys() {
+  const liveBodies = new Set(Composite.allBodies(world));
+  pulleys = pulleys.filter(link => {
+    const inWorld = Composite.get(world, link.id, 'constraint');
+    const hasBothEnds = liveBodies.has(link.bodyA) && liveBodies.has(link.bodyB);
+    if (inWorld && !hasBothEnds) Composite.remove(world, link, true);
+    return Boolean(inWorld && hasBothEnds);
+  });
+  if (pulleySelection.some(body => !liveBodies.has(body))) resetPulleySelection(true);
+}
+
+function pulleyAt(pos) {
+  prunePulleys();
+  const target = findStrutBodyAt(pos);
+  if (target && pulleySelection.includes(target)) {
+    resetPulleySelection();
+    showPulleyFeedback('PULLEY CANCELLED', '#aaaaaa');
+    return 'cancelled';
+  }
+  if (pulleySelection.length < 2) {
+    if (!target) {
+      showPulleyFeedback('PULLEY: TAP TWO PARTS', '#aaaaaa');
+      haptic([3]);
+      return false;
+    }
+    if (pulleys.some(link => link.bodyA === target || link.bodyB === target)) {
+      showPulleyFeedback('PART ALREADY ON A PULLEY', '#aaaaaa');
+      return false;
+    }
+    if (target.isStatic && pulleySelection[0]?.isStatic) {
+      showPulleyFeedback('PULLEY: ONE PART MUST MOVE');
+      return false;
+    }
+    pulleySelection.push(target);
+    addStrutBurst(target, '#ffc857');
+    showPulleyFeedback(pulleySelection.length === 1 ? 'PULLEY: PICK SECOND PART' : 'PULLEY: PLACE WHEEL');
+    haptic([6]);
+    return 'selected';
+  }
+  const anchor = {
+    x:Math.max(24, Math.min(canvas.width - 24, pos.x)),
+    y:Math.max(24, Math.min(canvas.height - 24, pos.y))
+  };
+  const [bodyA, bodyB] = pulleySelection;
+  const legs = [bodyA, bodyB].map(body => Math.hypot(body.position.x - anchor.x, body.position.y - anchor.y));
+  if (Math.min(...legs) < 48) {
+    showPulleyFeedback('PLACE WHEEL AWAY FROM PARTS');
+    return false;
+  }
+  const link = Constraint.create({bodyA, bodyB, length:legs[0] + legs[1], render:{type:'pulley'}});
+  // Keep a world constraint for Snip, Eraser and save identity. The routed cable
+  // is solved below because Matter's straight-line constraint cannot bend.
+  link.stiffness = 0;
+  link.pulleyAnchor = anchor;
+  Composite.add(world, link);
+  pulleys.push(link);
+  [bodyA, bodyB].forEach(body => Matter.Sleeping.set(body, false));
+  addTripwireBurst(anchor, null, '#ffc857');
+  resetPulleySelection();
+  showPulleyFeedback('PULLEY SET • SHARED CABLE');
+  playSound(560, 0.12, 'triangle', 0.05);
+  haptic([6, 8, 6]);
+  return link;
+}
+
+function updatePulleys() {
+  prunePulleys();
+  pulleys.forEach(link => {
+    const bodies = [link.bodyA, link.bodyB];
+    const legs = bodies.map(body => {
+      const dx = body.position.x - link.pulleyAnchor.x;
+      const dy = body.position.y - link.pulleyAnchor.y;
+      const length = Math.hypot(dx, dy);
+      return {length, x:dx / Math.max(length, 0.001), y:dy / Math.max(length, 0.001)};
+    });
+    const weights = bodies.map((body, i) => body.isStatic || legs[i].length < 0.001 ? 0 : body.inverseMass);
+    const weight = weights[0] + weights[1];
+    if (!weight) return;
+    const extension = legs[0].length + legs[1].length - link.length;
+    // A cable pulls only when taut. Closing motion creates slack rather than
+    // pushing either endpoint, and the inverse-mass impulse cannot add energy.
+    if (extension < -0.01) return;
+    const outwardSpeed = bodies.reduce((sum, body, i) => sum + (weights[i] ?
+      body.velocity.x * legs[i].x + body.velocity.y * legs[i].y : 0), 0);
+    const corrections = legs.map((leg, i) => Math.min(leg.length, Math.max(0, extension) * weights[i] / weight));
+    // Teleports can exhaust a short leg. Put the remaining correction on the
+    // other movable end rather than projecting a payload through the wheel.
+    let remaining = Math.max(0, extension) - corrections[0] - corrections[1];
+    corrections.forEach((correction, i) => {
+      if (!weights[i] || remaining <= 0) return;
+      const extra = Math.min(remaining, legs[i].length - correction);
+      corrections[i] += extra;
+      remaining -= extra;
+    });
+    bodies.forEach((body, i) => {
+      if (!weights[i]) return;
+      const share = weights[i] / weight;
+      if (extension > 0) Body.setPosition(body, {
+        x:body.position.x - legs[i].x * corrections[i],
+        y:body.position.y - legs[i].y * corrections[i]
+      });
+      if (outwardSpeed > 0) Body.setVelocity(body, {
+        x:body.velocity.x - legs[i].x * outwardSpeed * share,
+        y:body.velocity.y - legs[i].y * outwardSpeed * share
+      });
+      if (extension > 0 || outwardSpeed > 0) Matter.Sleeping.set(body, false);
+    });
+  });
+}
+
+Events.on(engine, 'afterUpdate', updatePulleys);
+
 function showDamperFeedback(message, color = '#0abdc6') {
   const feedback = document.getElementById('damper-feedback');
   feedback.textContent = message;
@@ -12544,12 +12687,16 @@ function findSnippableConstraintAt(pos, maxDistance = 28) {
     if (!isSnippableConstraint(constraint)) return;
     const start = getConstraintWorldPoint(constraint, 'A');
     const end = getConstraintWorldPoint(constraint, 'B');
-    const distance = distancePointToSegment(pos, start, end);
+    const segments = constraint.render?.type === 'pulley' ?
+      [[start, constraint.pulleyAnchor], [constraint.pulleyAnchor, end]] : [[start, end]];
+    const segment = segments.reduce((best, pair) =>
+      distancePointToSegment(pos, ...pair) < distancePointToSegment(pos, ...best) ? pair : best);
+    const distance = distancePointToSegment(pos, ...segment);
     if (distance > maxDistance || (match && distance >= match.distance)) return;
     match = {
       constraint,
       distance,
-      point: getConstraintCutPoint(pos, start, end)
+      point: getConstraintCutPoint(pos, ...segment)
     };
   });
   return match;
@@ -12599,6 +12746,7 @@ function snipConstraintAt(pos) {
   struts = struts.filter(strut => strut !== constraint);
   breaklinks = breaklinks.filter(link => link !== constraint);
   dampers = dampers.filter(link => link !== constraint);
+  pulleys = pulleys.filter(link => link !== constraint);
   hinges = hinges.filter(hinge => hinge !== constraint);
   springs = springs.filter(spring => spring !== constraint);
   welds = welds.filter(weld => weld.constraint !== constraint);
@@ -13100,6 +13248,13 @@ function onDown(e) {
   // Damper tool — dissipate relative motion without storing spring energy.
   if (currentTool === 'damper') {
     dampBodiesAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Pulley tool — route one shared cable through a fixed world wheel.
+  if (currentTool === 'pulley') {
+    pulleyAt(pos);
     pointerDown = false;
     return;
   }
@@ -15251,6 +15406,7 @@ function drawConstraints() {
     if (c.render?.type === 'flipper-pin') return;
     if (c.render?.type === 'breaklink') return; // Draw strain and weak seam above the parts.
     if (c.render?.type === 'damper') return; // Draw the telescoping shock absorber above the parts.
+    if (c.render?.type === 'pulley') return; // Draw both routed cable legs and the fixed wheel.
     const pA = Vector.add(c.bodyA.position, Vector.rotate(c.pointA, c.bodyA.angle));
     const pB = Vector.add(c.bodyB.position, Vector.rotate(c.pointB, c.bodyB.angle));
     if (c.render?.type === 'web-attachment') {
@@ -17737,6 +17893,58 @@ function drawWinches(timestamp) {
   ctx.restore();
 }
 
+function drawPulleys() {
+  pulleys.forEach(link => {
+    const a = link.bodyA.position, b = link.bodyB.position, anchor = link.pulleyAnchor;
+    const slack = Math.max(0, link.length - Math.hypot(a.x - anchor.x, a.y - anchor.y) - Math.hypot(b.x - anchor.x, b.y - anchor.y));
+    ctx.save();
+    ctx.strokeStyle = '#ffc857';
+    ctx.fillStyle = '#080c10';
+    ctx.shadowColor = '#ffc857';
+    ctx.shadowBlur = 6;
+    ctx.lineWidth = 2;
+    [a, b].forEach(end => {
+      ctx.beginPath();
+      ctx.moveTo(anchor.x, anchor.y);
+      ctx.quadraticCurveTo((anchor.x + end.x) / 2, (anchor.y + end.y) / 2 + Math.min(36, slack / 4), end.x, end.y);
+      ctx.stroke();
+    });
+    ctx.beginPath();
+    ctx.arc(anchor.x, anchor.y, 14, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(anchor.x, anchor.y, 5, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(anchor.x - 8, anchor.y - 19);
+    ctx.lineTo(anchor.x + 8, anchor.y - 19);
+    ctx.moveTo(anchor.x, anchor.y - 19);
+    ctx.lineTo(anchor.x, anchor.y - 14);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#dffcff';
+    ctx.font = '16px VT323, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(slack > 1 ? 'SLACK' : 'PULLEY', anchor.x, anchor.y + 31);
+    ctx.restore();
+  });
+  if (currentTool !== 'pulley') return;
+  pulleySelection.forEach((body, i) => {
+    ctx.save();
+    ctx.strokeStyle = '#ffc857';
+    ctx.fillStyle = '#dffcff';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 4]);
+    ctx.strokeRect(body.bounds.min.x - 8, body.bounds.min.y - 8,
+      body.bounds.max.x - body.bounds.min.x + 16, body.bounds.max.y - body.bounds.min.y + 16);
+    ctx.font = '18px VT323, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(i === 0 ? 'A' : 'B', body.position.x, body.bounds.min.y - 14);
+    ctx.restore();
+  });
+}
+
 function drawDampers() {
   dampers.forEach(link => {
     const a = link.bodyA.position;
@@ -17996,6 +18204,7 @@ function loop(timestamp) {
   pruneStruts();
   pruneBreaklinks();
   pruneDampers();
+  prunePulleys();
   pruneHinges();
   pruneSprings();
   pruneWelds();
@@ -18854,6 +19063,7 @@ function loop(timestamp) {
   drawRatchetMarkers(timestamp);
   drawBreaklinks();
   drawDampers();
+  drawPulleys();
   drawRelayMarker(timestamp);
   drawStrutMarker(timestamp);
   drawRotateFlash(timestamp);
@@ -19981,7 +20191,7 @@ function captureGameState() {
       welds, tethers, webTraps, ramps, pinwheels, baskets,
       cannons, elevators, recyclers, hatches, pistons, parachuteBodies,
       saws, funnels, catapults, presses, ziplines, gearboxes,
-      rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers,
+      rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys,
       vortexActive, vortexTimer, vortexCenter, pendingPhysicsActions
     },
     gravity: { ...engine.gravity },
@@ -20026,6 +20236,7 @@ function readGameSave(serialized) {
   // Version 1 saves predating Breaklink have no links to restore.
   if (!Object.hasOwn(game.state, 'breaklinks')) game.state.breaklinks = [];
   if (!Object.hasOwn(game.state, 'dampers')) game.state.dampers = [];
+  if (!Object.hasOwn(game.state, 'pulleys')) game.state.pulleys = [];
   const expected = captureGameState().state;
   for (const [key, value] of Object.entries(expected)) {
     const actual = game.state[key];
@@ -20059,6 +20270,16 @@ function readGameSave(serialized) {
   if (game.state.dampers.some(link => !game.constraints.includes(link) ||
       link.render?.type !== 'damper' || !link.bodyA || !link.bodyB || link.bodyA === link.bodyB ||
       link.length < 36 || link.stiffness !== 0 || link.damping !== 0.18)) throw new Error('Invalid saved damper');
+  const pulleyBodies = new Set();
+  if (game.state.pulleys.some(link => {
+    if (!game.constraints.includes(link) || link.render?.type !== 'pulley' ||
+        !link.bodyA || !link.bodyB || link.bodyA === link.bodyB || !vector(link.pulleyAnchor) ||
+        link.length < 96 || link.stiffness !== 0 || link.damping !== 0 ||
+        pulleyBodies.has(link.bodyA) || pulleyBodies.has(link.bodyB)) return true;
+    pulleyBodies.add(link.bodyA);
+    pulleyBodies.add(link.bodyB);
+    return false;
+  })) throw new Error('Invalid saved pulley');
   return game;
 }
 
@@ -20083,7 +20304,7 @@ function restoreGameState(game) {
     welds, tethers, webTraps, ramps, pinwheels, baskets,
     cannons, elevators, recyclers, hatches, pistons, parachuteBodies,
     saws, funnels, catapults, presses, ziplines, gearboxes,
-    rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers,
+    rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys,
     vortexActive, vortexTimer, vortexCenter, pendingPhysicsActions
   } = game.state);
   Object.assign(lessonState, game.lesson); // Keep host callbacks registered in this page.

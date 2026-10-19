@@ -40,6 +40,202 @@ function gameHarness(stored = {}) {
 
 const key = 'chaos-engine-save-1';
 
+describe('Pulley tool with real Matter.js', () => {
+  function setup() {
+    const api = gameHarness();
+    api.run(`
+      paused = true;
+      window.a = Bodies.circle(300,200,14,{frictionAir:0});
+      window.b = Bodies.circle(300,400,14,{frictionAir:0});
+      Composite.add(world,[a,b]); engine.gravity.y = 0;
+    `);
+    const select = tool => api.window.document.querySelector('[data-tool="' + tool + '"]').click();
+    const join = () => api.run('pulleyAt(a.position); pulleyAt(b.position); window.link = pulleyAt({x:300,y:50}); link;');
+    return {...api, select, join};
+  }
+
+  it('appends one final button, selects it, and routes all three real canvas taps', () => {
+    const api = setup();
+    const button = api.window.document.querySelector('#toolbar > :last-child');
+    expect(button.dataset.tool).toBe('pulley');
+    expect(button.previousElementSibling.dataset.tool).toBe('damper');
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(93);
+    expect(button.getAttribute('aria-label')).toContain('counterweight pulley');
+    expect(button.title).toContain('Snip');
+    api.select('pulley');
+    expect(api.run('currentTool')).toBe('pulley');
+    expect(button.classList.contains('active')).toBe(true);
+    expect(api.window.document.querySelector('[data-tool=ball]').classList.contains('active')).toBe(false);
+    const canvas = api.window.document.querySelector('canvas');
+    canvas.getBoundingClientRect = () => ({left:0,top:0,width:canvas.width,height:canvas.height});
+    for (const y of [200,400,50]) canvas.dispatchEvent(new api.window.MouseEvent('mousedown',{clientX:300,clientY:y,bubbles:true}));
+    expect(api.run('[pulleys.length, pulleySelection.length, pointerDown]')).toEqual([1,0,false]);
+    expect(api.window.document.getElementById('pulley-feedback').getAttribute('role')).toBe('status');
+    expect(api.errors).toEqual([]);
+  });
+
+  it('creates one inert world constraint with routed cable geometry and no placement kick', () => {
+    const api = setup();
+    api.join();
+    expect(api.run('[link.length, link.stiffness, link.damping]')).toEqual([500,0,0]);
+    expect(api.run('link.pulleyAnchor')).toEqual({x:300,y:50});
+    expect(api.run('Composite.allConstraints(world)[0] === link')).toBe(true);
+    expect(api.run('[a.position.y,b.position.y,a.speed,b.speed]')).toEqual([200,400,0,0]);
+  });
+
+  it('shares radial motion by inverse mass, lifts the other end, and dissipates energy', () => {
+    const api = setup();
+    api.join();
+    api.run('Body.setMass(a,2); Body.setMass(b,6); Body.setVelocity(b,{x:0,y:12}); updatePulleys()');
+    expect(api.run('a.velocity.y')).toBeCloseTo(-9,8);
+    expect(api.run('b.velocity.y')).toBeCloseTo(9,8);
+    expect(api.run('a.velocity.y + b.velocity.y')).toBeCloseTo(0,8);
+    expect(api.run('0.5*a.mass*a.speed**2 + 0.5*b.mass*b.speed**2')).toBeLessThan(432);
+  });
+
+  it('lets gravity lower a heavy counterweight and lift the lighter real body', () => {
+    const api = setup();
+    api.join();
+    api.run('Body.setMass(a,1); Body.setMass(b,4); engine.gravity.y = 1; for(let i=0;i<15;i++) Engine.update(engine,1000/60)');
+    expect(api.run('a.position.y')).toBeLessThan(190);
+    expect(api.run('b.position.y')).toBeGreaterThan(410);
+    expect(api.run('a.position.y+b.position.y-100')).toBeCloseTo(500,7);
+    expect(api.run('a.velocity.y')).toBeLessThan(0);
+    expect(api.run('b.velocity.y')).toBeGreaterThan(0);
+  });
+
+  it('preserves tangential travel and spin without driving resting parts', () => {
+    const api = setup();
+    api.join();
+    api.run('Body.setVelocity(a,{x:7,y:0}); Body.setVelocity(b,{x:-3,y:0}); Body.setAngularVelocity(a,0.2); Body.setAngularVelocity(b,-0.1); updatePulleys()');
+    expect(api.run('[a.velocity.x,b.velocity.x,a.angularVelocity,b.angularVelocity]')).toEqual([7,-3,0.2,-0.1]);
+    api.run('Body.setVelocity(a,{x:0,y:0}); Body.setVelocity(b,{x:0,y:0}); for(let i=0;i<5;i++) Engine.update(engine,1000/60)');
+    expect(api.run('[a.position.y,b.position.y,a.velocity.y,b.velocity.y]')).toEqual([200,400,0,0]);
+  });
+
+  it('permits slack and inward motion instead of pushing the endpoints apart', () => {
+    const api = setup();
+    api.join();
+    api.run('Body.setPosition(a,{x:300,y:150}); Body.setPosition(b,{x:300,y:300}); Body.setVelocity(a,{x:0,y:-5}); Body.setVelocity(b,{x:0,y:4}); updatePulleys()');
+    expect(api.run('[a.position.y,b.position.y,a.velocity.y,b.velocity.y]')).toEqual([150,300,-5,4]);
+    api.run('Body.setPosition(a,{x:300,y:200}); Body.setPosition(b,{x:300,y:400}); Body.setVelocity(b,{x:0,y:-4}); updatePulleys()');
+    expect(api.run('[a.velocity.y,b.velocity.y]')).toEqual([-5,-4]);
+  });
+
+  it('supports an anchored end, suspends safely when both ends are anchored, and stays finite at the wheel', () => {
+    const api = setup();
+    api.join();
+    api.run('Body.setStatic(a,true); Body.setVelocity(b,{x:0,y:12}); Engine.update(engine,1000/60)');
+    expect(api.run('[a.position.y,b.position.y,b.velocity.y]')).toEqual([200,400,0]);
+    api.run('Body.setStatic(b,true); updatePulleys(); Body.setStatic(b,false); Body.setPosition(b,link.pulleyAnchor); updatePulleys()');
+    expect(api.run('[a.position.x,a.position.y,b.position.x,b.position.y,b.velocity.y].every(Number.isFinite)')).toBe(true);
+  });
+
+  it('tightens extreme extension without projecting a short leg through the wheel', () => {
+    const api = setup(); api.join();
+    api.run('Body.setMass(a,0.1); Body.setMass(b,100); Body.setPosition(a,{x:300,y:60}); Body.setPosition(b,{x:300,y:1000}); updatePulleys()');
+    expect(api.run('a.position.y')).toBeGreaterThanOrEqual(50);
+    expect(api.run('Math.abs(a.position.y-50)+Math.abs(b.position.y-50)')).toBeCloseTo(500,7);
+    api.run('Body.setPosition(b,{x:300,y:1000}); updatePulleys()');
+    expect(api.run('b.position.y')).toBeCloseTo(550,7);
+  });
+
+  it('guards empty taps, duplicate endpoints, shared attachments, short legs, and static pairs', () => {
+    const api = setup();
+    expect(api.run('pulleyAt({x:50,y:50})')).toBe(false);
+    api.run('pulleyAt(a.position)');
+    expect(api.run('pulleyAt(a.position)')).toBe('cancelled');
+    expect(api.run('pulleySelection.length')).toBe(0);
+    api.run('pulleyAt({x:340,y:200}); pulleyAt(b.position)'); // 40px touch fallback
+    expect(api.run('pulleySelection.length')).toBe(2);
+    expect(api.run('pulleyAt({x:300,y:447})')).toBe(false);
+    expect(api.window.document.getElementById('pulley-feedback').textContent).toContain('AWAY');
+    api.run('window.link = pulleyAt({x:300,y:50})');
+    expect(api.run('pulleyAt(a.position)')).toBe(false);
+    expect(api.run('pulleySelection.length')).toBe(0);
+    api.run('snipConstraintAt({x:300,y:100}); Body.setStatic(a,true); a.isAnchored=true; Body.setStatic(b,true); b.isAnchored=true; pulleyAt(a.position)');
+    expect(api.run('pulleyAt(b.position)')).toBe(false);
+    expect(api.run('pulleySelection.length')).toBe(1);
+  });
+
+  it('clamps the wheel inside the canvas', () => {
+    const api = setup();
+    api.run('pulleyAt(a.position); pulleyAt(b.position); window.link = pulleyAt({x:-100,y:9000})');
+    expect(api.run('link.pulleyAnchor')).toEqual({x:24,y:576});
+  });
+
+  it.each(['A','B'])('Snip cuts routed leg %s while preserving both payloads', side => {
+    const api = setup();
+    api.run('Body.setPosition(a,{x:200,y:300}); Body.setPosition(b,{x:500,y:300})');
+    api.join();
+    const point = api.run(`({x:(link.body${side}.position.x+link.pulleyAnchor.x)/2,y:(link.body${side}.position.y+link.pulleyAnchor.y)/2})`);
+    expect(api.run('findSnippableConstraintAt({x:350,y:300})')).toBe(null); // no phantom straight cable
+    expect(api.run(`snipConstraintAt(${JSON.stringify(point)})`)).toBe(true);
+    expect(api.run('[pulleys.length,Composite.allConstraints(world).length,captureGameState().bodies.length]')).toEqual([0,0,2]);
+  });
+
+  it('cancels pending state on tool changes including Draw and keeps installed cables', () => {
+    const api = setup();
+    api.join();
+    api.run('window.c = Bodies.circle(600,300,14); Composite.add(world,c)');
+    for (const tool of ['block','draw']) {
+      api.select('pulley'); api.run('pulleyAt(c.position)'); api.select(tool);
+      expect(api.run('pulleySelection.length')).toBe(0);
+      expect(api.window.document.getElementById('pulley-feedback').textContent).toBe('');
+      expect(api.run('pulleys.length')).toBe(1);
+    }
+  });
+
+  it('cleans removed endpoints, externally cut cables, Eraser, pending selections and Clear', () => {
+    const api = setup();
+    api.join();
+    api.run('Composite.remove(world,link); prunePulleys()');
+    expect(api.run('pulleys.length')).toBe(0);
+    api.join(); api.run('eraseBodyAt(a.position)');
+    expect(api.run('[pulleys.length,Composite.allConstraints(world).length]')).toEqual([0,0]);
+    api.run('window.a = Bodies.circle(300,200,14); Composite.add(world,a)'); api.join();
+    api.run('Composite.remove(world,a); prunePulleys()');
+    expect(api.run('[pulleys.length,Composite.allConstraints(world).length]')).toEqual([0,0]);
+    api.run('pulleyAt(b.position); Composite.remove(world,b); prunePulleys()');
+    expect(api.run('pulleySelection.length')).toBe(0);
+    api.run('finishClear(false)');
+    expect(api.run('[pulleys.length,pulleySelection.length,captureGameState().bodies.length]')).toEqual([0,0,0]);
+    expect(api.window.document.getElementById('pulley-feedback').textContent).toBe('');
+  });
+
+  it('restores pulley identity, anchor, cable length, selection and real motion after save/load', () => {
+    const api = setup(); api.select('pulley'); api.join();
+    api.run('restoreGameState(readGameSave(serializeGameState()))');
+    expect(api.run('Composite.allConstraints(world)[0] === pulleys[0]')).toBe(true);
+    expect(api.run('pulleys[0].bodyA === captureGameState().bodies[0]')).toBe(true);
+    expect(api.run('[currentTool,pulleys[0].length,pulleys[0].stiffness]')).toEqual(['pulley',500,0]);
+    expect(api.run('pulleys[0].pulleyAnchor')).toEqual({x:300,y:50});
+    api.run('Body.setVelocity(pulleys[0].bodyB,{x:0,y:12}); Engine.update(engine,1000/60)');
+    expect(api.run('pulleys[0].bodyA.velocity.y')).toBeLessThan(0);
+    expect(api.errors).toEqual([]);
+  });
+
+  it('migrates old saves and rejects malformed cable state before replacing the game', () => {
+    const api = setup();
+    api.run(`const game=captureGameState(); delete game.state.pulleys; const graph=ChaosSaveCodec.encode(game);
+      restoreGameState(readGameSave(JSON.stringify({version:1,savedAt:new Date().toISOString(),graph,checksum:ChaosSaveCodec.checksum(graph)})));
+      window.a=captureGameState().bodies[0]; window.b=captureGameState().bodies[1];`);
+    expect(api.run('pulleys.length')).toBe(0);
+    api.join();
+    for (const mutation of ['link.pulleyAnchor.x=NaN','link.pulleyAnchor.x=300; link.length=20','link.length=500; link.stiffness=1','link.stiffness=0; pulleys.push(link)']) {
+      api.run(mutation);
+      expect(() => api.run('readGameSave(serializeGameState())')).toThrow('Invalid saved pulley');
+      expect(api.run('captureGameState().bodies.length')).toBe(2);
+    }
+  });
+
+  it('renders both selected endpoints, taut, slack and coincident wheel states', () => {
+    const api = setup(); api.select('pulley');
+    api.run('pulleyAt(a.position); drawPulleys(); pulleyAt(b.position); drawPulleys(); pulleyAt({x:300,y:50}); drawPulleys(); Body.setPosition(b,{x:300,y:250}); drawPulleys(); Body.setPosition(a,pulleys[0].pulleyAnchor); updatePulleys(); drawPulleys()');
+    expect(api.errors).toEqual([]);
+  });
+});
+
 describe('Damper tool with real Matter.js', () => {
   function setup() {
     const api = gameHarness();
@@ -55,9 +251,9 @@ describe('Damper tool with real Matter.js', () => {
     return { ...api, select, join };
   }
 
-  it('selects the final button and connects through the real canvas input handler', () => {
+  it('selects Damper and connects through the real canvas input handler', () => {
     const api = setup();
-    const button = api.window.document.querySelector('#toolbar > :last-child');
+    const button = api.window.document.querySelector('[data-tool=damper]');
     expect(button.dataset.tool).toBe('damper');
     expect(button.previousElementSibling.dataset.tool).toBe('breaklink');
     expect(button.getAttribute('aria-label')).toContain('shock absorber');
