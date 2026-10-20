@@ -40,6 +40,194 @@ function gameHarness(stored = {}) {
 
 const key = 'chaos-engine-save-1';
 
+describe('One-way gate with real Matter.js', () => {
+  function setup(bodyCode = 'Bodies.rectangle(300,200,20,20,{frictionAir:0})') {
+    const api = gameHarness();
+    api.run(`paused=true; engine.gravity.y=0;
+      window.gate=placeOrReverseOnewayAt({x:300,y:300});
+      window.payload=${bodyCode}; Composite.add(world,payload);`);
+    const select = tool => api.window.document.querySelector('[data-tool="'+tool+'"]').click();
+    const step = (count=1) => api.run(`for(let i=0;i<${count};i++) Engine.update(engine,1000/60)`);
+    return {...api, select, step};
+  }
+
+  it('appends exactly one final button and routes real canvas taps through shared selection', () => {
+    const api=gameHarness(), button=api.window.document.querySelector('#toolbar > :last-child');
+    expect(button.dataset.tool).toBe('oneway');
+    expect(button.previousElementSibling.dataset.tool).toBe('pulley');
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(94);
+    expect(button.getAttribute('aria-label')).toContain('one-way gate');
+    expect(button.title).toContain('reverse');
+    button.click();
+    expect(api.run('[currentTool,drawMode]')).toEqual(['oneway',false]);
+    expect(button.classList.contains('active')).toBe(true);
+    expect(api.window.document.querySelector('[data-tool=ball]').classList.contains('active')).toBe(false);
+    const canvas=api.window.document.querySelector('canvas');
+    canvas.getBoundingClientRect=()=>({left:0,top:0,width:canvas.width,height:canvas.height});
+    canvas.dispatchEvent(new api.window.MouseEvent('mousedown',{clientX:300,clientY:300,bubbles:true}));
+    expect(api.run('[onewayGates.length,onewayGates[0].onewayDirection,pointerDown]')).toEqual([1,-1,false]);
+    canvas.dispatchEvent(new api.window.MouseEvent('mousedown',{clientX:365,clientY:325,bubbles:true}));
+    expect(api.run('[onewayGates.length,onewayGates[0].onewayDirection]')).toEqual([1,1]);
+    const status=api.window.document.getElementById('oneway-feedback');
+    expect(status.getAttribute('role')).toBe('status');
+    expect(status.textContent).toContain('PASS DOWN');
+    expect(api.errors).toEqual([]);
+  });
+
+  it('creates clamped static gates, including on a narrow canvas', () => {
+    const api=setup();
+    api.run('window.edge=placeOrReverseOnewayAt({x:-500,y:9000})');
+    expect(api.run('[edge.position.x,edge.position.y,edge.render.width]')).toEqual([86,556,156]);
+    expect(api.run('[edge.isStatic,edge.isSensor,edge.collisionFilter.mask]')).toEqual([true,true,0]);
+    api.run('canvas.width=120; window.narrow=placeOrReverseOnewayAt({x:800,y:-100})');
+    expect(api.run('[narrow.position.x,narrow.position.y,narrow.render.width]')).toEqual([68,44,88]);
+  });
+
+  it('passes upward through a gate and later settles on its top under real gravity', () => {
+    const api=setup();
+    api.run('Body.setPosition(payload,{x:300,y:350}); Body.setVelocity(payload,{x:0,y:-13}); engine.gravity.y=1');
+    api.step(17);
+    expect(api.run('getOnewayBounds(payload).maxY')).toBeLessThan(300);
+    api.step(100);
+    expect(api.run('getOnewayBounds(payload).maxY')).toBeCloseTo(300,7);
+    expect(api.run('payload.velocity.y')).toBe(0);
+    expect(api.run('onewayGates.length')).toBe(1);
+  });
+
+  it('stops only blocked vertical motion, preserving horizontal speed and spin', () => {
+    const api=setup();
+    api.run('Body.setPosition(payload,{x:300,y:280}); Body.setVelocity(payload,{x:3,y:20}); Body.setAngularVelocity(payload,0.2)');
+    api.step();
+    expect(api.run('getOnewayBounds(payload).maxY')).toBeCloseTo(300,7);
+    expect(api.run('[payload.velocity.x,payload.velocity.y]')).toEqual([3,0]);
+    expect(api.run('payload.angularVelocity')).toBeCloseTo(0.2,8);
+    expect(api.run('payload.position.x')).toBe(303);
+    expect(api.run('gate.onewayHitUntil')).toBeGreaterThan(0);
+  });
+
+  it('reverses to catch upward motion while letting downward travel pass', () => {
+    const api=setup();
+    api.run('placeOrReverseOnewayAt({x:370,y:325}); Body.setPosition(payload,{x:300,y:330}); Body.setVelocity(payload,{x:0,y:-30})');
+    api.step();
+    expect(api.run('getOnewayBounds(payload).minY')).toBeCloseTo(300,7);
+    expect(api.run('payload.velocity.y')).toBe(0);
+    api.run('Body.setPosition(payload,{x:300,y:260}); Body.setVelocity(payload,{x:0,y:60})');
+    api.step();
+    expect(api.run('payload.position.y')).toBeCloseTo(320,7);
+    expect(api.run('payload.velocity.y')).toBeCloseTo(60,7);
+  });
+
+  it('supports a reversed gate under inverted gravity', () => {
+    const api=setup();
+    api.run('placeOrReverseOnewayAt(gate.position); Body.setPosition(payload,{x:300,y:400}); engine.gravity.y=-1');
+    api.step(90);
+    expect(api.run('getOnewayBounds(payload).minY')).toBeCloseTo(300,7);
+    expect(api.run('payload.velocity.y')).toBe(0);
+  });
+
+  it.each(['reverse','erase','external removal'])('wakes a resting payload after gate %s', action => {
+    const api=setup();
+    api.run('engine.gravity.y=1'); api.step(180);
+    expect(api.run('payload.isSleeping')).toBe(true);
+    expect(api.run('getOnewayBounds(payload).maxY')).toBeCloseTo(300,7);
+    if(action==='reverse') api.run('placeOrReverseOnewayAt(gate.position)');
+    else if(action==='erase') api.run('eraseBodyAt({x:370,y:300})');
+    else api.run('Composite.remove(world,gate); pruneOnewayGates()');
+    expect(api.run('payload.isSleeping')).toBe(false);
+    api.step(20);
+    expect(api.run('payload.position.y')).toBeGreaterThan(310);
+  });
+
+  it('catches fast crossings with a swept geometry check', () => {
+    const api=setup();
+    api.run('Body.setVelocity(payload,{x:0,y:160})');
+    api.step();
+    expect(api.run('getOnewayBounds(payload).maxY')).toBeCloseTo(300,7);
+    expect(api.run('payload.velocity.y')).toBe(0);
+  });
+
+  it('lets parts miss either end and does not pull a straddling part onto the gate', () => {
+    const api=setup();
+    api.run('Body.setPosition(payload,{x:500,y:200}); Body.setVelocity(payload,{x:0,y:160})');
+    api.step();
+    expect(api.run('payload.position.y')).toBe(360);
+    api.run('Body.setPosition(payload,{x:300,y:300}); Body.setVelocity(payload,{x:0,y:10})');
+    api.step();
+    expect(api.run('payload.position.y')).toBe(310);
+  });
+
+  it('tests horizontal overlap at the crossing rather than at the end of the step', () => {
+    const api=setup();
+    api.run('Body.setPosition(payload,{x:150,y:260}); Body.setVelocity(payload,{x:120,y:80})');
+    api.step();
+    expect(api.run('payload.velocity.y')).toBe(80); // entered the span only after crossing
+    api.run('Body.setPosition(payload,{x:300,y:260}); Body.setVelocity(payload,{x:160,y:80})');
+    api.step();
+    expect(api.run('payload.velocity.y')).toBe(0); // crossed before leaving the span
+  });
+
+  it.each(['payload.isPhased=true','payload.isSensor=true'])('respects non-colliding payload state: %s', state => {
+    const api=setup();
+    api.run(state+'; Body.setVelocity(payload,{x:0,y:160})');
+    api.step();
+    expect(api.run('payload.position.y')).toBe(360);
+    expect(api.run('payload.velocity.y')).toBe(160);
+  });
+
+  it('supports real compound collision geometry', () => {
+    const api=setup('Body.create({parts:[Bodies.rectangle(290,200,20,20),Bodies.rectangle(310,215,20,20)],frictionAir:0})');
+    api.run('Body.setVelocity(payload,{x:0,y:120})'); api.step();
+    expect(api.run('getOnewayBounds(payload).maxY')).toBeCloseTo(300,7);
+    expect(api.run('payload.velocity.y')).toBe(0);
+  });
+
+  it('clears feedback on tool changes while preserving gates and supports Eraser, pruning and Clear', () => {
+    const api=setup();
+    for(const tool of ['ball','draw']) {
+      api.select('oneway'); api.run('showOnewayFeedback(gate)'); api.select(tool);
+      expect(api.window.document.getElementById('oneway-feedback').textContent).toBe('');
+      expect(api.run('onewayGates.length')).toBe(1);
+    }
+    api.run('eraseBodyAt(gate.position)');
+    expect(api.run('onewayGates.length')).toBe(0);
+    expect(api.run('Composite.allBodies(world).includes(payload)')).toBe(true);
+    api.run('window.gate=placeOrReverseOnewayAt({x:300,y:300}); Composite.remove(world,gate); pruneOnewayGates()');
+    expect(api.run('onewayGates.length')).toBe(0);
+    api.run('placeOrReverseOnewayAt({x:300,y:300}); sampleOnewayBodies(); finishClear(false)');
+    expect(api.run('[onewayGates.length,onewayPreviousBounds.size,captureGameState().bodies.length]')).toEqual([0,0,0]);
+    expect(api.window.document.getElementById('oneway-feedback').textContent).toBe('');
+  });
+
+  it('restores gate identity, direction and physics with save/load', () => {
+    const api=setup(); api.select('oneway');
+    api.run('placeOrReverseOnewayAt(gate.position); restoreGameState(readGameSave(serializeGameState())); window.gate=onewayGates[0]; window.payload=captureGameState().bodies.find(b=>!b.isStatic)');
+    expect(api.run('[currentTool,gate.onewayDirection,onewayPreviousBounds.size]')).toEqual(['oneway',1,0]);
+    expect(api.run('Composite.allBodies(world).includes(gate)')).toBe(true);
+    api.run('Body.setPosition(payload,{x:300,y:330}); Body.setVelocity(payload,{x:0,y:-40})'); api.step();
+    expect(api.run('getOnewayBounds(payload).minY')).toBeCloseTo(300,7);
+    expect(api.run('payload.velocity.y')).toBe(0);
+  });
+
+  it('migrates older saves and rejects malformed gates without replacing the world', () => {
+    const api=gameHarness();
+    api.run(`const game=captureGameState(); delete game.state.onewayGates; const graph=ChaosSaveCodec.encode(game);
+      restoreGameState(readGameSave(JSON.stringify({version:1,savedAt:new Date().toISOString(),graph,checksum:ChaosSaveCodec.checksum(graph)})))`);
+    expect(api.run('onewayGates.length')).toBe(0);
+    api.run('window.gate=placeOrReverseOnewayAt({x:300,y:300})');
+    for(const mutation of ['gate.onewayDirection=0','gate.onewayDirection=-1; gate.render.width=NaN','gate.render.width=156; gate.isStatic=false','gate.isStatic=true; onewayGates.push(gate)']) {
+      api.run(mutation);
+      expect(()=>api.run('readGameSave(serializeGameState())')).toThrow('Invalid saved one-way gate');
+      expect(api.run('captureGameState().bodies.length')).toBe(1);
+    }
+  });
+
+  it('renders both arrow directions and contact feedback', () => {
+    const api=setup();
+    api.run('drawBody(gate); gate.onewayHitUntil=performance.now()+180; drawBody(gate); placeOrReverseOnewayAt(gate.position); drawBody(gate)');
+    expect(api.errors).toEqual([]);
+  });
+});
+
 describe('Pulley tool with real Matter.js', () => {
   function setup() {
     const api = gameHarness();
@@ -54,12 +242,12 @@ describe('Pulley tool with real Matter.js', () => {
     return {...api, select, join};
   }
 
-  it('appends one final button, selects it, and routes all three real canvas taps', () => {
+  it('keeps Pulley after Damper, selects it, and routes all three real canvas taps', () => {
     const api = setup();
-    const button = api.window.document.querySelector('#toolbar > :last-child');
+    const button = api.window.document.querySelector('[data-tool=pulley]');
     expect(button.dataset.tool).toBe('pulley');
     expect(button.previousElementSibling.dataset.tool).toBe('damper');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(93);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(94);
     expect(button.getAttribute('aria-label')).toContain('counterweight pulley');
     expect(button.title).toContain('Snip');
     api.select('pulley');

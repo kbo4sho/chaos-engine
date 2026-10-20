@@ -29,7 +29,7 @@ describe('Tool Button Existence', () => {
     'ball', 'block', 'rocket', 'car', 'dino', 'bomb', 'star', 'balloon',
     'portal', 'bumper', 'beachball', 'duck', 'domino', 'anvil', 'ragdoll',
     'trampoline', 'conveyor-left', 'conveyor-right', 'wrecking', 'ice', 'fan',
-    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch', 'piston', 'parachute', 'saw', 'funnel', 'catapult', 'press', 'zipline', 'siphon', 'gearbox', 'rail', 'sieve', 'winch', 'tripwire', 'ratchet', 'breaklink', 'damper', 'pulley'
+    'magnet', 'pin', 'seesaw', 'rope', 'chain-link', 'eraser', 'draw', 'slomo', 'grab', 'anchor', 'resize', 'clone', 'motor', 'flipper', 'swap', 'snip', 'fission', 'alchemy', 'strut', 'rotate', 'fusion', 'hinge', 'spring', 'launch', 'float', 'pivot', 'reverse', 'punch', 'blink', 'squash', 'pulse', 'relay', 'curve', 'swirl', 'brake', 'thruster', 'phase', 'gyro', 'charge', 'twist', 'lift', 'orbit', 'weld', 'tether', 'stack', 'mirror', 'web', 'ramp', 'pinwheel', 'basket', 'cannon', 'domino-run', 'elevator', 'recycler', 'hatch', 'piston', 'parachute', 'saw', 'funnel', 'catapult', 'press', 'zipline', 'siphon', 'gearbox', 'rail', 'sieve', 'winch', 'tripwire', 'ratchet', 'breaklink', 'damper', 'pulley', 'oneway'
   ];
 
   allTools.forEach(tool => {
@@ -40,17 +40,17 @@ describe('Tool Button Existence', () => {
     });
   });
 
-  it('should have exactly 93 tool buttons', () => {
+  it('should have exactly 94 tool buttons', () => {
     const buttons = document.querySelectorAll('.tool-btn');
-    expect(buttons.length).toBe(93);
+    expect(buttons.length).toBe(94);
   });
 
-  it('should append Pulley after Damper at the end of the object toolbar', () => {
+  it('should append One-way after Pulley at the end of the object toolbar', () => {
     const toolbar = document.getElementById('toolbar');
-    expect(toolbar.lastElementChild?.dataset.tool).toBe('pulley');
-    expect(toolbar.lastElementChild?.textContent).toContain('Pulley');
-    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('damper');
-    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('breaklink');
+    expect(toolbar.lastElementChild?.dataset.tool).toBe('oneway');
+    expect(toolbar.lastElementChild?.textContent).toContain('One-way');
+    expect(toolbar.lastElementChild?.previousElementSibling?.dataset.tool).toBe('pulley');
+    expect(toolbar.lastElementChild?.previousElementSibling?.previousElementSibling?.dataset.tool).toBe('damper');
     expect(html).toMatch(/#toolbar\s*\{[\s\S]*?justify-content:flex-start/);
     expect(html).toMatch(/@media\(max-width:600px\)[\s\S]*?\.tool-btn\s*\{ min-width:52px; height:50px/);
   });
@@ -1178,7 +1178,7 @@ describe('Piston Tool', () => {
     );
     expect(source).toContain("label:'piston'");
     expect(source).toContain('isStatic:true');
-    expect(source).not.toContain('isSensor:true');
+    expect(scriptContent.match(/function createPistonBody\([\s\S]*?\n\}/)?.[0]).not.toContain('isSensor:true');
     expect(source).toContain('body.isPiston = true');
     expect(source).toContain('entry.targetX = extending ? entry.extendedX : entry.retractedX');
     expect(source).toContain('Body.setPosition(entry.body, { x:step.x, y:entry.y }, true)');
@@ -1250,7 +1250,7 @@ describe('Hatch Tool', () => {
     );
     expect(source).toContain("label:'hatch'");
     expect(source).toContain('isStatic:true');
-    expect(source).not.toContain('isSensor:true');
+    expect(scriptContent.match(/function createHatchBody\([\s\S]*?\n\}/)?.[0]).not.toContain('isSensor:true');
     expect(source).toContain('body.isHatch = true');
     expect(source).toContain('entry.targetAngle = opening ? entry.direction * Math.PI / 2 : 0');
     expect(source).toContain('Body.setPosition(entry.body, center, true)');

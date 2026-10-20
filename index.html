@@ -809,7 +809,7 @@ canvas#game {
 #ratchet-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
-#breaklink-feedback, #damper-feedback, #pulley-feedback {
+#breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback {
   position:absolute; top:14px; left:50%; z-index:3;
   transform:translate(-50%, -8px) scale(0.9);
   padding:4px 12px; border:1px solid currentColor;
@@ -819,10 +819,10 @@ canvas#game {
   opacity:0; pointer-events:none; white-space:nowrap;
   transition:opacity .12s, transform .12s;
 }
-#breaklink-feedback.active, #damper-feedback.active, #pulley-feedback.active {
+#breaklink-feedback.active, #damper-feedback.active, #pulley-feedback.active, #oneway-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
-#damper-feedback { color:#0abdc6; }
+#damper-feedback, #oneway-feedback { color:#0abdc6; }
 #pulley-feedback { color:#ffc857; }
 
 /* ── OBJECT TOOLBAR ── */
@@ -990,7 +990,7 @@ canvas#game {
   #winch-feedback { top:14px; font-size:19px; }
   #tripwire-feedback { top:14px; font-size:19px; }
   #ratchet-feedback { top:14px; font-size:19px; }
-  #breaklink-feedback, #damper-feedback, #pulley-feedback { font-size:19px; }
+  #breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback { font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -1087,6 +1087,7 @@ canvas#game {
     <div id="breaklink-feedback" role="status" aria-live="polite"></div>
     <div id="damper-feedback" role="status" aria-live="polite"></div>
     <div id="pulley-feedback" role="status" aria-live="polite"></div>
+    <div id="oneway-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -1185,6 +1186,7 @@ canvas#game {
     <button class="tool-btn" data-tool="breaklink" style="color:#ffc857;" title="Tap two parts to join them with a weak link that snaps when overstretched; Snip cuts it early" aria-label="Breaklink two parts with a physical link that snaps under tension"><span class="icon">⛓</span>Breaklink</button>
     <button class="tool-btn" data-tool="damper" style="color:#0abdc6;" title="Tap two parts to slow their approach and separation without a spring; Snip disconnects them" aria-label="Connect two parts with a passive shock absorber"><span class="icon">⊣⊢</span>Damper</button>
     <button class="tool-btn" data-tool="pulley" style="color:#ffc857;" title="Tap two parts, then place a fixed pulley wheel; one shared cable lets one end lift the other. Snip cuts either leg" aria-label="Connect two parts through a fixed counterweight pulley"><span class="icon">⏀</span>Pulley</button>
+    <button class="tool-btn" data-tool="oneway" style="color:#0abdc6;" title="Tap to place a gate that passes parts upward and catches them falling; tap the gate to reverse it" aria-label="Place a one-way gate or reverse its permitted direction"><span class="icon">⇧</span>One-way</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1549,6 +1551,9 @@ let damperFeedbackTimer = 0;
 let pulleys = []; // routed, tension-only cables with fixed world sheaves
 let pulleySelection = [];
 let pulleyFeedbackTimer = 0;
+let onewayGates = []; // static directional platforms; arrow shows the permitted travel
+let onewayFeedbackTimer = 0;
+const onewayPreviousBounds = new Map(); // transient geometry sampled before each physics step
 
 // Block shattering
 let pendingPhysicsActions = []; // Serializable delayed rain and collision work
@@ -2545,6 +2550,13 @@ function resetPulleySelection(silent = false) {
   feedback.textContent = '';
 }
 
+function resetOnewayFeedback() {
+  clearTimeout(onewayFeedbackTimer);
+  const feedback = document.getElementById('oneway-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -2587,6 +2599,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       resetBreaklinkSelection(true);
       resetDamperSelection(true);
       resetPulleySelection(true);
+      resetOnewayFeedback();
       drawMode = !drawMode;
       btn.classList.toggle('active', drawMode);
       if (!drawMode) drawPoints = [];
@@ -2655,6 +2668,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'breaklink') resetBreaklinkSelection(true);
       if (tool !== 'damper') resetDamperSelection(true);
       if (tool !== 'pulley') resetPulleySelection(true);
+      if (tool !== 'oneway') resetOnewayFeedback();
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -4102,6 +4116,9 @@ function finishClear(playFeedback = true) {
   resetDamperSelection(true);
   pulleys = [];
   resetPulleySelection(true);
+  onewayGates = [];
+  onewayPreviousBounds.clear();
+  resetOnewayFeedback();
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -4404,7 +4421,8 @@ function getToolAccentColor(tool) {
     ratchet: '#ffd166',
     breaklink: '#ffc857',
     damper: '#0abdc6',
-    pulley: '#ffc857'
+    pulley: '#ffc857',
+    oneway: '#0abdc6'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -4462,6 +4480,7 @@ function eraseBodyAt(pos) {
 
   if (!target) return eraseTripwireAt(pos);
 
+  if (target.render?.type === 'oneway-gate') wakeOnewayPayloads(target);
   const bodiesToRemove = new Set([target]);
   const constraintsToRemove = new Set();
   const addConstraint = c => { if (c) constraintsToRemove.add(c); };
@@ -4564,6 +4583,8 @@ function eraseBodyAt(pos) {
   magnets = magnets.filter(m => !removedBodyIds.has(m.body.id));
   chainLinks = chainLinks.filter(b => !removedBodyIds.has(b.id));
   ramps = ramps.filter(b => !removedBodyIds.has(b.id));
+  onewayGates = onewayGates.filter(b => !removedBodyIds.has(b.id));
+  removedBodyIds.forEach(id => onewayPreviousBounds.delete(id));
   pinwheels = pinwheels.filter(entry => !removedBodyIds.has(entry.body.id) && !constraintsToRemove.has(entry.constraint));
   baskets = baskets.filter(b => !removedBodyIds.has(b.id));
   cannons = cannons.filter(b => !removedBodyIds.has(b.id));
@@ -11651,6 +11672,120 @@ function updateTripwires() {
   });
 }
 
+const ONEWAY_WIDTH = 156;
+
+function showOnewayFeedback(gate) {
+  const feedback = document.getElementById('oneway-feedback');
+  feedback.textContent = `ONE-WAY: PASS ${gate.onewayDirection < 0 ? 'UP' : 'DOWN'} • TAP TO FLIP`;
+  feedback.classList.add('active');
+  clearTimeout(onewayFeedbackTimer);
+  onewayFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 1400);
+}
+
+function pruneOnewayGates() {
+  const live = new Set(Composite.allBodies(world));
+  onewayGates = onewayGates.filter(gate => {
+    if (live.has(gate)) return true;
+    wakeOnewayPayloads(gate);
+    return false;
+  });
+}
+
+function wakeOnewayPayloads(gate) {
+  Composite.allBodies(world).forEach(body => {
+    if (body.isStatic) return;
+    const bounds = getOnewayBounds(body), half = gate.render.width / 2;
+    if (bounds.maxX >= gate.position.x - half && bounds.minX <= gate.position.x + half &&
+        bounds.minY <= gate.position.y + 2 && bounds.maxY >= gate.position.y - 2) {
+      Matter.Sleeping.set(body, false);
+    }
+  });
+}
+
+function placeOrReverseOnewayAt(pos) {
+  pruneOnewayGates();
+  // A 52px-high hit strip spans the whole gate, including its two end posts.
+  let gate = [...onewayGates].reverse().find(body =>
+    Math.abs(pos.x - body.position.x) <= body.render.width / 2 + 10 &&
+    Math.abs(pos.y - body.position.y) <= 26
+  );
+  if (gate) {
+    gate.onewayDirection *= -1;
+    gate.onewayHitUntil = 0;
+    wakeOnewayPayloads(gate);
+  } else {
+    const width = Math.min(ONEWAY_WIDTH, Math.max(20, canvas.width - 32));
+    const x = Math.max(width / 2 + 8, Math.min(canvas.width - width / 2 - 8, pos.x));
+    const y = Math.max(44, Math.min(canvas.height - 44, pos.y));
+    gate = Bodies.rectangle(x, y, width, 6, {
+      isStatic:true, isSensor:true, label:'oneway-gate', collisionFilter:{mask:0},
+      render:{type:'oneway-gate', color:'#0abdc6', width}
+    });
+    gate.onewayDirection = -1;
+    onewayGates.push(gate);
+    Composite.add(world, gate);
+  }
+  showOnewayFeedback(gate);
+  addTripwireBurst(gate.position, {x:0, y:gate.onewayDirection}, '#0abdc6');
+  playSound(gate.onewayDirection < 0 ? 780 : 520, 0.09, 'square', 0.05);
+  haptic([6]);
+  return gate;
+}
+
+function getOnewayBounds(body) {
+  // Matter's broadphase bounds include velocity padding; use actual geometry.
+  const bounds = {minX:Infinity, maxX:-Infinity, minY:Infinity, maxY:-Infinity};
+  const parts = body.parts.length > 1 ? body.parts.slice(1) : [body];
+  parts.forEach(part => part.vertices.forEach(vertex => {
+    bounds.minX = Math.min(bounds.minX, vertex.x);
+    bounds.maxX = Math.max(bounds.maxX, vertex.x);
+    bounds.minY = Math.min(bounds.minY, vertex.y);
+    bounds.maxY = Math.max(bounds.maxY, vertex.y);
+  }));
+  return bounds;
+}
+
+function sampleOnewayBodies() {
+  onewayPreviousBounds.clear();
+  pruneOnewayGates();
+  if (!onewayGates.length) return;
+  Composite.allBodies(world).forEach(body => {
+    if (!body.isStatic && !body.isSensor && !body.isTarget && !body.isPhased) {
+      onewayPreviousBounds.set(body.id, getOnewayBounds(body));
+    }
+  });
+}
+
+function updateOnewayGates() {
+  if (!onewayGates.length) return;
+  Composite.allBodies(world).forEach(body => {
+    const previous = onewayPreviousBounds.get(body.id);
+    if (!previous || body.isStatic || body.isSensor || body.isPhased) return;
+    onewayGates.forEach(gate => {
+      const blockedDirection = -gate.onewayDirection;
+      if (body.velocity.y * blockedDirection <= 0) return;
+      const bounds = getOnewayBounds(body);
+      const edge = blockedDirection > 0 ? 'maxY' : 'minY';
+      const plane = gate.position.y;
+      const before = (previous[edge] - plane) * blockedDirection;
+      const after = (bounds[edge] - plane) * blockedDirection;
+      // Already straddling parts pass through; only an approach from the solid side catches.
+      if (before > 0.75 || after < 0 || after <= before) return;
+      const t = Math.max(0, Math.min(1, -before / (after - before)));
+      const minX = previous.minX + (bounds.minX - previous.minX) * t;
+      const maxX = previous.maxX + (bounds.maxX - previous.maxX) * t;
+      const half = gate.render.width / 2;
+      if (maxX <= gate.position.x - half || minX >= gate.position.x + half) return;
+      const impact = Math.abs(body.velocity.y);
+      Body.setPosition(body, {x:body.position.x, y:body.position.y + plane - bounds[edge]});
+      Body.setVelocity(body, {x:body.velocity.x, y:0});
+      if (impact > 1) gate.onewayHitUntil = performance.now() + 180;
+    });
+  });
+}
+Events.on(engine, 'beforeUpdate', sampleOnewayBodies);
+Events.on(engine, 'afterUpdate', updateOnewayGates);
+
 function showPulleyFeedback(message, color = '#ffc857') {
   const feedback = document.getElementById('pulley-feedback');
   feedback.textContent = message;
@@ -13259,6 +13394,13 @@ function onDown(e) {
     return;
   }
 
+  // One-way tool — place a directional platform or reverse its permitted travel.
+  if (currentTool === 'oneway') {
+    placeOrReverseOnewayAt(pos);
+    pointerDown = false;
+    return;
+  }
+
   // Snip tool — cut one visible physical connection without removing its bodies.
   if (currentTool === 'snip') {
     snipConstraintAt(pos);
@@ -14720,6 +14862,36 @@ function drawBody(b) {
         ctx.arc(x, 0, 2.5, 0, Math.PI * 2);
         ctx.fill();
       });
+      break;
+    }
+    case 'oneway-gate': {
+      const half = r.width / 2;
+      const direction = b.onewayDirection;
+      const hit = (b.onewayHitUntil || 0) > performance.now();
+      ctx.strokeStyle = hit ? '#ffc857' : '#0abdc6';
+      ctx.lineWidth = hit ? 4 : 2;
+      ctx.beginPath();
+      ctx.moveTo(-half, 0);
+      ctx.lineTo(half, 0);
+      ctx.stroke();
+      ctx.fillStyle = '#0d1117';
+      [-half, half].forEach(x => {
+        ctx.fillRect(x - 4, -10, 8, 20);
+        ctx.strokeRect(x - 4, -10, 8, 20);
+      });
+      ctx.strokeStyle = '#ffc857';
+      ctx.lineWidth = 2;
+      for (let x = -half + 22; x < half - 10; x += 28) {
+        ctx.beginPath();
+        ctx.moveTo(x - 5, -direction * 5);
+        ctx.lineTo(x, direction * 5);
+        ctx.lineTo(x + 5, -direction * 5);
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#dffcff';
+      ctx.font = '14px VT323';
+      ctx.textAlign = 'center';
+      ctx.fillText(direction < 0 ? 'PASS UP ↑' : 'PASS DOWN ↓', 0, 28);
       break;
     }
     case 'sieve-bar': {
@@ -18205,6 +18377,7 @@ function loop(timestamp) {
   pruneBreaklinks();
   pruneDampers();
   prunePulleys();
+  pruneOnewayGates();
   pruneHinges();
   pruneSprings();
   pruneWelds();
@@ -20191,7 +20364,7 @@ function captureGameState() {
       welds, tethers, webTraps, ramps, pinwheels, baskets,
       cannons, elevators, recyclers, hatches, pistons, parachuteBodies,
       saws, funnels, catapults, presses, ziplines, gearboxes,
-      rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys,
+      rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates,
       vortexActive, vortexTimer, vortexCenter, pendingPhysicsActions
     },
     gravity: { ...engine.gravity },
@@ -20237,6 +20410,7 @@ function readGameSave(serialized) {
   if (!Object.hasOwn(game.state, 'breaklinks')) game.state.breaklinks = [];
   if (!Object.hasOwn(game.state, 'dampers')) game.state.dampers = [];
   if (!Object.hasOwn(game.state, 'pulleys')) game.state.pulleys = [];
+  if (!Object.hasOwn(game.state, 'onewayGates')) game.state.onewayGates = [];
   const expected = captureGameState().state;
   for (const [key, value] of Object.entries(expected)) {
     const actual = game.state[key];
@@ -20280,6 +20454,12 @@ function readGameSave(serialized) {
     pulleyBodies.add(link.bodyB);
     return false;
   })) throw new Error('Invalid saved pulley');
+  if (new Set(game.state.onewayGates).size !== game.state.onewayGates.length ||
+      game.state.onewayGates.some(gate => !game.bodies.includes(gate) ||
+        gate.render?.type !== 'oneway-gate' || !gate.isStatic || !gate.isSensor ||
+        gate.collisionFilter?.mask !== 0 || gate.angle !== 0 ||
+        ![-1,1].includes(gate.onewayDirection) || !Number.isFinite(gate.render.width) ||
+        gate.render.width < 20 || gate.render.width > ONEWAY_WIDTH)) throw new Error('Invalid saved one-way gate');
   return game;
 }
 
@@ -20304,7 +20484,7 @@ function restoreGameState(game) {
     welds, tethers, webTraps, ramps, pinwheels, baskets,
     cannons, elevators, recyclers, hatches, pistons, parachuteBodies,
     saws, funnels, catapults, presses, ziplines, gearboxes,
-    rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys,
+    rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates,
     vortexActive, vortexTimer, vortexCenter, pendingPhysicsActions
   } = game.state);
   Object.assign(lessonState, game.lesson); // Keep host callbacks registered in this page.

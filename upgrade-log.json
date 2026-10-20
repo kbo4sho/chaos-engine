@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-10-20",
+      "ideas": [
+        "New tool: Place a reversible One-way gate that passes parts in one direction and catches their return"
+      ],
+      "summary": "Implemented One-way tool (⇧) — the final button after Pulley places a canvas-clamped passive directional gate that passes parts upward and supports them falling back; a repeat tap reverses PASS UP/PASS DOWN. Swept actual collision geometry catches fast crossings and compound parts while preserving horizontal motion and spin, respects Phase/sensors and already-straddling parts, and wakes resting payloads on reversal or removal. Cyan rails, amber direction chevrons/contact feedback, readable labels, a full-width 52px touch strip, accessible status, sound/sparks/haptics, tool-change/pruning/Eraser/Clear cleanup and backward-compatible validated save/load support desktop and mobile catch-floor contraptions."
+    },
+    {
       "date": "2026-10-19",
       "ideas": [
         "New tool: Route a shared cable through a fixed Pulley so one counterweight lifts the other end"
