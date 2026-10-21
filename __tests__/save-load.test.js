@@ -40,6 +40,184 @@ function gameHarness(stored = {}) {
 
 const key = 'chaos-engine-save-1';
 
+describe('Torsion tool with real Matter.js', () => {
+  function setup() {
+    const api = gameHarness();
+    api.run(`paused=true; engine.gravity.y=0;
+      window.a=Bodies.rectangle(200,200,24,40,{frictionAir:0});
+      window.b=Bodies.rectangle(400,200,30,50,{frictionAir:0});
+      Composite.add(world,[a,b]);`);
+    const select = tool => api.window.document.querySelector('[data-tool="'+tool+'"]').click();
+    const join = () => api.run('torsionAt(a.position); window.link=torsionAt(b.position); link');
+    const step = (count=1,delta=1000/60) => api.run(`for(let i=0;i<${count};i++) Engine.update(engine,${delta})`);
+    return {...api, select, join, step};
+  }
+
+  it('appends one final button, selects by the shared handler and routes real canvas taps', () => {
+    const api=setup(),button=api.window.document.querySelector('#toolbar > :last-child');
+    expect(button.dataset.tool).toBe('torsion');
+    expect(button.previousElementSibling.dataset.tool).toBe('oneway');
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(95);
+    expect(button.getAttribute('aria-label')).toContain('torsion spring');
+    expect(button.title).toContain('Snip');
+    api.select('draw'); button.click();
+    expect(api.run('[currentTool,drawMode]')).toEqual(['torsion',false]);
+    expect(button.classList.contains('active')).toBe(true);
+    expect(api.window.document.querySelector('[data-tool=draw]').classList.contains('active')).toBe(false);
+    const canvas=api.window.document.querySelector('canvas');
+    canvas.getBoundingClientRect=()=>({left:0,top:0,width:canvas.width,height:canvas.height});
+    for(const x of [200,400]) canvas.dispatchEvent(new api.window.MouseEvent('mousedown',{clientX:x,clientY:200,bubbles:true}));
+    expect(api.run('[torsions.length,torsionSelection,pointerDown]')).toEqual([1,null,false]);
+    expect(api.window.document.getElementById('torsion-feedback').getAttribute('role')).toBe('status');
+    expect(api.window.document.getElementById('torsion-feedback').textContent).toContain('TWIST EITHER END');
+    expect(api.errors).toEqual([]);
+  });
+
+  it('records arbitrary starting relative angle without a placement impulse or positional coupling', () => {
+    const api=setup();
+    api.run('Body.setAngle(a,0.3); Body.setAngle(b,1.2)'); api.join(); api.step(12);
+    expect(api.run('link.torsionRestAngle')).toBeCloseTo(0.9,10);
+    expect(api.run('[link.stiffness,link.damping,link.length,link.render.type]')).toEqual([0,0,200,'torsion']);
+    expect(api.run('[a.angularVelocity,b.angularVelocity,a.position.x,b.position.x]')).toEqual([0,0,200,400]);
+    api.run('Body.setPosition(b,{x:600,y:300}); Body.setVelocity(b,{x:3,y:4})'); api.step();
+    expect(api.run('[a.position.x,a.position.y,b.velocity.x,b.velocity.y]')).toEqual([200,200,3,4]);
+  });
+
+  it('uses equal and opposite angular impulses weighted by real inertia', () => {
+    const api=setup(); api.join();
+    api.run('Body.setAngle(b,1); updateTorsions({delta:1000/60})');
+    expect(api.run('a.angularVelocity')).toBeGreaterThan(0);
+    expect(api.run('b.angularVelocity')).toBeLessThan(0);
+    expect(api.run('a.inertia*a.angularVelocity+b.inertia*b.angularVelocity')).toBeCloseTo(0,10);
+    expect(api.run('a.angularVelocity-b.angularVelocity')).toBeCloseTo(0.012,10);
+    expect(api.run('[a.velocity.x,a.velocity.y,b.velocity.x,b.velocity.y]')).toEqual([0,0,0,0]);
+  });
+
+  it('winds under the existing Twist tool, oscillates and settles at the original relative angle', () => {
+    const api=setup(); api.join(); api.select('twist');
+    api.run('twistBodyAt(b.position)');
+    const initial=api.run('b.angularVelocity'); expect(initial).toBeGreaterThan(0);
+    api.step(16);
+    expect(api.run('Math.abs(b.angle-a.angle-link.torsionRestAngle)')).toBeGreaterThan(0.2);
+    expect(api.run('a.angularVelocity')).toBeGreaterThan(0);
+    api.step(300);
+    expect(api.run('Math.abs(b.angle-a.angle-link.torsionRestAngle)')).toBeLessThan(0.001);
+    expect(api.run('Math.abs(b.angularVelocity-a.angularVelocity)')).toBeLessThan(0.001);
+    expect(api.run('(a.inertia*a.angularVelocity+b.inertia*b.angularVelocity)/(a.inertia+b.inertia)')).toBeCloseTo(initial*api.run('b.inertia/(a.inertia+b.inertia)'),7);
+  });
+
+  it('supports an anchored end and returns a displaced angle instead of rigidly locking it', () => {
+    const api=setup(); api.run('toggleAnchorAt(a.position)'); api.join();
+    api.run('Body.setAngle(b,1)'); api.step(5);
+    expect(api.run('b.angle')).toBeGreaterThan(0.5);
+    expect(api.run('b.angle')).toBeLessThan(1);
+    expect(api.run('[a.angle,a.angularVelocity,a.position.x,a.position.y]')).toEqual([0,0,200,200]);
+    api.step(300); expect(api.run('Math.abs(b.angle)')).toBeLessThan(0.001);
+  });
+
+  it('retains multiple turns of winding and bounds extreme angular correction', () => {
+    const api=setup(); api.join();
+    api.run('Body.setAngle(b,Math.PI*8); updateTorsions({delta:1000/60})');
+    expect(api.run('a.angularVelocity-b.angularVelocity')).toBeCloseTo(0.045,10);
+    api.step(180); expect(api.run('b.angle-a.angle')).toBeLessThan(Math.PI*8-1);
+    expect(api.run('[a.angle,b.angle,a.angularVelocity,b.angularVelocity].every(Number.isFinite)')).toBe(true);
+  });
+
+  it('scales the spring impulse with the physics timestep and does nothing at zero delta', () => {
+    const api=setup(); api.join();
+    api.run('Body.setAngle(b,0.5); updateTorsions({delta:0})');
+    expect(api.run('[a.angularVelocity,b.angularVelocity]')).toEqual([0,0]);
+    api.run('updateTorsions({delta:1000/120})');
+    expect(api.run('a.angularVelocity-b.angularVelocity')).toBeCloseTo(0.003,10);
+  });
+
+  it('wakes sleeping endpoints when the spring is wound', () => {
+    const api=setup(); api.join();
+    api.run('Body.setAngle(b,1); Matter.Sleeping.set(a,true); Matter.Sleeping.set(b,true); updateTorsions({delta:1000/60})');
+    expect(api.run('[a.isSleeping,b.isSleeping]')).toEqual([false,false]);
+  });
+
+  it('offers empty guidance, fingertip targeting, same-part cancellation and duplicate protection', () => {
+    const api=setup();
+    expect(api.run('torsionAt({x:900,y:500})')).toBe(false);
+    expect(api.window.document.getElementById('torsion-feedback').textContent).toContain('TAP A PART');
+    expect(api.run('torsionAt({x:240,y:200})')).toBe('selected');
+    expect(api.run('torsionSelection===a')).toBe(true);
+    expect(api.run('torsionAt(a.position)')).toBe('cancelled');
+    api.join();
+    api.run('torsionAt(b.position)'); expect(api.run('torsionAt(a.position)')).toBe(false);
+    expect(api.run('[torsions.length,torsionSelection]')).toEqual([1,null]);
+  });
+
+  it('rejects walls, short links and pairs with no rotational freedom', () => {
+    const api=setup();
+    expect(api.run('torsionAt({x:5,y:5})')).toBe(false);
+    api.run('Body.setPosition(b,{x:230,y:200}); torsionAt(a.position)');
+    expect(api.run('torsionAt(b.position)')).toBe(false);
+    api.run('Body.setPosition(b,{x:400,y:200}); toggleAnchorAt(a.position); toggleAnchorAt(b.position)');
+    expect(api.run('torsionAt(b.position)')).toBe(false);
+    expect(api.run('torsions.length')).toBe(0);
+    expect(api.window.document.getElementById('torsion-feedback').textContent).toContain('ONE PART MUST TURN');
+  });
+
+  it.each(['ball','draw'])('clears pending selection and feedback when switching to %s', tool => {
+    const api=setup(); api.select('torsion'); api.run('torsionAt(a.position)'); api.select(tool);
+    expect(api.run('torsionSelection')).toBe(null);
+    expect(api.window.document.getElementById('torsion-feedback').textContent).toBe('');
+  });
+
+  it('Snip disconnects angular coupling and keeps both payloads', () => {
+    const api=setup(); api.join(); api.run('snipConstraintAt({x:300,y:200}); Body.setAngle(b,1)'); api.step();
+    expect(api.run('[torsions.length,Composite.allConstraints(world).length,captureGameState().bodies.length]')).toEqual([0,0,2]);
+    expect(api.run('[a.angularVelocity,b.angularVelocity]')).toEqual([0,0]);
+  });
+
+  it('cleans Eraser, removed bodies or constraints, pending selection, and Clear', () => {
+    const api=setup(); api.join(); api.run('eraseBodyAt(a.position)');
+    expect(api.run('[torsions.length,Composite.allConstraints(world).length,captureGameState().bodies.length]')).toEqual([0,0,1]);
+    const other=setup(); other.join(); other.run('Composite.remove(world,link); pruneTorsions()');
+    expect(other.run('torsions.length')).toBe(0);
+    other.join(); other.run('Composite.remove(world,a); updateTorsions({delta:1000/60})');
+    expect(other.run('[torsions.length,Composite.allConstraints(world).length]')).toEqual([0,0]);
+    other.run('torsionAt(b.position); Composite.remove(world,b); pruneTorsions()');
+    expect(other.run('torsionSelection')).toBe(null);
+    const clear=setup(); clear.join(); clear.run('torsionAt(a.position); finishClear(false)');
+    expect(clear.run('[torsions.length,torsionSelection,captureGameState().bodies.length]')).toEqual([0,null,0]);
+    expect(clear.window.document.getElementById('torsion-feedback').textContent).toBe('');
+  });
+
+  it('restores constraint identity, winding, selected tool and angular spring physics', () => {
+    const api=setup(); api.join(); api.select('torsion');
+    api.run(`Body.setAngle(b,1); restoreGameState(readGameSave(serializeGameState()));
+      window.link=torsions[0]; window.a=link.bodyA; window.b=link.bodyB;`);
+    expect(api.run('[currentTool,link.torsionRestAngle,b.angle,torsionSelection]')).toEqual(['torsion',0,1,null]);
+    expect(api.run('Composite.allConstraints(world).includes(link)&&Composite.allBodies(world).includes(a)&&Composite.allBodies(world).includes(b)')).toBe(true);
+    api.step(); expect(api.run('a.angularVelocity')).toBeGreaterThan(0);
+    expect(api.run('b.angularVelocity')).toBeLessThan(0);
+    expect(api.errors).toEqual([]);
+  });
+
+  it('migrates older version 1 saves with an empty torsion registry', () => {
+    const api=setup();
+    api.run(`const game=captureGameState(); delete game.state.torsions; const graph=ChaosSaveCodec.encode(game);
+      restoreGameState(readGameSave(JSON.stringify({version:1,savedAt:new Date().toISOString(),graph,checksum:ChaosSaveCodec.checksum(graph)})))`);
+    expect(api.run('torsions.length')).toBe(0);
+    expect(api.run('captureGameState().bodies.length')).toBe(2);
+  });
+
+  it.each(['link.torsionRestAngle=NaN','link.stiffness=1','link.bodyB=link.bodyA','torsions.push(link)','link.pointA.x=1'])('rejects malformed saves before replacing the running world: %s', mutation => {
+    const api=setup(); api.join(); api.run(mutation);
+    expect(()=>api.run('readGameSave(serializeGameState())')).toThrow('Invalid saved torsion');
+    expect(api.run('captureGameState().bodies.length')).toBe(2);
+  });
+
+  it('renders the pending part, coil, winding readout and endpoint spokes', () => {
+    const api=setup(); api.select('torsion');
+    api.run('torsionAt(a.position); drawTorsions(); torsionAt(b.position); drawTorsions(); Body.setAngle(b,1); drawTorsions(); drawConstraints()');
+    expect(api.errors).toEqual([]);
+  });
+});
+
 describe('One-way gate with real Matter.js', () => {
   function setup(bodyCode = 'Bodies.rectangle(300,200,20,20,{frictionAir:0})') {
     const api = gameHarness();
@@ -51,11 +229,11 @@ describe('One-way gate with real Matter.js', () => {
     return {...api, select, step};
   }
 
-  it('appends exactly one final button and routes real canvas taps through shared selection', () => {
-    const api=gameHarness(), button=api.window.document.querySelector('#toolbar > :last-child');
+  it('keeps One-way after Pulley and routes real canvas taps through shared selection', () => {
+    const api=gameHarness(), button=api.window.document.querySelector('[data-tool=oneway]');
     expect(button.dataset.tool).toBe('oneway');
     expect(button.previousElementSibling.dataset.tool).toBe('pulley');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(94);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(95);
     expect(button.getAttribute('aria-label')).toContain('one-way gate');
     expect(button.title).toContain('reverse');
     button.click();
@@ -247,7 +425,7 @@ describe('Pulley tool with real Matter.js', () => {
     const button = api.window.document.querySelector('[data-tool=pulley]');
     expect(button.dataset.tool).toBe('pulley');
     expect(button.previousElementSibling.dataset.tool).toBe('damper');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(94);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(95);
     expect(button.getAttribute('aria-label')).toContain('counterweight pulley');
     expect(button.title).toContain('Snip');
     api.select('pulley');

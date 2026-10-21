@@ -809,7 +809,7 @@ canvas#game {
 #ratchet-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
-#breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback {
+#breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback, #torsion-feedback {
   position:absolute; top:14px; left:50%; z-index:3;
   transform:translate(-50%, -8px) scale(0.9);
   padding:4px 12px; border:1px solid currentColor;
@@ -819,7 +819,7 @@ canvas#game {
   opacity:0; pointer-events:none; white-space:nowrap;
   transition:opacity .12s, transform .12s;
 }
-#breaklink-feedback.active, #damper-feedback.active, #pulley-feedback.active, #oneway-feedback.active {
+#breaklink-feedback.active, #damper-feedback.active, #pulley-feedback.active, #oneway-feedback.active, #torsion-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
 #damper-feedback, #oneway-feedback { color:#0abdc6; }
@@ -990,7 +990,7 @@ canvas#game {
   #winch-feedback { top:14px; font-size:19px; }
   #tripwire-feedback { top:14px; font-size:19px; }
   #ratchet-feedback { top:14px; font-size:19px; }
-  #breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback { font-size:19px; }
+  #breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback, #torsion-feedback { font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -1088,6 +1088,7 @@ canvas#game {
     <div id="damper-feedback" role="status" aria-live="polite"></div>
     <div id="pulley-feedback" role="status" aria-live="polite"></div>
     <div id="oneway-feedback" role="status" aria-live="polite"></div>
+    <div id="torsion-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -1187,6 +1188,7 @@ canvas#game {
     <button class="tool-btn" data-tool="damper" style="color:#0abdc6;" title="Tap two parts to slow their approach and separation without a spring; Snip disconnects them" aria-label="Connect two parts with a passive shock absorber"><span class="icon">⊣⊢</span>Damper</button>
     <button class="tool-btn" data-tool="pulley" style="color:#ffc857;" title="Tap two parts, then place a fixed pulley wheel; one shared cable lets one end lift the other. Snip cuts either leg" aria-label="Connect two parts through a fixed counterweight pulley"><span class="icon">⏀</span>Pulley</button>
     <button class="tool-btn" data-tool="oneway" style="color:#0abdc6;" title="Tap to place a gate that passes parts upward and catches them falling; tap the gate to reverse it" aria-label="Place a one-way gate or reverse its permitted direction"><span class="icon">⇧</span>One-way</button>
+    <button class="tool-btn" data-tool="torsion" style="color:#ffc857;" title="Tap two parts to couple their rotation with an angular spring; twist either end to wind it. Snip disconnects them" aria-label="Connect two parts with a torsion spring that restores their relative angle"><span class="icon">➰</span>Torsion</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1554,6 +1556,9 @@ let pulleyFeedbackTimer = 0;
 let onewayGates = []; // static directional platforms; arrow shows the permitted travel
 let onewayFeedbackTimer = 0;
 const onewayPreviousBounds = new Map(); // transient geometry sampled before each physics step
+let torsions = []; // angular-only spring couplings; translation remains free
+let torsionSelection = null;
+let torsionFeedbackTimer = 0;
 
 // Block shattering
 let pendingPhysicsActions = []; // Serializable delayed rain and collision work
@@ -2550,6 +2555,15 @@ function resetPulleySelection(silent = false) {
   feedback.textContent = '';
 }
 
+function resetTorsionSelection(silent = false) {
+  torsionSelection = null;
+  if (!silent) return;
+  clearTimeout(torsionFeedbackTimer);
+  const feedback = document.getElementById('torsion-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 function resetOnewayFeedback() {
   clearTimeout(onewayFeedbackTimer);
   const feedback = document.getElementById('oneway-feedback');
@@ -2600,6 +2614,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       resetDamperSelection(true);
       resetPulleySelection(true);
       resetOnewayFeedback();
+      resetTorsionSelection(true);
       drawMode = !drawMode;
       btn.classList.toggle('active', drawMode);
       if (!drawMode) drawPoints = [];
@@ -2669,6 +2684,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'damper') resetDamperSelection(true);
       if (tool !== 'pulley') resetPulleySelection(true);
       if (tool !== 'oneway') resetOnewayFeedback();
+      if (tool !== 'torsion') resetTorsionSelection(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -4119,6 +4135,8 @@ function finishClear(playFeedback = true) {
   onewayGates = [];
   onewayPreviousBounds.clear();
   resetOnewayFeedback();
+  torsions = [];
+  resetTorsionSelection(true);
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -4422,7 +4440,8 @@ function getToolAccentColor(tool) {
     breaklink: '#ffc857',
     damper: '#0abdc6',
     pulley: '#ffc857',
-    oneway: '#0abdc6'
+    oneway: '#0abdc6',
+    torsion: '#ffc857'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -4618,6 +4637,7 @@ function eraseBodyAt(pos) {
   struts = struts.filter(strut => !constraintsToRemove.has(strut));
   breaklinks = breaklinks.filter(link => !constraintsToRemove.has(link));
   dampers = dampers.filter(link => !constraintsToRemove.has(link));
+  torsions = torsions.filter(link => !constraintsToRemove.has(link));
   pulleys = pulleys.filter(link => !constraintsToRemove.has(link));
   hinges = hinges.filter(hinge => !constraintsToRemove.has(hinge));
   springs = springs.filter(spring => !constraintsToRemove.has(spring));
@@ -4648,6 +4668,7 @@ function eraseBodyAt(pos) {
   if (strutFirstBody && removedBodyIds.has(strutFirstBody.id)) strutFirstBody = null;
   if (breaklinkSelection && removedBodyIds.has(breaklinkSelection.id)) resetBreaklinkSelection(true);
   if (damperSelection && removedBodyIds.has(damperSelection.id)) resetDamperSelection(true);
+  if (torsionSelection && removedBodyIds.has(torsionSelection.id)) resetTorsionSelection(true);
   if (pulleySelection.some(body => removedBodyIds.has(body.id))) resetPulleySelection(true);
   if (rotateFlash && removedBodyIds.has(rotateFlash.body.id)) rotateFlash = null;
   if (fusionFirstBody && removedBodyIds.has(fusionFirstBody.id)) fusionFirstBody = null;
@@ -11907,6 +11928,105 @@ function updatePulleys() {
 
 Events.on(engine, 'afterUpdate', updatePulleys);
 
+function showTorsionFeedback(message, color = '#ffc857') {
+  const feedback = document.getElementById('torsion-feedback');
+  feedback.textContent = message;
+  feedback.style.color = color;
+  feedback.classList.add('active');
+  clearTimeout(torsionFeedbackTimer);
+  torsionFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 1400);
+}
+
+function pruneTorsions() {
+  const liveBodies = new Set(Composite.allBodies(world));
+  torsions = torsions.filter(link => {
+    const inWorld = Composite.get(world, link.id, 'constraint');
+    const hasBothEnds = liveBodies.has(link.bodyA) && liveBodies.has(link.bodyB);
+    if (inWorld && !hasBothEnds) Composite.remove(world, link, true);
+    return Boolean(inWorld && hasBothEnds);
+  });
+  if (torsionSelection && !liveBodies.has(torsionSelection)) resetTorsionSelection(true);
+}
+
+function torsionAt(pos) {
+  pruneTorsions();
+  const target = findStrutBodyAt(pos); // shared build-part eligibility and 46px touch targeting
+  if (!target) {
+    showTorsionFeedback(torsionSelection ? 'TORSION: PICK SECOND PART' : 'TORSION: TAP A PART', '#aaaaaa');
+    haptic([3]);
+    return false;
+  }
+  if (!torsionSelection) {
+    torsionSelection = target;
+    addStrutBurst(target, '#ffc857');
+    showTorsionFeedback('TORSION: PICK SECOND PART');
+    haptic([6]);
+    return 'selected';
+  }
+  if (target === torsionSelection) {
+    resetTorsionSelection();
+    showTorsionFeedback('TORSION CANCELLED', '#aaaaaa');
+    return 'cancelled';
+  }
+  const first = torsionSelection;
+  if (!(first.inverseInertia + target.inverseInertia > 0)) {
+    showTorsionFeedback('TORSION: ONE PART MUST TURN', '#ffc857');
+    return false;
+  }
+  if (torsions.some(link => (link.bodyA === first && link.bodyB === target) ||
+      (link.bodyB === first && link.bodyA === target))) {
+    resetTorsionSelection();
+    showTorsionFeedback('TORSION ALREADY CONNECTED');
+    return false;
+  }
+  const length = getStrutLength(first, target);
+  if (length < 36) {
+    showTorsionFeedback('TORSION: PARTS TOO CLOSE', '#ffc857');
+    return false;
+  }
+  // This constraint supplies identity and Snip/save support. Only the angular
+  // solver couples the parts: no distance force, teleport or rigid angle lock.
+  const link = Constraint.create({bodyA:first, bodyB:target, length, damping:0, render:{type:'torsion'}});
+  link.stiffness = 0; // Matter's constructor defaults falsy stiffness to 1.
+  link.torsionRestAngle = target.angle - first.angle;
+  Composite.add(world, link);
+  torsions.push(link);
+  [first, target].forEach(body => {
+    Matter.Sleeping.set(body, false);
+    addStrutBurst(body, '#ffc857');
+  });
+  resetTorsionSelection();
+  showTorsionFeedback('TORSION SET • TWIST EITHER END');
+  playSound(560, 0.12, 'triangle', 0.05);
+  haptic([6, 8, 6]);
+  return link;
+}
+
+function updateTorsions(event) {
+  pruneTorsions();
+  const step = Math.max(0, Math.min(2, (event.delta || 0) / (1000 / 60)));
+  torsions.forEach(link => {
+    const a = link.bodyA, b = link.bodyB;
+    const inverseA = a.isStatic ? 0 : a.inverseInertia;
+    const inverseB = b.isStatic ? 0 : b.inverseInertia;
+    const total = inverseA + inverseB;
+    if (!(total > 0)) return;
+    // Unwrapped angles retain multiple turns of winding. Equal/opposite angular
+    // impulses conserve momentum; relative damping settles the spring.
+    const error = b.angle - a.angle - link.torsionRestAngle;
+    const relativeSpeed = b.angularVelocity - a.angularVelocity;
+    const correction = Math.max(-0.045, Math.min(0.045, error * 0.012 + relativeSpeed * 0.08)) * step;
+    if (Math.abs(correction) < 0.000001) return;
+    [[a, inverseA, 1], [b, inverseB, -1]].forEach(([body, inverse, direction]) => {
+      if (inverse === 0) return;
+      Matter.Sleeping.set(body, false);
+      Body.setAngularVelocity(body, body.angularVelocity + direction * correction * inverse / total);
+    });
+  });
+}
+
+Events.on(engine, 'beforeUpdate', updateTorsions);
+
 function showDamperFeedback(message, color = '#0abdc6') {
   const feedback = document.getElementById('damper-feedback');
   feedback.textContent = message;
@@ -12881,6 +13001,7 @@ function snipConstraintAt(pos) {
   struts = struts.filter(strut => strut !== constraint);
   breaklinks = breaklinks.filter(link => link !== constraint);
   dampers = dampers.filter(link => link !== constraint);
+  torsions = torsions.filter(link => link !== constraint);
   pulleys = pulleys.filter(link => link !== constraint);
   hinges = hinges.filter(hinge => hinge !== constraint);
   springs = springs.filter(spring => spring !== constraint);
@@ -13397,6 +13518,13 @@ function onDown(e) {
   // One-way tool — place a directional platform or reverse its permitted travel.
   if (currentTool === 'oneway') {
     placeOrReverseOnewayAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Torsion tool — couple spin with an angular spring, leaving translation free.
+  if (currentTool === 'torsion') {
+    torsionAt(pos);
     pointerDown = false;
     return;
   }
@@ -15577,6 +15705,7 @@ function drawConstraints() {
     if (!c.bodyA || !c.bodyB) return;
     if (c.render?.type === 'flipper-pin') return;
     if (c.render?.type === 'breaklink') return; // Draw strain and weak seam above the parts.
+    if (c.render?.type === 'torsion') return; // Draw the wound coil and its shafts above the parts.
     if (c.render?.type === 'damper') return; // Draw the telescoping shock absorber above the parts.
     if (c.render?.type === 'pulley') return; // Draw both routed cable legs and the fixed wheel.
     const pA = Vector.add(c.bodyA.position, Vector.rotate(c.pointA, c.bodyA.angle));
@@ -18117,6 +18246,55 @@ function drawPulleys() {
   });
 }
 
+function drawTorsions() {
+  torsions.forEach(link => {
+    const a = link.bodyA, b = link.bodyB;
+    const error = b.angle - a.angle - link.torsionRestAngle;
+    const x = (a.position.x + b.position.x) / 2, y = (a.position.y + b.position.y) / 2;
+    ctx.save();
+    ctx.strokeStyle = Math.abs(error) > 0.1 ? '#ffc857' : '#0abdc6';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(a.position.x, a.position.y);
+    ctx.lineTo(b.position.x, b.position.y);
+    ctx.stroke();
+    // Each endpoint's spoke makes actual part rotation visible, even on a ball.
+    [a, b].forEach(body => {
+      ctx.beginPath();
+      ctx.arc(body.position.x, body.position.y, 10, 0, Math.PI * 2);
+      ctx.moveTo(body.position.x, body.position.y);
+      ctx.lineTo(body.position.x + Math.cos(body.angle) * 17, body.position.y + Math.sin(body.angle) * 17);
+      ctx.stroke();
+    });
+    ctx.fillStyle = '#080c10';
+    ctx.beginPath();
+    ctx.arc(x, y, 24, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    for (let i = 0; i <= 96; i++) {
+      const t = i / 96, radius = 4 + t * 17;
+      const angle = t * (Math.PI * 6 + Math.max(-2, Math.min(2, error))) + a.angle;
+      const px = x + Math.cos(angle) * radius, py = y + Math.sin(angle) * radius;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+    ctx.fillStyle = '#dffcff';
+    ctx.font = '16px VT323, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`TORSION ${Math.round(error * 180 / Math.PI)}°`, x, y - 30);
+    ctx.restore();
+  });
+  if (currentTool !== 'torsion' || !torsionSelection) return;
+  const body = torsionSelection;
+  ctx.save();
+  ctx.strokeStyle = '#ffc857';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 4]);
+  ctx.strokeRect(body.bounds.min.x - 8, body.bounds.min.y - 8,
+    body.bounds.max.x - body.bounds.min.x + 16, body.bounds.max.y - body.bounds.min.y + 16);
+  ctx.restore();
+}
+
 function drawDampers() {
   dampers.forEach(link => {
     const a = link.bodyA.position;
@@ -18376,6 +18554,7 @@ function loop(timestamp) {
   pruneStruts();
   pruneBreaklinks();
   pruneDampers();
+  pruneTorsions();
   prunePulleys();
   pruneOnewayGates();
   pruneHinges();
@@ -19236,6 +19415,7 @@ function loop(timestamp) {
   drawRatchetMarkers(timestamp);
   drawBreaklinks();
   drawDampers();
+  drawTorsions();
   drawPulleys();
   drawRelayMarker(timestamp);
   drawStrutMarker(timestamp);
@@ -20364,7 +20544,7 @@ function captureGameState() {
       welds, tethers, webTraps, ramps, pinwheels, baskets,
       cannons, elevators, recyclers, hatches, pistons, parachuteBodies,
       saws, funnels, catapults, presses, ziplines, gearboxes,
-      rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates,
+      rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates, torsions,
       vortexActive, vortexTimer, vortexCenter, pendingPhysicsActions
     },
     gravity: { ...engine.gravity },
@@ -20411,6 +20591,7 @@ function readGameSave(serialized) {
   if (!Object.hasOwn(game.state, 'dampers')) game.state.dampers = [];
   if (!Object.hasOwn(game.state, 'pulleys')) game.state.pulleys = [];
   if (!Object.hasOwn(game.state, 'onewayGates')) game.state.onewayGates = [];
+  if (!Object.hasOwn(game.state, 'torsions')) game.state.torsions = [];
   const expected = captureGameState().state;
   for (const [key, value] of Object.entries(expected)) {
     const actual = game.state[key];
@@ -20444,6 +20625,12 @@ function readGameSave(serialized) {
   if (game.state.dampers.some(link => !game.constraints.includes(link) ||
       link.render?.type !== 'damper' || !link.bodyA || !link.bodyB || link.bodyA === link.bodyB ||
       link.length < 36 || link.stiffness !== 0 || link.damping !== 0.18)) throw new Error('Invalid saved damper');
+  if (new Set(game.state.torsions).size !== game.state.torsions.length ||
+      game.state.torsions.some(link => !game.constraints.includes(link) ||
+        link.render?.type !== 'torsion' || !link.bodyA || !link.bodyB || link.bodyA === link.bodyB ||
+        !Number.isFinite(link.torsionRestAngle) || link.length < 36 ||
+        link.stiffness !== 0 || link.damping !== 0 ||
+        link.pointA.x !== 0 || link.pointA.y !== 0 || link.pointB.x !== 0 || link.pointB.y !== 0)) throw new Error('Invalid saved torsion');
   const pulleyBodies = new Set();
   if (game.state.pulleys.some(link => {
     if (!game.constraints.includes(link) || link.render?.type !== 'pulley' ||
@@ -20484,7 +20671,7 @@ function restoreGameState(game) {
     welds, tethers, webTraps, ramps, pinwheels, baskets,
     cannons, elevators, recyclers, hatches, pistons, parachuteBodies,
     saws, funnels, catapults, presses, ziplines, gearboxes,
-    rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates,
+    rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates, torsions,
     vortexActive, vortexTimer, vortexCenter, pendingPhysicsActions
   } = game.state);
   Object.assign(lessonState, game.lesson); // Keep host callbacks registered in this page.

@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-10-21",
+      "ideas": [
+        "New tool: Couple two parts with a Torsion spring that stores winding and restores their original relative angle"
+      ],
+      "summary": "Implemented Torsion tool (➰) — the final button after One-way selects two parts and couples their rotation with an angular spring while leaving translation free. Equal/opposite timestep-scaled impulses use real inertia, conserve free endpoints’ angular momentum, retain multiple turns of winding, damp relative spin and bound extreme corrections; anchored endpoints work too. A wound cyan/amber coil, endpoint rotation spokes, degree readout, accessible status, shared 46px targeting, sparks/audio/haptics, cancellation and duplicate/short-link/fixed-pair guidance, Snip/Eraser/pruning/tool-change/Clear cleanup and validated backward-compatible save/load support desktop and mobile spring-return contraptions."
+    },
+    {
       "date": "2026-10-20",
       "ideas": [
         "New tool: Place a reversible One-way gate that passes parts in one direction and catches their return"
