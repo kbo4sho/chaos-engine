@@ -4,6 +4,14 @@ Improvement history for this project. Each entry logs one cycle's work.
 
 ---
 
+## 2026-10-22T14:05:20Z — Added: Syrup tool
+**Why:** Brake stops one part once, Damper softens motion between two connected parts, and Ocean changes the whole scene. Syrup adds a small, placeable viscous medium that continuously slows parts only while their centers are inside its boundary.
+**Goal alignment:** "more fun, more surprising, more satisfying" — pour a pocket of slow motion into a contraption, launch spinning parts into it, then drain the pool to restore free motion while gravity and the rest of the scene keep running.
+**Files changed:** index.html, __tests__/chaos-engine.test.js, __tests__/save-load.test.js, changelog.md, upgrade-log.json
+**Implementation:** Appended Syrup (🍯) after Torsion as the final object-toolbar button. Tap to place a canvas-clamped 74px-radius non-solid pool; tap its full area again to drain it. Timestep-scaled exponential drag dissipates linear motion and spin, with a soft 20px rim and strongest-only overlap, without changing material, mass, direction or gravity. Static, sensor and phased parts are excluded. Amber pool/rim drawing, a plain-text drain hint, accessible status, sparks/audio/haptics, shared desktop/mobile controls, tool-change/Draw feedback cleanup, Eraser/pruning/Clear and validated backward-compatible save/load are covered.
+**Verified:** tests ✓ (707/707 passing: 591 toolbar/legacy and 116 real-Matter runtime/save cases, including 23 new Syrup cases); desktop browser ✓ (96/96 final placement, 64×58px button, Enter selection, existing Ball/Launch/Twist, speed 8→0.117 and spin 0.416→0.0061 inside the pool, drainage retained the Ball and a fresh launch maintained speed 7.90, Eraser and Clear); mobile ✓ (390×844 real touch with reduced motion, final 52×50px button fully visible at maximum scroll, save/refresh/load preserved the selected tool and pool identity/radius, slowdown/drainage/Eraser/Clear passed); console ✓ (0 warnings/errors); live ✓ (http://192.168.68.52:3003). Inline JavaScript syntax, JSON and diff checks passed. Supplemental strict static UI audit reports 128 shared-listener actionless-button false positives versus 127 on the frozen baseline; executable DOM/browser checks verify the new button's handler. DESIGN.md lint reports zero errors and four existing orphaned-token warnings; shared CRT tokens and layout are unchanged.
+**Status:** shipped
+
 ## 2026-10-21T14:08:14Z — Added: Torsion tool
 **Why:** Spring controls distance, Gearbox couples opposite spin, and Gyro levels one part against the world. Torsion adds an angular spring between two existing parts that stores winding and restores their original relative angle while the assembly can rotate and translate freely.
 **Goal alignment:** "more fun, more surprising, more satisfying" — twist one end, watch the coil wind, then let its stored rotation unwind into both parts; anchor one end for a spring-return mechanism.

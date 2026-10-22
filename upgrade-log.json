@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-10-22",
+      "ideas": [
+        "New tool: Pour a local Syrup pool that slows passing parts and spin, then tap to drain it"
+      ],
+      "summary": "Implemented Syrup tool (🍯) — the final button after Torsion pours a canvas-clamped non-solid viscous pool, and tapping the pool drains it without removing payloads. Timestep-scaled linear/angular drag with a soft rim and strongest-only overlap slows parts locally while preserving their mass, material, direction and gravity; static, sensor and phased parts are excluded. Amber pool/rim rendering, a readable drain hint, accessible feedback, sparks/audio/haptics, shared desktop/mobile controls, Eraser/pruning/tool-change/Draw/Clear cleanup and validated backward-compatible save/load support local cushioning and slow-motion contraptions."
+    },
+    {
       "date": "2026-10-21",
       "ideas": [
         "New tool: Couple two parts with a Torsion spring that stores winding and restores their original relative angle"

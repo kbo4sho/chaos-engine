@@ -40,6 +40,149 @@ function gameHarness(stored = {}) {
 
 const key = 'chaos-engine-save-1';
 
+describe('Syrup tool with real Matter.js', () => {
+  function setup() {
+    const api=gameHarness();
+    api.run(`paused=true; engine.gravity.y=0;
+      window.pool=placeOrDrainSyrupAt({x:300,y:300});
+      window.payload=Bodies.rectangle(300,300,20,30,{frictionAir:0}); Composite.add(world,payload);`);
+    const select=tool=>api.window.document.querySelector('[data-tool="'+tool+'"]').click();
+    const step=(count=1)=>api.run(`for(let i=0;i<${count};i++) Engine.update(engine,1000/60)`);
+    return {...api,select,step};
+  }
+
+  it('appends exactly one final button, selects through Draw and routes real canvas taps', () => {
+    const api=gameHarness(),button=api.window.document.querySelector('#toolbar > :last-child');
+    expect(button.dataset.tool).toBe('syrup');
+    expect(button.previousElementSibling.dataset.tool).toBe('torsion');
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(96);
+    expect(button.getAttribute('aria-label')).toContain('syrup pool');
+    expect(button.title).toContain('drain');
+    api.window.document.querySelector('[data-tool=draw]').click(); button.click();
+    expect(api.run('[currentTool,drawMode]')).toEqual(['syrup',false]);
+    expect(button.classList.contains('active')).toBe(true);
+    expect(api.window.document.querySelector('[data-tool=draw]').classList.contains('active')).toBe(false);
+    const canvas=api.window.document.querySelector('canvas');
+    canvas.getBoundingClientRect=()=>({left:0,top:0,width:canvas.width,height:canvas.height});
+    canvas.dispatchEvent(new api.window.MouseEvent('mousedown',{clientX:300,clientY:300,bubbles:true}));
+    expect(api.run('[syrupPools.length,pointerDown]')).toEqual([1,false]);
+    const feedback=api.window.document.getElementById('syrup-feedback');
+    expect(feedback.getAttribute('role')).toBe('status');
+    expect(feedback.textContent).toContain('POURED');
+    canvas.dispatchEvent(new api.window.MouseEvent('mousedown',{clientX:370,clientY:300,bubbles:true}));
+    expect(api.run('syrupPools.length')).toBe(0);
+    expect(feedback.textContent).toContain('DRAINED');
+    expect(api.errors).toEqual([]);
+  });
+
+  it('places a non-solid pool and clamps it into desktop and small canvases', () => {
+    const api=setup();
+    expect(api.run('[pool.isStatic,pool.isSensor,pool.collisionFilter.mask,pool.render.radius]')).toEqual([true,true,0,74]);
+    api.run('window.edge=placeOrDrainSyrupAt({x:-100,y:-100})');
+    expect(api.run('[edge.position.x,edge.position.y]')).toEqual([84,84]);
+    api.run('finishClear(false); canvas.width=100; canvas.height=90; window.small=placeOrDrainSyrupAt({x:500,y:500})');
+    expect(api.run('[small.render.radius,small.position.x,small.position.y]')).toEqual([35,55,45]);
+  });
+
+  it('dissipates linear and angular energy without changing direction, mass or friction', () => {
+    const api=setup();
+    api.run('window.mass=payload.mass; Body.setVelocity(payload,{x:6,y:8}); Body.setAngularVelocity(payload,0.3); updateSyrupPools({delta:1000/60})');
+    expect(api.run('payload.velocity.x')).toBeCloseTo(6*Math.exp(-0.2),10);
+    expect(api.run('payload.velocity.y')).toBeCloseTo(8*Math.exp(-0.2),10);
+    expect(api.run('payload.angularVelocity')).toBeCloseTo(0.3*Math.exp(-0.2),10);
+    expect(api.run('[payload.mass===mass,payload.frictionAir,engine.gravity.y]')).toEqual([true,0,0]);
+    api.step(20);
+    expect(api.run('payload.speed')).toBeLessThan(0.3);
+    expect(api.run('Math.abs(payload.angularVelocity)')).toBeLessThan(0.01);
+  });
+
+  it('has a smooth rim and leaves outside parts untouched', () => {
+    const api=setup();
+    api.run('Body.setPosition(payload,{x:364,y:300}); Body.setVelocity(payload,{x:10,y:0}); updateSyrupPools({delta:1000/60})');
+    expect(api.run('payload.velocity.x')).toBeCloseTo(10*Math.exp(-0.1),10);
+    api.run('Body.setPosition(payload,{x:375,y:300}); Body.setVelocity(payload,{x:10,y:0}); updateSyrupPools({delta:1000/60})');
+    expect(api.run('payload.velocity.x')).toBe(10);
+  });
+
+  it('lets gravity carry parts through the pool without a solid collision or freezing them', () => {
+    const api=setup(); api.run('engine.gravity.y=1'); api.step(20);
+    expect(api.run('payload.position.y')).toBeGreaterThan(315);
+    expect(api.run('payload.velocity.y')).toBeGreaterThan(1);
+    expect(api.run('payload.velocity.y')).toBeLessThan(2);
+    expect(api.run('engine.pairs.list.length')).toBe(0);
+    expect(api.run('[payload.isStatic,payload.isSleeping]')).toEqual([false,false]);
+  });
+
+  it('restores free motion immediately on drainage while preserving the payload', () => {
+    const api=setup();
+    expect(api.run('placeOrDrainSyrupAt(pool.position)')).toBe('drained');
+    api.run('Body.setVelocity(payload,{x:5,y:0}); Body.setAngularVelocity(payload,0.2)'); api.step(10);
+    expect(api.run('payload.velocity.x')).toBeCloseTo(5,10);
+    expect(api.run('payload.angularVelocity')).toBeCloseTo(0.2,10);
+    expect(api.run('[syrupPools.length,captureGameState().bodies.length]')).toEqual([0,1]);
+  });
+
+  it('uses timestep-scaled drag, with zero delta leaving motion intact', () => {
+    const api=setup();
+    api.run('Body.setVelocity(payload,{x:10,y:0}); updateSyrupPools({delta:0})');
+    expect(api.run('payload.velocity.x')).toBe(10);
+    api.run('updateSyrupPools({delta:1000/120}); updateSyrupPools({delta:1000/120})');
+    expect(api.run('payload.velocity.x')).toBeCloseTo(10*Math.exp(-0.2),10);
+  });
+
+  it('uses the strongest overlapping pool once instead of compounding drag', () => {
+    const api=setup();
+    api.run('placeOrDrainSyrupAt({x:390,y:300}); Body.setPosition(payload,{x:345,y:300}); Body.setVelocity(payload,{x:10,y:0}); updateSyrupPools({delta:1000/60})');
+    expect(api.run('syrupPools.length')).toBe(2);
+    expect(api.run('payload.velocity.x')).toBeCloseTo(10*Math.exp(-0.2),10);
+  });
+
+  it.each(['payload.isSensor=true','togglePhaseAt(payload.position)','toggleAnchorAt(payload.position)'])('respects immovable or intangible parts: %s', prepare => {
+    const api=setup(); api.run('Body.setVelocity(payload,{x:5,y:0}); Body.setAngularVelocity(payload,0.2); '+prepare);
+    const before=api.run('[payload.velocity.x,payload.angularVelocity]');
+    api.run('updateSyrupPools({delta:1000/60})');
+    expect(api.run('[payload.velocity.x,payload.angularVelocity]')).toEqual(before);
+  });
+
+  it.each(['ball','draw'])('clears feedback on switching to %s and retains placed pools', tool => {
+    const api=setup(); api.select('syrup'); api.select(tool);
+    expect(api.window.document.getElementById('syrup-feedback').textContent).toBe('');
+    expect(api.run('syrupPools.length')).toBe(1);
+  });
+
+  it('cleans Eraser, externally removed pools and Clear without retaining drag', () => {
+    const api=setup(); api.run('eraseBodyAt({x:350,y:300})');
+    expect(api.run('[syrupPools.length,captureGameState().bodies.length]')).toEqual([0,1]);
+    api.run('window.pool=placeOrDrainSyrupAt({x:300,y:300}); Composite.remove(world,pool); updateSyrupPools({delta:1000/60})');
+    expect(api.run('syrupPools.length')).toBe(0);
+    api.run('placeOrDrainSyrupAt({x:300,y:300}); finishClear(false)');
+    expect(api.run('[syrupPools.length,captureGameState().bodies.length]')).toEqual([0,0]);
+    expect(api.window.document.getElementById('syrup-feedback').textContent).toBe('');
+  });
+
+  it('restores pool identity, tool selection and working drag through save/load', () => {
+    const api=setup(); api.select('syrup');
+    api.run('Body.setVelocity(payload,{x:5,y:0}); restoreGameState(readGameSave(serializeGameState())); window.payload=captureGameState().bodies.find(b=>!b.isStatic)');
+    expect(api.run('[currentTool,syrupPools.length,Composite.allBodies(world).includes(syrupPools[0])]')).toEqual(['syrup',1,true]);
+    expect(api.window.document.querySelector('[data-tool=syrup]').classList.contains('active')).toBe(true);
+    api.step(); expect(api.run('payload.velocity.x')).toBeCloseTo(5*Math.exp(-0.2),10);
+    api.run('drawBody(syrupPools[0])'); expect(api.errors).toEqual([]);
+  });
+
+  it('migrates older saves with no syrup registry', () => {
+    const api=gameHarness();
+    api.run(`const game=captureGameState(); delete game.state.syrupPools; const graph=ChaosSaveCodec.encode(game);
+      restoreGameState(readGameSave(JSON.stringify({version:1,savedAt:new Date().toISOString(),graph,checksum:ChaosSaveCodec.checksum(graph)})))`);
+    expect(api.run('syrupPools.length')).toBe(0);
+  });
+
+  it.each(['pool.render.radius=NaN','pool.render.radius=1000','pool.isSensor=false','pool.isStatic=false','pool.collisionFilter.mask=1','syrupPools.push(pool)','syrupPools.push(payload)'])('rejects malformed saves before touching the live world: %s', mutation => {
+    const api=setup(); api.run(mutation);
+    expect(()=>api.run('readGameSave(serializeGameState())')).toThrow('Invalid saved syrup pool');
+    expect(api.run('captureGameState().bodies.length')).toBe(2);
+  });
+});
+
 describe('Torsion tool with real Matter.js', () => {
   function setup() {
     const api = gameHarness();
@@ -53,11 +196,11 @@ describe('Torsion tool with real Matter.js', () => {
     return {...api, select, join, step};
   }
 
-  it('appends one final button, selects by the shared handler and routes real canvas taps', () => {
-    const api=setup(),button=api.window.document.querySelector('#toolbar > :last-child');
+  it('keeps Torsion after One-way, selects by the shared handler and routes real canvas taps', () => {
+    const api=setup(),button=api.window.document.querySelector('[data-tool=torsion]');
     expect(button.dataset.tool).toBe('torsion');
     expect(button.previousElementSibling.dataset.tool).toBe('oneway');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(95);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(96);
     expect(button.getAttribute('aria-label')).toContain('torsion spring');
     expect(button.title).toContain('Snip');
     api.select('draw'); button.click();
@@ -233,7 +376,7 @@ describe('One-way gate with real Matter.js', () => {
     const api=gameHarness(), button=api.window.document.querySelector('[data-tool=oneway]');
     expect(button.dataset.tool).toBe('oneway');
     expect(button.previousElementSibling.dataset.tool).toBe('pulley');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(95);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(96);
     expect(button.getAttribute('aria-label')).toContain('one-way gate');
     expect(button.title).toContain('reverse');
     button.click();
@@ -425,7 +568,7 @@ describe('Pulley tool with real Matter.js', () => {
     const button = api.window.document.querySelector('[data-tool=pulley]');
     expect(button.dataset.tool).toBe('pulley');
     expect(button.previousElementSibling.dataset.tool).toBe('damper');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(95);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(96);
     expect(button.getAttribute('aria-label')).toContain('counterweight pulley');
     expect(button.title).toContain('Snip');
     api.select('pulley');

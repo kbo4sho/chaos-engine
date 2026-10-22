@@ -809,7 +809,7 @@ canvas#game {
 #ratchet-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
-#breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback, #torsion-feedback {
+#breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback, #torsion-feedback, #syrup-feedback {
   position:absolute; top:14px; left:50%; z-index:3;
   transform:translate(-50%, -8px) scale(0.9);
   padding:4px 12px; border:1px solid currentColor;
@@ -819,7 +819,7 @@ canvas#game {
   opacity:0; pointer-events:none; white-space:nowrap;
   transition:opacity .12s, transform .12s;
 }
-#breaklink-feedback.active, #damper-feedback.active, #pulley-feedback.active, #oneway-feedback.active, #torsion-feedback.active {
+#breaklink-feedback.active, #damper-feedback.active, #pulley-feedback.active, #oneway-feedback.active, #torsion-feedback.active, #syrup-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
 #damper-feedback, #oneway-feedback { color:#0abdc6; }
@@ -990,7 +990,7 @@ canvas#game {
   #winch-feedback { top:14px; font-size:19px; }
   #tripwire-feedback { top:14px; font-size:19px; }
   #ratchet-feedback { top:14px; font-size:19px; }
-  #breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback, #torsion-feedback { font-size:19px; }
+  #breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback, #torsion-feedback, #syrup-feedback { font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -1089,6 +1089,7 @@ canvas#game {
     <div id="pulley-feedback" role="status" aria-live="polite"></div>
     <div id="oneway-feedback" role="status" aria-live="polite"></div>
     <div id="torsion-feedback" role="status" aria-live="polite"></div>
+    <div id="syrup-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -1189,6 +1190,7 @@ canvas#game {
     <button class="tool-btn" data-tool="pulley" style="color:#ffc857;" title="Tap two parts, then place a fixed pulley wheel; one shared cable lets one end lift the other. Snip cuts either leg" aria-label="Connect two parts through a fixed counterweight pulley"><span class="icon">⏀</span>Pulley</button>
     <button class="tool-btn" data-tool="oneway" style="color:#0abdc6;" title="Tap to place a gate that passes parts upward and catches them falling; tap the gate to reverse it" aria-label="Place a one-way gate or reverse its permitted direction"><span class="icon">⇧</span>One-way</button>
     <button class="tool-btn" data-tool="torsion" style="color:#ffc857;" title="Tap two parts to couple their rotation with an angular spring; twist either end to wind it. Snip disconnects them" aria-label="Connect two parts with a torsion spring that restores their relative angle"><span class="icon">➰</span>Torsion</button>
+    <button class="tool-btn" data-tool="syrup" style="color:#ffc857;" title="Tap to pour a non-solid pool that slows passing parts and spin; tap the pool again to drain it" aria-label="Place or drain a syrup pool that slows nearby parts"><span class="icon">🍯</span>Syrup</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1559,6 +1561,8 @@ const onewayPreviousBounds = new Map(); // transient geometry sampled before eac
 let torsions = []; // angular-only spring couplings; translation remains free
 let torsionSelection = null;
 let torsionFeedbackTimer = 0;
+let syrupPools = []; // local viscous medium; does not alter a part's material or gravity
+let syrupFeedbackTimer = 0;
 
 // Block shattering
 let pendingPhysicsActions = []; // Serializable delayed rain and collision work
@@ -2571,6 +2575,13 @@ function resetOnewayFeedback() {
   feedback.textContent = '';
 }
 
+function resetSyrupFeedback() {
+  clearTimeout(syrupFeedbackTimer);
+  const feedback = document.getElementById('syrup-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
@@ -2615,6 +2626,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       resetPulleySelection(true);
       resetOnewayFeedback();
       resetTorsionSelection(true);
+      resetSyrupFeedback();
       drawMode = !drawMode;
       btn.classList.toggle('active', drawMode);
       if (!drawMode) drawPoints = [];
@@ -2685,6 +2697,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'pulley') resetPulleySelection(true);
       if (tool !== 'oneway') resetOnewayFeedback();
       if (tool !== 'torsion') resetTorsionSelection(true);
+      if (tool !== 'syrup') resetSyrupFeedback();
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -4137,6 +4150,8 @@ function finishClear(playFeedback = true) {
   resetOnewayFeedback();
   torsions = [];
   resetTorsionSelection(true);
+  syrupPools = [];
+  resetSyrupFeedback();
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -4441,7 +4456,8 @@ function getToolAccentColor(tool) {
     damper: '#0abdc6',
     pulley: '#ffc857',
     oneway: '#0abdc6',
-    torsion: '#ffc857'
+    torsion: '#ffc857',
+    syrup: '#ffc857'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -4603,6 +4619,7 @@ function eraseBodyAt(pos) {
   chainLinks = chainLinks.filter(b => !removedBodyIds.has(b.id));
   ramps = ramps.filter(b => !removedBodyIds.has(b.id));
   onewayGates = onewayGates.filter(b => !removedBodyIds.has(b.id));
+  syrupPools = syrupPools.filter(b => !removedBodyIds.has(b.id));
   removedBodyIds.forEach(id => onewayPreviousBounds.delete(id));
   pinwheels = pinwheels.filter(entry => !removedBodyIds.has(entry.body.id) && !constraintsToRemove.has(entry.constraint));
   baskets = baskets.filter(b => !removedBodyIds.has(b.id));
@@ -11693,6 +11710,74 @@ function updateTripwires() {
   });
 }
 
+const SYRUP_RADIUS = 74;
+
+function showSyrupFeedback(message) {
+  const feedback = document.getElementById('syrup-feedback');
+  feedback.textContent = message;
+  feedback.classList.add('active');
+  clearTimeout(syrupFeedbackTimer);
+  syrupFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 1400);
+}
+
+function pruneSyrupPools() {
+  const live = new Set(Composite.allBodies(world));
+  syrupPools = syrupPools.filter(pool => live.has(pool));
+}
+
+function placeOrDrainSyrupAt(pos) {
+  pruneSyrupPools();
+  const pool = [...syrupPools].reverse().find(body =>
+    Math.hypot(pos.x - body.position.x, pos.y - body.position.y) <= body.render.radius + 8);
+  if (pool) {
+    Composite.remove(world, pool, true);
+    syrupPools = syrupPools.filter(body => body !== pool);
+    addErasePoof(pool);
+    showSyrupFeedback('SYRUP DRAINED • PARTS FLOW FREE');
+    playSound(360, 0.1, 'triangle', 0.05);
+    haptic([6]);
+    return 'drained';
+  }
+  const radius = Math.max(12, Math.min(SYRUP_RADIUS, (canvas.width - 20) / 2, (canvas.height - 20) / 2));
+  const x = Math.max(radius + 10, Math.min(canvas.width - radius - 10, pos.x));
+  const y = Math.max(radius + 10, Math.min(canvas.height - radius - 10, pos.y));
+  const body = Bodies.circle(x, y, radius, {
+    isStatic:true, isSensor:true, label:'syrup-pool', collisionFilter:{mask:0},
+    render:{type:'syrup-pool', color:'#ffc857', radius}
+  });
+  Composite.add(world, body);
+  syrupPools.push(body);
+  addTripwireBurst(body.position, {x:0,y:-1}, '#ffc857');
+  showSyrupFeedback('SYRUP POURED • TAP POOL TO DRAIN');
+  playSound(480, 0.12, 'triangle', 0.05);
+  haptic([6, 8, 6]);
+  return body;
+}
+
+function updateSyrupPools(event) {
+  pruneSyrupPools();
+  if (!syrupPools.length) return;
+  const step = Math.max(0, Math.min(2, (event.delta || 0) / (1000 / 60)));
+  if (!step) return;
+  Composite.allBodies(world).forEach(body => {
+    if (body.isStatic || body.isSensor || body.isPhased || body.label === 'wall') return;
+    // The center enters the medium; a soft 20px rim avoids a sudden edge kick.
+    // Overlapping pools use the strongest drag once, keeping the result bounded.
+    let immersion = 0;
+    syrupPools.forEach(pool => {
+      const distance = Math.hypot(body.position.x - pool.position.x, body.position.y - pool.position.y);
+      immersion = Math.max(immersion, Math.max(0, Math.min(1, (pool.render.radius - distance) / 20)));
+    });
+    if (!immersion || (body.speed < 0.000001 && Math.abs(body.angularVelocity) < 0.000001)) return;
+    const retention = Math.exp(-0.20 * immersion * step);
+    Matter.Sleeping.set(body, false);
+    Body.setVelocity(body, {x:body.velocity.x * retention, y:body.velocity.y * retention});
+    Body.setAngularVelocity(body, body.angularVelocity * retention);
+  });
+}
+
+Events.on(engine, 'beforeUpdate', updateSyrupPools);
+
 const ONEWAY_WIDTH = 156;
 
 function showOnewayFeedback(gate) {
@@ -13529,6 +13614,13 @@ function onDown(e) {
     return;
   }
 
+  // Syrup tool — pour a local viscous pool, or drain the tapped pool.
+  if (currentTool === 'syrup') {
+    placeOrDrainSyrupAt(pos);
+    pointerDown = false;
+    return;
+  }
+
   // Snip tool — cut one visible physical connection without removing its bodies.
   if (currentTool === 'snip') {
     snipConstraintAt(pos);
@@ -14990,6 +15082,29 @@ function drawBody(b) {
         ctx.arc(x, 0, 2.5, 0, Math.PI * 2);
         ctx.fill();
       });
+      break;
+    }
+    case 'syrup-pool': {
+      const radius = r.radius;
+      ctx.fillStyle = '#ffc85712';
+      ctx.strokeStyle = '#ffc857';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.strokeStyle = '#ffc85766';
+      ctx.setLineDash([4, 6]);
+      ctx.beginPath();
+      ctx.arc(0, 0, Math.max(4, radius - 20), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#dffcff';
+      ctx.font = '16px VT323';
+      ctx.textAlign = 'center';
+      ctx.fillText('SYRUP', 0, -radius + 20);
+      ctx.font = '12px VT323';
+      ctx.fillText('TAP TO DRAIN', 0, radius - 12);
       break;
     }
     case 'oneway-gate': {
@@ -18557,6 +18672,7 @@ function loop(timestamp) {
   pruneTorsions();
   prunePulleys();
   pruneOnewayGates();
+  pruneSyrupPools();
   pruneHinges();
   pruneSprings();
   pruneWelds();
@@ -20544,7 +20660,7 @@ function captureGameState() {
       welds, tethers, webTraps, ramps, pinwheels, baskets,
       cannons, elevators, recyclers, hatches, pistons, parachuteBodies,
       saws, funnels, catapults, presses, ziplines, gearboxes,
-      rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates, torsions,
+      rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates, torsions, syrupPools,
       vortexActive, vortexTimer, vortexCenter, pendingPhysicsActions
     },
     gravity: { ...engine.gravity },
@@ -20592,6 +20708,7 @@ function readGameSave(serialized) {
   if (!Object.hasOwn(game.state, 'pulleys')) game.state.pulleys = [];
   if (!Object.hasOwn(game.state, 'onewayGates')) game.state.onewayGates = [];
   if (!Object.hasOwn(game.state, 'torsions')) game.state.torsions = [];
+  if (!Object.hasOwn(game.state, 'syrupPools')) game.state.syrupPools = [];
   const expected = captureGameState().state;
   for (const [key, value] of Object.entries(expected)) {
     const actual = game.state[key];
@@ -20631,6 +20748,11 @@ function readGameSave(serialized) {
         !Number.isFinite(link.torsionRestAngle) || link.length < 36 ||
         link.stiffness !== 0 || link.damping !== 0 ||
         link.pointA.x !== 0 || link.pointA.y !== 0 || link.pointB.x !== 0 || link.pointB.y !== 0)) throw new Error('Invalid saved torsion');
+  if (new Set(game.state.syrupPools).size !== game.state.syrupPools.length ||
+      game.state.syrupPools.some(pool => !game.bodies.includes(pool) ||
+        pool.render?.type !== 'syrup-pool' || !pool.isStatic || !pool.isSensor ||
+        pool.collisionFilter.mask !== 0 || !Number.isFinite(pool.render.radius) ||
+        pool.render.radius < 12 || pool.render.radius > SYRUP_RADIUS)) throw new Error('Invalid saved syrup pool');
   const pulleyBodies = new Set();
   if (game.state.pulleys.some(link => {
     if (!game.constraints.includes(link) || link.render?.type !== 'pulley' ||
@@ -20671,7 +20793,7 @@ function restoreGameState(game) {
     welds, tethers, webTraps, ramps, pinwheels, baskets,
     cannons, elevators, recyclers, hatches, pistons, parachuteBodies,
     saws, funnels, catapults, presses, ziplines, gearboxes,
-    rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates, torsions,
+    rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates, torsions, syrupPools,
     vortexActive, vortexTimer, vortexCenter, pendingPhysicsActions
   } = game.state);
   Object.assign(lessonState, game.lesson); // Keep host callbacks registered in this page.
