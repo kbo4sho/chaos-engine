@@ -40,6 +40,185 @@ function gameHarness(stored = {}) {
 
 const key = 'chaos-engine-save-1';
 
+describe('Keel tool with real Matter.js', () => {
+  function setup() {
+    const api=gameHarness();
+    api.run(`paused=true; engine.gravity.y=0;
+      window.payload=Bodies.rectangle(300,300,24,36,{frictionAir:0}); Composite.add(world,payload);`);
+    const select=tool=>api.window.document.querySelector('[data-tool="'+tool+'"]').click();
+    const step=(count=1)=>api.run(`for(let i=0;i<${count};i++) Engine.update(engine,1000/60)`);
+    return {...api,select,step};
+  }
+
+  it('adds one final accessible button, exits Draw and handles real canvas taps without spawning', () => {
+    const api=setup(), button=api.window.document.querySelector('#toolbar > :last-child');
+    expect(button.dataset.tool).toBe('keel');
+    expect(button.previousElementSibling.dataset.tool).toBe('syrup');
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(97);
+    expect(button.getAttribute('aria-label')).toContain('keel');
+    expect(button.title).toContain('sideways');
+    api.select('draw'); button.click();
+    expect(api.run('[currentTool,drawMode]')).toEqual(['keel',false]);
+    expect(button.classList.contains('active')).toBe(true);
+    expect(api.window.document.querySelector('[data-tool=draw]').classList.contains('active')).toBe(false);
+    const canvas=api.window.document.querySelector('canvas');
+    canvas.getBoundingClientRect=()=>({left:0,top:0,width:canvas.width,height:canvas.height});
+    const tap=()=>canvas.dispatchEvent(new api.window.MouseEvent('mousedown',{clientX:300,clientY:300,bubbles:true}));
+    tap();
+    expect(api.run('[keelBodies.has(payload),pointerDown,captureGameState().bodies.length]')).toEqual([true,false,1]);
+    const feedback=api.window.document.getElementById('keel-feedback');
+    expect(feedback.getAttribute('role')).toBe('status');
+    expect(feedback.textContent).toContain('KEEL ON');
+    api.run('drawKeelMarkers()');
+    tap(); expect(api.run('keelBodies.size')).toBe(0);
+    expect(feedback.textContent).toContain('KEEL OFF');
+    expect(api.errors).toEqual([]);
+  });
+
+  it('damps sideways velocity while preserving axial speed, spin, mass and material', () => {
+    const api=setup();
+    api.run(`toggleKeelAt(payload.position); window.mass=payload.mass;
+      Body.setVelocity(payload,{x:6,y:8}); Body.setAngularVelocity(payload,0.2);
+      updateKeels({delta:1000/60});`);
+    expect(api.run('payload.velocity.x')).toBeCloseTo(6,10);
+    expect(api.run('payload.velocity.y')).toBeCloseTo(8*Math.exp(-0.24),10);
+    expect(api.run('[payload.mass===mass,payload.frictionAir,payload.isStatic]')).toEqual([true,0,false]);
+    expect(api.run('payload.angularVelocity')).toBeCloseTo(0.2,10);
+    api.run('Body.setAngularVelocity(payload,0)'); api.step(20);
+    expect(api.run('payload.velocity.x')).toBeCloseTo(6,10);
+    expect(api.run('payload.velocity.y')).toBeLessThan(0.06);
+  });
+
+  it.each([0,Math.PI/4,Math.PI/2,Math.PI,Math.PI*1.7])('uses the rotating body axis and dissipates energy at angle %s', angle => {
+    const api=setup();
+    api.run(`window.result=getKeelVelocity({x:6,y:-8},${angle},1000/60)`);
+    const v=api.run('result'), t={x:Math.cos(angle),y:Math.sin(angle)};
+    expect(v.x*t.x+v.y*t.y).toBeCloseTo(6*t.x-8*t.y,10);
+    expect(Math.hypot(v.x,v.y)).toBeLessThanOrEqual(10+1e-10);
+    api.run(`toggleKeelAt(payload.position); Body.setAngle(payload,${angle}); Body.setVelocity(payload,{x:6,y:-8}); updateKeels({delta:1000/60})`);
+    expect(api.run('payload.velocity.x')).toBeCloseTo(v.x,10);
+    expect(api.run('payload.velocity.y')).toBeCloseTo(v.y,10);
+  });
+
+  it('rotates the grip axis immediately when the part is turned', () => {
+    const api=setup(); api.run(`toggleKeelAt(payload.position); Body.setAngle(payload,Math.PI/2);
+      Body.setVelocity(payload,{x:8,y:-6}); updateKeels({delta:1000/60})`);
+    expect(api.run('payload.velocity.x')).toBeCloseTo(8*Math.exp(-0.24),10);
+    expect(api.run('payload.velocity.y')).toBeCloseTo(-6,10);
+  });
+
+  it('scales grip by time, bounds long frames and leaves zero time unchanged', () => {
+    const api=setup();
+    expect(api.run('getKeelVelocity({x:4,y:9},0,0)')).toEqual({x:4,y:9});
+    expect(api.run('getKeelVelocity({x:4,y:9},0,-20)')).toEqual({x:4,y:9});
+    api.run(`window.half=getKeelVelocity({x:4,y:9},0,1000/120);
+      window.twice=getKeelVelocity(half,0,1000/120);`);
+    expect(api.run('twice.y')).toBeCloseTo(api.run('getKeelVelocity({x:4,y:9},0,1000/60).y'),10);
+    expect(api.run('getKeelVelocity({x:4,y:9},0,100000).y')).toBeCloseTo(9*Math.exp(-0.72),10);
+  });
+
+  it('never creates thrust at rest and lets gravity carry a part downward', () => {
+    const api=setup(); api.run('toggleKeelAt(payload.position); updateKeels({delta:1000/60})');
+    expect(api.run('[payload.velocity.x,payload.velocity.y]')).toEqual([0,0]);
+    api.run('engine.gravity.y=1'); api.step(20);
+    expect(api.run('payload.position.y')).toBeGreaterThan(310);
+    expect(api.run('payload.velocity.y')).toBeGreaterThan(0.5);
+    expect(api.run('engine.gravity.y')).toBe(1);
+  });
+
+  it('removes the fin without changing current motion and restores free sideways travel', () => {
+    const api=setup(); api.run(`toggleKeelAt(payload.position); Body.setVelocity(payload,{x:0,y:7});
+      Body.setAngularVelocity(payload,0.2); toggleKeelAt(payload.position)`);
+    expect(api.run('[keelBodies.size,payload.velocity.y,payload.angularVelocity]')).toEqual([0,7,0.2]);
+    api.step(5); expect(api.run('payload.velocity.y')).toBeCloseTo(7,10);
+  });
+
+  it('suspends grip while phased or anchored, resumes after release, and can detach while anchored', () => {
+    const api=setup(); api.run(`toggleKeelAt(payload.position); Body.setVelocity(payload,{x:0,y:8}); phaseBodies.set(payload,{}); updateKeels({delta:1000/60})`);
+    expect(api.run('payload.velocity.y')).toBe(8);
+    api.run('phaseBodies.delete(payload); updateKeels({delta:1000/60})');
+    expect(api.run('payload.velocity.y')).toBeCloseTo(8*Math.exp(-0.24),10);
+    api.run('Body.setStatic(payload,true); updateKeels({delta:1000/60}); drawKeelMarkers()');
+    expect(api.run('keelBodies.has(payload)')).toBe(true);
+    api.run('Body.setStatic(payload,false); Body.setVelocity(payload,{x:0,y:8}); updateKeels({delta:1000/60})');
+    expect(api.run('payload.velocity.y')).toBeCloseTo(8*Math.exp(-0.24),10);
+    api.run('Body.setStatic(payload,true)');
+    expect(api.run('toggleKeelAt(payload.position)')).toBe('removed');
+    expect(api.errors).toEqual([]);
+  });
+
+  it('ignores sleeping and sensor bodies during simulation', () => {
+    const api=setup(); api.run('toggleKeelAt(payload.position); Matter.Sleeping.set(payload,true); updateKeels({delta:1000/60})');
+    expect(api.run('payload.isSleeping')).toBe(true);
+    api.run('Matter.Sleeping.set(payload,false); payload.isSensor=true; Body.setVelocity(payload,{x:0,y:8}); updateKeels({delta:1000/60})');
+    expect(api.run('payload.velocity.y')).toBe(8);
+  });
+
+  it('gives empty guidance and ignores walls, targets, fixed scenery and sensors', () => {
+    const api=setup(); api.run('Composite.remove(world,payload)');
+    expect(api.run('toggleKeelAt({x:300,y:300})')).toBe(false);
+    expect(api.window.document.getElementById('keel-feedback').textContent).toContain('TAP A MOVABLE PART');
+    api.run(`window.fixed=Bodies.rectangle(300,300,20,20,{isStatic:true});
+      window.sensor=Bodies.circle(400,300,15,{isSensor:true});
+      window.target=Bodies.circle(500,300,15); target.isTarget=true;
+      window.wall=Bodies.circle(600,300,15,{label:'wall'}); Composite.add(world,[fixed,sensor,target,wall])`);
+    for(const x of [300,400,500,600]) expect(api.run(`toggleKeelAt({x:${x},y:300})`)).toBe(false);
+    expect(api.run('keelBodies.size')).toBe(0);
+  });
+
+  it('offers 46px touch targeting and applies grip once to a compound parent', () => {
+    const api=setup(); expect(api.run('toggleKeelAt({x:344,y:300})')).toBe('attached');
+    api.run(`finishClear(false); window.compound=Body.create({parts:[Bodies.rectangle(300,300,20,20),Bodies.rectangle(330,300,20,20)],frictionAir:0});
+      Composite.add(world,compound); toggleKeelAt({x:330,y:300}); Body.setVelocity(compound,{x:5,y:8}); updateKeels({delta:1000/60})`);
+    expect(api.run('[keelBodies.size,keelBodies.has(compound)]')).toEqual([1,true]);
+    expect(api.run('compound.velocity.y')).toBeCloseTo(8*Math.exp(-0.24),10);
+  });
+
+  it.each(['ball','draw'])('clears feedback but keeps an installed fin when switching to %s', tool => {
+    const api=setup(); api.select('keel'); api.run('toggleKeelAt(payload.position)'); api.select(tool);
+    expect(api.run('keelBodies.size')).toBe(1);
+    expect(api.window.document.getElementById('keel-feedback').textContent).toBe('');
+  });
+
+  it('cleans Eraser, external body removal and Clear without stale attachments', () => {
+    const api=setup(); api.run('toggleKeelAt(payload.position); eraseBodyAt(payload.position)');
+    expect(api.run('keelBodies.size')).toBe(0);
+    api.run('Composite.add(world,payload); toggleKeelAt(payload.position); Composite.remove(world,payload); updateKeels({delta:1000/60})');
+    expect(api.run('keelBodies.size')).toBe(0);
+    api.run('Composite.add(world,payload); toggleKeelAt(payload.position); finishClear(false)');
+    expect(api.run('[keelBodies.size,captureGameState().bodies.length]')).toEqual([0,0]);
+    expect(api.window.document.getElementById('keel-feedback').textContent).toBe('');
+  });
+
+  it('does not remove Keel when an independent Ratchet is switched off', () => {
+    const api=setup(); api.run('toggleKeelAt(payload.position); cycleRatchetAt(payload.position)');
+    api.run('cycleRatchetAt(payload.position); cycleRatchetAt(payload.position)');
+    expect(api.run('keelBodies.has(payload)')).toBe(true);
+  });
+
+  it('restores selection, body identity and sideways grip through save/load', () => {
+    const api=setup(); api.select('keel'); api.run(`toggleKeelAt(payload.position); Body.setAngle(payload,Math.PI/2);
+      Body.setVelocity(payload,{x:8,y:6}); restoreGameState(readGameSave(serializeGameState())); window.payload=[...keelBodies][0]`);
+    expect(api.run('[currentTool,keelBodies.size,Composite.allBodies(world).includes(payload)]')).toEqual(['keel',1,true]);
+    expect(api.window.document.querySelector('[data-tool=keel]').classList.contains('active')).toBe(true);
+    api.step(); expect(api.run('payload.velocity.x')).toBeCloseTo(8*Math.exp(-0.24),10);
+    expect(api.run('payload.velocity.y')).toBeCloseTo(6,10);
+    api.run('drawKeelMarkers()'); expect(api.errors).toEqual([]);
+  });
+
+  it('migrates old saves with no fin registry', () => {
+    const api=setup(); api.run(`const game=captureGameState(); delete game.state.keelBodies; const graph=ChaosSaveCodec.encode(game);
+      restoreGameState(readGameSave(JSON.stringify({version:1,savedAt:new Date().toISOString(),graph,checksum:ChaosSaveCodec.checksum(graph)})))`);
+    expect(api.run('keelBodies.size')).toBe(0);
+  });
+
+  it.each(['keelBodies.add({})','payload.isTarget=true','payload.label="wall"','keelBodies.add(payload.parts[1])'])('rejects malformed attachment saves: %s', mutation => {
+    const api=setup(); api.run('toggleKeelAt(payload.position)'); api.run(mutation);
+    expect(()=>api.run('readGameSave(serializeGameState())')).toThrow('Invalid saved keel');
+    expect(api.run('Composite.allBodies(world).includes(payload)')).toBe(true);
+  });
+});
+
 describe('Syrup tool with real Matter.js', () => {
   function setup() {
     const api=gameHarness();
@@ -51,11 +230,11 @@ describe('Syrup tool with real Matter.js', () => {
     return {...api,select,step};
   }
 
-  it('appends exactly one final button, selects through Draw and routes real canvas taps', () => {
-    const api=gameHarness(),button=api.window.document.querySelector('#toolbar > :last-child');
+  it('keeps the Syrup button after Torsion, selects through Draw and routes real canvas taps', () => {
+    const api=gameHarness(),button=api.window.document.querySelector('[data-tool=syrup]');
     expect(button.dataset.tool).toBe('syrup');
     expect(button.previousElementSibling.dataset.tool).toBe('torsion');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(96);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(97);
     expect(button.getAttribute('aria-label')).toContain('syrup pool');
     expect(button.title).toContain('drain');
     api.window.document.querySelector('[data-tool=draw]').click(); button.click();
@@ -200,7 +379,7 @@ describe('Torsion tool with real Matter.js', () => {
     const api=setup(),button=api.window.document.querySelector('[data-tool=torsion]');
     expect(button.dataset.tool).toBe('torsion');
     expect(button.previousElementSibling.dataset.tool).toBe('oneway');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(96);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(97);
     expect(button.getAttribute('aria-label')).toContain('torsion spring');
     expect(button.title).toContain('Snip');
     api.select('draw'); button.click();
@@ -376,7 +555,7 @@ describe('One-way gate with real Matter.js', () => {
     const api=gameHarness(), button=api.window.document.querySelector('[data-tool=oneway]');
     expect(button.dataset.tool).toBe('oneway');
     expect(button.previousElementSibling.dataset.tool).toBe('pulley');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(96);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(97);
     expect(button.getAttribute('aria-label')).toContain('one-way gate');
     expect(button.title).toContain('reverse');
     button.click();
@@ -568,7 +747,7 @@ describe('Pulley tool with real Matter.js', () => {
     const button = api.window.document.querySelector('[data-tool=pulley]');
     expect(button.dataset.tool).toBe('pulley');
     expect(button.previousElementSibling.dataset.tool).toBe('damper');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(96);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(97);
     expect(button.getAttribute('aria-label')).toContain('counterweight pulley');
     expect(button.title).toContain('Snip');
     api.select('pulley');

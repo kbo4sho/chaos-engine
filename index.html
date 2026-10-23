@@ -809,7 +809,7 @@ canvas#game {
 #ratchet-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
-#breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback, #torsion-feedback, #syrup-feedback {
+#breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback, #torsion-feedback, #syrup-feedback, #keel-feedback {
   position:absolute; top:14px; left:50%; z-index:3;
   transform:translate(-50%, -8px) scale(0.9);
   padding:4px 12px; border:1px solid currentColor;
@@ -819,10 +819,10 @@ canvas#game {
   opacity:0; pointer-events:none; white-space:nowrap;
   transition:opacity .12s, transform .12s;
 }
-#breaklink-feedback.active, #damper-feedback.active, #pulley-feedback.active, #oneway-feedback.active, #torsion-feedback.active, #syrup-feedback.active {
+#breaklink-feedback.active, #damper-feedback.active, #pulley-feedback.active, #oneway-feedback.active, #torsion-feedback.active, #syrup-feedback.active, #keel-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
-#damper-feedback, #oneway-feedback { color:#0abdc6; }
+#damper-feedback, #oneway-feedback, #keel-feedback { color:#0abdc6; }
 #pulley-feedback { color:#ffc857; }
 
 /* ── OBJECT TOOLBAR ── */
@@ -990,7 +990,7 @@ canvas#game {
   #winch-feedback { top:14px; font-size:19px; }
   #tripwire-feedback { top:14px; font-size:19px; }
   #ratchet-feedback { top:14px; font-size:19px; }
-  #breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback, #torsion-feedback, #syrup-feedback { font-size:19px; }
+  #breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback, #torsion-feedback, #syrup-feedback, #keel-feedback { font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -1090,6 +1090,7 @@ canvas#game {
     <div id="oneway-feedback" role="status" aria-live="polite"></div>
     <div id="torsion-feedback" role="status" aria-live="polite"></div>
     <div id="syrup-feedback" role="status" aria-live="polite"></div>
+    <div id="keel-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -1191,6 +1192,7 @@ canvas#game {
     <button class="tool-btn" data-tool="oneway" style="color:#0abdc6;" title="Tap to place a gate that passes parts upward and catches them falling; tap the gate to reverse it" aria-label="Place a one-way gate or reverse its permitted direction"><span class="icon">⇧</span>One-way</button>
     <button class="tool-btn" data-tool="torsion" style="color:#ffc857;" title="Tap two parts to couple their rotation with an angular spring; twist either end to wind it. Snip disconnects them" aria-label="Connect two parts with a torsion spring that restores their relative angle"><span class="icon">➰</span>Torsion</button>
     <button class="tool-btn" data-tool="syrup" style="color:#ffc857;" title="Tap to pour a non-solid pool that slows passing parts and spin; tap the pool again to drain it" aria-label="Place or drain a syrup pool that slows nearby parts"><span class="icon">🍯</span>Syrup</button>
+    <button class="tool-btn" data-tool="keel" style="color:#0abdc6;" title="Tap a movable part to attach a fin that grips sideways and slides along its facing axis; tap again to remove" aria-label="Attach or remove a keel that reduces a part's sideways skid"><span class="icon">⟷</span>Keel</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1563,6 +1565,8 @@ let torsionSelection = null;
 let torsionFeedbackTimer = 0;
 let syrupPools = []; // local viscous medium; does not alter a part's material or gravity
 let syrupFeedbackTimer = 0;
+let keelBodies = new Set(); // body-mounted fins dissipate sideways slip along a rotating local axis
+let keelFeedbackTimer = 0;
 
 // Block shattering
 let pendingPhysicsActions = []; // Serializable delayed rain and collision work
@@ -2627,6 +2631,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       resetOnewayFeedback();
       resetTorsionSelection(true);
       resetSyrupFeedback();
+      resetKeelFeedback();
       drawMode = !drawMode;
       btn.classList.toggle('active', drawMode);
       if (!drawMode) drawPoints = [];
@@ -2698,6 +2703,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'oneway') resetOnewayFeedback();
       if (tool !== 'torsion') resetTorsionSelection(true);
       if (tool !== 'syrup') resetSyrupFeedback();
+      if (tool !== 'keel') resetKeelFeedback();
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -4152,6 +4158,8 @@ function finishClear(playFeedback = true) {
   resetTorsionSelection(true);
   syrupPools = [];
   resetSyrupFeedback();
+  keelBodies.clear();
+  resetKeelFeedback();
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -4457,7 +4465,8 @@ function getToolAccentColor(tool) {
     pulley: '#ffc857',
     oneway: '#0abdc6',
     torsion: '#ffc857',
-    syrup: '#ffc857'
+    syrup: '#ffc857',
+    keel: '#0abdc6'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -4605,6 +4614,7 @@ function eraseBodyAt(pos) {
     phaseBodies.delete(b);
     gyroBodies.delete(b);
     ratchetBodies.delete(b);
+    keelBodies.delete(b);
     liftedBodies.delete(b);
     orbitingBodies.delete(b);
     parachuteBodies.delete(b);
@@ -5099,6 +5109,7 @@ function fissionBodyAt(pos) {
   phaseBodies.delete(source);
   gyroBodies.delete(source);
   ratchetBodies.delete(source);
+  keelBodies.delete(source);
   liftedBodies.delete(source);
   orbitingBodies.delete(source);
   delete source.isOrbiting;
@@ -8044,6 +8055,7 @@ function removeFusionSourceTracking(body) {
   phaseBodies.delete(body);
   gyroBodies.delete(body);
   ratchetBodies.delete(body);
+  keelBodies.delete(body);
   liftedBodies.delete(body);
   orbitingBodies.delete(body);
   megaBounceOriginal.delete(body.id);
@@ -10026,6 +10038,7 @@ function sliceBodyWithSaw(sawBody, source) {
   phaseBodies.delete(source);
   gyroBodies.delete(source);
   ratchetBodies.delete(source);
+  keelBodies.delete(source);
   liftedBodies.delete(source);
   orbitingBodies.delete(source);
   parachuteBodies.delete(source);
@@ -11777,6 +11790,109 @@ function updateSyrupPools(event) {
 }
 
 Events.on(engine, 'beforeUpdate', updateSyrupPools);
+
+function resetKeelFeedback() {
+  clearTimeout(keelFeedbackTimer);
+  const feedback = document.getElementById('keel-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
+function showKeelFeedback(message) {
+  const feedback = document.getElementById('keel-feedback');
+  feedback.textContent = message;
+  feedback.classList.add('active');
+  clearTimeout(keelFeedbackTimer);
+  keelFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 1400);
+}
+
+function pruneKeels() {
+  const live = new Set(Composite.allBodies(world));
+  keelBodies.forEach(body => { if (!live.has(body)) keelBodies.delete(body); });
+}
+
+function toggleKeelAt(pos) {
+  pruneKeels();
+  const candidates = Composite.allBodies(world).filter(body => keelBodies.has(body) ||
+    (isGyroableBody(body) && !body.isSensor));
+  const exact = Matter.Query.point(candidates, pos).filter(body => candidates.includes(body));
+  let target = exact.find(body => keelBodies.has(body)) || exact.pop();
+  if (!target) {
+    let nearest = 46;
+    candidates.forEach(body => {
+      const distance = Math.hypot(body.position.x - pos.x, body.position.y - pos.y);
+      if (distance < nearest) { target = body; nearest = distance; }
+    });
+  }
+  if (!target) {
+    showKeelFeedback('KEEL: TAP A MOVABLE PART');
+    haptic([3]);
+    return false;
+  }
+  const enabled = !keelBodies.has(target);
+  if (enabled) {
+    keelBodies.add(target);
+    Matter.Sleeping.set(target, false);
+  } else keelBodies.delete(target);
+  showKeelFeedback(enabled ? 'KEEL ON • SIDEWAYS GRIP' : 'KEEL OFF • FREE SLIDING');
+  addTripwireBurst(target.position, null, enabled ? '#0abdc6' : '#ffc857');
+  playSound(enabled ? 680 : 340, 0.1, 'triangle', 0.06);
+  haptic([7]);
+  return enabled ? 'attached' : 'removed';
+}
+
+function getKeelVelocity(velocity, angle, delta) {
+  const steps = Math.max(0, Math.min(3, delta / (1000 / 60)));
+  const normal = { x:-Math.sin(angle), y:Math.cos(angle) };
+  const slip = velocity.x * normal.x + velocity.y * normal.y;
+  const removedSlip = slip * -Math.expm1(-0.24 * steps);
+  return { x:velocity.x - normal.x * removedSlip, y:velocity.y - normal.y * removedSlip };
+}
+
+function updateKeels(event) {
+  pruneKeels();
+  keelBodies.forEach(body => {
+    // Anchoring or phasing suspends the fin; releasing the part restores grip.
+    if (body.isStatic || body.isSensor || body.isSleeping || phaseBodies.has(body)) return;
+    Body.setVelocity(body, getKeelVelocity(body.velocity, body.angle, event.delta));
+  });
+}
+Events.on(engine, 'beforeUpdate', updateKeels);
+
+function drawKeelMarkers() {
+  keelBodies.forEach(body => {
+    const idle = body.isStatic || body.isSensor || phaseBodies.has(body);
+    ctx.save();
+    ctx.translate(body.position.x, body.position.y);
+    ctx.rotate(body.angle);
+    ctx.strokeStyle = '#0abdc6';
+    ctx.fillStyle = '#080c10';
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = idle ? 0.5 : 1;
+    ctx.setLineDash(idle ? [4, 3] : []);
+    // The long fin and paired arrows show the free axis in the part's frame.
+    ctx.beginPath();
+    ctx.moveTo(-30, 0); ctx.lineTo(-16, -5); ctx.lineTo(16, -5);
+    ctx.lineTo(30, 0); ctx.lineTo(16, 5); ctx.lineTo(-16, 5); ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-39, 0); ctx.lineTo(-33, -4); ctx.moveTo(-39, 0); ctx.lineTo(-33, 4);
+    ctx.moveTo(39, 0); ctx.lineTo(33, -4); ctx.moveTo(39, 0); ctx.lineTo(33, 4);
+    ctx.stroke();
+    ctx.strokeStyle = '#ffc857';
+    ctx.beginPath();
+    ctx.moveTo(-6, -12); ctx.lineTo(6, -12);
+    ctx.moveTo(-6, 12); ctx.lineTo(6, 12);
+    ctx.stroke();
+    ctx.restore();
+    ctx.save();
+    ctx.fillStyle = '#dffcff';
+    ctx.font = '14px VT323';
+    ctx.textAlign = 'center';
+    ctx.fillText(idle ? 'KEEL • IDLE' : 'KEEL', body.position.x, body.bounds.min.y - 12);
+    ctx.restore();
+  });
+}
 
 const ONEWAY_WIDTH = 156;
 
@@ -13617,6 +13733,13 @@ function onDown(e) {
   // Syrup tool — pour a local viscous pool, or drain the tapped pool.
   if (currentTool === 'syrup') {
     placeOrDrainSyrupAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Keel tool — attach or remove local sideways grip without imposing a world path.
+  if (currentTool === 'keel') {
+    toggleKeelAt(pos);
     pointerDown = false;
     return;
   }
@@ -18673,6 +18796,7 @@ function loop(timestamp) {
   prunePulleys();
   pruneOnewayGates();
   pruneSyrupPools();
+  pruneKeels();
   pruneHinges();
   pruneSprings();
   pruneWelds();
@@ -19516,6 +19640,7 @@ function loop(timestamp) {
   drawTwistFlash(timestamp);
   drawLiftMarkers(timestamp);
   drawParachuteMarkers(timestamp);
+  drawKeelMarkers();
   drawZiplines(timestamp);
   drawOrbitMarkers(timestamp);
   drawTethers(timestamp);
@@ -20660,7 +20785,7 @@ function captureGameState() {
       welds, tethers, webTraps, ramps, pinwheels, baskets,
       cannons, elevators, recyclers, hatches, pistons, parachuteBodies,
       saws, funnels, catapults, presses, ziplines, gearboxes,
-      rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates, torsions, syrupPools,
+      rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates, torsions, syrupPools, keelBodies,
       vortexActive, vortexTimer, vortexCenter, pendingPhysicsActions
     },
     gravity: { ...engine.gravity },
@@ -20709,6 +20834,7 @@ function readGameSave(serialized) {
   if (!Object.hasOwn(game.state, 'onewayGates')) game.state.onewayGates = [];
   if (!Object.hasOwn(game.state, 'torsions')) game.state.torsions = [];
   if (!Object.hasOwn(game.state, 'syrupPools')) game.state.syrupPools = [];
+  if (!Object.hasOwn(game.state, 'keelBodies')) game.state.keelBodies = new Set();
   const expected = captureGameState().state;
   for (const [key, value] of Object.entries(expected)) {
     const actual = game.state[key];
@@ -20753,6 +20879,8 @@ function readGameSave(serialized) {
         pool.render?.type !== 'syrup-pool' || !pool.isStatic || !pool.isSensor ||
         pool.collisionFilter.mask !== 0 || !Number.isFinite(pool.render.radius) ||
         pool.render.radius < 12 || pool.render.radius > SYRUP_RADIUS)) throw new Error('Invalid saved syrup pool');
+  if ([...game.state.keelBodies].some(body => !game.bodies.includes(body) ||
+      body.parent !== body || body.label === 'wall' || body.isTarget)) throw new Error('Invalid saved keel');
   const pulleyBodies = new Set();
   if (game.state.pulleys.some(link => {
     if (!game.constraints.includes(link) || link.render?.type !== 'pulley' ||
@@ -20793,7 +20921,7 @@ function restoreGameState(game) {
     welds, tethers, webTraps, ramps, pinwheels, baskets,
     cannons, elevators, recyclers, hatches, pistons, parachuteBodies,
     saws, funnels, catapults, presses, ziplines, gearboxes,
-    rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates, torsions, syrupPools,
+    rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates, torsions, syrupPools, keelBodies,
     vortexActive, vortexTimer, vortexCenter, pendingPhysicsActions
   } = game.state);
   Object.assign(lessonState, game.lesson); // Keep host callbacks registered in this page.

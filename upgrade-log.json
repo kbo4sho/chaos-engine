@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-10-23",
+      "ideas": [
+        "New tool: Attach a Keel fin that grips sideways while sliding along a part’s rotating local axis"
+      ],
+      "summary": "Implemented Keel tool (⟷) — the final button after Syrup toggles a body-mounted fin on existing movable parts. Timestep-scaled passive sideways damping preserves axial travel, spin, mass, material and gravity; rotating the part steers its free axis, and detaching restores free skidding. Compound parents, anchored/phased/sleeping/sensor suspension, cyan fin/travel arrows and amber grip marks, readable KEEL/IDLE label, shared 46px touch targeting, accessible feedback, sparks/audio/haptics, tool-change/Draw/Eraser/fission/fusion/saw/pruning/Clear cleanup and validated backward-compatible save/load support steering contraptions on desktop and mobile."
+    },
+    {
       "date": "2026-10-22",
       "ideas": [
         "New tool: Pour a local Syrup pool that slows passing parts and spin, then tap to drain it"
