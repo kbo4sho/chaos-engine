@@ -40,6 +40,153 @@ function gameHarness(stored = {}) {
 
 const key = 'chaos-engine-save-1';
 
+describe('Cam tool with real Matter.js', () => {
+  function setup() {
+    const api=gameHarness(); api.run('paused=true; engine.gravity.y=0;');
+    const select=tool=>api.window.document.querySelector('[data-tool="'+tool+'"]').click();
+    const step=(count=1)=>api.run(`for(let i=0;i<${count};i++) Engine.update(engine,1000/60)`);
+    return {...api,select,step};
+  }
+
+  it('appends one accessible final button, exits Draw and routes actual canvas taps', () => {
+    const api=setup(), button=api.window.document.querySelector('#toolbar > :last-child');
+    expect(button.dataset.tool).toBe('cam');
+    expect(button.previousElementSibling.dataset.tool).toBe('keel');
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(98);
+    expect(button.getAttribute('aria-label')).toContain('eccentric cam');
+    expect(button.title).toContain('stop or resume');
+    api.select('draw'); button.click();
+    expect(api.run('[currentTool,drawMode]')).toEqual(['cam',false]);
+    expect(button.classList.contains('active')).toBe(true);
+    expect(api.window.document.querySelector('[data-tool=draw]').classList.contains('active')).toBe(false);
+    const canvas=api.window.document.querySelector('canvas');
+    canvas.getBoundingClientRect=()=>({left:0,top:0,width:canvas.width,height:canvas.height});
+    const tap=()=>canvas.dispatchEvent(new api.window.MouseEvent('mousedown',{clientX:300,clientY:300,bubbles:true}));
+    tap(); expect(api.run('[cams.length,pointerDown,captureGameState().bodies.length]')).toEqual([1,false,1]);
+    const feedback=api.window.document.getElementById('cam-feedback');
+    expect(feedback.getAttribute('role')).toBe('status');
+    expect(feedback.textContent).toContain('CAM ON');
+    tap(); expect(api.run('[cams.length,cams[0].camRunning]')).toEqual([1,false]);
+    expect(feedback.textContent).toContain('CAM STOPPED');
+    tap(); expect(api.run('cams[0].camRunning')).toBe(true);
+    api.run('drawBody(cams[0]); drawCamLabels()'); expect(api.errors).toEqual([]);
+  });
+
+  it.each([[0,0],[1024,600],[-100,-100],[2000,2000]])('clamps the entire swept rim and label at %s,%s', (x,y) => {
+    const api=setup(); api.run(`window.cam=placeOrToggleCamAt({x:${x},y:${y}})`);
+    const a=api.run('cam.camAnchor');
+    expect(a.x-62).toBeGreaterThanOrEqual(12); expect(a.x+62).toBeLessThanOrEqual(1012);
+    expect(a.y-62).toBeGreaterThanOrEqual(12); expect(a.y+78).toBeLessThanOrEqual(590);
+  });
+
+  it('keeps a fixed eccentric axle through complete cycles with solid collision geometry', () => {
+    const api=setup(); api.run('window.cam=placeOrToggleCamAt({x:300,y:300})');
+    const start=api.run('cam.angle'); api.step(280);
+    expect(api.run('[cam.isStatic,cam.isSensor,cam.collisionFilter.mask!==0,cam.circleRadius]')).toEqual([true,false,true,42]);
+    expect(api.run('cam.angle')).toBeCloseTo((start+280*0.025)%(2*Math.PI),9);
+    expect(api.run('Math.hypot(cam.position.x-cam.camAnchor.x,cam.position.y-cam.camAnchor.y)')).toBeCloseTo(20,9);
+    expect(api.run('cam.camAnchor')).toEqual({x:300,y:300});
+    expect(api.run('cam.velocity')).toEqual({x:0,y:0});
+  });
+
+  it('scales rotation with physics time and zero delta does not move', () => {
+    const api=setup(); api.run(`window.cam=placeOrToggleCamAt({x:300,y:300}); window.start=cam.angle;
+      updateCams({delta:0}); window.zero=cam.angle;
+      updateCams({delta:1000/30}); window.double=cam.angle-start;
+      Body.setAngle(cam,start); Body.setPosition(cam,getCamPosition(cam.camAnchor,start));
+      updateCams({delta:1000/60}); updateCams({delta:1000/60});`);
+    expect(api.run('zero')).toBe(api.run('start'));
+    expect(api.run('double')).toBeCloseTo(0.05,10);
+    expect(api.run('cam.angle-start')).toBeCloseTo(0.05,10);
+  });
+
+  it('physically lifts a free follower by the eccentric stroke and lets it descend', () => {
+    const api=setup(); api.run(`engine.gravity.y=1; window.cam=placeOrToggleCamAt({x:300,y:300});
+      window.load=Bodies.rectangle(300,266,120,20,{friction:0,frictionStatic:0,restitution:0,inertia:Infinity});
+      Composite.add(world,load);`);
+    api.step(126);
+    expect(api.run('load.position.y')).toBeLessThan(235);
+    expect(api.run('load.isStatic')).toBe(false);
+    expect(api.run('load.position.x')).toBeCloseTo(300,1);
+    api.step(126); expect(api.run('load.position.y')).toBeGreaterThan(260);
+    expect(api.run('cam.camAnchor')).toEqual({x:300,y:300});
+  });
+
+  it('stops at the current pose and resumes without jumping phase or duplicating', () => {
+    const api=setup(); api.run('window.cam=placeOrToggleCamAt({x:300,y:300})'); api.step(30);
+    api.run('placeOrToggleCamAt(cam.camAnchor); window.angle=cam.angle; window.pos={...cam.position}'); api.step(60);
+    expect(api.run('[cam.angle,cam.position,cams.length]')).toEqual([api.run('angle'),api.run('pos'),1]);
+    api.run('placeOrToggleCamAt(cam.camAnchor)'); api.step();
+    expect(api.run('cam.angle-angle')).toBeCloseTo(0.025,10);
+  });
+
+  it('uses the full rim and stationary axle as touch targets at every phase', () => {
+    const api=setup(); api.run('window.cam=placeOrToggleCamAt({x:300,y:300})');
+    for(const angle of [0,Math.PI/2,Math.PI,3*Math.PI/2]) {
+      api.run(`Body.setAngle(cam,${angle}); Body.setPosition(cam,getCamPosition(cam.camAnchor,cam.angle));
+        placeOrToggleCamAt(cam.camAnchor); placeOrToggleCamAt({x:cam.position.x+35,y:cam.position.y});`);
+      expect(api.run('[cams.length,cam.camRunning]')).toEqual([1,true]);
+    }
+  });
+
+  it('wakes a sleeping nearby load but preserves sleepers away from the mechanism', () => {
+    const api=setup(); api.run(`window.cam=placeOrToggleCamAt({x:300,y:300});
+      window.load=Bodies.rectangle(300,270,20,20); window.far=Bodies.circle(700,100,10);
+      Composite.add(world,[load,far]); Matter.Sleeping.set(load,true); Matter.Sleeping.set(far,true);
+      updateCams({delta:1000/60});`);
+    expect(api.run('[load.isSleeping,far.isSleeping]')).toEqual([false,true]);
+  });
+
+  it('does not wake phased or sensor loads', () => {
+    const api=setup(); api.run(`window.cam=placeOrToggleCamAt({x:300,y:300});
+      window.load=Bodies.rectangle(300,270,20,20); Composite.add(world,load);
+      phaseBodies.set(load,{}); Matter.Sleeping.set(load,true); updateCams({delta:1000/60});`);
+    expect(api.run('load.isSleeping')).toBe(true);
+    api.run('phaseBodies.delete(load); load.isSensor=true; updateCams({delta:1000/60})');
+    expect(api.run('load.isSleeping')).toBe(true);
+  });
+
+  it('Eraser removes the mechanism and retains an independent payload', () => {
+    const api=setup(); api.run(`window.cam=placeOrToggleCamAt({x:300,y:300});
+      window.load=Bodies.circle(600,100,10); Composite.add(world,load); eraseBodyAt(cam.camAnchor);`);
+    expect(api.run('[cams.length,Composite.allBodies(world).includes(cam),Composite.allBodies(world).includes(load)]')).toEqual([0,false,true]);
+  });
+
+  it('prunes externally removed cams and clears feedback on tool changes and Clear', () => {
+    const api=setup(); api.run('window.cam=placeOrToggleCamAt({x:300,y:300}); Composite.remove(world,cam)'); api.step();
+    expect(api.run('cams.length')).toBe(0);
+    api.select('ball'); expect(api.window.document.getElementById('cam-feedback').textContent).toBe('');
+    api.select('cam'); api.run('placeOrToggleCamAt({x:300,y:300})'); api.select('draw');
+    expect(api.window.document.getElementById('cam-feedback').textContent).toBe('');
+    api.run('finishClear(false)'); expect(api.run('cams.length')).toBe(0);
+    expect(api.window.document.getElementById('cam-feedback').textContent).toBe('');
+  });
+
+  it('restores the running/stopped state, phase, axle, selected tool and body identity', () => {
+    const api=setup(); api.select('cam'); api.run('placeOrToggleCamAt({x:300,y:300}); placeOrToggleCamAt({x:600,y:300})'); api.step(30);
+    api.run(`placeOrToggleCamAt(cams[1].camAnchor); window.angle=cams[0].angle;
+      restoreGameState(readGameSave(serializeGameState()));`);
+    expect(api.run('[currentTool,cams.length,cams[0].camRunning,cams[1].camRunning]')).toEqual(['cam',2,true,false]);
+    expect(api.run('cams.every(body=>Composite.allBodies(world).includes(body))')).toBe(true);
+    expect(api.run('cams[0].angle')).toBe(api.run('angle'));
+    api.step(); expect(api.run('cams[0].angle-angle')).toBeCloseTo(0.025,10);
+    expect(api.run('cams[1].angle')).toBe(api.run('angle'));
+  });
+
+  it('migrates older saves with no Cam registry', () => {
+    const api=setup(); api.run(`const game=captureGameState(); delete game.state.cams; const graph=ChaosSaveCodec.encode(game);
+      restoreGameState(readGameSave(JSON.stringify({version:1,savedAt:new Date().toISOString(),graph,checksum:ChaosSaveCodec.checksum(graph)})))`);
+    expect(api.run('cams')).toEqual([]);
+  });
+
+  it.each(['cams.push(cam)','cams.push({})','cam.isStatic=false','cam.isSensor=true',
+    'cam.camRunning=1','cam.camAnchor.x=NaN','cam.render.radius=5','cam.position.x+=100'])('rejects invalid saves before modifying the world: %s', mutation => {
+    const api=setup(); api.run('window.cam=placeOrToggleCamAt({x:300,y:300})'); api.run(mutation);
+    expect(()=>api.run('readGameSave(serializeGameState())')).toThrow('Invalid saved cam');
+    expect(api.run('Composite.allBodies(world).includes(cam)')).toBe(true);
+  });
+});
+
 describe('Keel tool with real Matter.js', () => {
   function setup() {
     const api=gameHarness();
@@ -50,11 +197,11 @@ describe('Keel tool with real Matter.js', () => {
     return {...api,select,step};
   }
 
-  it('adds one final accessible button, exits Draw and handles real canvas taps without spawning', () => {
-    const api=setup(), button=api.window.document.querySelector('#toolbar > :last-child');
+  it('keeps its accessible button, exits Draw and handles real canvas taps without spawning', () => {
+    const api=setup(), button=api.window.document.querySelector('[data-tool=keel]');
     expect(button.dataset.tool).toBe('keel');
     expect(button.previousElementSibling.dataset.tool).toBe('syrup');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(97);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(98);
     expect(button.getAttribute('aria-label')).toContain('keel');
     expect(button.title).toContain('sideways');
     api.select('draw'); button.click();
@@ -234,7 +381,7 @@ describe('Syrup tool with real Matter.js', () => {
     const api=gameHarness(),button=api.window.document.querySelector('[data-tool=syrup]');
     expect(button.dataset.tool).toBe('syrup');
     expect(button.previousElementSibling.dataset.tool).toBe('torsion');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(97);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(98);
     expect(button.getAttribute('aria-label')).toContain('syrup pool');
     expect(button.title).toContain('drain');
     api.window.document.querySelector('[data-tool=draw]').click(); button.click();
@@ -379,7 +526,7 @@ describe('Torsion tool with real Matter.js', () => {
     const api=setup(),button=api.window.document.querySelector('[data-tool=torsion]');
     expect(button.dataset.tool).toBe('torsion');
     expect(button.previousElementSibling.dataset.tool).toBe('oneway');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(97);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(98);
     expect(button.getAttribute('aria-label')).toContain('torsion spring');
     expect(button.title).toContain('Snip');
     api.select('draw'); button.click();
@@ -555,7 +702,7 @@ describe('One-way gate with real Matter.js', () => {
     const api=gameHarness(), button=api.window.document.querySelector('[data-tool=oneway]');
     expect(button.dataset.tool).toBe('oneway');
     expect(button.previousElementSibling.dataset.tool).toBe('pulley');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(97);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(98);
     expect(button.getAttribute('aria-label')).toContain('one-way gate');
     expect(button.title).toContain('reverse');
     button.click();
@@ -747,7 +894,7 @@ describe('Pulley tool with real Matter.js', () => {
     const button = api.window.document.querySelector('[data-tool=pulley]');
     expect(button.dataset.tool).toBe('pulley');
     expect(button.previousElementSibling.dataset.tool).toBe('damper');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(97);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(98);
     expect(button.getAttribute('aria-label')).toContain('counterweight pulley');
     expect(button.title).toContain('Snip');
     api.select('pulley');

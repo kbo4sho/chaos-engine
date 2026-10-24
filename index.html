@@ -809,7 +809,7 @@ canvas#game {
 #ratchet-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
-#breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback, #torsion-feedback, #syrup-feedback, #keel-feedback {
+#breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback, #torsion-feedback, #syrup-feedback, #keel-feedback, #cam-feedback {
   position:absolute; top:14px; left:50%; z-index:3;
   transform:translate(-50%, -8px) scale(0.9);
   padding:4px 12px; border:1px solid currentColor;
@@ -819,7 +819,7 @@ canvas#game {
   opacity:0; pointer-events:none; white-space:nowrap;
   transition:opacity .12s, transform .12s;
 }
-#breaklink-feedback.active, #damper-feedback.active, #pulley-feedback.active, #oneway-feedback.active, #torsion-feedback.active, #syrup-feedback.active, #keel-feedback.active {
+#breaklink-feedback.active, #damper-feedback.active, #pulley-feedback.active, #oneway-feedback.active, #torsion-feedback.active, #syrup-feedback.active, #keel-feedback.active, #cam-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
 #damper-feedback, #oneway-feedback, #keel-feedback { color:#0abdc6; }
@@ -990,7 +990,7 @@ canvas#game {
   #winch-feedback { top:14px; font-size:19px; }
   #tripwire-feedback { top:14px; font-size:19px; }
   #ratchet-feedback { top:14px; font-size:19px; }
-  #breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback, #torsion-feedback, #syrup-feedback, #keel-feedback { font-size:19px; }
+  #breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback, #torsion-feedback, #syrup-feedback, #keel-feedback, #cam-feedback { font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -1091,6 +1091,7 @@ canvas#game {
     <div id="torsion-feedback" role="status" aria-live="polite"></div>
     <div id="syrup-feedback" role="status" aria-live="polite"></div>
     <div id="keel-feedback" role="status" aria-live="polite"></div>
+    <div id="cam-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -1193,6 +1194,7 @@ canvas#game {
     <button class="tool-btn" data-tool="torsion" style="color:#ffc857;" title="Tap two parts to couple their rotation with an angular spring; twist either end to wind it. Snip disconnects them" aria-label="Connect two parts with a torsion spring that restores their relative angle"><span class="icon">➰</span>Torsion</button>
     <button class="tool-btn" data-tool="syrup" style="color:#ffc857;" title="Tap to pour a non-solid pool that slows passing parts and spin; tap the pool again to drain it" aria-label="Place or drain a syrup pool that slows nearby parts"><span class="icon">🍯</span>Syrup</button>
     <button class="tool-btn" data-tool="keel" style="color:#0abdc6;" title="Tap a movable part to attach a fin that grips sideways and slides along its facing axis; tap again to remove" aria-label="Attach or remove a keel that reduces a part's sideways skid"><span class="icon">⟷</span>Keel</button>
+    <button class="tool-btn" data-tool="cam" style="color:#ffc857;" title="Tap to place an eccentric wheel that repeatedly lifts parts; tap the wheel or axle to stop or resume" aria-label="Place a powered eccentric cam or stop and resume its lifting cycle"><span class="icon">◔</span>Cam</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1567,6 +1569,8 @@ let syrupPools = []; // local viscous medium; does not alter a part's material o
 let syrupFeedbackTimer = 0;
 let keelBodies = new Set(); // body-mounted fins dissipate sideways slip along a rotating local axis
 let keelFeedbackTimer = 0;
+let cams = []; // solid eccentric wheels driven around a fixed offset axle
+let camFeedbackTimer = 0;
 
 // Block shattering
 let pendingPhysicsActions = []; // Serializable delayed rain and collision work
@@ -2632,6 +2636,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       resetTorsionSelection(true);
       resetSyrupFeedback();
       resetKeelFeedback();
+      resetCamFeedback();
       drawMode = !drawMode;
       btn.classList.toggle('active', drawMode);
       if (!drawMode) drawPoints = [];
@@ -2704,6 +2709,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'torsion') resetTorsionSelection(true);
       if (tool !== 'syrup') resetSyrupFeedback();
       if (tool !== 'keel') resetKeelFeedback();
+      if (tool !== 'cam') resetCamFeedback();
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -4160,6 +4166,8 @@ function finishClear(playFeedback = true) {
   resetSyrupFeedback();
   keelBodies.clear();
   resetKeelFeedback();
+  cams = [];
+  resetCamFeedback();
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -4466,7 +4474,8 @@ function getToolAccentColor(tool) {
     oneway: '#0abdc6',
     torsion: '#ffc857',
     syrup: '#ffc857',
-    keel: '#0abdc6'
+    keel: '#0abdc6',
+    cam: '#ffc857'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -4630,6 +4639,7 @@ function eraseBodyAt(pos) {
   ramps = ramps.filter(b => !removedBodyIds.has(b.id));
   onewayGates = onewayGates.filter(b => !removedBodyIds.has(b.id));
   syrupPools = syrupPools.filter(b => !removedBodyIds.has(b.id));
+  cams = cams.filter(b => !removedBodyIds.has(b.id));
   removedBodyIds.forEach(id => onewayPreviousBounds.delete(id));
   pinwheels = pinwheels.filter(entry => !removedBodyIds.has(entry.body.id) && !constraintsToRemove.has(entry.constraint));
   baskets = baskets.filter(b => !removedBodyIds.has(b.id));
@@ -11791,6 +11801,108 @@ function updateSyrupPools(event) {
 
 Events.on(engine, 'beforeUpdate', updateSyrupPools);
 
+const CAM_RADIUS = 42;
+const CAM_OFFSET = 20;
+const CAM_SPEED = 0.025; // radians per 60Hz physics step; about four seconds per revolution
+
+function resetCamFeedback() {
+  clearTimeout(camFeedbackTimer);
+  const feedback = document.getElementById('cam-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
+function showCamFeedback(message) {
+  const feedback = document.getElementById('cam-feedback');
+  feedback.textContent = message;
+  feedback.classList.add('active');
+  clearTimeout(camFeedbackTimer);
+  camFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 1400);
+}
+
+function getCamPlacement(pos, width, height) {
+  const reach = CAM_RADIUS + CAM_OFFSET;
+  return {
+    x:Math.max(reach + 12, Math.min(width - reach - 12, pos.x)),
+    y:Math.max(reach + 12, Math.min(height - reach - 28, pos.y))
+  };
+}
+
+function getCamPosition(anchor, angle) {
+  return { x:anchor.x + Math.cos(angle) * CAM_OFFSET, y:anchor.y + Math.sin(angle) * CAM_OFFSET };
+}
+
+function pruneCams() {
+  cams = cams.filter(body => Composite.get(world, body.id, 'body'));
+}
+
+function placeOrToggleCamAt(pos) {
+  pruneCams();
+  let body = Matter.Query.point(cams, pos).pop();
+  // The stationary axle remains a reliable touch target throughout the cycle.
+  if (!body) body = cams.find(cam => Math.hypot(cam.camAnchor.x - pos.x, cam.camAnchor.y - pos.y) <= 28);
+  if (body) {
+    body.camRunning = !body.camRunning;
+    Body.setVelocity(body, {x:0,y:0});
+    Body.setAngularVelocity(body, 0);
+    showCamFeedback(body.camRunning ? 'CAM RUNNING • TAP TO STOP' : 'CAM STOPPED • TAP TO RESUME');
+  } else {
+    const anchor = getCamPlacement(pos, canvas.width, canvas.height);
+    const angle = Math.PI / 2; // start on the low lobe so a load rises through the first half-cycle
+    const center = getCamPosition(anchor, angle);
+    body = Bodies.circle(center.x, center.y, CAM_RADIUS, {
+      isStatic:true, angle, friction:0.8, restitution:0,
+      label:'cam', render:{type:'cam', color:'#ffc857', radius:CAM_RADIUS}
+    }, 40);
+    body.camAnchor = anchor;
+    body.camRunning = true;
+    body.material = 'metal';
+    Composite.add(world, body);
+    cams.push(body);
+    showCamFeedback('CAM ON • LOAD RIM • TAP TO STOP');
+  }
+  addTripwireBurst(body.camAnchor, null, '#ffc857');
+  playSound(body.camRunning ? 520 : 260, 0.1, 'triangle', 0.06);
+  haptic([7]);
+  return body;
+}
+
+function updateCams(event) {
+  pruneCams();
+  const steps = Math.max(0, Math.min(3, event.delta / (1000 / 60)));
+  const bodies = Composite.allBodies(world);
+  cams.forEach(body => {
+    if (!body.camRunning || steps === 0) return;
+    const angle = (body.angle + CAM_SPEED * steps) % (Math.PI * 2);
+    // Kinematic solid geometry, like the existing Piston: collisions move the
+    // load, rather than applying a scripted kick or teleporting the payload.
+    Body.setAngle(body, angle);
+    Body.setPosition(body, getCamPosition(body.camAnchor, angle));
+    Body.setVelocity(body, {x:0,y:0});
+    Body.setAngularVelocity(body, 0);
+    bodies.forEach(load => {
+      if (load.isStatic || load.isSensor || phaseBodies.has(load) || !load.isSleeping) return;
+      const gap = 6;
+      if (load.bounds.max.x >= body.bounds.min.x - gap && load.bounds.min.x <= body.bounds.max.x + gap &&
+          load.bounds.max.y >= body.bounds.min.y - gap && load.bounds.min.y <= body.bounds.max.y + gap) {
+        Matter.Sleeping.set(load, false);
+      }
+    });
+  });
+}
+Events.on(engine, 'beforeUpdate', updateCams);
+
+function drawCamLabels() {
+  cams.forEach(body => {
+    ctx.save();
+    ctx.fillStyle = '#dffcff';
+    ctx.font = '14px VT323';
+    ctx.textAlign = 'center';
+    ctx.fillText(body.camRunning ? 'CAM • ON ↻' : 'CAM • STOPPED', body.camAnchor.x, body.camAnchor.y + CAM_RADIUS + CAM_OFFSET + 16);
+    ctx.restore();
+  });
+}
+
 function resetKeelFeedback() {
   clearTimeout(keelFeedbackTimer);
   const feedback = document.getElementById('keel-feedback');
@@ -13744,6 +13856,13 @@ function onDown(e) {
     return;
   }
 
+  // Cam tool — a powered eccentric rim lifts loads, and stops/resumes on tap.
+  if (currentTool === 'cam') {
+    placeOrToggleCamAt(pos);
+    pointerDown = false;
+    return;
+  }
+
   // Snip tool — cut one visible physical connection without removing its bodies.
   if (currentTool === 'snip') {
     snipConstraintAt(pos);
@@ -15205,6 +15324,29 @@ function drawBody(b) {
         ctx.arc(x, 0, 2.5, 0, Math.PI * 2);
         ctx.fill();
       });
+      break;
+    }
+    case 'cam': {
+      ctx.fillStyle = '#111820';
+      ctx.strokeStyle = '#ffc857';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, CAM_RADIUS, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = '#0abdc6';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(0, 0, CAM_RADIUS - 7, 0, Math.PI * 2);
+      ctx.moveTo(-CAM_OFFSET, 0); ctx.lineTo(CAM_RADIUS - 7, 0);
+      ctx.stroke();
+      // The off-center cross is the fixed axle; the rim revolves around it.
+      ctx.fillStyle = b.camRunning ? '#ffc857' : '#0abdc6';
+      ctx.fillRect(-CAM_OFFSET - 6, -6, 12, 12);
+      ctx.strokeStyle = '#080c10';
+      ctx.beginPath();
+      ctx.moveTo(-CAM_OFFSET - 4, 0); ctx.lineTo(-CAM_OFFSET + 4, 0);
+      ctx.moveTo(-CAM_OFFSET, -4); ctx.lineTo(-CAM_OFFSET, 4);
+      ctx.stroke();
       break;
     }
     case 'syrup-pool': {
@@ -18797,6 +18939,7 @@ function loop(timestamp) {
   pruneOnewayGates();
   pruneSyrupPools();
   pruneKeels();
+  pruneCams();
   pruneHinges();
   pruneSprings();
   pruneWelds();
@@ -19641,6 +19784,7 @@ function loop(timestamp) {
   drawLiftMarkers(timestamp);
   drawParachuteMarkers(timestamp);
   drawKeelMarkers();
+  drawCamLabels();
   drawZiplines(timestamp);
   drawOrbitMarkers(timestamp);
   drawTethers(timestamp);
@@ -20785,7 +20929,7 @@ function captureGameState() {
       welds, tethers, webTraps, ramps, pinwheels, baskets,
       cannons, elevators, recyclers, hatches, pistons, parachuteBodies,
       saws, funnels, catapults, presses, ziplines, gearboxes,
-      rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates, torsions, syrupPools, keelBodies,
+      rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates, torsions, syrupPools, keelBodies, cams,
       vortexActive, vortexTimer, vortexCenter, pendingPhysicsActions
     },
     gravity: { ...engine.gravity },
@@ -20835,6 +20979,7 @@ function readGameSave(serialized) {
   if (!Object.hasOwn(game.state, 'torsions')) game.state.torsions = [];
   if (!Object.hasOwn(game.state, 'syrupPools')) game.state.syrupPools = [];
   if (!Object.hasOwn(game.state, 'keelBodies')) game.state.keelBodies = new Set();
+  if (!Object.hasOwn(game.state, 'cams')) game.state.cams = [];
   const expected = captureGameState().state;
   for (const [key, value] of Object.entries(expected)) {
     const actual = game.state[key];
@@ -20881,6 +21026,12 @@ function readGameSave(serialized) {
         pool.render.radius < 12 || pool.render.radius > SYRUP_RADIUS)) throw new Error('Invalid saved syrup pool');
   if ([...game.state.keelBodies].some(body => !game.bodies.includes(body) ||
       body.parent !== body || body.label === 'wall' || body.isTarget)) throw new Error('Invalid saved keel');
+  if (new Set(game.state.cams).size !== game.state.cams.length || game.state.cams.some(body =>
+      !game.bodies.includes(body) || body.render?.type !== 'cam' || body.label !== 'cam' ||
+      !body.isStatic || body.isSensor || body.parent !== body || body.render.radius !== CAM_RADIUS ||
+      typeof body.camRunning !== 'boolean' || !vector(body.camAnchor) ||
+      Math.hypot(body.position.x - getCamPosition(body.camAnchor, body.angle).x,
+        body.position.y - getCamPosition(body.camAnchor, body.angle).y) > 0.01)) throw new Error('Invalid saved cam');
   const pulleyBodies = new Set();
   if (game.state.pulleys.some(link => {
     if (!game.constraints.includes(link) || link.render?.type !== 'pulley' ||
@@ -20921,7 +21072,7 @@ function restoreGameState(game) {
     welds, tethers, webTraps, ramps, pinwheels, baskets,
     cannons, elevators, recyclers, hatches, pistons, parachuteBodies,
     saws, funnels, catapults, presses, ziplines, gearboxes,
-    rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates, torsions, syrupPools, keelBodies,
+    rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates, torsions, syrupPools, keelBodies, cams,
     vortexActive, vortexTimer, vortexCenter, pendingPhysicsActions
   } = game.state);
   Object.assign(lessonState, game.lesson); // Keep host callbacks registered in this page.

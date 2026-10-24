@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-10-24",
+      "ideas": [
+        "New tool: Place a powered eccentric Cam that repeatedly lifts parts with a solid rim, then stop and resume its cycle"
+      ],
+      "summary": "Implemented Cam tool (◔) — the final button after Keel places a powered eccentric wheel whose real solid rim raises and lowers loads through a 40px stroke. A timestep-scaled drive circles a fixed offset axle; tapping the rim or stationary axle stops/resumes the same phase. Canvas clamping, sleeping-load wakeup, amber/cyan rim and axle rendering, readable ON/STOPPED labels, accessible feedback, sound/sparks/haptics, shared desktop/mobile controls, Draw/tool-change/Eraser/external-removal/Clear cleanup and validated backward-compatible save/load support cyclic lifting contraptions without a new panel, dependency or layout change."
+    },
+    {
       "date": "2026-10-23",
       "ideas": [
         "New tool: Attach a Keel fin that grips sideways while sliding along a part’s rotating local axis"
