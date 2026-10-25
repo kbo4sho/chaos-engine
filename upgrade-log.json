@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-10-25",
+      "ideas": [
+        "New tool: Attach a Hopper foot that automatically jumps a movable part from supporting surfaces against gravity"
+      ],
+      "summary": "Implemented Hopper tool (🦘) — the final button after Cam toggles an active support-sensing foot on movable parts. Actual Matter collision normals trigger gravity-aware 8px/frame jumps with a 700ms simulation-clock rearm, preserving sideways travel, spin, mass and material. It works with compound parents and Lift inversion; walls, ceilings, filtered collisions, sensors, Phase, static parts and zero gravity do not trigger hops. Cyan spring feet, amber rearm indicator, readable ON/IDLE labels, shared 46px touch targeting, accessible feedback, audio/sparks/haptics, Draw/tool-change/Eraser/pruning/Clear cleanup and validated backward-compatible save/load support autonomous hopping contraptions on desktop and mobile."
+    },
+    {
       "date": "2026-10-24",
       "ideas": [
         "New tool: Place a powered eccentric Cam that repeatedly lifts parts with a solid rim, then stop and resume its cycle"

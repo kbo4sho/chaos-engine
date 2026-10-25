@@ -809,7 +809,7 @@ canvas#game {
 #ratchet-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
-#breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback, #torsion-feedback, #syrup-feedback, #keel-feedback, #cam-feedback {
+#breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback, #torsion-feedback, #syrup-feedback, #keel-feedback, #cam-feedback, #hopper-feedback {
   position:absolute; top:14px; left:50%; z-index:3;
   transform:translate(-50%, -8px) scale(0.9);
   padding:4px 12px; border:1px solid currentColor;
@@ -819,7 +819,7 @@ canvas#game {
   opacity:0; pointer-events:none; white-space:nowrap;
   transition:opacity .12s, transform .12s;
 }
-#breaklink-feedback.active, #damper-feedback.active, #pulley-feedback.active, #oneway-feedback.active, #torsion-feedback.active, #syrup-feedback.active, #keel-feedback.active, #cam-feedback.active {
+#breaklink-feedback.active, #damper-feedback.active, #pulley-feedback.active, #oneway-feedback.active, #torsion-feedback.active, #syrup-feedback.active, #keel-feedback.active, #cam-feedback.active, #hopper-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
 #damper-feedback, #oneway-feedback, #keel-feedback { color:#0abdc6; }
@@ -990,7 +990,7 @@ canvas#game {
   #winch-feedback { top:14px; font-size:19px; }
   #tripwire-feedback { top:14px; font-size:19px; }
   #ratchet-feedback { top:14px; font-size:19px; }
-  #breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback, #torsion-feedback, #syrup-feedback, #keel-feedback, #cam-feedback { font-size:19px; }
+  #breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback, #torsion-feedback, #syrup-feedback, #keel-feedback, #cam-feedback, #hopper-feedback { font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -1092,6 +1092,7 @@ canvas#game {
     <div id="syrup-feedback" role="status" aria-live="polite"></div>
     <div id="keel-feedback" role="status" aria-live="polite"></div>
     <div id="cam-feedback" role="status" aria-live="polite"></div>
+    <div id="hopper-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -1195,6 +1196,7 @@ canvas#game {
     <button class="tool-btn" data-tool="syrup" style="color:#ffc857;" title="Tap to pour a non-solid pool that slows passing parts and spin; tap the pool again to drain it" aria-label="Place or drain a syrup pool that slows nearby parts"><span class="icon">🍯</span>Syrup</button>
     <button class="tool-btn" data-tool="keel" style="color:#0abdc6;" title="Tap a movable part to attach a fin that grips sideways and slides along its facing axis; tap again to remove" aria-label="Attach or remove a keel that reduces a part's sideways skid"><span class="icon">⟷</span>Keel</button>
     <button class="tool-btn" data-tool="cam" style="color:#ffc857;" title="Tap to place an eccentric wheel that repeatedly lifts parts; tap the wheel or axle to stop or resume" aria-label="Place a powered eccentric cam or stop and resume its lifting cycle"><span class="icon">◔</span>Cam</button>
+    <button class="tool-btn" data-tool="hopper" style="color:#ffc857;" title="Tap a movable part to attach an automatic foot that hops when supported against gravity; tap again to remove" aria-label="Attach or remove a Hopper foot that automatically jumps from supporting surfaces"><span class="icon">🦘</span>Hopper</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1571,6 +1573,8 @@ let keelBodies = new Set(); // body-mounted fins dissipate sideways slip along a
 let keelFeedbackTimer = 0;
 let cams = []; // solid eccentric wheels driven around a fixed offset axle
 let camFeedbackTimer = 0;
+let hopperBodies = new Map(); // body -> {readyAt}: support-triggered feet, timed by simulation clock
+let hopperFeedbackTimer = 0;
 
 // Block shattering
 let pendingPhysicsActions = []; // Serializable delayed rain and collision work
@@ -2637,6 +2641,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       resetSyrupFeedback();
       resetKeelFeedback();
       resetCamFeedback();
+      resetHopperFeedback();
       drawMode = !drawMode;
       btn.classList.toggle('active', drawMode);
       if (!drawMode) drawPoints = [];
@@ -2710,6 +2715,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'syrup') resetSyrupFeedback();
       if (tool !== 'keel') resetKeelFeedback();
       if (tool !== 'cam') resetCamFeedback();
+      if (tool !== 'hopper') resetHopperFeedback();
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -4168,6 +4174,8 @@ function finishClear(playFeedback = true) {
   resetKeelFeedback();
   cams = [];
   resetCamFeedback();
+  hopperBodies.clear();
+  resetHopperFeedback();
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -4475,7 +4483,8 @@ function getToolAccentColor(tool) {
     torsion: '#ffc857',
     syrup: '#ffc857',
     keel: '#0abdc6',
-    cam: '#ffc857'
+    cam: '#ffc857',
+    hopper: '#ffc857'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -4624,6 +4633,7 @@ function eraseBodyAt(pos) {
     gyroBodies.delete(b);
     ratchetBodies.delete(b);
     keelBodies.delete(b);
+    hopperBodies.delete(b);
     liftedBodies.delete(b);
     orbitingBodies.delete(b);
     parachuteBodies.delete(b);
@@ -11801,6 +11811,120 @@ function updateSyrupPools(event) {
 
 Events.on(engine, 'beforeUpdate', updateSyrupPools);
 
+const HOPPER_SPEED = 8;
+const HOPPER_REARM_MS = 700;
+
+function resetHopperFeedback() {
+  clearTimeout(hopperFeedbackTimer);
+  const feedback = document.getElementById('hopper-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
+function showHopperFeedback(message) {
+  const feedback = document.getElementById('hopper-feedback');
+  feedback.textContent = message;
+  feedback.classList.add('active');
+  clearTimeout(hopperFeedbackTimer);
+  hopperFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 1400);
+}
+
+function pruneHoppers() {
+  const live = new Set(Composite.allBodies(world));
+  hopperBodies.forEach((state, body) => { if (!live.has(body)) hopperBodies.delete(body); });
+}
+
+function toggleHopperAt(pos) {
+  pruneHoppers();
+  const candidates = Composite.allBodies(world).filter(body => hopperBodies.has(body) ||
+    (isGyroableBody(body) && !body.isSensor));
+  const exact = Matter.Query.point(candidates, pos).filter(body => candidates.includes(body));
+  let body = exact.find(part => hopperBodies.has(part)) || exact.pop();
+  if (!body) {
+    let nearest = 46;
+    candidates.forEach(part => {
+      const distance = Math.hypot(part.position.x - pos.x, part.position.y - pos.y);
+      if (distance < nearest) { body = part; nearest = distance; }
+    });
+  }
+  if (!body) {
+    showHopperFeedback('HOPPER: TAP A MOVABLE PART');
+    haptic([3]);
+    return false;
+  }
+  const enabled = !hopperBodies.has(body);
+  if (enabled) {
+    hopperBodies.set(body, {readyAt:engine.timing.timestamp});
+    Matter.Sleeping.set(body, false);
+  } else hopperBodies.delete(body);
+  showHopperFeedback(enabled ? 'HOPPER ON • LAND TO JUMP' : 'HOPPER OFF • FOOT REMOVED');
+  addTripwireBurst(body.position, null, '#ffc857');
+  playSound(enabled ? 760 : 380, 0.1, 'triangle', 0.06);
+  haptic([7]);
+  return enabled ? 'attached' : 'removed';
+}
+
+function getHopperDown(body) {
+  const gravity = engine.gravity;
+  const magnitude = Math.hypot(gravity.x, gravity.y);
+  if (magnitude < 0.000001 || gravity.scale === 0) return null;
+  const direction = liftedBodies.has(body) ? -1 : 1;
+  return {x:gravity.x / magnitude * direction, y:gravity.y / magnitude * direction};
+}
+
+function updateHoppers(event) {
+  pruneHoppers();
+  if (!hopperBodies.size || !(event.delta > 0)) return;
+  const bodies = Composite.allBodies(world);
+  hopperBodies.forEach((state, body) => {
+    if (body.isStatic || body.isSensor || phaseBodies.has(body) || engine.timing.timestamp < state.readyAt) return;
+    const down = getHopperDown(body);
+    if (!down) return;
+    const supports = bodies.filter(other => other !== body && !other.isSensor && !phaseBodies.has(other) &&
+      Matter.Detector.canCollide(body.collisionFilter, other.collisionFilter));
+    const grounded = Matter.Query.collides(body, supports).some(collision => {
+      const sign = collision.parentA === body ? 1 : -1;
+      // Matter's normal points from B to A. Only a surface under the foot
+      // can fire it: brushing a wall or ceiling does not count as landing.
+      return -(collision.normal.x * down.x + collision.normal.y * down.y) * sign > 0.55;
+    });
+    if (!grounded) return;
+    const along = body.velocity.x * down.x + body.velocity.y * down.y;
+    Matter.Sleeping.set(body, false);
+    Body.setVelocity(body, {
+      x:body.velocity.x - (along + HOPPER_SPEED) * down.x,
+      y:body.velocity.y - (along + HOPPER_SPEED) * down.y
+    });
+    state.readyAt = engine.timing.timestamp + HOPPER_REARM_MS;
+  });
+}
+Events.on(engine, 'beforeUpdate', updateHoppers);
+
+function drawHopperMarkers() {
+  hopperBodies.forEach((state, body) => {
+    const down = getHopperDown(body) || {x:0,y:1};
+    const idle = body.isStatic || body.isSensor || phaseBodies.has(body) || !getHopperDown(body);
+    const rearming = engine.timing.timestamp < state.readyAt;
+    const reach = Math.max(18, Math.min(48, Math.max(body.bounds.max.x - body.position.x, body.bounds.max.y - body.position.y))) + 8;
+    ctx.save();
+    ctx.translate(body.position.x, body.position.y);
+    ctx.rotate(Math.atan2(down.y, down.x) - Math.PI / 2);
+    ctx.strokeStyle = '#0abdc6';
+    ctx.lineWidth = 2;
+    [-9,9].forEach(x => {
+      ctx.beginPath(); ctx.moveTo(x, reach - 12);
+      ctx.lineTo(x - 3, reach - 9); ctx.lineTo(x + 3, reach - 6);
+      ctx.lineTo(x, reach); ctx.moveTo(x - 6, reach); ctx.lineTo(x + 6, reach); ctx.stroke();
+    });
+    ctx.fillStyle = idle ? '#0abdc6' : '#ffc857';
+    ctx.fillRect(-4, reach - 7, 8, rearming ? 3 : 7);
+    ctx.restore();
+    ctx.save(); ctx.fillStyle = '#dffcff'; ctx.font = '14px VT323'; ctx.textAlign = 'center';
+    ctx.fillText(idle ? 'HOPPER • IDLE' : 'HOPPER • ON', body.position.x, Math.max(16, body.bounds.min.y - 10));
+    ctx.restore();
+  });
+}
+
 const CAM_RADIUS = 42;
 const CAM_OFFSET = 20;
 const CAM_SPEED = 0.025; // radians per 60Hz physics step; about four seconds per revolution
@@ -13859,6 +13983,13 @@ function onDown(e) {
   // Cam tool — a powered eccentric rim lifts loads, and stops/resumes on tap.
   if (currentTool === 'cam') {
     placeOrToggleCamAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Hopper tool — attach a support-sensing automatic jumping foot.
+  if (currentTool === 'hopper') {
+    toggleHopperAt(pos);
     pointerDown = false;
     return;
   }
@@ -18940,6 +19071,7 @@ function loop(timestamp) {
   pruneSyrupPools();
   pruneKeels();
   pruneCams();
+  pruneHoppers();
   pruneHinges();
   pruneSprings();
   pruneWelds();
@@ -19785,6 +19917,7 @@ function loop(timestamp) {
   drawParachuteMarkers(timestamp);
   drawKeelMarkers();
   drawCamLabels();
+  drawHopperMarkers();
   drawZiplines(timestamp);
   drawOrbitMarkers(timestamp);
   drawTethers(timestamp);
@@ -20929,7 +21062,7 @@ function captureGameState() {
       welds, tethers, webTraps, ramps, pinwheels, baskets,
       cannons, elevators, recyclers, hatches, pistons, parachuteBodies,
       saws, funnels, catapults, presses, ziplines, gearboxes,
-      rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates, torsions, syrupPools, keelBodies, cams,
+      rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates, torsions, syrupPools, keelBodies, cams, hopperBodies,
       vortexActive, vortexTimer, vortexCenter, pendingPhysicsActions
     },
     gravity: { ...engine.gravity },
@@ -20980,6 +21113,7 @@ function readGameSave(serialized) {
   if (!Object.hasOwn(game.state, 'syrupPools')) game.state.syrupPools = [];
   if (!Object.hasOwn(game.state, 'keelBodies')) game.state.keelBodies = new Set();
   if (!Object.hasOwn(game.state, 'cams')) game.state.cams = [];
+  if (!Object.hasOwn(game.state, 'hopperBodies')) game.state.hopperBodies = new Map();
   const expected = captureGameState().state;
   for (const [key, value] of Object.entries(expected)) {
     const actual = game.state[key];
@@ -21032,6 +21166,9 @@ function readGameSave(serialized) {
       typeof body.camRunning !== 'boolean' || !vector(body.camAnchor) ||
       Math.hypot(body.position.x - getCamPosition(body.camAnchor, body.angle).x,
         body.position.y - getCamPosition(body.camAnchor, body.angle).y) > 0.01)) throw new Error('Invalid saved cam');
+  if ([...game.state.hopperBodies].some(([body, state]) => !game.bodies.includes(body) ||
+      body.parent !== body || body.label === 'wall' || body.isTarget || !state ||
+      !Number.isFinite(state.readyAt) || state.readyAt < 0)) throw new Error('Invalid saved hopper');
   const pulleyBodies = new Set();
   if (game.state.pulleys.some(link => {
     if (!game.constraints.includes(link) || link.render?.type !== 'pulley' ||
@@ -21072,7 +21209,7 @@ function restoreGameState(game) {
     welds, tethers, webTraps, ramps, pinwheels, baskets,
     cannons, elevators, recyclers, hatches, pistons, parachuteBodies,
     saws, funnels, catapults, presses, ziplines, gearboxes,
-    rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates, torsions, syrupPools, keelBodies, cams,
+    rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates, torsions, syrupPools, keelBodies, cams, hopperBodies,
     vortexActive, vortexTimer, vortexCenter, pendingPhysicsActions
   } = game.state);
   Object.assign(lessonState, game.lesson); // Keep host callbacks registered in this page.

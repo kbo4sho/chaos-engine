@@ -40,6 +40,134 @@ function gameHarness(stored = {}) {
 
 const key = 'chaos-engine-save-1';
 
+describe('Hopper tool with real Matter.js', () => {
+  function setup() {
+    const api=gameHarness();
+    api.run(`paused=true; engine.gravity.y=1;
+      window.part=Bodies.rectangle(300,300,30,30,{frictionAir:0,restitution:0});
+      window.ground=Bodies.rectangle(300,325,300,22,{isStatic:true}); Composite.add(world,[part,ground]);`);
+    const select=tool=>api.window.document.querySelector('[data-tool="'+tool+'"]').click();
+    const step=(count=1)=>api.run(`for(let i=0;i<${count};i++) Engine.update(engine,1000/60)`);
+    const tick=()=>api.run('updateHoppers({delta:1000/60})');
+    return {...api,select,step,tick};
+  }
+
+  it('appends the accessible final button and routes actual canvas taps through Draw', () => {
+    const api=setup(), button=api.window.document.querySelector('#toolbar > :last-child');
+    expect(button.dataset.tool).toBe('hopper'); expect(button.previousElementSibling.dataset.tool).toBe('cam');
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(99);
+    expect(button.getAttribute('aria-label')).toContain('automatically jumps'); expect(button.title).toContain('tap again');
+    api.select('draw'); button.click();
+    expect(api.run('[currentTool,drawMode]')).toEqual(['hopper',false]); expect(button.classList.contains('active')).toBe(true);
+    const canvas=api.window.document.querySelector('canvas');
+    canvas.getBoundingClientRect=()=>({left:0,top:0,width:canvas.width,height:canvas.height});
+    const tap=(x,y)=>canvas.dispatchEvent(new api.window.MouseEvent('mousedown',{clientX:x,clientY:y,bubbles:true}));
+    tap(700,100); expect(api.run('hopperBodies.size')).toBe(0);
+    expect(api.window.document.getElementById('hopper-feedback').textContent).toContain('TAP A MOVABLE PART');
+    tap(300,300); expect(api.run('[hopperBodies.has(part),pointerDown]')).toEqual([true,false]);
+    expect(api.window.document.getElementById('hopper-feedback').getAttribute('role')).toBe('status');
+    tap(300,300); expect(api.run('hopperBodies.size')).toBe(0);
+    expect(api.run('Composite.allBodies(world).includes(part)')).toBe(true);
+  });
+
+  it('jumps from real support while preserving tangential travel, spin and material', () => {
+    const api=setup(); api.run(`Body.setVelocity(part,{x:2,y:3}); Body.setAngularVelocity(part,0.15);
+      window.mass=part.mass; window.inertia=part.inertia; toggleHopperAt(part.position)`); api.tick();
+    expect(api.run('part.velocity.x')).toBeCloseTo(2); expect(api.run('part.velocity.y')).toBeCloseTo(-8);
+    expect(api.run('part.angularVelocity')).toBeCloseTo(0.15);
+    expect(api.run('[part.mass,part.inertia]')).toEqual([api.run('mass'),api.run('inertia')]);
+    expect(api.run('hopperBodies.get(part).readyAt')).toBe(700);
+    api.run('drawHopperMarkers()'); expect(api.errors).toEqual([]);
+  });
+
+  it('produces repeated physical hops after landings instead of air pulses', () => {
+    const api=setup(); api.run('toggleHopperAt(part.position)'); let highest=300, hops=0, lastReady=0;
+    for(let i=0;i<240;i++) {
+      api.step(); highest=Math.min(highest,api.run('part.position.y'));
+      const ready=api.run('hopperBodies.get(part).readyAt'); if(ready>lastReady) { hops++; lastReady=ready; }
+    }
+    expect(highest).toBeLessThan(210); expect(hops).toBeGreaterThanOrEqual(3);
+    expect(api.run('part.position.x')).toBeCloseTo(300,3);
+  });
+
+  it.each([[1,0,325,300,-8,0],[-1,0,275,300,8,0],[0,-1,300,275,0,8]])(
+    'jumps against gravity (%s,%s) from the matching support', (gx,gy,x,y,vx,vy) => {
+      const api=setup(); api.run(`engine.gravity.x=${gx}; engine.gravity.y=${gy};
+        Body.setPosition(ground,{x:${x},y:${y}}); Body.setVertices(ground,Bodies.rectangle(${x},${y},${gx ? 22 : 300},${gx ? 300 : 22}).vertices);
+        toggleHopperAt(part.position)`); api.tick();
+      expect(api.run('part.velocity.x')).toBeCloseTo(vx); expect(api.run('part.velocity.y')).toBeCloseTo(vy);
+    });
+
+  it('respects Lift local inversion and detects the ceiling as support', () => {
+    const api=setup(); api.run(`Body.setPosition(ground,{x:300,y:275}); liftedBodies.add(part); toggleHopperAt(part.position)`); api.tick();
+    expect(api.run('part.velocity.y')).toBeCloseTo(8);
+  });
+
+  it.each(['Body.setPosition(ground,{x:600,y:325})','Body.setPosition(ground,{x:300,y:275})',
+    'Body.setPosition(ground,{x:300,y:100}); Composite.add(world,Bodies.rectangle(325,300,22,300,{isStatic:true}))',
+    'ground.isSensor=true','ground.collisionFilter.mask=0','part.collisionFilter.mask=0',
+    'phaseBodies.set(ground,{})','phaseBodies.set(part,{})','Body.setStatic(part,true)','part.isSensor=true',
+    'engine.gravity.y=0','engine.gravity.scale=0'])('does not jump without eligible support: %s', mutation => {
+    const api=setup(); api.run('toggleHopperAt(part.position)'); api.run(mutation); api.tick();
+    expect(api.run('part.velocity')).toEqual({x:0,y:0});
+  });
+
+  it('uses simulation cooldown and does not fire on zero delta or twice from sustained contact', () => {
+    const api=setup(); api.run('toggleHopperAt(part.position); updateHoppers({delta:0})');
+    expect(api.run('part.velocity.y')).toBe(0); api.tick();
+    api.run('Body.setVelocity(part,{x:0,y:0}); engine.timing.timestamp=699'); api.tick();
+    expect(api.run('part.velocity.y')).toBe(0);
+    api.run('engine.timing.timestamp=700'); api.tick(); expect(api.run('part.velocity.y')).toBeCloseTo(-8);
+  });
+
+  it('wakes sleeping support riders and targets one compound parent with a 46px touch fallback', () => {
+    const api=setup(); api.run(`Composite.remove(world,part); part=Body.create({parts:[Bodies.rectangle(290,300,20,30),Bodies.rectangle(310,300,20,30)]});
+      Composite.add(world,part); toggleHopperAt({x:300,y:260}); Matter.Sleeping.set(part,true)`); api.tick();
+    expect(api.run('[hopperBodies.size,hopperBodies.has(part),part.isSleeping]')).toEqual([1,true,false]);
+    expect(api.run('part.velocity.y')).toBeCloseTo(-8);
+  });
+
+  it('detaches while anchored and leaves the current motion alone', () => {
+    const api=setup(); api.run('toggleHopperAt(part.position); Body.setStatic(part,true); toggleHopperAt(part.position)');
+    expect(api.run('[hopperBodies.size,part.isStatic]')).toEqual([0,true]);
+    api.run('Body.setStatic(part,false); toggleHopperAt(part.position)'); api.tick();
+    api.run('toggleHopperAt(part.position)'); expect(api.run('part.velocity.y')).toBeCloseTo(-8);
+  });
+
+  it('cleans Eraser, external removals, tool changes, Draw and Clear', () => {
+    const api=setup(); api.run('toggleHopperAt(part.position); eraseBodyAt(part.position)');
+    expect(api.run('[hopperBodies.size,Composite.allBodies(world).includes(ground)]')).toEqual([0,true]);
+    api.run('Composite.add(world,part); toggleHopperAt(part.position); Composite.remove(world,part)'); api.step();
+    expect(api.run('hopperBodies.size')).toBe(0);
+    api.select('ball'); expect(api.window.document.getElementById('hopper-feedback').textContent).toBe('');
+    api.run('Composite.add(world,part); toggleHopperAt(part.position)'); api.select('draw');
+    expect(api.window.document.getElementById('hopper-feedback').textContent).toBe('');
+    api.run('finishClear(false)'); expect(api.run('hopperBodies.size')).toBe(0);
+  });
+
+  it('preserves selected tool, cooldown, velocity and body identity through save/load', () => {
+    const api=setup(); api.select('hopper'); api.run('toggleHopperAt(part.position)'); api.tick();
+    api.run('restoreGameState(readGameSave(serializeGameState()))');
+    expect(api.run('[currentTool,hopperBodies.size]')).toEqual(['hopper',1]);
+    expect(api.run('Composite.allBodies(world).includes([...hopperBodies.keys()][0])')).toBe(true);
+    expect(api.run('[...hopperBodies.values()][0].readyAt')).toBe(700);
+    expect(api.run('[...hopperBodies.keys()][0].velocity.y')).toBeCloseTo(-8);
+  });
+
+  it('migrates older saves without Hopper state', () => {
+    const api=setup(); api.run(`const game=captureGameState(); delete game.state.hopperBodies; const graph=ChaosSaveCodec.encode(game);
+      restoreGameState(readGameSave(JSON.stringify({version:1,savedAt:new Date().toISOString(),graph,checksum:ChaosSaveCodec.checksum(graph)})))`);
+    expect(api.run('hopperBodies.size')).toBe(0);
+  });
+
+  it.each(['hopperBodies.set({}, {readyAt:0})','hopperBodies.set(part,{readyAt:NaN})',
+    'hopperBodies.set(part,{readyAt:-1})','hopperBodies.set(part,null)','part.label="wall"'])('rejects invalid Hopper saves: %s', mutation => {
+    const api=setup(); api.run('toggleHopperAt(part.position)'); api.run(mutation);
+    expect(()=>api.run('readGameSave(serializeGameState())')).toThrow('Invalid saved hopper');
+    expect(api.run('Composite.allBodies(world).includes(part)')).toBe(true);
+  });
+});
+
 describe('Cam tool with real Matter.js', () => {
   function setup() {
     const api=gameHarness(); api.run('paused=true; engine.gravity.y=0;');
@@ -48,11 +176,11 @@ describe('Cam tool with real Matter.js', () => {
     return {...api,select,step};
   }
 
-  it('appends one accessible final button, exits Draw and routes actual canvas taps', () => {
-    const api=setup(), button=api.window.document.querySelector('#toolbar > :last-child');
+  it('keeps its accessible button, exits Draw and routes actual canvas taps', () => {
+    const api=setup(), button=api.window.document.querySelector('[data-tool=cam]');
     expect(button.dataset.tool).toBe('cam');
     expect(button.previousElementSibling.dataset.tool).toBe('keel');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(98);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(99);
     expect(button.getAttribute('aria-label')).toContain('eccentric cam');
     expect(button.title).toContain('stop or resume');
     api.select('draw'); button.click();
@@ -201,7 +329,7 @@ describe('Keel tool with real Matter.js', () => {
     const api=setup(), button=api.window.document.querySelector('[data-tool=keel]');
     expect(button.dataset.tool).toBe('keel');
     expect(button.previousElementSibling.dataset.tool).toBe('syrup');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(98);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(99);
     expect(button.getAttribute('aria-label')).toContain('keel');
     expect(button.title).toContain('sideways');
     api.select('draw'); button.click();
@@ -381,7 +509,7 @@ describe('Syrup tool with real Matter.js', () => {
     const api=gameHarness(),button=api.window.document.querySelector('[data-tool=syrup]');
     expect(button.dataset.tool).toBe('syrup');
     expect(button.previousElementSibling.dataset.tool).toBe('torsion');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(98);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(99);
     expect(button.getAttribute('aria-label')).toContain('syrup pool');
     expect(button.title).toContain('drain');
     api.window.document.querySelector('[data-tool=draw]').click(); button.click();
@@ -526,7 +654,7 @@ describe('Torsion tool with real Matter.js', () => {
     const api=setup(),button=api.window.document.querySelector('[data-tool=torsion]');
     expect(button.dataset.tool).toBe('torsion');
     expect(button.previousElementSibling.dataset.tool).toBe('oneway');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(98);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(99);
     expect(button.getAttribute('aria-label')).toContain('torsion spring');
     expect(button.title).toContain('Snip');
     api.select('draw'); button.click();
@@ -702,7 +830,7 @@ describe('One-way gate with real Matter.js', () => {
     const api=gameHarness(), button=api.window.document.querySelector('[data-tool=oneway]');
     expect(button.dataset.tool).toBe('oneway');
     expect(button.previousElementSibling.dataset.tool).toBe('pulley');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(98);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(99);
     expect(button.getAttribute('aria-label')).toContain('one-way gate');
     expect(button.title).toContain('reverse');
     button.click();
@@ -894,7 +1022,7 @@ describe('Pulley tool with real Matter.js', () => {
     const button = api.window.document.querySelector('[data-tool=pulley]');
     expect(button.dataset.tool).toBe('pulley');
     expect(button.previousElementSibling.dataset.tool).toBe('damper');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(98);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(99);
     expect(button.getAttribute('aria-label')).toContain('counterweight pulley');
     expect(button.title).toContain('Snip');
     api.select('pulley');
