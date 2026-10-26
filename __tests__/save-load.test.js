@@ -40,6 +40,165 @@ function gameHarness(stored = {}) {
 
 const key = 'chaos-engine-save-1';
 
+describe('Rack transmission with real Matter.js', () => {
+  function setup() {
+    const api = gameHarness();
+    api.run(`paused=true; engine.gravity.y=0;
+      window.a=Bodies.rectangle(240,240,40,40,{frictionAir:0,restitution:0});
+      window.b=Bodies.rectangle(460,240,40,40,{frictionAir:0,restitution:0});
+      Composite.add(world,[a,b]);`);
+    const select = tool => api.window.document.querySelector('[data-tool="'+tool+'"]').click();
+    const connect = () => api.run('rackAt(a.position); window.link=rackAt(b.position)');
+    const tick = delta => api.run(`updateRacks({delta:${delta ?? 1000/60}})`);
+    return {...api,select,connect,tick};
+  }
+
+  it('appends the accessible final button and routes canvas taps after leaving Draw', () => {
+    const api=setup(), button=api.window.document.querySelector('#toolbar > :last-child');
+    expect(button.dataset.tool).toBe('rack'); expect(button.previousElementSibling.dataset.tool).toBe('hopper');
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(100);
+    expect(button.getAttribute('aria-label')).toContain('spin into sideways travel'); expect(button.title).toContain('tap either end to release');
+    api.select('draw'); button.click(); expect(api.run('[currentTool,drawMode]')).toEqual(['rack',false]);
+    expect(button.classList.contains('active')).toBe(true);
+    const canvas=api.window.document.querySelector('canvas');
+    canvas.getBoundingClientRect=()=>({left:0,top:0,width:canvas.width,height:canvas.height});
+    const tap=(x,y)=>canvas.dispatchEvent(new api.window.MouseEvent('mousedown',{clientX:x,clientY:y,bubbles:true}));
+    tap(700,100); expect(api.run('[racks.length,rackSelection,pointerDown]')).toEqual([0,null,false]);
+    expect(api.window.document.getElementById('rack-feedback').textContent).toContain('TAP A TURNING PART');
+    tap(240,240); expect(api.run('rackSelection===a')).toBe(true); tap(460,240);
+    expect(api.run('[racks.length,rackSelection,pointerDown]')).toEqual([1,null,false]);
+    expect(api.window.document.getElementById('rack-feedback').getAttribute('role')).toBe('status');
+    expect(api.window.document.getElementById('rack-feedback').textContent).toContain('RACK SET');
+    tap(460,240); expect(api.run('[racks.length,captureGameState().bodies.length]')).toEqual([0,2]);
+  });
+
+  it.each([0.3,-0.3])('converts spin %s to relative sideways travel without changing vertical speed or second spin', spin => {
+    const api=setup(); api.connect();
+    api.run(`Body.setAngularVelocity(a,${spin}); Body.setAngularVelocity(b,0.2);
+      Body.setVelocity(a,{x:0,y:2}); Body.setVelocity(b,{x:0,y:3});
+      window.properties=[a.mass,b.mass,a.inertia,b.inertia,a.friction,b.restitution,a.area,b.area]`);
+    for(let i=0;i<30;i++) api.tick();
+    expect(api.run(`Math.sign(b.velocity.x-a.velocity.x)`)).toBe(Math.sign(spin));
+    expect(api.run('b.velocity.x-a.velocity.x')).toBeCloseTo(api.run('link.rackRadius*a.angularVelocity'),5);
+    expect(api.run('[a.velocity.y,b.velocity.y,b.angularVelocity]')).toEqual([2,3,0.2]);
+    expect(api.run('[a.mass,b.mass,a.inertia,b.inertia,a.friction,b.restitution,a.area,b.area]')).toEqual(api.run('properties'));
+    expect(api.run('[link.stiffness,link.damping]')).toEqual([0,0]);
+  });
+
+  it('conserves linear momentum and never adds kinetic energy while removing slip', () => {
+    const api=setup(); api.connect();
+    api.run(`Body.setVelocity(a,{x:-3,y:2}); Body.setVelocity(b,{x:7,y:-1}); Body.setAngularVelocity(a,-0.4);
+      window.momentum=()=>a.mass*a.velocity.x+b.mass*b.velocity.x;
+      window.energy=()=>0.5*(a.mass*(a.velocity.x**2+a.velocity.y**2)+b.mass*(b.velocity.x**2+b.velocity.y**2)+a.inertia*a.angularVelocity**2);
+      window.initialMomentum=momentum()`);
+    let energy=api.run('energy()');
+    for(let i=0;i<20;i++) {
+      api.tick(); const next=api.run('energy()'); expect(next).toBeLessThanOrEqual(energy+1e-9); energy=next;
+      expect(api.run('momentum()')).toBeCloseTo(api.run('initialMomentum'),9);
+    }
+  });
+
+  it('back-drives the first part from the second part’s horizontal motion', () => {
+    const api=setup(); api.connect(); api.run('Body.setVelocity(b,{x:6,y:0})'); api.tick();
+    expect(api.run('a.angularVelocity')).toBeGreaterThan(0); expect(api.run('a.velocity.x')).toBeGreaterThan(0);
+    expect(api.run('b.velocity.x')).toBeLessThan(6);
+  });
+
+  it('moves real parts through the registered physics update and reverses the drive', () => {
+    const api=setup(); api.connect(); api.run('Body.setAngularVelocity(a,0.3); for(let i=0;i<30;i++) Engine.update(engine,1000/60)');
+    expect(api.run('b.position.x')).toBeGreaterThan(475);
+    expect(api.run('a.position.x')).toBeLessThan(225);
+    expect(api.run('a.angle')).toBeGreaterThan(0.1);
+    api.run('Body.setVelocity(a,{x:0,y:0}); Body.setVelocity(b,{x:0,y:0}); Body.setAngularVelocity(a,-0.3)'); api.tick();
+    expect(api.run('b.velocity.x')).toBeLessThan(0);
+  });
+
+  it('scales isolated slip damping with timestep and ignores zero delta', () => {
+    const full=setup(), half=setup(); full.connect(); half.connect();
+    full.run('Body.setAngularVelocity(a,0.3)'); half.run('Body.setAngularVelocity(a,0.3)');
+    full.tick(0); expect(full.run('b.velocity.x')).toBe(0);
+    full.tick(1000/60); half.tick(1000/120); half.tick(1000/120);
+    for(const value of ['a.velocity.x','b.velocity.x','a.angularVelocity']) expect(full.run(value)).toBeCloseTo(half.run(value),10);
+  });
+
+  it('transmits into a sleeping receiver and can roll against an anchored second part', () => {
+    const api=setup(); api.connect(); api.run('Matter.Sleeping.set(b,true); Body.setAngularVelocity(a,0.3)'); api.tick();
+    expect(api.run('b.isSleeping')).toBe(false); expect(api.run('b.velocity.x')).toBeGreaterThan(0);
+    api.run('Body.setStatic(b,true); window.fixedX=b.position.x; window.staleSpeed=b.velocity.x; Body.setVelocity(a,{x:0,y:0}); Body.setAngularVelocity(a,0.3)'); api.tick();
+    expect(api.run('b.velocity.x')).toBe(api.run('staleSpeed')); expect(api.run('a.velocity.x')).toBeLessThan(0);
+    api.run('for(let i=0;i<20;i++) Engine.update(engine,1000/60)'); expect(api.run('b.position.x')).toBe(api.run('fixedX'));
+  });
+
+  it.each(['Body.setStatic(a,true)','a.isSensor=true','b.isSensor=true','phaseBodies.set(a,{})','phaseBodies.set(b,{})'])('suspends without losing the transmission: %s', mutation => {
+    const api=setup(); api.connect(); api.run('Body.setAngularVelocity(a,0.3); Body.setVelocity(b,{x:6,y:2})'); api.run(mutation); api.run('window.before=[a.velocity.x,b.velocity.x,a.angularVelocity]'); api.tick();
+    expect(api.run('[a.velocity.x,b.velocity.x,a.angularVelocity]')).toEqual(api.run('before')); expect(api.run('racks.length')).toBe(1);
+  });
+
+  it('targets the compound parent with shared 46px touch tolerance', () => {
+    const api=setup(); api.run(`Composite.remove(world,a); a=Body.create({parts:[Bodies.rectangle(230,240,20,40),Bodies.rectangle(250,240,20,40)]}); Composite.add(world,a);
+      rackAt({x:240,y:199}); rackAt(b.position)`);
+    expect(api.run('[racks.length,racks[0].bodyA===a]')).toEqual([1,true]);
+    api.run('Body.setAngularVelocity(a,0.3)'); api.tick(); expect(api.run('b.velocity.x')).toBeGreaterThan(0);
+  });
+
+  it('handles cancellation, empty second taps, short links, and already connected endpoints', () => {
+    const api=setup(); expect(api.run('rackAt(a.position); rackAt(a.position)')).toBe('cancelled');
+    api.run('rackAt(a.position); rackAt({x:700,y:100})'); expect(api.run('rackSelection===a')).toBe(true);
+    api.run('Body.setPosition(b,{x:270,y:240}); rackAt(b.position)'); expect(api.run('racks.length')).toBe(0);
+    api.run('Body.setPosition(b,{x:460,y:240}); rackAt(b.position)'); expect(api.run('racks.length')).toBe(1);
+    api.run('window.c=Bodies.rectangle(700,240,40,40); Composite.add(world,c); rackAt(c.position); rackAt(a.position)');
+    expect(api.run('[racks.length,rackSelection===c]')).toEqual([1,true]);
+    expect(api.window.document.getElementById('rack-feedback').textContent).toContain('RELEASE THAT PART FIRST');
+  });
+
+  it.each(['Body.setStatic(a,true); a.isAnchored=true','a.isSensor=true','phaseBodies.set(a,{})','Body.setInertia(a,Infinity)'])('rejects an unsuitable first part: %s', mutation => {
+    const api=setup(); api.run(mutation); api.run('rackAt(a.position)'); expect(api.run('rackSelection')).toBe(null);
+  });
+
+  it('revalidates the first endpoint before connecting', () => {
+    const api=setup(); api.run('rackAt(a.position); Body.setStatic(a,true); rackAt(b.position)');
+    expect(api.run('[racks.length,rackSelection]')).toEqual([0,null]);
+  });
+
+  it('cleans Snip, Eraser, external body/constraint removal, Draw, tool changes and Clear', () => {
+    const api=setup(); api.connect(); api.run('snipConstraintAt({x:350,y:240})');
+    expect(api.run('[racks.length,Composite.allConstraints(world).length,captureGameState().bodies.length]')).toEqual([0,0,2]);
+    api.connect(); api.run('eraseBodyAt(a.position)'); expect(api.run('[racks.length,Composite.allConstraints(world).length]')).toEqual([0,0]);
+    api.run('Composite.add(world,a)'); api.connect(); api.run('Composite.remove(world,b); pruneRacks()');
+    expect(api.run('[racks.length,Composite.allConstraints(world).length]')).toEqual([0,0]);
+    api.run('Composite.add(world,b)'); api.connect(); api.run('Composite.remove(world,link); pruneRacks()'); expect(api.run('racks.length')).toBe(0);
+    api.run('rackAt(a.position); Composite.remove(world,a); pruneRacks()'); expect(api.run('rackSelection')).toBe(null);
+    api.run('Composite.add(world,a); rackAt(a.position)'); api.select('draw'); expect(api.run('rackSelection')).toBe(null);
+    api.run('rackAt(a.position)'); api.select('ball'); expect(api.window.document.getElementById('rack-feedback').textContent).toBe('');
+    api.connect(); api.run('finishClear(false)'); expect(api.run('[racks.length,rackSelection]')).toEqual([0,null]);
+  });
+
+  it('preserves selected tool, radius, graph identity and working physics through save/load', () => {
+    const api=setup(); api.select('rack'); api.connect(); api.run('Body.setAngularVelocity(a,0.3); restoreGameState(readGameSave(serializeGameState())); window.link=racks[0]; window.a=link.bodyA; window.b=link.bodyB');
+    expect(api.run('[currentTool,racks.length]')).toEqual(['rack',1]);
+    expect(api.run('Composite.allBodies(world).includes(a) && Composite.allConstraints(world).includes(link)')).toBe(true);
+    expect(api.run('link.rackRadius')).toBeCloseTo(Math.sqrt(1600/Math.PI)); api.tick(); expect(api.run('b.velocity.x')).toBeGreaterThan(0);
+  });
+
+  it('migrates older saves without Rack state', () => {
+    const api=setup(); api.run(`const game=captureGameState(); delete game.state.racks; const graph=ChaosSaveCodec.encode(game);
+      restoreGameState(readGameSave(JSON.stringify({version:1,savedAt:new Date().toISOString(),graph,checksum:ChaosSaveCodec.checksum(graph)})))`);
+    expect(api.run('racks.length')).toBe(0);
+  });
+
+  it.each(['link.rackRadius=NaN','link.rackRadius=0','link.rackRadius=65','link.stiffness=1','link.damping=0.1',
+    'link.bodyB=link.bodyA','racks.push(link)','link.pointA.x=1','Composite.remove(world,link)',
+    'link.length=0','link.render.type="spring"'])('rejects invalid saved Rack state before changing the world: %s', mutation => {
+    const api=setup(); api.connect(); api.run(mutation);
+    expect(()=>api.run('readGameSave(serializeGameState())')).toThrow('Invalid saved rack'); expect(api.run('Composite.allBodies(world).includes(a)')).toBe(true);
+  });
+
+  it('renders the selection, pinion, slide teeth and idle state without runtime errors', () => {
+    const api=setup(); api.select('rack'); api.run('rackAt(a.position); drawRacks(); rackAt(b.position); drawRacks(); drawConstraints(); Body.setStatic(a,true); drawRacks()');
+    expect(api.errors).toEqual([]);
+  });
+});
+
 describe('Hopper tool with real Matter.js', () => {
   function setup() {
     const api=gameHarness();
@@ -52,10 +211,10 @@ describe('Hopper tool with real Matter.js', () => {
     return {...api,select,step,tick};
   }
 
-  it('appends the accessible final button and routes actual canvas taps through Draw', () => {
-    const api=setup(), button=api.window.document.querySelector('#toolbar > :last-child');
+  it('keeps the accessible Hopper button and routes actual canvas taps through Draw', () => {
+    const api=setup(), button=api.window.document.querySelector('[data-tool=hopper]');
     expect(button.dataset.tool).toBe('hopper'); expect(button.previousElementSibling.dataset.tool).toBe('cam');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(99);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(100);
     expect(button.getAttribute('aria-label')).toContain('automatically jumps'); expect(button.title).toContain('tap again');
     api.select('draw'); button.click();
     expect(api.run('[currentTool,drawMode]')).toEqual(['hopper',false]); expect(button.classList.contains('active')).toBe(true);
@@ -180,7 +339,7 @@ describe('Cam tool with real Matter.js', () => {
     const api=setup(), button=api.window.document.querySelector('[data-tool=cam]');
     expect(button.dataset.tool).toBe('cam');
     expect(button.previousElementSibling.dataset.tool).toBe('keel');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(99);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(100);
     expect(button.getAttribute('aria-label')).toContain('eccentric cam');
     expect(button.title).toContain('stop or resume');
     api.select('draw'); button.click();
@@ -329,7 +488,7 @@ describe('Keel tool with real Matter.js', () => {
     const api=setup(), button=api.window.document.querySelector('[data-tool=keel]');
     expect(button.dataset.tool).toBe('keel');
     expect(button.previousElementSibling.dataset.tool).toBe('syrup');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(99);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(100);
     expect(button.getAttribute('aria-label')).toContain('keel');
     expect(button.title).toContain('sideways');
     api.select('draw'); button.click();
@@ -509,7 +668,7 @@ describe('Syrup tool with real Matter.js', () => {
     const api=gameHarness(),button=api.window.document.querySelector('[data-tool=syrup]');
     expect(button.dataset.tool).toBe('syrup');
     expect(button.previousElementSibling.dataset.tool).toBe('torsion');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(99);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(100);
     expect(button.getAttribute('aria-label')).toContain('syrup pool');
     expect(button.title).toContain('drain');
     api.window.document.querySelector('[data-tool=draw]').click(); button.click();
@@ -654,7 +813,7 @@ describe('Torsion tool with real Matter.js', () => {
     const api=setup(),button=api.window.document.querySelector('[data-tool=torsion]');
     expect(button.dataset.tool).toBe('torsion');
     expect(button.previousElementSibling.dataset.tool).toBe('oneway');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(99);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(100);
     expect(button.getAttribute('aria-label')).toContain('torsion spring');
     expect(button.title).toContain('Snip');
     api.select('draw'); button.click();
@@ -830,7 +989,7 @@ describe('One-way gate with real Matter.js', () => {
     const api=gameHarness(), button=api.window.document.querySelector('[data-tool=oneway]');
     expect(button.dataset.tool).toBe('oneway');
     expect(button.previousElementSibling.dataset.tool).toBe('pulley');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(99);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(100);
     expect(button.getAttribute('aria-label')).toContain('one-way gate');
     expect(button.title).toContain('reverse');
     button.click();
@@ -1022,7 +1181,7 @@ describe('Pulley tool with real Matter.js', () => {
     const button = api.window.document.querySelector('[data-tool=pulley]');
     expect(button.dataset.tool).toBe('pulley');
     expect(button.previousElementSibling.dataset.tool).toBe('damper');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(99);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(100);
     expect(button.getAttribute('aria-label')).toContain('counterweight pulley');
     expect(button.title).toContain('Snip');
     api.select('pulley');

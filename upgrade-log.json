@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-10-26",
+      "ideas": [
+        "New tool: Connect a Rack transmission that converts spin into relative sideways travel and back"
+      ],
+      "summary": "Implemented Rack tool (⚙↔) — the final button after Hopper connects a turning part to a second solid part. A passive timestep-scaled, mass/inertia-aware impulse converts the first part's spin to relative horizontal travel and lets travel back-drive spin, preserving free-end linear momentum without adding kinetic energy or changing material, geometry, vertical travel or receiver spin. Tap either endpoint or Snip the shaft to release. Compound parts, sleeping receivers, anchored second endpoints, sensor/Phase/static-pinions suspension, cyan shaft and amber pinion/slide teeth, readable labels, shared 46px touch targeting, accessible feedback, audio/sparks/haptics, Draw/tool-change/Eraser/pruning/Clear cleanup and validated backward-compatible save/load support rotary-to-linear contraptions on desktop and mobile."
+    },
+    {
       "date": "2026-10-25",
       "ideas": [
         "New tool: Attach a Hopper foot that automatically jumps a movable part from supporting surfaces against gravity"

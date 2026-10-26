@@ -809,7 +809,7 @@ canvas#game {
 #ratchet-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
-#breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback, #torsion-feedback, #syrup-feedback, #keel-feedback, #cam-feedback, #hopper-feedback {
+#breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback, #torsion-feedback, #syrup-feedback, #keel-feedback, #cam-feedback, #hopper-feedback, #rack-feedback {
   position:absolute; top:14px; left:50%; z-index:3;
   transform:translate(-50%, -8px) scale(0.9);
   padding:4px 12px; border:1px solid currentColor;
@@ -819,7 +819,7 @@ canvas#game {
   opacity:0; pointer-events:none; white-space:nowrap;
   transition:opacity .12s, transform .12s;
 }
-#breaklink-feedback.active, #damper-feedback.active, #pulley-feedback.active, #oneway-feedback.active, #torsion-feedback.active, #syrup-feedback.active, #keel-feedback.active, #cam-feedback.active, #hopper-feedback.active {
+#breaklink-feedback.active, #damper-feedback.active, #pulley-feedback.active, #oneway-feedback.active, #torsion-feedback.active, #syrup-feedback.active, #keel-feedback.active, #cam-feedback.active, #hopper-feedback.active, #rack-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
 #damper-feedback, #oneway-feedback, #keel-feedback { color:#0abdc6; }
@@ -990,7 +990,7 @@ canvas#game {
   #winch-feedback { top:14px; font-size:19px; }
   #tripwire-feedback { top:14px; font-size:19px; }
   #ratchet-feedback { top:14px; font-size:19px; }
-  #breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback, #torsion-feedback, #syrup-feedback, #keel-feedback, #cam-feedback, #hopper-feedback { font-size:19px; }
+  #breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback, #torsion-feedback, #syrup-feedback, #keel-feedback, #cam-feedback, #hopper-feedback, #rack-feedback { font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -1093,6 +1093,7 @@ canvas#game {
     <div id="keel-feedback" role="status" aria-live="polite"></div>
     <div id="cam-feedback" role="status" aria-live="polite"></div>
     <div id="hopper-feedback" role="status" aria-live="polite"></div>
+    <div id="rack-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -1197,6 +1198,7 @@ canvas#game {
     <button class="tool-btn" data-tool="keel" style="color:#0abdc6;" title="Tap a movable part to attach a fin that grips sideways and slides along its facing axis; tap again to remove" aria-label="Attach or remove a keel that reduces a part's sideways skid"><span class="icon">⟷</span>Keel</button>
     <button class="tool-btn" data-tool="cam" style="color:#ffc857;" title="Tap to place an eccentric wheel that repeatedly lifts parts; tap the wheel or axle to stop or resume" aria-label="Place a powered eccentric cam or stop and resume its lifting cycle"><span class="icon">◔</span>Cam</button>
     <button class="tool-btn" data-tool="hopper" style="color:#ffc857;" title="Tap a movable part to attach an automatic foot that hops when supported against gravity; tap again to remove" aria-label="Attach or remove a Hopper foot that automatically jumps from supporting surfaces"><span class="icon">🦘</span>Hopper</button>
+    <button class="tool-btn" data-tool="rack" style="color:#ffc857;" title="Tap a turning part, then a second part to couple spin with relative sideways travel; tap either end to release" aria-label="Connect a rack transmission that converts spin into sideways travel and back"><span class="icon">⚙↔</span>Rack</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1575,6 +1577,9 @@ let cams = []; // solid eccentric wheels driven around a fixed offset axle
 let camFeedbackTimer = 0;
 let hopperBodies = new Map(); // body -> {readyAt}: support-triggered feet, timed by simulation clock
 let hopperFeedbackTimer = 0;
+let racks = []; // passive rotary-to-linear transmissions; first part is the pinion
+let rackSelection = null;
+let rackFeedbackTimer = 0;
 
 // Block shattering
 let pendingPhysicsActions = []; // Serializable delayed rain and collision work
@@ -2642,6 +2647,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       resetKeelFeedback();
       resetCamFeedback();
       resetHopperFeedback();
+      resetRackSelection(true);
       drawMode = !drawMode;
       btn.classList.toggle('active', drawMode);
       if (!drawMode) drawPoints = [];
@@ -2716,6 +2722,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'keel') resetKeelFeedback();
       if (tool !== 'cam') resetCamFeedback();
       if (tool !== 'hopper') resetHopperFeedback();
+      if (tool !== 'rack') resetRackSelection(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -4176,6 +4183,8 @@ function finishClear(playFeedback = true) {
   resetCamFeedback();
   hopperBodies.clear();
   resetHopperFeedback();
+  racks = [];
+  resetRackSelection(true);
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -4484,7 +4493,8 @@ function getToolAccentColor(tool) {
     syrup: '#ffc857',
     keel: '#0abdc6',
     cam: '#ffc857',
-    hopper: '#ffc857'
+    hopper: '#ffc857',
+    rack: '#ffc857'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -4685,6 +4695,8 @@ function eraseBodyAt(pos) {
   breaklinks = breaklinks.filter(link => !constraintsToRemove.has(link));
   dampers = dampers.filter(link => !constraintsToRemove.has(link));
   torsions = torsions.filter(link => !constraintsToRemove.has(link));
+  racks = racks.filter(link => !constraintsToRemove.has(link));
+  if (rackSelection && removedBodyIds.has(rackSelection.id)) resetRackSelection(true);
   pulleys = pulleys.filter(link => !constraintsToRemove.has(link));
   hinges = hinges.filter(hinge => !constraintsToRemove.has(hinge));
   springs = springs.filter(spring => !constraintsToRemove.has(spring));
@@ -11811,6 +11823,150 @@ function updateSyrupPools(event) {
 
 Events.on(engine, 'beforeUpdate', updateSyrupPools);
 
+function resetRackSelection(silent = false) {
+  rackSelection = null;
+  if (!silent) return;
+  clearTimeout(rackFeedbackTimer);
+  const feedback = document.getElementById('rack-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
+function showRackFeedback(message) {
+  const feedback = document.getElementById('rack-feedback');
+  feedback.textContent = message;
+  feedback.classList.add('active');
+  clearTimeout(rackFeedbackTimer);
+  rackFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 1400);
+}
+
+function pruneRacks() {
+  const live = new Set(Composite.allBodies(world));
+  racks = racks.filter(link => {
+    const present = Composite.get(world, link.id, 'constraint');
+    const intact = live.has(link.bodyA) && live.has(link.bodyB);
+    if (present && !intact) Composite.remove(world, link, true);
+    return Boolean(present && intact);
+  });
+  if (rackSelection && !live.has(rackSelection)) resetRackSelection(true);
+}
+
+function rackAt(pos) {
+  pruneRacks();
+  const target = findStrutBodyAt(pos); // shared compound-parent and 46px touch targeting
+  if (!target || target.isSensor || phaseBodies.has(target)) {
+    showRackFeedback(rackSelection ? 'RACK: TAP SECOND SOLID PART' : 'RACK: TAP A TURNING PART');
+    haptic([3]);
+    return false;
+  }
+  const existing = racks.find(link => link.bodyA === target || link.bodyB === target);
+  if (!rackSelection && existing) {
+    Composite.remove(world, existing, true);
+    racks = racks.filter(link => link !== existing);
+    showRackFeedback('RACK RELEASED • PARTS FREE');
+    addStrutBurst(target, '#ffc857');
+    playSound(380, 0.1, 'triangle', 0.05); haptic([7]);
+    return 'released';
+  }
+  if (target === rackSelection) {
+    resetRackSelection(); showRackFeedback('RACK CANCELLED');
+    return 'cancelled';
+  }
+  if (existing) {
+    showRackFeedback('RACK: RELEASE THAT PART FIRST');
+    return false;
+  }
+  if (!rackSelection) {
+    if (target.isStatic || !(target.inverseInertia > 0)) {
+      showRackFeedback('RACK: FIRST PART MUST TURN');
+      return false;
+    }
+    rackSelection = target;
+    addStrutBurst(target, '#ffc857');
+    showRackFeedback('RACK: PICK SECOND PART'); haptic([6]);
+    return 'selected';
+  }
+  const first = rackSelection;
+  if (first.isStatic || first.isSensor || phaseBodies.has(first) || !(first.inverseInertia > 0)) {
+    resetRackSelection(); showRackFeedback('RACK: FIRST PART MUST TURN');
+    return false;
+  }
+  const length = getStrutLength(first, target);
+  if (length < 36) { showRackFeedback('RACK: PARTS TOO CLOSE'); return false; }
+  const link = Constraint.create({bodyA:first, bodyB:target, length, damping:0, render:{type:'rack'}});
+  link.stiffness = 0; // Identity, Snip and save support; the velocity solver owns the transmission.
+  link.rackRadius = Math.max(12, Math.min(64, Math.sqrt(first.area / Math.PI)));
+  Composite.add(world, link); racks.push(link);
+  [first, target].forEach(body => { Matter.Sleeping.set(body, false); addStrutBurst(body, '#ffc857'); });
+  resetRackSelection(); showRackFeedback('RACK SET • TAP EITHER TO RELEASE');
+  playSound(640, 0.12, 'triangle', 0.05); haptic([6, 8, 6]);
+  return link;
+}
+
+function updateRacks(event) {
+  pruneRacks();
+  const step = Math.max(0, Math.min(2, (event.delta || 0) / (1000 / 60)));
+  if (!step) return;
+  racks.forEach(link => {
+    const a = link.bodyA, b = link.bodyB, radius = link.rackRadius;
+    if (a.isStatic || a.isSensor || b.isSensor || phaseBodies.has(a) || phaseBodies.has(b)) return;
+    const inverseA = a.inverseMass, inverseB = b.isStatic ? 0 : b.inverseMass;
+    const inverseSpin = a.inverseInertia;
+    const total = inverseA + inverseB + radius * radius * inverseSpin;
+    if (!(total > 0)) return;
+    // The passive impulse enforces vB.x - vA.x = radius * omegaA.
+    // Equal/opposite linear impulses preserve momentum. Their spin counterpart
+    // dissipates slip without adding energy; sideways travel can back-drive spin.
+    const slip = (b.isStatic ? 0 : b.velocity.x) - a.velocity.x - radius * a.angularVelocity;
+    if (Math.abs(slip) < 0.000001) return;
+    const impulse = -slip * (1 - Math.exp(-0.7 * step)) / total;
+    Matter.Sleeping.set(a, false);
+    Body.setVelocity(a, {x:a.velocity.x - impulse * inverseA, y:a.velocity.y});
+    Body.setAngularVelocity(a, a.angularVelocity - impulse * radius * inverseSpin);
+    if (inverseB > 0) {
+      Matter.Sleeping.set(b, false);
+      Body.setVelocity(b, {x:b.velocity.x + impulse * inverseB, y:b.velocity.y});
+    }
+  });
+}
+Events.on(engine, 'beforeUpdate', updateRacks);
+
+function drawRacks() {
+  racks.forEach(link => {
+    const a = link.bodyA, b = link.bodyB, r = Math.min(28, link.rackRadius);
+    const idle = a.isStatic || a.isSensor || b.isSensor || phaseBodies.has(a) || phaseBodies.has(b);
+    ctx.save(); ctx.strokeStyle = '#0abdc6'; ctx.lineWidth = 2;
+    ctx.setLineDash([5, 4]); ctx.beginPath();
+    ctx.moveTo(a.position.x, a.position.y); ctx.lineTo(b.position.x, b.position.y); ctx.stroke();
+    ctx.setLineDash([]); ctx.strokeStyle = '#ffc857';
+    ctx.save(); ctx.translate(a.position.x, a.position.y); ctx.rotate(a.angle);
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.moveTo(0, 0); ctx.lineTo(r, 0); ctx.stroke();
+    for (let i = 0; i < 12; i++) {
+      const angle = i * Math.PI / 6;
+      ctx.beginPath(); ctx.moveTo(Math.cos(angle) * r, Math.sin(angle) * r);
+      ctx.lineTo(Math.cos(angle) * (r + 5), Math.sin(angle) * (r + 5)); ctx.stroke();
+    }
+    ctx.restore();
+    const x = b.position.x, y = b.position.y;
+    ctx.beginPath(); ctx.moveTo(x - 28, y + 10); ctx.lineTo(x + 28, y + 10);
+    for (let tooth = -24; tooth <= 24; tooth += 8) {
+      ctx.moveTo(x + tooth, y + 10); ctx.lineTo(x + tooth, y + 3);
+    }
+    ctx.moveTo(x - 28, y - 5); ctx.lineTo(x + 28, y - 5);
+    ctx.moveTo(x - 22, y - 10); ctx.lineTo(x - 28, y - 5); ctx.lineTo(x - 22, y);
+    ctx.moveTo(x + 22, y - 10); ctx.lineTo(x + 28, y - 5); ctx.lineTo(x + 22, y); ctx.stroke();
+    ctx.fillStyle = '#dffcff'; ctx.font = '14px VT323, monospace'; ctx.textAlign = 'center';
+    ctx.fillText(idle ? 'RACK • IDLE' : 'RACK • SPIN ↔ SLIDE', (a.position.x + x) / 2,
+      Math.max(16, Math.min(a.bounds.min.y, b.bounds.min.y) - 14)); ctx.restore();
+  });
+  if (currentTool !== 'rack' || !rackSelection) return;
+  const body = rackSelection;
+  ctx.save(); ctx.strokeStyle = '#ffc857'; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
+  ctx.strokeRect(body.bounds.min.x - 8, body.bounds.min.y - 8,
+    body.bounds.max.x - body.bounds.min.x + 16, body.bounds.max.y - body.bounds.min.y + 16);
+  ctx.restore();
+}
+
 const HOPPER_SPEED = 8;
 const HOPPER_REARM_MS = 700;
 
@@ -13439,6 +13595,7 @@ function snipConstraintAt(pos) {
   breaklinks = breaklinks.filter(link => link !== constraint);
   dampers = dampers.filter(link => link !== constraint);
   torsions = torsions.filter(link => link !== constraint);
+  racks = racks.filter(link => link !== constraint);
   pulleys = pulleys.filter(link => link !== constraint);
   hinges = hinges.filter(hinge => hinge !== constraint);
   springs = springs.filter(spring => spring !== constraint);
@@ -13983,6 +14140,13 @@ function onDown(e) {
   // Cam tool — a powered eccentric rim lifts loads, and stops/resumes on tap.
   if (currentTool === 'cam') {
     placeOrToggleCamAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Rack tool — couple the first part's spin with relative horizontal travel.
+  if (currentTool === 'rack') {
+    rackAt(pos);
     pointerDown = false;
     return;
   }
@@ -16216,6 +16380,7 @@ function drawConstraints() {
     if (!c.bodyA || !c.bodyB) return;
     if (c.render?.type === 'flipper-pin') return;
     if (c.render?.type === 'breaklink') return; // Draw strain and weak seam above the parts.
+    if (c.render?.type === 'rack') return; // Custom pinion, teeth and transmission shaft.
     if (c.render?.type === 'torsion') return; // Draw the wound coil and its shafts above the parts.
     if (c.render?.type === 'damper') return; // Draw the telescoping shock absorber above the parts.
     if (c.render?.type === 'pulley') return; // Draw both routed cable legs and the fixed wheel.
@@ -19072,6 +19237,7 @@ function loop(timestamp) {
   pruneKeels();
   pruneCams();
   pruneHoppers();
+  pruneRacks();
   pruneHinges();
   pruneSprings();
   pruneWelds();
@@ -19918,6 +20084,7 @@ function loop(timestamp) {
   drawKeelMarkers();
   drawCamLabels();
   drawHopperMarkers();
+  drawRacks();
   drawZiplines(timestamp);
   drawOrbitMarkers(timestamp);
   drawTethers(timestamp);
@@ -21062,7 +21229,7 @@ function captureGameState() {
       welds, tethers, webTraps, ramps, pinwheels, baskets,
       cannons, elevators, recyclers, hatches, pistons, parachuteBodies,
       saws, funnels, catapults, presses, ziplines, gearboxes,
-      rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates, torsions, syrupPools, keelBodies, cams, hopperBodies,
+      rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates, torsions, syrupPools, keelBodies, cams, hopperBodies, racks,
       vortexActive, vortexTimer, vortexCenter, pendingPhysicsActions
     },
     gravity: { ...engine.gravity },
@@ -21114,6 +21281,7 @@ function readGameSave(serialized) {
   if (!Object.hasOwn(game.state, 'keelBodies')) game.state.keelBodies = new Set();
   if (!Object.hasOwn(game.state, 'cams')) game.state.cams = [];
   if (!Object.hasOwn(game.state, 'hopperBodies')) game.state.hopperBodies = new Map();
+  if (!Object.hasOwn(game.state, 'racks')) game.state.racks = [];
   const expected = captureGameState().state;
   for (const [key, value] of Object.entries(expected)) {
     const actual = game.state[key];
@@ -21169,6 +21337,17 @@ function readGameSave(serialized) {
   if ([...game.state.hopperBodies].some(([body, state]) => !game.bodies.includes(body) ||
       body.parent !== body || body.label === 'wall' || body.isTarget || !state ||
       !Number.isFinite(state.readyAt) || state.readyAt < 0)) throw new Error('Invalid saved hopper');
+  const rackBodies = new Set();
+  if (new Set(game.state.racks).size !== game.state.racks.length || game.state.racks.some(link => {
+    if (!game.constraints.includes(link) || link.render?.type !== 'rack' ||
+        !game.bodies.includes(link.bodyA) || !game.bodies.includes(link.bodyB) || link.bodyA === link.bodyB ||
+        [link.bodyA, link.bodyB].some(body => body.label === 'wall' || body.isTarget || body.parent !== body || rackBodies.has(body)) ||
+        !Number.isFinite(link.rackRadius) || link.rackRadius < 12 || link.rackRadius > 64 ||
+        link.length < 36 || link.stiffness !== 0 || link.damping !== 0 ||
+        link.pointA.x !== 0 || link.pointA.y !== 0 || link.pointB.x !== 0 || link.pointB.y !== 0) return true;
+    rackBodies.add(link.bodyA); rackBodies.add(link.bodyB);
+    return false;
+  })) throw new Error('Invalid saved rack');
   const pulleyBodies = new Set();
   if (game.state.pulleys.some(link => {
     if (!game.constraints.includes(link) || link.render?.type !== 'pulley' ||
@@ -21209,7 +21388,7 @@ function restoreGameState(game) {
     welds, tethers, webTraps, ramps, pinwheels, baskets,
     cannons, elevators, recyclers, hatches, pistons, parachuteBodies,
     saws, funnels, catapults, presses, ziplines, gearboxes,
-    rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates, torsions, syrupPools, keelBodies, cams, hopperBodies,
+    rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates, torsions, syrupPools, keelBodies, cams, hopperBodies, racks,
     vortexActive, vortexTimer, vortexCenter, pendingPhysicsActions
   } = game.state);
   Object.assign(lessonState, game.lesson); // Keep host callbacks registered in this page.
