@@ -809,7 +809,7 @@ canvas#game {
 #ratchet-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
-#breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback, #torsion-feedback, #syrup-feedback, #keel-feedback, #cam-feedback, #hopper-feedback, #rack-feedback {
+#breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback, #torsion-feedback, #syrup-feedback, #keel-feedback, #cam-feedback, #hopper-feedback, #rack-feedback, #latch-feedback {
   position:absolute; top:14px; left:50%; z-index:3;
   transform:translate(-50%, -8px) scale(0.9);
   padding:4px 12px; border:1px solid currentColor;
@@ -819,7 +819,7 @@ canvas#game {
   opacity:0; pointer-events:none; white-space:nowrap;
   transition:opacity .12s, transform .12s;
 }
-#breaklink-feedback.active, #damper-feedback.active, #pulley-feedback.active, #oneway-feedback.active, #torsion-feedback.active, #syrup-feedback.active, #keel-feedback.active, #cam-feedback.active, #hopper-feedback.active, #rack-feedback.active {
+#breaklink-feedback.active, #damper-feedback.active, #pulley-feedback.active, #oneway-feedback.active, #torsion-feedback.active, #syrup-feedback.active, #keel-feedback.active, #cam-feedback.active, #hopper-feedback.active, #rack-feedback.active, #latch-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
 #damper-feedback, #oneway-feedback, #keel-feedback { color:#0abdc6; }
@@ -990,7 +990,7 @@ canvas#game {
   #winch-feedback { top:14px; font-size:19px; }
   #tripwire-feedback { top:14px; font-size:19px; }
   #ratchet-feedback { top:14px; font-size:19px; }
-  #breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback, #torsion-feedback, #syrup-feedback, #keel-feedback, #cam-feedback, #hopper-feedback, #rack-feedback { font-size:19px; }
+  #breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback, #torsion-feedback, #syrup-feedback, #keel-feedback, #cam-feedback, #hopper-feedback, #rack-feedback, #latch-feedback { font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -1094,6 +1094,7 @@ canvas#game {
     <div id="cam-feedback" role="status" aria-live="polite"></div>
     <div id="hopper-feedback" role="status" aria-live="polite"></div>
     <div id="rack-feedback" role="status" aria-live="polite"></div>
+    <div id="latch-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -1199,6 +1200,7 @@ canvas#game {
     <button class="tool-btn" data-tool="cam" style="color:#ffc857;" title="Tap to place an eccentric wheel that repeatedly lifts parts; tap the wheel or axle to stop or resume" aria-label="Place a powered eccentric cam or stop and resume its lifting cycle"><span class="icon">◔</span>Cam</button>
     <button class="tool-btn" data-tool="hopper" style="color:#ffc857;" title="Tap a movable part to attach an automatic foot that hops when supported against gravity; tap again to remove" aria-label="Attach or remove a Hopper foot that automatically jumps from supporting surfaces"><span class="icon">🦘</span>Hopper</button>
     <button class="tool-btn" data-tool="rack" style="color:#ffc857;" title="Tap a turning part, then a second part to couple spin with relative sideways travel; tap either end to release" aria-label="Connect a rack transmission that converts spin into sideways travel and back"><span class="icon">⚙↔</span>Rack</button>
+    <button class="tool-btn" data-tool="latch" style="color:#ffc857;" title="Tap a movable part to arm a contact latch; its next touch catches another build part. Tap either end to release" aria-label="Arm a contact latch on a part or release its caught part"><span class="icon">⊏⊐</span>Latch</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1580,6 +1582,9 @@ let hopperFeedbackTimer = 0;
 let racks = []; // passive rotary-to-linear transmissions; first part is the pinion
 let rackSelection = null;
 let rackFeedbackTimer = 0;
+let latchArmed = new Set(); // one-shot contact catches; armed parts remain ordinary physics bodies
+let latches = []; // swiveling contact joints, one per endpoint; Snip releases the seam
+let latchFeedbackTimer = 0;
 
 // Block shattering
 let pendingPhysicsActions = []; // Serializable delayed rain and collision work
@@ -2648,6 +2653,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       resetCamFeedback();
       resetHopperFeedback();
       resetRackSelection(true);
+      resetLatchFeedback();
       drawMode = !drawMode;
       btn.classList.toggle('active', drawMode);
       if (!drawMode) drawPoints = [];
@@ -2723,6 +2729,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'cam') resetCamFeedback();
       if (tool !== 'hopper') resetHopperFeedback();
       if (tool !== 'rack') resetRackSelection(true);
+      if (tool !== 'latch') resetLatchFeedback();
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -4185,6 +4192,9 @@ function finishClear(playFeedback = true) {
   resetHopperFeedback();
   racks = [];
   resetRackSelection(true);
+  latchArmed.clear();
+  latches = [];
+  resetLatchFeedback();
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -4494,7 +4504,8 @@ function getToolAccentColor(tool) {
     keel: '#0abdc6',
     cam: '#ffc857',
     hopper: '#ffc857',
-    rack: '#ffc857'
+    rack: '#ffc857',
+    latch: '#ffc857'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -4643,6 +4654,7 @@ function eraseBodyAt(pos) {
     gyroBodies.delete(b);
     ratchetBodies.delete(b);
     keelBodies.delete(b);
+    latchArmed.delete(b);
     hopperBodies.delete(b);
     liftedBodies.delete(b);
     orbitingBodies.delete(b);
@@ -4696,6 +4708,7 @@ function eraseBodyAt(pos) {
   dampers = dampers.filter(link => !constraintsToRemove.has(link));
   torsions = torsions.filter(link => !constraintsToRemove.has(link));
   racks = racks.filter(link => !constraintsToRemove.has(link));
+  latches = latches.filter(link => !constraintsToRemove.has(link));
   if (rackSelection && removedBodyIds.has(rackSelection.id)) resetRackSelection(true);
   pulleys = pulleys.filter(link => !constraintsToRemove.has(link));
   hinges = hinges.filter(hinge => !constraintsToRemove.has(hinge));
@@ -5142,6 +5155,7 @@ function fissionBodyAt(pos) {
   gyroBodies.delete(source);
   ratchetBodies.delete(source);
   keelBodies.delete(source);
+  latchArmed.delete(source);
   liftedBodies.delete(source);
   orbitingBodies.delete(source);
   delete source.isOrbiting;
@@ -8088,6 +8102,7 @@ function removeFusionSourceTracking(body) {
   gyroBodies.delete(body);
   ratchetBodies.delete(body);
   keelBodies.delete(body);
+  latchArmed.delete(body);
   liftedBodies.delete(body);
   orbitingBodies.delete(body);
   megaBounceOriginal.delete(body.id);
@@ -10071,6 +10086,7 @@ function sliceBodyWithSaw(sawBody, source) {
   gyroBodies.delete(source);
   ratchetBodies.delete(source);
   keelBodies.delete(source);
+  latchArmed.delete(source);
   liftedBodies.delete(source);
   orbitingBodies.delete(source);
   parachuteBodies.delete(source);
@@ -11823,6 +11839,126 @@ function updateSyrupPools(event) {
 
 Events.on(engine, 'beforeUpdate', updateSyrupPools);
 
+function resetLatchFeedback() {
+  clearTimeout(latchFeedbackTimer);
+  const feedback = document.getElementById('latch-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
+function showLatchFeedback(message) {
+  const feedback = document.getElementById('latch-feedback');
+  feedback.textContent = message;
+  feedback.classList.add('active');
+  clearTimeout(latchFeedbackTimer);
+  latchFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 1400);
+}
+
+function pruneLatches() {
+  const live = new Set(Composite.allBodies(world));
+  latchArmed.forEach(body => { if (!live.has(body)) latchArmed.delete(body); });
+  latches = latches.filter(link => {
+    const present = Composite.get(world, link.id, 'constraint');
+    const intact = live.has(link.bodyA) && live.has(link.bodyB);
+    if (present && !intact) Composite.remove(world, link, true);
+    return Boolean(present && intact);
+  });
+}
+
+function isLatchSolid(body) {
+  return isStruttableBody(body) && !body.isSensor && !phaseBodies.has(body);
+}
+
+function latchAt(pos) {
+  pruneLatches();
+  const linked = new Set(latches.flatMap(link => [link.bodyA, link.bodyB]));
+  const candidates = Composite.allBodies(world).filter(body => latchArmed.has(body) || linked.has(body) ||
+    (isLatchSolid(body) && !body.isStatic));
+  const exact = Matter.Query.point(candidates, pos).filter(body => candidates.includes(body));
+  let target = exact.find(body => latchArmed.has(body) || linked.has(body)) || exact.pop();
+  if (!target) {
+    let nearest = 46;
+    candidates.forEach(body => {
+      const distance = Math.hypot(body.position.x - pos.x, body.position.y - pos.y);
+      if (distance < nearest) { target = body; nearest = distance; }
+    });
+  }
+  if (!target) {
+    showLatchFeedback('LATCH: TAP A MOVABLE PART'); haptic([3]); return false;
+  }
+  const link = latches.find(item => item.bodyA === target || item.bodyB === target);
+  if (link) {
+    Composite.remove(world, link, true);
+    latches = latches.filter(item => item !== link);
+    [link.bodyA, link.bodyB].forEach(body => { if (!body.isStatic) Matter.Sleeping.set(body, false); });
+    showLatchFeedback('LATCH RELEASED • PARTS FREE');
+  } else if (latchArmed.has(target)) {
+    latchArmed.delete(target);
+    showLatchFeedback('LATCH DISARMED');
+  } else {
+    latchArmed.add(target); Matter.Sleeping.set(target, false);
+    showLatchFeedback('LATCH ARMED • TOUCH A PART');
+  }
+  addTripwireBurst(target.position, null, '#ffc857');
+  playSound(link ? 340 : 680, 0.1, 'triangle', 0.05); haptic([7]);
+  return link ? 'released' : latchArmed.has(target) ? 'armed' : 'disarmed';
+}
+
+function updateLatches(event) {
+  pruneLatches();
+  if (!latchArmed.size || !(event.delta > 0)) return;
+  const live = new Set(Composite.allBodies(world));
+  const occupied = new Set(latches.flatMap(link => [link.bodyA, link.bodyB]));
+  const constraints = Composite.allConstraints(world);
+  // Inspect real active contacts after the solver, including parts already touching
+  // when armed. A catch is one-shot and does not depend on the selected tool.
+  for (const pair of engine.pairs.list) {
+    if (!pair.isActive || pair.isSensor) continue;
+    const a = pair.bodyA.parent, b = pair.bodyB.parent;
+    if (a === b || !live.has(a) || !live.has(b) || !isLatchSolid(a) || !isLatchSolid(b) || occupied.has(a) || occupied.has(b) ||
+        !Matter.Detector.canCollide(pair.bodyA.collisionFilter, pair.bodyB.collisionFilter)) continue;
+    const catcher = latchArmed.has(a) && !a.isStatic ? a : latchArmed.has(b) && !b.isStatic ? b : null;
+    if (!catcher || constraints.some(link => (link.bodyA === a && link.bodyB === b) || (link.bodyA === b && link.bodyB === a))) continue;
+    const supports = pair.collision.supports.slice(0, pair.collision.supportCount);
+    if (!supports.length || supports.some(point => !Number.isFinite(point?.x) || !Number.isFinite(point?.y))) continue;
+    const point = supports.reduce((sum, vertex) => ({x:sum.x + vertex.x / supports.length, y:sum.y + vertex.y / supports.length}), {x:0,y:0});
+    const link = Constraint.create({bodyA:a, bodyB:b,
+      // Matter stores current world-oriented offsets and rotates them by angle deltas.
+      pointA:Vector.sub(point, a.position), pointB:Vector.sub(point, b.position),
+      length:0, stiffness:0.9, damping:0.12, render:{type:'latch'}});
+    Composite.add(world, link); latches.push(link);
+    occupied.add(a); occupied.add(b); latchArmed.delete(a); latchArmed.delete(b);
+    [a,b].forEach(body => { if (!body.isStatic) Matter.Sleeping.set(body, false); });
+    addTripwireBurst(point, null, '#ffc857');
+    showLatchFeedback('LATCH CAUGHT • TAP TO RELEASE');
+    playSound(920, 0.1, 'triangle', 0.05); haptic([7, 8, 7]);
+  }
+}
+Events.on(engine, 'afterUpdate', updateLatches);
+
+function drawLatches() {
+  latchArmed.forEach(body => {
+    const idle = body.isStatic || !isLatchSolid(body);
+    ctx.save(); ctx.strokeStyle = '#ffc857'; ctx.lineWidth = 2; ctx.setLineDash([5,4]);
+    ctx.strokeRect(body.bounds.min.x - 7, body.bounds.min.y - 7,
+      body.bounds.max.x - body.bounds.min.x + 14, body.bounds.max.y - body.bounds.min.y + 14);
+    ctx.fillStyle = '#dffcff'; ctx.font = '14px VT323, monospace'; ctx.textAlign = 'center';
+    ctx.fillText(idle ? 'LATCH • IDLE' : 'LATCH • ARMED', body.position.x, Math.max(16, body.bounds.min.y - 14));
+    ctx.restore();
+  });
+  latches.forEach(link => {
+    const a = Constraint.pointAWorld(link), b = Constraint.pointBWorld(link);
+    const x = (a.x + b.x) / 2, y = (a.y + b.y) / 2;
+    ctx.save(); ctx.strokeStyle = '#0abdc6'; ctx.lineWidth = 2; ctx.setLineDash([3,4]);
+    ctx.beginPath(); ctx.moveTo(link.bodyA.position.x, link.bodyA.position.y); ctx.lineTo(x,y);
+    ctx.lineTo(link.bodyB.position.x, link.bodyB.position.y); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#080c10'; ctx.strokeStyle = '#ffc857'; ctx.fillRect(x-11,y-8,22,16); ctx.strokeRect(x-11,y-8,22,16);
+    ctx.beginPath(); ctx.moveTo(x-5,y-4); ctx.lineTo(x+3,y+4); ctx.lineTo(x+6,y-5); ctx.stroke();
+    ctx.fillStyle = '#dffcff'; ctx.font = '14px VT323, monospace'; ctx.textAlign = 'center';
+    ctx.fillText('LATCH • CAUGHT', x, Math.max(16,y-17)); ctx.restore();
+  });
+}
+
 function resetRackSelection(silent = false) {
   rackSelection = null;
   if (!silent) return;
@@ -12200,7 +12336,8 @@ function showKeelFeedback(message) {
 
 function pruneKeels() {
   const live = new Set(Composite.allBodies(world));
-  keelBodies.forEach(body => { if (!live.has(body)) keelBodies.delete(body); });
+  keelBodies.forEach(body => { if (!live.has(body)) keelBodies.delete(body);
+  latchArmed.delete(body); });
 }
 
 function toggleKeelAt(pos) {
@@ -13488,6 +13625,7 @@ function getConstraintWorldPoint(constraint, side) {
   const body = side === 'A' ? constraint.bodyA : constraint.bodyB;
   const point = (side === 'A' ? constraint.pointA : constraint.pointB) || { x:0, y:0 };
   if (!body) return { x:point.x, y:point.y };
+  if (constraint.render?.type === 'latch') return side === 'A' ? Constraint.pointAWorld(constraint) : Constraint.pointBWorld(constraint);
   const cos = Math.cos(body.angle || 0);
   const sin = Math.sin(body.angle || 0);
   return {
@@ -13596,6 +13734,7 @@ function snipConstraintAt(pos) {
   dampers = dampers.filter(link => link !== constraint);
   torsions = torsions.filter(link => link !== constraint);
   racks = racks.filter(link => link !== constraint);
+  latches = latches.filter(link => link !== constraint);
   pulleys = pulleys.filter(link => link !== constraint);
   hinges = hinges.filter(hinge => hinge !== constraint);
   springs = springs.filter(spring => spring !== constraint);
@@ -14147,6 +14286,13 @@ function onDown(e) {
   // Rack tool — couple the first part's spin with relative horizontal travel.
   if (currentTool === 'rack') {
     rackAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Latch tool — arm a one-shot contact catch, disarm, or release either end.
+  if (currentTool === 'latch') {
+    latchAt(pos);
     pointerDown = false;
     return;
   }
@@ -16380,6 +16526,7 @@ function drawConstraints() {
     if (!c.bodyA || !c.bodyB) return;
     if (c.render?.type === 'flipper-pin') return;
     if (c.render?.type === 'breaklink') return; // Draw strain and weak seam above the parts.
+    if (c.render?.type === 'latch') return; // Custom contact seam and catch indicator.
     if (c.render?.type === 'rack') return; // Custom pinion, teeth and transmission shaft.
     if (c.render?.type === 'torsion') return; // Draw the wound coil and its shafts above the parts.
     if (c.render?.type === 'damper') return; // Draw the telescoping shock absorber above the parts.
@@ -19238,6 +19385,7 @@ function loop(timestamp) {
   pruneCams();
   pruneHoppers();
   pruneRacks();
+  pruneLatches();
   pruneHinges();
   pruneSprings();
   pruneWelds();
@@ -20085,6 +20233,7 @@ function loop(timestamp) {
   drawCamLabels();
   drawHopperMarkers();
   drawRacks();
+  drawLatches();
   drawZiplines(timestamp);
   drawOrbitMarkers(timestamp);
   drawTethers(timestamp);
@@ -21229,7 +21378,7 @@ function captureGameState() {
       welds, tethers, webTraps, ramps, pinwheels, baskets,
       cannons, elevators, recyclers, hatches, pistons, parachuteBodies,
       saws, funnels, catapults, presses, ziplines, gearboxes,
-      rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates, torsions, syrupPools, keelBodies, cams, hopperBodies, racks,
+      rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates, torsions, syrupPools, keelBodies, cams, hopperBodies, racks, latchArmed, latches,
       vortexActive, vortexTimer, vortexCenter, pendingPhysicsActions
     },
     gravity: { ...engine.gravity },
@@ -21282,6 +21431,8 @@ function readGameSave(serialized) {
   if (!Object.hasOwn(game.state, 'cams')) game.state.cams = [];
   if (!Object.hasOwn(game.state, 'hopperBodies')) game.state.hopperBodies = new Map();
   if (!Object.hasOwn(game.state, 'racks')) game.state.racks = [];
+  if (!Object.hasOwn(game.state, 'latchArmed')) game.state.latchArmed = new Set();
+  if (!Object.hasOwn(game.state, 'latches')) game.state.latches = [];
   const expected = captureGameState().state;
   for (const [key, value] of Object.entries(expected)) {
     const actual = game.state[key];
@@ -21337,6 +21488,18 @@ function readGameSave(serialized) {
   if ([...game.state.hopperBodies].some(([body, state]) => !game.bodies.includes(body) ||
       body.parent !== body || body.label === 'wall' || body.isTarget || !state ||
       !Number.isFinite(state.readyAt) || state.readyAt < 0)) throw new Error('Invalid saved hopper');
+  const latchBodies = new Set();
+  const validLatchBody = body => game.bodies.includes(body) && body.parent === body &&
+    !['wall', 'chain-link'].includes(body.label) && !body.isTarget && !body.isFragment;
+  if ([...game.state.latchArmed].some(body => !validLatchBody(body)) ||
+      new Set(game.state.latches).size !== game.state.latches.length || game.state.latches.some(link => {
+        if (!game.constraints.includes(link) || link.render?.type !== 'latch' ||
+            !validLatchBody(link.bodyA) || !validLatchBody(link.bodyB) || link.bodyA === link.bodyB ||
+            [link.bodyA,link.bodyB].some(body => latchBodies.has(body) || game.state.latchArmed.has(body)) ||
+            link.length !== 0 || link.stiffness !== 0.9 || link.damping !== 0.12 ||
+            !Number.isFinite(link.angleA) || !Number.isFinite(link.angleB)) return true;
+        latchBodies.add(link.bodyA); latchBodies.add(link.bodyB); return false;
+      }) || game.constraints.some(link => link.render?.type === 'latch' && !game.state.latches.includes(link))) throw new Error('Invalid saved latch');
   const rackBodies = new Set();
   if (new Set(game.state.racks).size !== game.state.racks.length || game.state.racks.some(link => {
     if (!game.constraints.includes(link) || link.render?.type !== 'rack' ||
@@ -21388,7 +21551,7 @@ function restoreGameState(game) {
     welds, tethers, webTraps, ramps, pinwheels, baskets,
     cannons, elevators, recyclers, hatches, pistons, parachuteBodies,
     saws, funnels, catapults, presses, ziplines, gearboxes,
-    rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates, torsions, syrupPools, keelBodies, cams, hopperBodies, racks,
+    rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates, torsions, syrupPools, keelBodies, cams, hopperBodies, racks, latchArmed, latches,
     vortexActive, vortexTimer, vortexCenter, pendingPhysicsActions
   } = game.state);
   Object.assign(lessonState, game.lesson); // Keep host callbacks registered in this page.

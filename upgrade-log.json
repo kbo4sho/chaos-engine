@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-10-27",
+      "ideas": [
+        "New tool: Arm a moving Latch that catches another build part on real contact, then release either end"
+      ],
+      "summary": "Implemented Latch tool (⊏⊐) — the final button after Rack arms or disarms a movable part. Its next eligible real collision creates a damped swiveling contact joint, consumes the arm, and carries the caught part until either endpoint is tapped or the seam is Snipped. One catch per endpoint, correctly oriented contact anchors, compound parents, existing touching contacts, sleeping payloads and anchored receivers work without changing material, geometry or mass. Walls, fragments, sensors, Phase, filtered/stale contacts, anchored catchers and already-connected pairs do not capture. Cyan spokes, amber seam/armed outline, readable state labels, shared 46px targeting, accessible feedback, audio/sparks/haptics, Draw/tool-change/Eraser/transformation/pruning/Clear cleanup and validated backward-compatible save/load support contact-built contraptions on desktop and mobile."
+    },
+    {
       "date": "2026-10-26",
       "ideas": [
         "New tool: Connect a Rack transmission that converts spin into relative sideways travel and back"

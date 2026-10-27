@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { JSDOM, VirtualConsole } from 'jsdom';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
@@ -40,6 +40,170 @@ function gameHarness(stored = {}) {
 
 const key = 'chaos-engine-save-1';
 
+describe('Latch contact catches with real Matter.js', () => {
+  let active;
+  afterEach(() => { active?.window.close(); active=null; });
+  function setup() {
+    const api=active=gameHarness();
+    api.run(`paused=true; engine.gravity.y=0;
+      window.a=Bodies.rectangle(240,240,40,40,{frictionAir:0,restitution:0});
+      window.b=Bodies.rectangle(340,240,40,40,{frictionAir:0,restitution:0});
+      Composite.add(world,[a,b]);`);
+    const select=tool=>api.window.document.querySelector('[data-tool="'+tool+'"]').click();
+    const step=(count=1)=>api.run(`for(let i=0;i<${count};i++) Engine.update(engine,1000/60)`);
+    const catchPart=()=>{api.run('latchAt(a.position); Body.setPosition(b,{x:278,y:240})');step();};
+    return {...api,select,step,catchPart};
+  }
+
+  it('appends the final accessible button and routes real canvas taps after Draw', () => {
+    const api=setup(), button=api.window.document.querySelector('#toolbar > :last-child');
+    expect(button.dataset.tool).toBe('latch'); expect(button.previousElementSibling.dataset.tool).toBe('rack');
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(101);
+    expect(button.getAttribute('aria-label')).toContain('contact latch'); expect(button.title).toContain('Tap either end to release');
+    api.select('draw'); button.click(); expect(api.run('[currentTool,drawMode]')).toEqual(['latch',false]);
+    expect(button.classList.contains('active')).toBe(true);
+    const canvas=api.window.document.querySelector('canvas');
+    canvas.getBoundingClientRect=()=>({left:0,top:0,width:canvas.width,height:canvas.height});
+    const tap=(x,y)=>canvas.dispatchEvent(new api.window.MouseEvent('mousedown',{clientX:x,clientY:y,bubbles:true}));
+    tap(700,100); expect(api.run('[latchArmed.size,latches.length,pointerDown]')).toEqual([0,0,false]);
+    expect(api.window.document.getElementById('latch-feedback').textContent).toContain('TAP A MOVABLE PART');
+    tap(240,240); expect(api.run('[latchArmed.has(a),pointerDown]')).toEqual([true,false]);
+    expect(api.window.document.getElementById('latch-feedback').getAttribute('role')).toBe('status');
+    tap(240,240); expect(api.run('latchArmed.size')).toBe(0);
+  });
+
+  it('arms without changing geometry, motion, mass or material and disarms on a second tap', () => {
+    const api=setup(); api.run(`Body.setVelocity(a,{x:3,y:2}); Body.setAngularVelocity(a,0.1);
+      window.props=()=>[a.position.x,a.position.y,a.angle,a.velocity.x,a.velocity.y,a.angularVelocity,a.mass,a.area,a.friction,a.restitution]; window.before=props()`);
+    expect(api.run('latchAt(a.position)')).toBe('armed'); expect(api.run('props()')).toEqual(api.run('before'));
+    expect(api.run('latches.length')).toBe(0); expect(api.run('latchAt(a.position)')).toBe('disarmed');
+  });
+
+  it('catches only on actual contact and consumes the arm after one swiveling joint', () => {
+    const api=setup(); api.run('latchAt(a.position); Body.setPosition(b,{x:282,y:240})'); api.step();
+    expect(api.run('latches.length')).toBe(0); api.run('Body.setPosition(b,{x:278,y:240})'); api.step();
+    expect(api.run('[latches.length,latchArmed.size]')).toEqual([1,0]);
+    expect(api.run('[latches[0].bodyA===a,latches[0].bodyB===b,latches[0].length,latches[0].stiffness,latches[0].damping]')).toEqual([true,true,0,0.9,0.12]);
+    expect(api.run('Vector.magnitude(Vector.sub(Constraint.pointAWorld(latches[0]),Constraint.pointBWorld(latches[0])))')).toBeLessThan(0.001);
+    api.step(30); expect(api.run('latches.length')).toBe(1);
+    expect(api.window.document.getElementById('latch-feedback').textContent).toContain('CAUGHT');
+  });
+
+  it('physically holds pulled parts together at the seam without anchoring or freezing spin', () => {
+    const api=setup(); api.catchPart(); api.run('Body.setVelocity(a,{x:-3,y:-1}); Body.setVelocity(b,{x:3,y:1}); Body.setAngularVelocity(a,0.04)');
+    api.step(60);
+    expect(api.run('Vector.magnitude(Vector.sub(Constraint.pointAWorld(latches[0]),Constraint.pointBWorld(latches[0])))')).toBeLessThan(2);
+    expect(api.run('[a.isStatic,b.isStatic]')).toEqual([false,false]);
+    expect(api.run('Math.abs(a.angle)+Math.abs(b.angle)')).toBeGreaterThan(0.1);
+  });
+
+  it('uses world-oriented Matter anchors for already rotated parts without a first-frame jump', () => {
+    const api=setup(); api.run('Body.setAngle(a,0.6); Body.setAngle(b,-0.4); latchAt(a.position); Body.setPosition(b,{x:278,y:240})'); api.step();
+    expect(api.run('latches.length')).toBe(1); api.run('window.before=[a.position.x,a.position.y,b.position.x,b.position.y]'); api.step();
+    expect(api.run('Math.max(...[a.position.x,a.position.y,b.position.x,b.position.y].map((x,i)=>Math.abs(x-before[i])))')).toBeLessThan(3);
+    api.run('window.link=latches[0]; window.point=Constraint.pointAWorld(link)');
+    expect(api.run('findSnippableConstraintAt(point).constraint===link')).toBe(true);
+    expect(api.run('snipConstraintAt(point)')).toBe(true); expect(api.run('latches.length')).toBe(0);
+  });
+
+  it('catches an existing active contact even after switching away from Latch', () => {
+    const api=setup(); api.run('Body.setPosition(b,{x:278,y:240})'); api.step();
+    api.run('latchAt(a.position)'); api.select('ball'); api.step();
+    expect(api.run('[latches.length,latchArmed.size,currentTool]')).toEqual([1,0,'ball']);
+  });
+
+  it('accepts an anchored receiver and wakes a sleeping payload', () => {
+    const api=setup(); api.run('Body.setStatic(b,true); b.isAnchored=true; latchAt(a.position); Matter.Sleeping.set(b,true); Body.setPosition(b,{x:278,y:240})'); api.step();
+    expect(api.run('latches.length')).toBe(1); expect(api.run('b.isStatic')).toBe(true);
+    api.run('Body.setStatic(b,false); b.isAnchored=false; Matter.Sleeping.set(a,true); latchAt(b.position)');
+    expect(api.run('[latches.length,a.isSleeping]')).toEqual([0,false]);
+  });
+
+  it('normalizes compound contacts to one parent and supports 46px touch targeting', () => {
+    const api=setup(); api.run(`Composite.remove(world,a); window.a=Body.create({parts:[Bodies.rectangle(230,240,20,40),Bodies.rectangle(250,240,20,40)]}); Composite.add(world,a);
+      latchAt({x:240,y:198}); Body.setPosition(b,{x:278,y:240})`); api.step();
+    expect(api.run('[latches.length,[latches[0].bodyA,latches[0].bodyB].includes(a),latchArmed.size]')).toEqual([1,true,0]);
+  });
+
+  it('consumes both armed endpoints and catches at most one recipient per endpoint', () => {
+    const api=setup(); api.run('latchAt(a.position); latchAt(b.position); Body.setPosition(b,{x:278,y:240})'); api.step();
+    expect(api.run('[latches.length,latchArmed.size]')).toEqual([1,0]);
+    api.run('window.c=Bodies.rectangle(240,202,40,40); Composite.add(world,c); latchAt(c.position)'); api.step(10);
+    expect(api.run('[latches.length,latchArmed.has(c)]')).toEqual([1,true]);
+  });
+
+  it.each(['a.isSensor=true','phaseBodies.set(a,{}); a.isSensor=true','Body.setStatic(a,true)',
+    'a.label="wall"','a.label="chain-link"','a.isTarget=true','a.isFragment=true'])('refuses to arm an ineligible part: %s', mutation => {
+    const api=setup(); api.run(mutation); expect(api.run('latchAt(a.position)')).toBe(false); expect(api.run('latchArmed.size')).toBe(0);
+  });
+
+  it.each(['b.isSensor=true','phaseBodies.set(b,{})','b.label="wall"','b.label="chain-link"',
+    'b.isTarget=true','b.isFragment=true','Body.setStatic(b,true)', 'b.collisionFilter.mask=0'])('ignores ineligible contact and keeps the catch armed: %s', mutation => {
+    const api=setup(); api.run(mutation); api.catchPart(); expect(api.run('[latches.length,latchArmed.has(a)]')).toEqual([0,true]);
+  });
+
+  it('suspends an anchored or phased catcher and resumes after release', () => {
+    const api=setup(); api.run('latchAt(a.position); Body.setStatic(a,true); a.isAnchored=true; Body.setPosition(b,{x:278,y:240})'); api.step();
+    expect(api.run('[latches.length,latchArmed.has(a)]')).toEqual([0,true]);
+    api.run('Body.setStatic(a,false); a.isAnchored=false; phaseBodies.set(a,{})'); api.step(); expect(api.run('latches.length')).toBe(0);
+    api.run('phaseBodies.delete(a)'); api.step(); expect(api.run('latches.length')).toBe(1);
+  });
+
+  it('does not duplicate an existing connection or consume its pending arm', () => {
+    const api=setup(); api.run('Composite.add(world,Constraint.create({bodyA:a,bodyB:b,length:38})); latchAt(a.position); Body.setPosition(b,{x:278,y:240})'); api.step();
+    expect(api.run('[latches.length,latchArmed.has(a),Composite.allConstraints(world).length]')).toEqual([0,true,1]);
+  });
+
+  it('ignores zero delta and inactive or stale sensor contacts', () => {
+    const api=setup(); api.catchPart(); api.run('latchAt(a.position); latchAt(a.position); updateLatches({delta:0})');
+    expect(api.run('[latches.length,latchArmed.has(a)]')).toEqual([0,true]);
+    api.run('engine.pairs.list.forEach(pair=>pair.isActive=false); updateLatches({delta:1000/60})'); expect(api.run('latches.length')).toBe(0);
+  });
+
+  it.each(['a','b'])('releases from endpoint %s, preserving parts and avoiding immediate recapture', endpoint => {
+    const api=setup(); api.catchPart(); api.run(`Body.setStatic(${endpoint},true); phaseBodies.set(${endpoint},{}); latchAt(${endpoint}.position)`); api.step(3);
+    expect(api.run('[latches.length,latchArmed.size,captureGameState().bodies.length,Composite.allConstraints(world).length]')).toEqual([0,0,2,0]);
+  });
+
+  it('cleans up Eraser, removed parts/links, disarmed transforms and Clear', () => {
+    const api=setup(); api.catchPart(); api.run('eraseBodyAt(a.position)'); expect(api.run('[latches.length,Composite.allConstraints(world).length]')).toEqual([0,0]);
+    api.run('Composite.add(world,a)'); api.catchPart(); api.run('Composite.remove(world,b); pruneLatches()'); expect(api.run('[latches.length,Composite.allConstraints(world).length]')).toEqual([0,0]);
+    api.run('Composite.add(world,b)'); api.catchPart(); api.run('Composite.remove(world,latches[0]); pruneLatches()'); expect(api.run('latches.length')).toBe(0);
+    api.run('latchAt(a.position); Composite.remove(world,a); pruneLatches()'); expect(api.run('latchArmed.size')).toBe(0);
+    api.run('Composite.add(world,a); latchAt(a.position)'); api.select('draw'); expect(api.window.document.getElementById('latch-feedback').textContent).toBe('');
+    api.run('finishClear(false)'); expect(api.run('[latches.length,latchArmed.size]')).toEqual([0,0]);
+  });
+
+  it('saves pending arms and caught identity/anchors with selected tool and resumes real physics', () => {
+    const api=setup(); api.catchPart(); api.select('latch'); api.run(`window.c=Bodies.circle(600,240,15); Composite.add(world,c); latchAt(c.position);
+      window.ids=[a.id,b.id,c.id]; restoreGameState(readGameSave(serializeGameState()));
+      window.link=latches[0]; window.a=link.bodyA; window.b=link.bodyB; window.c=[...latchArmed][0]`);
+    expect(api.run('[currentTool,latches.length,latchArmed.size,a.id,b.id,c.id]')).toEqual(['latch',1,1,...api.run('ids')]);
+    expect(api.run('[Composite.get(world,a.id,"body")===a,Composite.get(world,link.id,"constraint")===link]')).toEqual([true,true]);
+    api.run('Body.setVelocity(a,{x:-3,y:0}); Body.setVelocity(b,{x:3,y:0})'); api.step(30);
+    expect(api.run('Vector.magnitude(Vector.sub(Constraint.pointAWorld(link),Constraint.pointBWorld(link)))')).toBeLessThan(2);
+    api.run('latchAt(a.position)'); expect(api.run('[latches.length,latchArmed.size]')).toEqual([0,1]);
+  });
+
+  it('migrates saves predating Latch', () => {
+    const api=setup(); api.run(`const game=captureGameState(); delete game.state.latchArmed; delete game.state.latches; const graph=ChaosSaveCodec.encode(game);
+      restoreGameState(readGameSave(JSON.stringify({version:1,savedAt:new Date().toISOString(),checksum:ChaosSaveCodec.checksum(graph),graph})))`);
+    expect(api.run('[latchArmed.size,latches.length]')).toEqual([0,0]);
+  });
+
+  it.each(['latches.push(link)','link.bodyB=link.bodyA','link.length=20','link.stiffness=0','link.damping=NaN',
+    'link.angleA=NaN','link.render.type="hinge"','latchArmed.add(a)','Composite.remove(world,link)',
+    'latches=[]','a.isTarget=true','latchArmed.add(Bodies.circle(800,100,10))'])('rejects malformed saves before changing the world: %s', mutation => {
+    const api=setup(); api.catchPart(); api.run('window.link=latches[0];'+mutation);
+    expect(()=>api.run('readGameSave(serializeGameState())')).toThrow('Invalid saved latch'); expect(api.run('Composite.allBodies(world).includes(a)')).toBe(true);
+  });
+
+  it('renders pending, idle, caught and rotated seams without runtime errors', () => {
+    const api=setup(); api.select('latch'); api.run('latchAt(a.position); drawLatches(); Body.setStatic(a,true); drawLatches(); Body.setStatic(a,false); latchAt(a.position)');
+    api.catchPart(); api.run('drawLatches(); drawConstraints(); Body.setAngle(a,1); drawLatches()'); expect(api.errors).toEqual([]);
+  });
+});
+
 describe('Rack transmission with real Matter.js', () => {
   function setup() {
     const api = gameHarness();
@@ -53,10 +217,10 @@ describe('Rack transmission with real Matter.js', () => {
     return {...api,select,connect,tick};
   }
 
-  it('appends the accessible final button and routes canvas taps after leaving Draw', () => {
-    const api=setup(), button=api.window.document.querySelector('#toolbar > :last-child');
+  it('keeps the accessible Rack button and routes canvas taps after leaving Draw', () => {
+    const api=setup(), button=api.window.document.querySelector('[data-tool=rack]');
     expect(button.dataset.tool).toBe('rack'); expect(button.previousElementSibling.dataset.tool).toBe('hopper');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(100);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(101);
     expect(button.getAttribute('aria-label')).toContain('spin into sideways travel'); expect(button.title).toContain('tap either end to release');
     api.select('draw'); button.click(); expect(api.run('[currentTool,drawMode]')).toEqual(['rack',false]);
     expect(button.classList.contains('active')).toBe(true);
@@ -214,7 +378,7 @@ describe('Hopper tool with real Matter.js', () => {
   it('keeps the accessible Hopper button and routes actual canvas taps through Draw', () => {
     const api=setup(), button=api.window.document.querySelector('[data-tool=hopper]');
     expect(button.dataset.tool).toBe('hopper'); expect(button.previousElementSibling.dataset.tool).toBe('cam');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(100);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(101);
     expect(button.getAttribute('aria-label')).toContain('automatically jumps'); expect(button.title).toContain('tap again');
     api.select('draw'); button.click();
     expect(api.run('[currentTool,drawMode]')).toEqual(['hopper',false]); expect(button.classList.contains('active')).toBe(true);
@@ -339,7 +503,7 @@ describe('Cam tool with real Matter.js', () => {
     const api=setup(), button=api.window.document.querySelector('[data-tool=cam]');
     expect(button.dataset.tool).toBe('cam');
     expect(button.previousElementSibling.dataset.tool).toBe('keel');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(100);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(101);
     expect(button.getAttribute('aria-label')).toContain('eccentric cam');
     expect(button.title).toContain('stop or resume');
     api.select('draw'); button.click();
@@ -488,7 +652,7 @@ describe('Keel tool with real Matter.js', () => {
     const api=setup(), button=api.window.document.querySelector('[data-tool=keel]');
     expect(button.dataset.tool).toBe('keel');
     expect(button.previousElementSibling.dataset.tool).toBe('syrup');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(100);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(101);
     expect(button.getAttribute('aria-label')).toContain('keel');
     expect(button.title).toContain('sideways');
     api.select('draw'); button.click();
@@ -668,7 +832,7 @@ describe('Syrup tool with real Matter.js', () => {
     const api=gameHarness(),button=api.window.document.querySelector('[data-tool=syrup]');
     expect(button.dataset.tool).toBe('syrup');
     expect(button.previousElementSibling.dataset.tool).toBe('torsion');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(100);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(101);
     expect(button.getAttribute('aria-label')).toContain('syrup pool');
     expect(button.title).toContain('drain');
     api.window.document.querySelector('[data-tool=draw]').click(); button.click();
@@ -813,7 +977,7 @@ describe('Torsion tool with real Matter.js', () => {
     const api=setup(),button=api.window.document.querySelector('[data-tool=torsion]');
     expect(button.dataset.tool).toBe('torsion');
     expect(button.previousElementSibling.dataset.tool).toBe('oneway');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(100);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(101);
     expect(button.getAttribute('aria-label')).toContain('torsion spring');
     expect(button.title).toContain('Snip');
     api.select('draw'); button.click();
@@ -989,7 +1153,7 @@ describe('One-way gate with real Matter.js', () => {
     const api=gameHarness(), button=api.window.document.querySelector('[data-tool=oneway]');
     expect(button.dataset.tool).toBe('oneway');
     expect(button.previousElementSibling.dataset.tool).toBe('pulley');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(100);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(101);
     expect(button.getAttribute('aria-label')).toContain('one-way gate');
     expect(button.title).toContain('reverse');
     button.click();
@@ -1181,7 +1345,7 @@ describe('Pulley tool with real Matter.js', () => {
     const button = api.window.document.querySelector('[data-tool=pulley]');
     expect(button.dataset.tool).toBe('pulley');
     expect(button.previousElementSibling.dataset.tool).toBe('damper');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(100);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(101);
     expect(button.getAttribute('aria-label')).toContain('counterweight pulley');
     expect(button.title).toContain('Snip');
     api.select('pulley');
