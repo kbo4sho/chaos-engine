@@ -40,6 +40,113 @@ function gameHarness(stored = {}) {
 
 const key = 'chaos-engine-save-1';
 
+describe('Clutch spin coupling with real Matter.js', () => {
+  const active=[];
+  afterEach(() => { active.splice(0).forEach(api=>api.window.close()); });
+  function setup() {
+    const api=gameHarness(); active.push(api);
+    api.run(`paused=true; engine.gravity.y=0;
+      window.a=Bodies.rectangle(240,240,40,40,{frictionAir:0});
+      window.b=Bodies.rectangle(460,240,60,30,{frictionAir:0}); Composite.add(world,[a,b]);`);
+    const select=tool=>api.window.document.querySelector('[data-tool="'+tool+'"]').click();
+    const connect=()=>api.run('clutchAt(a.position); window.link=clutchAt(b.position)');
+    const tick=(delta=1000/60)=>api.run(`updateClutches({delta:${delta}})`);
+    return {...api,select,connect,tick};
+  }
+  it('appends the accessible final button and routes actual canvas input after Draw',()=>{
+    const api=setup(),button=api.window.document.querySelector('#toolbar > :last-child');
+    expect(button.dataset.tool).toBe('clutch'); expect(button.previousElementSibling.dataset.tool).toBe('latch');
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(102);
+    expect(button.getAttribute('aria-label')).toContain('share spin'); expect(button.title).toContain('tap either end');
+    api.select('draw'); button.click(); expect(api.run('[currentTool,drawMode]')).toEqual(['clutch',false]);
+    expect(button.classList.contains('active')).toBe(true);
+    const canvas=api.window.document.querySelector('canvas'); canvas.getBoundingClientRect=()=>({left:0,top:0,width:canvas.width,height:canvas.height});
+    const tap=(x,y)=>canvas.dispatchEvent(new api.window.MouseEvent('mousedown',{clientX:x,clientY:y,bubbles:true}));
+    tap(700,100); expect(api.run('[clutches.length,clutchSelection,pointerDown]')).toEqual([0,null,false]);
+    expect(api.window.document.getElementById('clutch-feedback').textContent).toContain('TAP A TURNING PART');
+    tap(240,240); expect(api.run('clutchSelection===a')).toBe(true); tap(460,240);
+    expect(api.run('[clutches.length,clutchSelection,pointerDown]')).toEqual([1,null,false]);
+    expect(api.window.document.getElementById('clutch-feedback').getAttribute('role')).toBe('status');
+    tap(460,240); expect(api.run('[clutches.length,captureGameState().bodies.length]')).toEqual([0,2]);
+  });
+  it.each([0.4,-0.4])('shares spin %s in the same direction while conserving angular momentum',spin=>{
+    const api=setup();api.connect();api.run(`Body.setAngularVelocity(a,${spin}); Body.setAngularVelocity(b,${-spin/2});
+      Body.setVelocity(a,{x:3,y:2}); Body.setVelocity(b,{x:-2,y:4});
+      window.momentum=()=>a.inertia*a.angularVelocity+b.inertia*b.angularVelocity;
+      window.energy=()=>0.5*(a.inertia*a.angularVelocity**2+b.inertia*b.angularVelocity**2);
+      window.initial=momentum(); window.props=[a.mass,b.mass,a.inertia,b.inertia,a.area,b.area,a.friction,b.restitution]`);
+    let energy=api.run('energy()');
+    for(let i=0;i<40;i++) { api.tick();const next=api.run('energy()');expect(next).toBeLessThanOrEqual(energy+1e-9);energy=next;expect(api.run('momentum()')).toBeCloseTo(api.run('initial'),9); }
+    expect(api.run('a.angularVelocity')).toBeCloseTo(api.run('b.angularVelocity'),5);
+    expect(api.run('[a.velocity.x,a.velocity.y,b.velocity.x,b.velocity.y]')).toEqual([3,2,-2,4]);
+    expect(api.run('[a.mass,b.mass,a.inertia,b.inertia,a.area,b.area,a.friction,b.restitution]')).toEqual(api.run('props'));
+    expect(api.run('[link.stiffness,link.damping]')).toEqual([0,0]);
+  });
+  it('back-drives either endpoint without constraining distance or angle',()=>{
+    const api=setup();api.connect();api.run('Body.setAngularVelocity(b,0.3); Body.setVelocity(b,{x:2,y:0}); for(let i=0;i<20;i++) Engine.update(engine,1000/60)');
+    expect(api.run('a.angle')).toBeGreaterThan(0.5);expect(api.run('b.position.x')).toBeGreaterThan(490);
+    expect(api.run('a.position.x')).toBeCloseTo(240,8);
+  });
+  it('scales damping with timestep and ignores zero delta',()=>{
+    const a=setup(),b=setup();a.connect();b.connect();a.run('Body.setAngularVelocity(a,0.4)');b.run('Body.setAngularVelocity(a,0.4)');
+    a.tick(0);expect(a.run('b.angularVelocity')).toBe(0);a.tick();b.tick(1000/120);b.tick(1000/120);
+    for(const part of ['a','b']) expect(a.run(part+'.angularVelocity')).toBeCloseTo(b.run(part+'.angularVelocity'),10);
+  });
+  it.each(['a','b'])('uses anchored endpoint %s as a brake, ignoring stale static spin',part=>{
+    const api=setup();api.connect();api.run(`Body.setAngularVelocity(a,0.4); Body.setAngularVelocity(b,0.4); Body.setStatic(${part},true); window.angle=${part}.angle`);api.tick();
+    expect(api.run(`${part==='a'?'b':'a'}.angularVelocity`)).toBeGreaterThan(0);
+    expect(api.run(`${part==='a'?'b':'a'}.angularVelocity`)).toBeLessThan(0.4);expect(api.run(part+'.angle')).toBe(api.run('angle'));
+  });
+  it('supports an anchored second endpoint at connection time',()=>{
+    const api=setup();api.run('Body.setStatic(b,true); b.isAnchored=true');api.connect();expect(api.run('clutches.length')).toBe(1);
+  });
+  it('wakes a sleeping receiver when spin transfers',()=>{
+    const api=setup();api.connect();api.run('Matter.Sleeping.set(b,true); Body.setAngularVelocity(a,0.4)');api.tick();expect(api.run('b.isSleeping')).toBe(false);expect(api.run('b.angularVelocity')).toBeGreaterThan(0);
+  });
+  it.each(['a.isSensor=true','b.isSensor=true','phaseBodies.set(a,{})','phaseBodies.set(b,{})','Body.setStatic(a,true); Body.setStatic(b,true)'])('suspends coupling for %s',mutation=>{
+    const api=setup();api.connect();api.run('Body.setAngularVelocity(a,0.4);'+mutation+';window.spin=[a.angularVelocity,b.angularVelocity]');api.tick();expect(api.run('[a.angularVelocity,b.angularVelocity]')).toEqual(api.run('spin'));
+  });
+  it('allows cancellation, rejects invalid/occupied endpoints and clears pending selection on tool changes',()=>{
+    const api=setup();expect(api.run('clutchAt(a.position)')).toBe('selected');expect(api.run('clutchAt(a.position)')).toBe('cancelled');
+    api.run('clutchAt(a.position); clutchAt({x:700,y:100})');expect(api.run('clutchSelection===a')).toBe(true);
+    api.select('ball');expect(api.run('clutchSelection')).toBe(null);expect(api.window.document.getElementById('clutch-feedback').textContent).toBe('');
+    api.connect();api.run('window.c=Bodies.circle(700,240,20);Composite.add(world,c);clutchAt(c.position)');expect(api.run('clutchAt(b.position)')).toBe(false);
+    api.select('draw');expect(api.run('clutchSelection')).toBe(null);
+    api.run('Body.setStatic(c,true);c.isAnchored=true');expect(api.run('clutchAt(c.position)')).toBe(false);
+  });
+  it('rejects too-close parts and a first endpoint changed after selection',()=>{
+    const api=setup();api.run('Body.scale(b,0.3,0.3);Body.setPosition(b,{x:270,y:240});clutchAt(a.position)');expect(api.run('clutchAt(b.position)')).toBe(false);
+    api.run('Body.setPosition(b,{x:460,y:240}); Body.setStatic(a,true)');expect(api.run('clutchAt(b.position)')).toBe(false);expect(api.run('clutchSelection')).toBe(null);
+  });
+  it.each(['a','b'])('disengages endpoint %s even while phased, retaining both parts and their motion',part=>{
+    const api=setup();api.connect();api.run(`phaseBodies.set(${part},{});Body.setAngularVelocity(a,0.3);Body.setAngularVelocity(b,-0.2);clutchAt(${part}.position)`);
+    expect(api.run('[clutches.length,captureGameState().bodies.length,a.angularVelocity,b.angularVelocity]')).toEqual([0,2,0.3,-0.2]);
+  });
+  it('supports compound parents once and renders attached, slipping, idle and pending states',()=>{
+    const api=setup();api.run(`Composite.remove(world,a);a=Body.create({parts:[Bodies.rectangle(220,240,30,20),Bodies.rectangle(255,240,30,20)]});Composite.add(world,a)`);api.connect();expect(api.run('clutches.length')).toBe(1);
+    api.run('drawClutches();Body.setAngularVelocity(a,0.4);drawClutches();phaseBodies.set(a,{});drawClutches();clutchAt(a.position);phaseBodies.delete(a);clutchAt(a.position)');api.select('clutch');api.run('drawClutches();drawConstraints()');expect(api.errors).toEqual([]);
+  });
+  it('cleans Snip, Eraser, externally removed links/parts, pending removal and Clear',()=>{
+    const api=setup();api.connect();api.run('snipConstraintAt({x:350,y:240})');expect(api.run('clutches.length')).toBe(0);
+    api.connect();api.run('eraseBodyAt(a.position)');expect(api.run('[clutches.length,Composite.allConstraints(world).length]')).toEqual([0,0]);
+    api.run('Composite.add(world,a)');api.connect();api.run('Composite.remove(world,b);pruneClutches()');expect(api.run('[clutches.length,Composite.allConstraints(world).length]')).toEqual([0,0]);
+    api.run('Composite.add(world,b)');api.connect();api.run('Composite.remove(world,link);pruneClutches()');expect(api.run('clutches.length')).toBe(0);
+    api.run('clutchAt(a.position);Composite.remove(world,a);pruneClutches()');expect(api.run('clutchSelection')).toBe(null);
+    api.run('Composite.add(world,a)');api.connect();api.run('finishClear(false)');expect(api.run('[clutches.length,clutchSelection]')).toEqual([0,null]);
+  });
+  it('round-trips identities and selected tool, then resumes physical spin transfer',()=>{
+    const api=setup();api.connect();api.select('clutch');api.run(`window.ids=[a.id,b.id];restoreGameState(readGameSave(serializeGameState()));window.link=clutches[0];window.a=link.bodyA;window.b=link.bodyB;Body.setAngularVelocity(a,0.4)`);api.tick();
+    expect(api.run('[currentTool,clutches.length,a.id,b.id]')).toEqual(['clutch',1,...api.run('ids')]);expect(api.run('b.angularVelocity')).toBeGreaterThan(0);
+    expect(api.run('Composite.get(world,link.id,"constraint")===link')).toBe(true);
+  });
+  it('migrates older saves with no clutch registry',()=>{
+    const api=setup();api.run(`const game=captureGameState();delete game.state.clutches;const graph=ChaosSaveCodec.encode(game);restoreGameState(readGameSave(JSON.stringify({version:1,savedAt:new Date().toISOString(),checksum:ChaosSaveCodec.checksum(graph),graph})))`);expect(api.run('clutches.length')).toBe(0);
+  });
+  it.each(['clutches.push(link)','link.bodyB=link.bodyA','link.length=20','link.stiffness=0.1','link.damping=0.1','link.pointA.x=2','link.render.type="rack"','Composite.remove(world,link)','clutches=[]','a.isFragment=true'])('rejects malformed saves without mutating the world: %s',mutation=>{
+    const api=setup();api.connect();api.run(mutation);expect(()=>api.run('readGameSave(serializeGameState())')).toThrow('Invalid saved clutch');expect(api.run('Composite.allBodies(world).includes(a)')).toBe(true);
+  });
+});
+
 describe('Latch contact catches with real Matter.js', () => {
   let active;
   afterEach(() => { active?.window.close(); active=null; });
@@ -55,10 +162,10 @@ describe('Latch contact catches with real Matter.js', () => {
     return {...api,select,step,catchPart};
   }
 
-  it('appends the final accessible button and routes real canvas taps after Draw', () => {
-    const api=setup(), button=api.window.document.querySelector('#toolbar > :last-child');
+  it('keeps the accessible Latch button and routes real canvas taps after Draw', () => {
+    const api=setup(), button=api.window.document.querySelector('[data-tool=latch]');
     expect(button.dataset.tool).toBe('latch'); expect(button.previousElementSibling.dataset.tool).toBe('rack');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(101);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(102);
     expect(button.getAttribute('aria-label')).toContain('contact latch'); expect(button.title).toContain('Tap either end to release');
     api.select('draw'); button.click(); expect(api.run('[currentTool,drawMode]')).toEqual(['latch',false]);
     expect(button.classList.contains('active')).toBe(true);
@@ -220,7 +327,7 @@ describe('Rack transmission with real Matter.js', () => {
   it('keeps the accessible Rack button and routes canvas taps after leaving Draw', () => {
     const api=setup(), button=api.window.document.querySelector('[data-tool=rack]');
     expect(button.dataset.tool).toBe('rack'); expect(button.previousElementSibling.dataset.tool).toBe('hopper');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(101);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(102);
     expect(button.getAttribute('aria-label')).toContain('spin into sideways travel'); expect(button.title).toContain('tap either end to release');
     api.select('draw'); button.click(); expect(api.run('[currentTool,drawMode]')).toEqual(['rack',false]);
     expect(button.classList.contains('active')).toBe(true);
@@ -378,7 +485,7 @@ describe('Hopper tool with real Matter.js', () => {
   it('keeps the accessible Hopper button and routes actual canvas taps through Draw', () => {
     const api=setup(), button=api.window.document.querySelector('[data-tool=hopper]');
     expect(button.dataset.tool).toBe('hopper'); expect(button.previousElementSibling.dataset.tool).toBe('cam');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(101);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(102);
     expect(button.getAttribute('aria-label')).toContain('automatically jumps'); expect(button.title).toContain('tap again');
     api.select('draw'); button.click();
     expect(api.run('[currentTool,drawMode]')).toEqual(['hopper',false]); expect(button.classList.contains('active')).toBe(true);
@@ -503,7 +610,7 @@ describe('Cam tool with real Matter.js', () => {
     const api=setup(), button=api.window.document.querySelector('[data-tool=cam]');
     expect(button.dataset.tool).toBe('cam');
     expect(button.previousElementSibling.dataset.tool).toBe('keel');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(101);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(102);
     expect(button.getAttribute('aria-label')).toContain('eccentric cam');
     expect(button.title).toContain('stop or resume');
     api.select('draw'); button.click();
@@ -652,7 +759,7 @@ describe('Keel tool with real Matter.js', () => {
     const api=setup(), button=api.window.document.querySelector('[data-tool=keel]');
     expect(button.dataset.tool).toBe('keel');
     expect(button.previousElementSibling.dataset.tool).toBe('syrup');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(101);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(102);
     expect(button.getAttribute('aria-label')).toContain('keel');
     expect(button.title).toContain('sideways');
     api.select('draw'); button.click();
@@ -832,7 +939,7 @@ describe('Syrup tool with real Matter.js', () => {
     const api=gameHarness(),button=api.window.document.querySelector('[data-tool=syrup]');
     expect(button.dataset.tool).toBe('syrup');
     expect(button.previousElementSibling.dataset.tool).toBe('torsion');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(101);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(102);
     expect(button.getAttribute('aria-label')).toContain('syrup pool');
     expect(button.title).toContain('drain');
     api.window.document.querySelector('[data-tool=draw]').click(); button.click();
@@ -977,7 +1084,7 @@ describe('Torsion tool with real Matter.js', () => {
     const api=setup(),button=api.window.document.querySelector('[data-tool=torsion]');
     expect(button.dataset.tool).toBe('torsion');
     expect(button.previousElementSibling.dataset.tool).toBe('oneway');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(101);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(102);
     expect(button.getAttribute('aria-label')).toContain('torsion spring');
     expect(button.title).toContain('Snip');
     api.select('draw'); button.click();
@@ -1153,7 +1260,7 @@ describe('One-way gate with real Matter.js', () => {
     const api=gameHarness(), button=api.window.document.querySelector('[data-tool=oneway]');
     expect(button.dataset.tool).toBe('oneway');
     expect(button.previousElementSibling.dataset.tool).toBe('pulley');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(101);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(102);
     expect(button.getAttribute('aria-label')).toContain('one-way gate');
     expect(button.title).toContain('reverse');
     button.click();
@@ -1345,7 +1452,7 @@ describe('Pulley tool with real Matter.js', () => {
     const button = api.window.document.querySelector('[data-tool=pulley]');
     expect(button.dataset.tool).toBe('pulley');
     expect(button.previousElementSibling.dataset.tool).toBe('damper');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(101);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(102);
     expect(button.getAttribute('aria-label')).toContain('counterweight pulley');
     expect(button.title).toContain('Snip');
     api.select('pulley');

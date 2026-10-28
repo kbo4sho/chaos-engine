@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-10-28",
+      "ideas": [
+        "New tool: Engage a friction Clutch between two parts to passively share spin, then disengage either end"
+      ],
+      "summary": "Implemented Clutch tool (◎) — the final button after Latch couples two parts through passive, inertia-weighted angular impulses that equalize spin in the same direction while conserving free-end angular momentum and dissipating energy. Translation, geometry and materials stay intact. Tap either endpoint or Snip the cyan shaft to disengage. Compound parents, sleeping receivers, anchored braking, sensor/Phase suspension, amber friction plates and rotating spokes, readable SLIP/SYNC/IDLE labels, accessible feedback, shared 46px touch targeting, audio/sparks/haptics, cancellation/Draw/tool-change/Eraser/pruning/Clear cleanup and validated backward-compatible save/load support rotational contraptions on desktop and mobile."
+    },
+    {
       "date": "2026-10-27",
       "ideas": [
         "New tool: Arm a moving Latch that catches another build part on real contact, then release either end"

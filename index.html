@@ -809,7 +809,7 @@ canvas#game {
 #ratchet-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
-#breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback, #torsion-feedback, #syrup-feedback, #keel-feedback, #cam-feedback, #hopper-feedback, #rack-feedback, #latch-feedback {
+#breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback, #torsion-feedback, #syrup-feedback, #keel-feedback, #cam-feedback, #hopper-feedback, #rack-feedback, #latch-feedback, #clutch-feedback {
   position:absolute; top:14px; left:50%; z-index:3;
   transform:translate(-50%, -8px) scale(0.9);
   padding:4px 12px; border:1px solid currentColor;
@@ -819,7 +819,7 @@ canvas#game {
   opacity:0; pointer-events:none; white-space:nowrap;
   transition:opacity .12s, transform .12s;
 }
-#breaklink-feedback.active, #damper-feedback.active, #pulley-feedback.active, #oneway-feedback.active, #torsion-feedback.active, #syrup-feedback.active, #keel-feedback.active, #cam-feedback.active, #hopper-feedback.active, #rack-feedback.active, #latch-feedback.active {
+#breaklink-feedback.active, #damper-feedback.active, #pulley-feedback.active, #oneway-feedback.active, #torsion-feedback.active, #syrup-feedback.active, #keel-feedback.active, #cam-feedback.active, #hopper-feedback.active, #rack-feedback.active, #latch-feedback.active, #clutch-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
 #damper-feedback, #oneway-feedback, #keel-feedback { color:#0abdc6; }
@@ -990,7 +990,7 @@ canvas#game {
   #winch-feedback { top:14px; font-size:19px; }
   #tripwire-feedback { top:14px; font-size:19px; }
   #ratchet-feedback { top:14px; font-size:19px; }
-  #breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback, #torsion-feedback, #syrup-feedback, #keel-feedback, #cam-feedback, #hopper-feedback, #rack-feedback, #latch-feedback { font-size:19px; }
+  #breaklink-feedback, #damper-feedback, #pulley-feedback, #oneway-feedback, #torsion-feedback, #syrup-feedback, #keel-feedback, #cam-feedback, #hopper-feedback, #rack-feedback, #latch-feedback, #clutch-feedback { font-size:19px; }
   .bar-toggle { display:block; }
   #toolbar.collapsed, #chaos-bar.collapsed { display:none; }
 }
@@ -1095,6 +1095,7 @@ canvas#game {
     <div id="hopper-feedback" role="status" aria-live="polite"></div>
     <div id="rack-feedback" role="status" aria-live="polite"></div>
     <div id="latch-feedback" role="status" aria-live="polite"></div>
+    <div id="clutch-feedback" role="status" aria-live="polite"></div>
   </div>
 
   <!-- OBJECT TOOLBAR -->
@@ -1201,6 +1202,7 @@ canvas#game {
     <button class="tool-btn" data-tool="hopper" style="color:#ffc857;" title="Tap a movable part to attach an automatic foot that hops when supported against gravity; tap again to remove" aria-label="Attach or remove a Hopper foot that automatically jumps from supporting surfaces"><span class="icon">🦘</span>Hopper</button>
     <button class="tool-btn" data-tool="rack" style="color:#ffc857;" title="Tap a turning part, then a second part to couple spin with relative sideways travel; tap either end to release" aria-label="Connect a rack transmission that converts spin into sideways travel and back"><span class="icon">⚙↔</span>Rack</button>
     <button class="tool-btn" data-tool="latch" style="color:#ffc857;" title="Tap a movable part to arm a contact latch; its next touch catches another build part. Tap either end to release" aria-label="Arm a contact latch on a part or release its caught part"><span class="icon">⊏⊐</span>Latch</button>
+    <button class="tool-btn" data-tool="clutch" style="color:#ffc857;" title="Tap two parts to share spin through a friction clutch; tap either end to disengage. An anchored end acts as a brake" aria-label="Connect a clutch to share spin between parts, or disengage it"><span class="icon">◎</span>Clutch</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -1585,6 +1587,9 @@ let rackFeedbackTimer = 0;
 let latchArmed = new Set(); // one-shot contact catches; armed parts remain ordinary physics bodies
 let latches = []; // swiveling contact joints, one per endpoint; Snip releases the seam
 let latchFeedbackTimer = 0;
+let clutches = []; // passive same-direction spin transfer; no position or angle lock
+let clutchSelection = null;
+let clutchFeedbackTimer = 0;
 
 // Block shattering
 let pendingPhysicsActions = []; // Serializable delayed rain and collision work
@@ -2654,6 +2659,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       resetHopperFeedback();
       resetRackSelection(true);
       resetLatchFeedback();
+      resetClutchSelection(true);
       drawMode = !drawMode;
       btn.classList.toggle('active', drawMode);
       if (!drawMode) drawPoints = [];
@@ -2730,6 +2736,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool !== 'hopper') resetHopperFeedback();
       if (tool !== 'rack') resetRackSelection(true);
       if (tool !== 'latch') resetLatchFeedback();
+      if (tool !== 'clutch') resetClutchSelection(true);
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
@@ -4195,6 +4202,8 @@ function finishClear(playFeedback = true) {
   latchArmed.clear();
   latches = [];
   resetLatchFeedback();
+  clutches = [];
+  resetClutchSelection(true);
   launchBody = null;
   launchAimPoint = null;
   launchFlash = null;
@@ -4505,7 +4514,8 @@ function getToolAccentColor(tool) {
     cam: '#ffc857',
     hopper: '#ffc857',
     rack: '#ffc857',
-    latch: '#ffc857'
+    latch: '#ffc857',
+    clutch: '#ffc857'
   };
   return colors[tool] || '#0abdc6';
 }
@@ -4709,6 +4719,8 @@ function eraseBodyAt(pos) {
   torsions = torsions.filter(link => !constraintsToRemove.has(link));
   racks = racks.filter(link => !constraintsToRemove.has(link));
   latches = latches.filter(link => !constraintsToRemove.has(link));
+  clutches = clutches.filter(link => !constraintsToRemove.has(link));
+  if (clutchSelection && removedBodyIds.has(clutchSelection.id)) resetClutchSelection(true);
   if (rackSelection && removedBodyIds.has(rackSelection.id)) resetRackSelection(true);
   pulleys = pulleys.filter(link => !constraintsToRemove.has(link));
   hinges = hinges.filter(hinge => !constraintsToRemove.has(hinge));
@@ -11959,6 +11971,143 @@ function drawLatches() {
   });
 }
 
+function resetClutchSelection(silent = false) {
+  clutchSelection = null;
+  if (!silent) return;
+  clearTimeout(clutchFeedbackTimer);
+  const feedback = document.getElementById('clutch-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
+function showClutchFeedback(message) {
+  const feedback = document.getElementById('clutch-feedback');
+  feedback.textContent = message;
+  feedback.classList.add('active');
+  clearTimeout(clutchFeedbackTimer);
+  clutchFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 1400);
+}
+
+function pruneClutches() {
+  const live = new Set(Composite.allBodies(world));
+  clutches = clutches.filter(link => {
+    const present = Composite.get(world, link.id, 'constraint');
+    const intact = live.has(link.bodyA) && live.has(link.bodyB);
+    if (present && !intact) Composite.remove(world, link, true);
+    return Boolean(present && intact);
+  });
+  if (clutchSelection && !live.has(clutchSelection)) resetClutchSelection(true);
+}
+
+function clutchAt(pos) {
+  pruneClutches();
+  const target = findStrutBodyAt(pos); // shared compound-parent and 46px touch targeting
+  const existing = clutches.find(link => link.bodyA === target || link.bodyB === target);
+  if (!target || (!existing && (target.isSensor || phaseBodies.has(target)))) {
+    showClutchFeedback(clutchSelection ? 'CLUTCH: TAP SECOND SOLID PART' : 'CLUTCH: TAP A TURNING PART');
+    haptic([3]);
+    return false;
+  }
+  if (!clutchSelection && existing) {
+    Composite.remove(world, existing, true);
+    clutches = clutches.filter(link => link !== existing);
+    showClutchFeedback('CLUTCH OFF • SPIN FREE');
+    addStrutBurst(target, '#ffc857');
+    playSound(380, 0.1, 'triangle', 0.05); haptic([7]);
+    return 'released';
+  }
+  if (target === clutchSelection) {
+    resetClutchSelection(); showClutchFeedback('CLUTCH CANCELLED');
+    return 'cancelled';
+  }
+  if (existing) {
+    showClutchFeedback('CLUTCH: RELEASE THAT PART FIRST');
+    return false;
+  }
+  if (!clutchSelection) {
+    if (target.isStatic || !(target.inverseInertia > 0)) {
+      showClutchFeedback('CLUTCH: FIRST PART MUST TURN');
+      return false;
+    }
+    clutchSelection = target;
+    addStrutBurst(target, '#ffc857');
+    showClutchFeedback('CLUTCH: PICK SECOND PART'); haptic([6]);
+    return 'selected';
+  }
+  const first = clutchSelection;
+  if (first.isStatic || first.isSensor || phaseBodies.has(first) || !(first.inverseInertia > 0)) {
+    resetClutchSelection(); showClutchFeedback('CLUTCH: FIRST PART MUST TURN');
+    return false;
+  }
+  const length = getStrutLength(first, target);
+  if (length < 36) { showClutchFeedback('CLUTCH: PARTS TOO CLOSE'); return false; }
+  const link = Constraint.create({bodyA:first, bodyB:target, length, damping:0, render:{type:'clutch'}});
+  link.stiffness = 0; // Identity, Snip and save support; the angular impulse owns the coupling.
+  Composite.add(world, link); clutches.push(link);
+  [first, target].forEach(body => { Matter.Sleeping.set(body, false); addStrutBurst(body, '#ffc857'); });
+  resetClutchSelection(); showClutchFeedback('CLUTCH ON • SPIN SHARED');
+  playSound(640, 0.12, 'triangle', 0.05); haptic([6, 8, 6]);
+  return link;
+}
+
+function updateClutches(event) {
+  pruneClutches();
+  const step = Math.max(0, Math.min(2, (event.delta || 0) / (1000 / 60)));
+  if (!step) return;
+  clutches.forEach(link => {
+    const a = link.bodyA, b = link.bodyB;
+    if (a.isSensor || b.isSensor || phaseBodies.has(a) || phaseBodies.has(b)) return;
+    const inverseA = a.isStatic ? 0 : a.inverseInertia;
+    const inverseB = b.isStatic ? 0 : b.inverseInertia;
+    const total = inverseA + inverseB;
+    if (!(total > 0)) return;
+    // Equal and opposite angular impulses conserve free-end angular momentum
+    // while dissipating relative spin. Anchored endpoints behave as brakes.
+    const slip = (a.isStatic ? 0 : a.angularVelocity) - (b.isStatic ? 0 : b.angularVelocity);
+    if (Math.abs(slip) < 0.000001) return;
+    const impulse = slip * -Math.expm1(-0.35 * step) / total;
+    if (inverseA > 0) {
+      Matter.Sleeping.set(a, false);
+      Body.setAngularVelocity(a, a.angularVelocity - impulse * inverseA);
+    }
+    if (inverseB > 0) {
+      Matter.Sleeping.set(b, false);
+      Body.setAngularVelocity(b, b.angularVelocity + impulse * inverseB);
+    }
+  });
+}
+Events.on(engine, 'beforeUpdate', updateClutches);
+
+function drawClutches() {
+  clutches.forEach(link => {
+    const a = link.bodyA, b = link.bodyB;
+    const idle = (a.isStatic && b.isStatic) || a.isSensor || b.isSensor || phaseBodies.has(a) || phaseBodies.has(b);
+    const slipping = Math.abs((a.isStatic ? 0 : a.angularVelocity) - (b.isStatic ? 0 : b.angularVelocity)) > 0.01;
+    ctx.save(); ctx.strokeStyle = '#0abdc6'; ctx.lineWidth = 2;
+    ctx.setLineDash([5, 4]); ctx.beginPath();
+    ctx.moveTo(a.position.x, a.position.y); ctx.lineTo(b.position.x, b.position.y); ctx.stroke();
+    ctx.setLineDash([]); ctx.globalAlpha = idle ? 0.5 : 1;
+    [a,b].forEach(body => {
+      ctx.save(); ctx.translate(body.position.x, body.position.y); ctx.rotate(body.angle);
+      ctx.strokeStyle = '#ffc857';
+      [18,24].forEach(radius => { ctx.beginPath(); ctx.arc(0,0,radius,0,Math.PI*2); ctx.stroke(); });
+      for(let i=0;i<4;i++) {
+        ctx.rotate(Math.PI/2); ctx.beginPath(); ctx.moveTo(8,0); ctx.lineTo(25,0); ctx.stroke();
+      }
+      ctx.restore();
+    });
+    ctx.fillStyle = '#dffcff'; ctx.font = '14px VT323, monospace'; ctx.textAlign = 'center';
+    ctx.fillText(idle ? 'CLUTCH • IDLE' : slipping ? 'CLUTCH • SLIP' : 'CLUTCH • SYNC',
+      (a.position.x+b.position.x)/2, Math.max(16,Math.min(a.bounds.min.y,b.bounds.min.y)-14));
+    ctx.restore();
+  });
+  if (currentTool !== 'clutch' || !clutchSelection) return;
+  const body = clutchSelection;
+  ctx.save(); ctx.strokeStyle = '#ffc857'; ctx.lineWidth = 2; ctx.setLineDash([5,4]);
+  ctx.strokeRect(body.bounds.min.x-8,body.bounds.min.y-8,
+    body.bounds.max.x-body.bounds.min.x+16,body.bounds.max.y-body.bounds.min.y+16); ctx.restore();
+}
+
 function resetRackSelection(silent = false) {
   rackSelection = null;
   if (!silent) return;
@@ -13735,6 +13884,7 @@ function snipConstraintAt(pos) {
   torsions = torsions.filter(link => link !== constraint);
   racks = racks.filter(link => link !== constraint);
   latches = latches.filter(link => link !== constraint);
+  clutches = clutches.filter(link => link !== constraint);
   pulleys = pulleys.filter(link => link !== constraint);
   hinges = hinges.filter(hinge => hinge !== constraint);
   springs = springs.filter(spring => spring !== constraint);
@@ -14286,6 +14436,13 @@ function onDown(e) {
   // Rack tool — couple the first part's spin with relative horizontal travel.
   if (currentTool === 'rack') {
     rackAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Clutch tool — passively share spin without locking translation or angle.
+  if (currentTool === 'clutch') {
+    clutchAt(pos);
     pointerDown = false;
     return;
   }
@@ -16526,6 +16683,7 @@ function drawConstraints() {
     if (!c.bodyA || !c.bodyB) return;
     if (c.render?.type === 'flipper-pin') return;
     if (c.render?.type === 'breaklink') return; // Draw strain and weak seam above the parts.
+    if (c.render?.type === 'clutch') return; // Custom friction plates and connecting shaft.
     if (c.render?.type === 'latch') return; // Custom contact seam and catch indicator.
     if (c.render?.type === 'rack') return; // Custom pinion, teeth and transmission shaft.
     if (c.render?.type === 'torsion') return; // Draw the wound coil and its shafts above the parts.
@@ -19386,6 +19544,7 @@ function loop(timestamp) {
   pruneHoppers();
   pruneRacks();
   pruneLatches();
+  pruneClutches();
   pruneHinges();
   pruneSprings();
   pruneWelds();
@@ -20234,6 +20393,7 @@ function loop(timestamp) {
   drawHopperMarkers();
   drawRacks();
   drawLatches();
+  drawClutches();
   drawZiplines(timestamp);
   drawOrbitMarkers(timestamp);
   drawTethers(timestamp);
@@ -21378,7 +21538,7 @@ function captureGameState() {
       welds, tethers, webTraps, ramps, pinwheels, baskets,
       cannons, elevators, recyclers, hatches, pistons, parachuteBodies,
       saws, funnels, catapults, presses, ziplines, gearboxes,
-      rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates, torsions, syrupPools, keelBodies, cams, hopperBodies, racks, latchArmed, latches,
+      rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates, torsions, syrupPools, keelBodies, cams, hopperBodies, racks, latchArmed, latches, clutches,
       vortexActive, vortexTimer, vortexCenter, pendingPhysicsActions
     },
     gravity: { ...engine.gravity },
@@ -21433,6 +21593,7 @@ function readGameSave(serialized) {
   if (!Object.hasOwn(game.state, 'racks')) game.state.racks = [];
   if (!Object.hasOwn(game.state, 'latchArmed')) game.state.latchArmed = new Set();
   if (!Object.hasOwn(game.state, 'latches')) game.state.latches = [];
+  if (!Object.hasOwn(game.state, 'clutches')) game.state.clutches = [];
   const expected = captureGameState().state;
   for (const [key, value] of Object.entries(expected)) {
     const actual = game.state[key];
@@ -21500,6 +21661,15 @@ function readGameSave(serialized) {
             !Number.isFinite(link.angleA) || !Number.isFinite(link.angleB)) return true;
         latchBodies.add(link.bodyA); latchBodies.add(link.bodyB); return false;
       }) || game.constraints.some(link => link.render?.type === 'latch' && !game.state.latches.includes(link))) throw new Error('Invalid saved latch');
+  const clutchBodies = new Set();
+  if (new Set(game.state.clutches).size !== game.state.clutches.length || game.state.clutches.some(link => {
+    if (!game.constraints.includes(link) || link.render?.type !== 'clutch' || link.bodyA === link.bodyB ||
+        [link.bodyA, link.bodyB].some(body => !game.bodies.includes(body) || body.parent !== body ||
+          body.label === 'wall' || body.label === 'chain-link' || body.isTarget || body.isFragment || clutchBodies.has(body)) ||
+        link.length < 36 || link.stiffness !== 0 || link.damping !== 0 ||
+        link.pointA.x !== 0 || link.pointA.y !== 0 || link.pointB.x !== 0 || link.pointB.y !== 0) return true;
+    clutchBodies.add(link.bodyA); clutchBodies.add(link.bodyB); return false;
+  }) || game.constraints.some(link => link.render?.type === 'clutch' && !game.state.clutches.includes(link))) throw new Error('Invalid saved clutch');
   const rackBodies = new Set();
   if (new Set(game.state.racks).size !== game.state.racks.length || game.state.racks.some(link => {
     if (!game.constraints.includes(link) || link.render?.type !== 'rack' ||
@@ -21551,7 +21721,7 @@ function restoreGameState(game) {
     welds, tethers, webTraps, ramps, pinwheels, baskets,
     cannons, elevators, recyclers, hatches, pistons, parachuteBodies,
     saws, funnels, catapults, presses, ziplines, gearboxes,
-    rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates, torsions, syrupPools, keelBodies, cams, hopperBodies, racks, latchArmed, latches,
+    rails, sieves, winches, tripwires, nextTripwireId, ratchetBodies, breaklinks, dampers, pulleys, onewayGates, torsions, syrupPools, keelBodies, cams, hopperBodies, racks, latchArmed, latches, clutches,
     vortexActive, vortexTimer, vortexCenter, pendingPhysicsActions
   } = game.state);
   Object.assign(lessonState, game.lesson); // Keep host callbacks registered in this page.
