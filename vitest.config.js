@@ -5,5 +5,13 @@ export default defineConfig({
     environment: 'node',
     globals: true,
     testTimeout: 10000,
+    fileParallelism: false,
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        singleFork: true,
+        execArgv: ['--max-old-space-size=8192'],
+      },
+    },
   },
 });

@@ -21558,6 +21558,7 @@ function captureGameState() {
 }
 
 function serializeGameState() {
+  if (!globalThis.ChaosSaveCodec) throw new Error('Save module missing');
   const graph = ChaosSaveCodec.encode(captureGameState());
   return JSON.stringify({
     version:SAVE_VERSION,
@@ -21827,8 +21828,13 @@ document.getElementById('btn-save').addEventListener('click', () => {
       refreshSaveSlots();
       showSaveFeedback(`SAVED TO SLOT ${slot} · STORED IN THIS BROWSER`);
       playSound(800, 0.12, 'sine', 0.06);
-    } catch {
-      showSaveFeedback('SAVE FAILED · FREE BROWSER STORAGE OR ALLOW SITE DATA, THEN RETRY');
+    } catch (error) {
+      const quota = error instanceof DOMException && (error.name === 'QuotaExceededError' || error.code === 22 || error.code === 1014);
+      const message = String(error?.message || '');
+      if (message.includes('Save module missing')) showSaveFeedback('SAVE FAILED · RELOAD THE PAGE AND TRY AGAIN');
+      else if (message.includes('Save too large')) showSaveFeedback('SAVE FAILED · SCENE IS TOO LARGE FOR THIS BROWSER');
+      else if (quota || message.includes('quota')) showSaveFeedback('SAVE FAILED · FREE BROWSER STORAGE OR ALLOW SITE DATA, THEN RETRY');
+      else showSaveFeedback('SAVE FAILED · SCENE CANNOT BE SAVED · TRY A SMALLER SETUP OR ANOTHER SLOT');
     }
   };
   try {

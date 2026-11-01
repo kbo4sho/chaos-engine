@@ -6,7 +6,8 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "build": "node --check server.js && node --check save-codec.js && node --check vitest.config.js"
   },
   "devDependencies": {
     "jsdom": "^24.0.0",

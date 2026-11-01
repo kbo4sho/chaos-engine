@@ -13,11 +13,15 @@ globalThis.ChaosSaveCodec = Object.freeze({
     const nodes = [];
     const pending = [];
     const seen = new Map();
+    function skippable(value) {
+      return typeof value === 'function' || typeof value === 'symbol';
+    }
     function reference(value) {
       if (typeof value === 'number' && !Number.isFinite(value)) return { number:String(value) };
       if (value === null || typeof value !== 'object') {
         if (value === undefined) return null;
-        if (typeof value === 'function') throw new Error('Unsupported save value');
+        if (skippable(value)) throw new Error('Unsupported save value');
+        if (typeof value === 'bigint') throw new Error('Unsupported save value');
         return value;
       }
       if (!seen.has(value)) {
@@ -32,12 +36,14 @@ globalThis.ChaosSaveCodec = Object.freeze({
     for (let index = 0; index < pending.length; index++) {
       const value = pending[index];
       if (value instanceof Map) {
-        nodes[index] = { kind:'map', values:[...value].map(([key, item]) => [reference(key), reference(item)]) };
+        nodes[index] = { kind:'map', values:[...value]
+          .filter(([key, item]) => !skippable(key) && !skippable(item))
+          .map(([key, item]) => [reference(key), reference(item)]) };
       } else if (value instanceof Set || Array.isArray(value)) {
-        nodes[index] = { kind:value instanceof Set ? 'set' : 'array', values:[...value].map(reference) };
+        nodes[index] = { kind:value instanceof Set ? 'set' : 'array', values:[...value].filter(item => !skippable(item)).map(reference) };
       } else {
         nodes[index] = { kind:'object', values:Object.entries(value)
-          .filter(([key]) => !['__proto__', 'prototype', 'constructor'].includes(key))
+          .filter(([key, item]) => !['__proto__', 'prototype', 'constructor'].includes(key) && !skippable(item))
           .map(([key, item]) => [key, reference(item)]) };
       }
     }
