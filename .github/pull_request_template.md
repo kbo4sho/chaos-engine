@@ -7,6 +7,7 @@
 - [ ] `npm test` passed
 - [ ] `npm run build` passed
 - [ ] Drove the affected journeys with `.cursor/skills/verify-chaos-engine` (`launch`, `doctor`, `drive`, `cleanup`)
+- [ ] Drove `ui-layout` (390×664 and 1280×800)
 - [ ] Evidence captured (action, resulting state, and side effects such as `localStorage`) and kept after cleanup
 
 **Journeys run:**

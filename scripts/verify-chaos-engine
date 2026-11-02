@@ -13,6 +13,9 @@ Usage: ./scripts/verify-chaos-engine <command> [options]
   launch [--origin branch|main]   Start an isolated Chaos Engine instance
   doctor                          Read-only check of the launched instance
   drive save-load                 Drive the save/load journey in Chrome
+  drive example-scenes            Drive the built-in example scenes
+  drive example-scenes-mobile     Drive examples + slots with iPhone/Android tap
+  drive ui-layout                 Measure save-cluster layout at 390 and 1280
   cleanup                         Kill only the PID this run started
 
 Environment:
@@ -60,6 +63,10 @@ cmd_launch() {
     mkdir -p "$snapshot"
     git -C "$REPO_ROOT" show main:index.html > "$snapshot/index.html"
     git -C "$REPO_ROOT" show main:save-codec.js > "$snapshot/save-codec.js"
+    mkdir -p "$snapshot/examples"
+    if git -C "$REPO_ROOT" cat-file -e main:examples/chaos-examples.js 2>/dev/null; then
+      git -C "$REPO_ROOT" show main:examples/chaos-examples.js > "$snapshot/examples/chaos-examples.js"
+    fi
     cp "$REPO_ROOT/server.js" "$snapshot/server.js"
     serve_root="$snapshot"
     revision="$(git -C "$REPO_ROOT" rev-parse main)"
@@ -216,7 +223,7 @@ cmd_doctor() {
 cmd_drive() {
   local journey="${1:-}"
   if [[ -z "$journey" ]]; then
-    echo "usage: ./scripts/verify-chaos-engine drive save-load" >&2
+    echo "usage: ./scripts/verify-chaos-engine drive save-load|example-scenes|example-scenes-mobile|ui-layout" >&2
     exit 2
   fi
   cmd_doctor

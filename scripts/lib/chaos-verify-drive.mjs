@@ -22,8 +22,11 @@ if (!journey || !url || !runId || !outDir) {
 }
 
 let puppeteer;
+let KnownDevices;
 try {
   puppeteer = await import('puppeteer-core');
+  KnownDevices = puppeteer.KnownDevices || puppeteer.default?.KnownDevices;
+  if (!KnownDevices) ({ KnownDevices } = puppeteer);
 } catch (error) {
   console.error('puppeteer-core is required. From the repo root run: npm install');
   console.error(error.message);
@@ -64,6 +67,47 @@ async function clickCanvas(page) {
   });
   await page.mouse.click(box.x, box.y);
   return box;
+}
+
+async function tapCanvas(page) {
+  const box = await page.$eval('#game', canvas => {
+    const rect = canvas.getBoundingClientRect();
+    return { x: rect.x + rect.width * 0.42, y: rect.y + rect.height * 0.32, width: rect.width, height: rect.height };
+  });
+  await page.touchscreen.tap(box.x, box.y);
+  return box;
+}
+
+async function tapEl(page, selector) {
+  await page.$eval(selector, el => el.scrollIntoView({ inline: 'center', block: 'nearest' }));
+  await page.tap(selector);
+}
+
+async function closeDialogIfOpen(page) {
+  const open = await page.$eval('#save-confirm', dialog => Boolean(dialog?.open)).catch(() => false);
+  if (open) await page.tap('#save-cancel').catch(async () => page.click('#save-cancel'));
+}
+
+function controlLayout(page) {
+  return page.evaluate(() => {
+    const box = id => {
+      const el = document.getElementById(id);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return {
+        left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height,
+        inView: r.width > 0 && r.height > 0 && r.left >= 0 && r.right <= innerWidth + 1 && r.top >= 0 && r.bottom <= innerHeight + 1
+      };
+    };
+    return {
+      viewport: { width: innerWidth, height: innerHeight, touchPoints: navigator.maxTouchPoints },
+      slot: box('save-slot'),
+      load: box('btn-load'),
+      save: box('btn-save'),
+      cluster: box('save-cluster'),
+      actions: box('chaos-actions')
+    };
+  });
 }
 
 async function readUi(page) {
@@ -225,6 +269,7 @@ async function driveExampleScenes(page) {
     slotValue: ui.slotValue,
     hint: ui.hint
   });
+  await closeDialogIfOpen(page);
 
   await page.evaluate(() => localStorage.clear());
   await page.select('#save-slot', '1');
@@ -290,9 +335,220 @@ async function driveExampleScenes(page) {
   result.expected = 'three built-in examples load through the menu without writing user slots';
 }
 
+const MOBILE_DEVICES = ['iPhone 13', 'Pixel 5'];
+
+async function driveExampleScenesOnDevice(page, deviceName, KnownDevices) {
+  const device = KnownDevices[deviceName];
+  if (!device) throw new Error(`Unknown mobile device profile: ${deviceName}`);
+  await page.emulate(device);
+  const prefix = deviceName.toLowerCase().replace(/\s+/g, '-') + '-';
+
+  await page.goto(url, { waitUntil: 'networkidle0', timeout: 30000 });
+  await page.waitForSelector('#save-slot', { timeout: 15000 });
+  await page.waitForFunction(() => Boolean(window.ChaosExamples) && Boolean(document.getElementById('btn-load')), { timeout: 15000 });
+
+  const touch = await page.evaluate(() => navigator.maxTouchPoints > 0);
+  const layout = await controlLayout(page);
+  const inView = Boolean(layout.slot?.inView && layout.load?.inView && layout.save?.inView);
+  await shot(page, `${prefix}01-menu.png`);
+  record(`${prefix}controls-in-view`, touch && inView, { device: deviceName, touch, layout });
+
+  let ui = await readUi(page);
+  const listed = ['example:kinetic-cascade', 'example:halo-garden', 'example:wreck-deck', '1', '2', '3']
+    .every(value => ui.slotValues.includes(value));
+  record(`${prefix}menu`, listed, { slotValues: ui.slotValues });
+
+  await page.evaluate(() => localStorage.clear());
+  await page.select('#save-slot', '1');
+  await tapEl(page, '[data-tool="ball"]');
+  await tapCanvas(page);
+  await page.waitForFunction(() => Number(document.getElementById('obj-count')?.textContent) > 0, { timeout: 8000 });
+  await tapEl(page, '#btn-save');
+  await new Promise(resolve => setTimeout(resolve, 250));
+  ui = await readUi(page);
+  if (ui.dialogOpen) {
+    await tapEl(page, '#save-accept');
+    await new Promise(resolve => setTimeout(resolve, 250));
+    ui = await readUi(page);
+  }
+  const userSave = ui.storage['chaos-engine-save-1'];
+  record(`${prefix}user-slot-saved`, Boolean(parseSave(userSave)?.graph) && ui.feedback.includes('SAVED TO SLOT'), {
+    feedback: ui.feedback,
+    chars: (userSave || '').length
+  });
+
+  const scenes = [
+    { id: 'kinetic-cascade', file: `${prefix}02-kinetic-cascade.png`, name: 'KINETIC CASCADE', planet: 'EARTH' },
+    { id: 'halo-garden', file: `${prefix}03-halo-garden.png`, name: 'HALO GARDEN', planet: 'MOON' },
+    { id: 'wreck-deck', file: `${prefix}04-wreck-deck.png`, name: 'WRECK DECK', planet: 'EARTH' }
+  ];
+  for (const scene of scenes) {
+    await closeDialogIfOpen(page);
+    await page.select('#save-slot', `example:${scene.id}`);
+    try {
+      await page.waitForFunction(() => document.getElementById('save-confirm')?.open, { timeout: 4000 });
+    } catch {
+      ui = await readUi(page);
+      record(`${prefix}tap-example-${scene.id}`, false, {
+        dialogOpen: ui.dialogOpen,
+        dialogTitle: ui.dialogTitle,
+        error: 'confirm did not open after selecting the example'
+      });
+      continue;
+    }
+    ui = await readUi(page);
+    record(`${prefix}tap-example-${scene.id}`, ui.dialogOpen && /Load (Kinetic Cascade|Halo Garden|Wreck Deck)\?/.test(ui.dialogTitle) && ui.dialogTitle.toUpperCase().includes(scene.name), {
+      dialogOpen: ui.dialogOpen,
+      dialogTitle: ui.dialogTitle
+    });
+    await tapEl(page, '#save-accept');
+    await new Promise(resolve => setTimeout(resolve, 900));
+    ui = await readUi(page);
+    await shot(page, scene.file);
+    record(`${prefix}load-${scene.id}`, ui.feedback.includes(`LOADED ${scene.name}`) && Number(ui.objCount) > 5 && ui.planet === scene.planet, {
+      feedback: ui.feedback,
+      objCount: ui.objCount,
+      planet: ui.planet
+    });
+  }
+
+  await closeDialogIfOpen(page);
+  await page.select('#save-slot', '1');
+  await tapEl(page, '#btn-load');
+  await page.waitForFunction(() => document.getElementById('save-confirm')?.open, { timeout: 4000 });
+  await tapEl(page, '#save-accept');
+  await new Promise(resolve => setTimeout(resolve, 600));
+  ui = await readUi(page);
+  record(`${prefix}load-user-slot`, ui.feedback.includes('LOADED SLOT') && Number(ui.objCount) > 0, {
+    feedback: ui.feedback,
+    objCount: ui.objCount
+  });
+
+  const slotsSafe = ui.storage['chaos-engine-save-1'] === userSave
+    && !ui.storage['chaos-engine-save-2']
+    && !ui.storage['chaos-engine-save-3']
+    && ['example:kinetic-cascade', 'example:halo-garden', 'example:wreck-deck'].every(value => ui.slotValues.includes(value));
+  record(`${prefix}slots-untouched`, slotsSafe, {
+    sameUserSlot: ui.storage['chaos-engine-save-1'] === userSave,
+    storageKeys: ui.storageKeys
+  });
+
+  return { ui, userSave, prefix };
+}
+
+async function driveExampleScenesMobile(page, KnownDevices) {
+  let last = null;
+  for (const deviceName of MOBILE_DEVICES) {
+    last = await driveExampleScenesOnDevice(page, deviceName, KnownDevices);
+  }
+  const ui = last.ui;
+  fs.writeFileSync(path.join(outDir, 'localStorage.json'), JSON.stringify({
+    keys: ui.storageKeys,
+    userSlotUnchanged: ui.storage['chaos-engine-save-1'] === last.userSave,
+    slot1Chars: (ui.storage['chaos-engine-save-1'] || '').length
+  }, null, 2));
+  fs.writeFileSync(path.join(outDir, 'page-state.json'), JSON.stringify(ui, null, 2));
+  result.passed = result.failures.length === 0 && result.steps.every(step => step.ok);
+  result.expected = 'iPhone and Pixel tap journeys load each example and the user slots';
+}
+
+const LAYOUT_HINT_MIN_WIDTH = 200;
+const LAYOUT_HINT_MAX_LINES = 2;
+const LAYOUT_SLOT_MIN_WIDTH = 180;
+const LAYOUT_VIEWPORTS = [
+  { name: 'mobile', width: 390, height: 664, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
+  { name: 'desktop', width: 1280, height: 800, deviceScaleFactor: 1, isMobile: false, hasTouch: false }
+];
+
+function inspectSaveLayout() {
+  const box = el => {
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height };
+  };
+  const overlap = (a, b) => a && b && a.left < b.right - 0.5 && a.right > b.left + 0.5 && a.top < b.bottom - 0.5 && a.bottom > b.top + 0.5;
+  const inView = r => r && r.width > 0 && r.height > 0 && r.left >= -1 && r.right <= innerWidth + 1 && r.top >= -1 && r.bottom <= innerHeight + 1;
+  const hint = document.getElementById('save-slot-hint');
+  const slot = document.getElementById('save-slot');
+  const hintBox = box(hint);
+  const slotBox = box(slot);
+  const style = hint ? getComputedStyle(hint) : null;
+  const lineHeight = style ? (parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.2) : 0;
+  const lines = hint && lineHeight ? hint.scrollHeight / lineHeight : 0;
+  const controls = ['btn-save', 'btn-load', 'btn-clear', 'btn-pause'].map(id => {
+    const el = document.getElementById(id);
+    return { id, box: box(el), inView: inView(box(el)) };
+  });
+  const overlaps = controls.filter(control => overlap(hintBox, control.box)).map(control => control.id);
+  return {
+    viewport: { width: innerWidth, height: innerHeight },
+    hint: {
+      text: hint?.textContent || '',
+      box: hintBox,
+      lines,
+      overflowX: hint ? hint.scrollWidth > hint.clientWidth + 1 : false,
+      overflowY: hint ? hint.scrollHeight > hint.clientHeight + 2 : false
+    },
+    slot: { box: slotBox, overflowX: slot ? slot.scrollWidth > slot.clientWidth + 1 : false },
+    cluster: box(document.getElementById('save-cluster')),
+    controls,
+    overlaps,
+    saveInView: inView(box(document.getElementById('btn-save'))),
+    loadInView: inView(box(document.getElementById('btn-load'))),
+    slotInView: inView(slotBox)
+  };
+}
+
+async function driveUiLayout(page) {
+  const reports = [];
+  for (const viewport of LAYOUT_VIEWPORTS) {
+    await page.setViewport(viewport);
+    await page.goto(url, { waitUntil: 'networkidle0', timeout: 30000 });
+    await page.waitForSelector('#save-slot', { timeout: 15000 });
+    await page.waitForFunction(() => Boolean(document.getElementById('save-slot-hint')), { timeout: 8000 });
+
+    const rest = await controlLayout(page);
+    record(`${viewport.name}-controls-in-view`, Boolean(rest.slot?.inView && rest.load?.inView && rest.save?.inView), {
+      viewport: { width: viewport.width, height: viewport.height },
+      layout: rest
+    });
+
+    await page.select('#save-slot', 'example:kinetic-cascade');
+    await new Promise(resolve => setTimeout(resolve, 150));
+    await closeDialogIfOpen(page);
+    await page.evaluate(() => {
+      const dialog = document.getElementById('save-confirm');
+      if (dialog?.open) {
+        try { dialog.close(); } catch { dialog.removeAttribute('open'); }
+      }
+    });
+
+    const measured = await page.evaluate(inspectSaveLayout);
+    const hintWide = (measured.hint.box?.width || 0) >= LAYOUT_HINT_MIN_WIDTH;
+    const hintLines = measured.hint.lines <= LAYOUT_HINT_MAX_LINES + 0.2;
+    const slotWide = (measured.slot.box?.width || 0) >= LAYOUT_SLOT_MIN_WIDTH;
+    const noOverlap = measured.overlaps.length === 0;
+    const noOverflow = !measured.hint.overflowX;
+    const visible = measured.saveInView && measured.loadInView && measured.slotInView;
+    await shot(page, `ui-layout-${viewport.name}.png`);
+    record(`${viewport.name}-hint-layout`, hintWide && hintLines && slotWide && noOverlap && noOverflow && visible && /Rube Goldberg|Kinetic/i.test(measured.hint.text), {
+      limits: { minHintWidth: LAYOUT_HINT_MIN_WIDTH, maxHintLines: LAYOUT_HINT_MAX_LINES, minSlotWidth: LAYOUT_SLOT_MIN_WIDTH },
+      measured
+    });
+    reports.push({ viewport: viewport.name, measured });
+  }
+
+  fs.writeFileSync(path.join(outDir, 'layout.json'), JSON.stringify(reports, null, 2));
+  fs.writeFileSync(path.join(outDir, 'page-state.json'), JSON.stringify(reports[0], null, 2));
+  result.passed = result.failures.length === 0 && result.steps.every(step => step.ok);
+  result.expected = 'save-slot hint stays readable on 390px and 1280px without overlapping SAVE/LOAD';
+}
+
 const journeys = {
   'save-load': driveSaveLoad,
-  'example-scenes': driveExampleScenes
+  'example-scenes': driveExampleScenes,
+  'example-scenes-mobile': driveExampleScenesMobile,
+  'ui-layout': driveUiLayout
 };
 if (!journeys[journey]) {
   console.error(`unknown journey: ${journey}`);
@@ -314,14 +570,14 @@ const browser = await launch({
 
 try {
   const page = await browser.newPage();
-  await page.setViewport({ width: 1280, height: 800 });
+  if (journey !== 'example-scenes-mobile' && journey !== 'ui-layout') await page.setViewport({ width: 1280, height: 800 });
   page.on('console', message => {
     consoleLines.push(`[${message.type()}] ${message.text()}`);
   });
   page.on('pageerror', error => {
     consoleLines.push(`[pageerror] ${error.message}`);
   });
-  await journeys[journey](page);
+  await journeys[journey](page, KnownDevices);
 } finally {
   fs.writeFileSync(path.join(outDir, 'console.log'), consoleLines.join('\n') + '\n');
   result.finishedAt = new Date().toISOString();

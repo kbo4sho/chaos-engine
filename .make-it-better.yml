@@ -13,6 +13,6 @@ constraints:
   - "Keep the two bottom horizontally scrolling sections: #toolbar and #chaos-bar."
   - "New controls must be added inside the appropriate existing bottom scrolling section instead of replacing or adding new layout regions."
   - "Visual polish is allowed only when it supports a feature and does not move, resize, collapse, or replace the core layout."
-  - "Every behavior or UI change must be verified with .cursor/skills/verify-chaos-engine: launch, doctor, drive the affected feature journeys, capture evidence, then cleanup. npm test and npm run build must pass. Vitest alone is not enough."
+  - "Every behavior or UI change must be verified with .cursor/skills/verify-chaos-engine: launch, doctor, drive the affected feature journeys and ui-layout, capture evidence, then cleanup. npm test and npm run build must pass. Vitest alone is not enough."
   - "New user-facing features need a features/*.md entry (mirror it under .cursor/skills/verify-chaos-engine/features/). Update the skill with /maintain-verification-skill when the UI or selectors change."
   - "PR descriptions must include a Verification section that lists the journeys run and the evidence paths."
