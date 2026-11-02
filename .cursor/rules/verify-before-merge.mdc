@@ -1,0 +1,20 @@
+---
+description: Require verify-chaos-engine plus npm test/build before any Chaos Engine behavior or UI change ships
+alwaysApply: true
+---
+
+# Verify before merge
+
+Every behavior or UI change in this repo must be verified with `.cursor/skills/verify-chaos-engine` on the real app, not only unit tests.
+
+Required sequence: `./scripts/verify-chaos-engine launch`, `doctor`, `drive` each affected feature journey from `features/`, capture evidence (screenshots, console, `localStorage` / other side effects), then `cleanup` without deleting evidence.
+
+`npm test` and `npm run build` must pass.
+
+New user-facing features need a `features/*.md` entry (mirror it under `.cursor/skills/verify-chaos-engine/features/`). When the UI or selectors change, update the skill with `/maintain-verification-skill`.
+
+PR descriptions need a Verification section that names the journeys run and the evidence paths.
+
+This is a public repo: use generic sample data only. No children's names or family information.
+
+Do not skip or weaken a mapped journey to make verification pass. Make It Better / daily fun upgrades follow the same bar; they still add or improve features without redesigning the layout.

@@ -2,6 +2,8 @@
 
 Improvement history for this project. Each entry logs one cycle's work.
 
+Future cycles still add or improve one feature without redesigning the shell. They must also pass `.cursor/skills/verify-chaos-engine` (launch, doctor, drive the affected journeys, capture evidence, cleanup), pass `npm test` and `npm run build`, add a `features/*.md` entry for new user-facing work, update the skill with `/maintain-verification-skill` when the UI changes, and record journeys plus evidence paths in the PR Verification section.
+
 ---
 
 ## 2026-10-28T14:03:26Z — Added: Clutch tool
