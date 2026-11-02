@@ -14,7 +14,7 @@ Save and load let a player store the current sandbox in one of three browser slo
 
 ## How to get to it (user POV)
 
-- Choose slot `1`, `2`, or `3` from the `Save slot` select in the chaos bar.
+- Choose slot `1`, `2`, or `3` from the `Your slots` group in the `Save slot` select. Built-in examples live in the same menu; see [example-scenes.md](./example-scenes.md).
 - Press `SAVE` (`#btn-save`) to store the current game in that slot on this browser.
 - Press `LOAD` (`#btn-load`) to replace the current game with the selected slot.
 - Confirm or cancel in the `#save-confirm` dialog (`Replace save` / `Load game` / `Cancel`).

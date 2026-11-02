@@ -86,7 +86,8 @@ Drive a mapped feature only after doctor passes. Use the real selectors from thi
 | Gravity | `#gravity-panel .planet-btn[data-name="Moon"]` (also Mars, Jupiter, Space, Earth) |
 | Tool | `[data-tool="ball"]` (also `block`, `ramp`, `eraser`, …) |
 | Chaos action | `#btn-explode`, `#btn-rain`, `#btn-pause`, `#btn-clear`, … |
-| Slot | `#save-slot` (`aria-label="Save slot"`) |
+| Slot | `#save-slot` (`aria-label="Save slot"`) — user values `1`–`3`, examples `example:kinetic-cascade`, `example:halo-garden`, `example:wreck-deck` |
+| Slot hint | `#save-slot-hint` |
 | Save / Load | `#btn-save`, `#btn-load` |
 | Confirm dialog | `#save-confirm`, `#save-accept`, `#save-cancel` |
 | Feedback | `#save-feedback` (`role="status"`) |
@@ -150,6 +151,7 @@ All helpers are executable. Invoke them from the repo root.
 | `./scripts/verify-chaos-engine launch --origin main` | Isolated main snapshot on 13004 |
 | `./scripts/verify-chaos-engine doctor` | Read-only health + build identity |
 | `./scripts/verify-chaos-engine drive save-load` | Browser journey for [features/save-load.md](../../features/save-load.md) |
+| `./scripts/verify-chaos-engine drive example-scenes` | Browser journey for [features/example-scenes.md](../../features/example-scenes.md) |
 | `./scripts/verify-chaos-engine cleanup` | Tear down this run; keep evidence |
 
 Drive needs `puppeteer-core` (devDependency) and `/usr/bin/google-chrome`. If the module is missing: `npm install`.
@@ -160,6 +162,7 @@ Shared paths and port rules live in `scripts/lib/chaos-verify-common.sh`. The br
 
 - [features/README.md](../../features/README.md) — index, baseline, conventions
 - [save-load](../../features/save-load.md) — default proof
+- [example-scenes](../../features/example-scenes.md)
 - [spawn-objects](../../features/spawn-objects.md)
 - [chaos-actions](../../features/chaos-actions.md)
 - [gravity](../../features/gravity.md)
