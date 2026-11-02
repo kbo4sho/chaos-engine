@@ -44,6 +44,7 @@ Keep implementation details out of the map. Name only user paths, stable handles
 ## Features
 
 - [Save and load](./save-load.md) covers empty-slot save, overwrite confirm, reload, load confirm, lesson callbacks, and storage errors. **Default proof.**
+- [Example scenes](./example-scenes.md) covers the three built-in LOAD menu showcases, their descriptions, and slot isolation.
 - [Spawn objects](./spawn-objects.md) covers tool pick, canvas tap, slingshot, and the object counter.
 - [Chaos actions](./chaos-actions.md) covers EXPLODE, RAIN, PAUSE, and other chaos-bar one-shots.
 - [Gravity](./gravity.md) covers Earth / Moon / Mars / Jupiter / Space presets and the planet label.

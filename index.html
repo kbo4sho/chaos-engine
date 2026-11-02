@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.20.0/matter.min.js"></script>
 <script src="save-codec.js"></script>
+<script src="examples/chaos-examples.js"></script>
 <style>
 /* ── RESET & BASE ── */
 :root { scrollbar-color:#0abdc6 #0d1117; scrollbar-width:thin; }
@@ -885,11 +886,16 @@ canvas#game {
 
 /* Saves share the safe controls and the canvas status language. */
 #save-slot {
-  flex-shrink:0; width:148px; height:52px; padding:4px;
+  flex-shrink:0; width:200px; height:52px; padding:4px;
   background:#0a1a1a; color:#0abdc6; border:2px solid #0abdc6;
   border-radius:3px; font:16px 'VT323',monospace; cursor:pointer;
 }
 #save-slot:hover { background:#0a2a2a; }
+#save-slot optgroup { color:#dffcff; font-style:normal; }
+#save-slot-hint {
+  flex-shrink:1; max-width:200px; color:#0abdc6;
+  font:13px 'VT323',monospace; line-height:1.15;
+}
 .chaos-btn:focus-visible, #save-slot:focus-visible, #save-confirm button:focus-visible {
   outline:2px solid #dffcff; outline-offset:2px;
 }
@@ -911,7 +917,7 @@ canvas#game {
 #save-confirm p { margin:12px 0 20px; line-height:1.3; }
 #save-confirm .actions { display:flex; gap:12px; justify-content:flex-end; }
 #save-confirm button { min-height:46px; font-size:18px; }
-@media(max-width:600px) { #save-slot { height:46px; width:132px; } }
+@media(max-width:600px) { #save-slot { height:46px; width:160px; } #save-slot-hint { max-width:120px; font-size:11px; } }
 
 .tool-btn.shortcut-flash,
 .chaos-btn.shortcut-flash {
@@ -1227,11 +1233,12 @@ canvas#game {
     <button class="chaos-btn" id="btn-jenga" style="border-color:#ffaa44;color:#ffaa44;background:#1a1500;"><span class="icon">🏗️</span>JENGA</button>
     <button class="chaos-btn safe" id="btn-ambient" style="border-color:#6699cc;color:#6699cc;"><span class="icon">🔊</span>AMBIENT</button>
     <button class="chaos-btn safe" id="btn-screenshot"><span class="icon">📸</span>SNAP</button>
-    <select id="save-slot" aria-label="Save slot" title="Three game saves stored in this browser">
+    <select id="save-slot" aria-label="Save slot" title="Built-in example scenes and three game saves stored in this browser">
       <option value="1">Slot 1 · empty</option>
       <option value="2">Slot 2 · empty</option>
       <option value="3">Slot 3 · empty</option>
     </select>
+    <span id="save-slot-hint" role="status"></span>
     <button class="chaos-btn safe" id="btn-save" title="Save the current game in the selected slot on this browser"><span class="icon">💾</span>SAVE</button>
     <button class="chaos-btn safe" id="btn-load" title="Load the selected save, replacing the current game"><span class="icon">📂</span>LOAD</button>
     <button class="chaos-btn safe" id="btn-clear"><span class="icon">🗑️</span>CLEAR</button>
@@ -21514,9 +21521,149 @@ function runPendingPhysicsActions(now) {
 const SAVE_VERSION = 1;
 const SAVE_PREFIX = 'chaos-engine-save-';
 const saveSlot = document.getElementById('save-slot');
+const saveSlotHint = document.getElementById('save-slot-hint');
 const saveDialog = document.getElementById('save-confirm');
 let pendingSaveAction = null;
 let saveFeedbackTimer = 0;
+
+function exampleCatalog() {
+  return globalThis.ChaosExamples?.catalog || [];
+}
+
+function exampleIdFromSlot(value) {
+  return String(value || '').startsWith('example:') ? value.slice('example:'.length) : '';
+}
+
+function findExample(id) {
+  return exampleCatalog().find(example => example.id === id) || null;
+}
+
+function withExampleRandom(seed, fn) {
+  const original = Math.random;
+  let state = (Number(seed) || 1) >>> 0;
+  Math.random = () => {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+  try { return fn(); }
+  finally { Math.random = original; }
+}
+
+function applyExampleGravity(name, value) {
+  gravityTarget = value;
+  gravityAngle = 0;
+  engine.gravity.x = 0;
+  engine.gravity.y = value;
+  document.getElementById('planet-name').textContent = name.toUpperCase();
+  document.querySelectorAll('.planet-btn').forEach(button => {
+    button.classList.toggle('active', button.dataset.name.toUpperCase() === name.toUpperCase());
+  });
+}
+
+function spawnToolAt(tool, x, y, vx = 0, vy = 0) {
+  const previous = currentTool;
+  currentTool = tool;
+  const body = spawnObject(x, y, vx, vy);
+  currentTool = previous;
+  return body;
+}
+
+function buildKineticCascade() {
+  const width = canvas.width, height = canvas.height;
+  const y = height * 0.52;
+  applyExampleGravity('Earth', 1);
+  placeOrFlipRampAt({ x: width * 0.16, y: y - 20 });
+  const starter = spawnToolAt('ball', width * 0.09, y - 90, 3.4, 0.3);
+  if (starter) {
+    starter.render.color = '#00ff41';
+    starter.restitution = 0.28;
+  }
+  spawnToolAt('conveyor-right', width * 0.36, y + 70);
+  for (let i = 0; i < 8; i++) spawnToolAt('domino', width * 0.26 + i * 24, y + 36);
+  placeOrKickPinwheelAt({ x: width * 0.52, y: y + 8 });
+  spawnToolAt('trampoline', width * 0.66, y + 78);
+  spawnToolAt('seesaw', width * 0.76, y + 36);
+  placeOrTipBasketAt({ x: width * 0.90, y: y + 8 });
+  spawnToolAt('bumper', width * 0.60, y + 78);
+  spawnToolAt('star', width * 0.40, y - 110, 0.5, 0);
+  spawnToolAt('fan', width * 0.22, y + 36);
+  spawnToolAt('beachball', width * 0.48, y - 80, 0.2, 0);
+}
+
+function buildHaloGarden() {
+  const width = canvas.width, height = canvas.height;
+  const cx = width * 0.5, cy = height * 0.46;
+  applyExampleGravity('Moon', 0.166);
+  spawnToolAt('magnet', cx, cy);
+  placePortal(width * 0.18, cy);
+  placePortal(width * 0.82, cy);
+  const ring = [
+    ['star', 150, 0], ['balloon', 110, 1.2], ['star', 150, 2.4],
+    ['beachball', 125, 3.4], ['balloon', 110, 4.4], ['star', 150, 5.4]
+  ];
+  ring.forEach(([tool, radius, angle], index) => {
+    const body = spawnToolAt(tool, cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius * 0.72);
+    if (!body || body.parts.length !== 1) return;
+    if (index % 2 === 0) {
+      orbitSelection = null;
+      orbitBodyAt(body.position);
+      orbitBodyAt({ x: cx, y: cy });
+    } else {
+      Body.setVelocity(body, { x: Math.cos(angle + Math.PI / 2) * 0.8, y: Math.sin(angle + Math.PI / 2) * 0.6 });
+    }
+  });
+  spawnToolAt('duck', cx - 220, cy + 80, 0.3, -0.2);
+  spawnToolAt('beachball', cx + 200, cy - 90, -0.4, 0.15);
+}
+
+function buildWreckDeck() {
+  const width = canvas.width, height = canvas.height;
+  const cx = width * 0.52;
+  const baseY = height - 40;
+  applyExampleGravity('Earth', 1);
+  const blockW = 80, blockH = 18, gap = 1;
+  for (let row = 0; row < 8; row++) {
+    const y = baseY - row * (blockH + gap) - blockH / 2;
+    for (let col = -1; col <= 1; col++) {
+      const bx = cx + col * (blockW / 3 + gap);
+      const wide = row % 2 === 0;
+      const block = Bodies.rectangle(
+        bx, y, wide ? blockW / 3 : blockH, wide ? blockH : blockW / 3,
+        { restitution: 0.1, friction: 0.8, density: 0.002, render: { type: 'jenga', color: wide ? '#c4a35a' : '#b89448' } }
+      );
+      Composite.add(world, block);
+    }
+  }
+  spawnToolAt('wrecking', width * 0.18, height * 0.22);
+  spawnToolAt('bomb', cx - 70, baseY - 200);
+  spawnToolAt('bomb', cx + 70, baseY - 210);
+  spawnToolAt('anvil', cx, height * 0.16);
+  for (let i = 0; i < 5; i++) spawnToolAt('pin', width * 0.78 + i * 20, baseY - 36);
+  spawnToolAt('ice', width * 0.34, baseY - 30);
+  spawnToolAt('ice', width * 0.38, baseY - 30);
+}
+
+const EXAMPLE_BUILDERS = {
+  'kinetic-cascade': buildKineticCascade,
+  'halo-garden': buildHaloGarden,
+  'wreck-deck': buildWreckDeck
+};
+
+function snapshotExample(id) {
+  const example = findExample(id);
+  const build = EXAMPLE_BUILDERS[id];
+  if (!example || !build) throw new Error('Unknown example');
+  finishClear(false);
+  withExampleRandom(id.split('').reduce((hash, char) => hash + char.charCodeAt(0), 1), build);
+  const raw = serializeGameState();
+  const save = JSON.parse(raw);
+  save.example = { id: example.id, name: example.name, description: example.description, emoji: example.emoji };
+  return JSON.stringify(save);
+}
+
+function loadExample(id) {
+  restoreGameState(readGameSave(snapshotExample(id)));
+}
 
 function captureGameState() {
   return {
@@ -21776,19 +21923,54 @@ function showSaveFeedback(message) {
   saveFeedbackTimer = setTimeout(() => { saveFeedback.textContent = ''; }, 5000);
 }
 
-function refreshSaveSlots() {
-  for (const option of saveSlot.options) {
-    try {
-      const raw = localStorage.getItem(SAVE_PREFIX + option.value);
-      if (!raw) { option.textContent = `Slot ${option.value} · empty`; continue; }
-      const metadata = JSON.parse(raw);
-      const date = new Date(metadata.savedAt);
-      option.textContent = metadata.version === SAVE_VERSION && Number.isFinite(date.getTime()) ?
-        `Slot ${option.value} · ${date.toLocaleString(undefined, { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' })}` : `Slot ${option.value} · unreadable`;
-    } catch {
-      option.textContent = `Slot ${option.value} · unavailable`;
-    }
+function slotLabel(value) {
+  try {
+    const raw = localStorage.getItem(SAVE_PREFIX + value);
+    if (!raw) return `Slot ${value} · empty`;
+    const metadata = JSON.parse(raw);
+    const date = new Date(metadata.savedAt);
+    return metadata.version === SAVE_VERSION && Number.isFinite(date.getTime()) ?
+      `Slot ${value} · ${date.toLocaleString(undefined, { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' })}` : `Slot ${value} · unreadable`;
+  } catch {
+    return `Slot ${value} · unavailable`;
   }
+}
+
+function updateSaveSlotHint() {
+  const example = findExample(exampleIdFromSlot(saveSlot.value));
+  if (example) {
+    saveSlotHint.textContent = `${example.emoji} ${example.description}`;
+    saveSlot.title = example.description;
+    return;
+  }
+  saveSlotHint.textContent = 'Your browser slots. Examples stay built-in.';
+  saveSlot.title = 'Built-in example scenes and three game saves stored in this browser';
+}
+
+function refreshSaveSlots() {
+  const selected = saveSlot.value || '1';
+  saveSlot.replaceChildren();
+  const examplesGroup = document.createElement('optgroup');
+  examplesGroup.label = 'Examples';
+  exampleCatalog().forEach(example => {
+    const option = document.createElement('option');
+    option.value = `example:${example.id}`;
+    option.textContent = `${example.emoji} ${example.name}`;
+    option.title = example.description;
+    examplesGroup.appendChild(option);
+  });
+  if (examplesGroup.childElementCount) saveSlot.appendChild(examplesGroup);
+  const slotsGroup = document.createElement('optgroup');
+  slotsGroup.label = 'Your slots';
+  for (const value of ['1', '2', '3']) {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = slotLabel(value);
+    slotsGroup.appendChild(option);
+  }
+  saveSlot.appendChild(slotsGroup);
+  saveSlot.value = [...saveSlot.options].some(option => option.value === selected) ? selected : '1';
+  updateSaveSlotHint();
 }
 
 function requestSaveConfirmation(title, description, label, action) {
@@ -21821,6 +22003,10 @@ document.getElementById('save-accept').addEventListener('click', () => {
 
 document.getElementById('btn-save').addEventListener('click', () => {
   if (clearAnimating) { showSaveFeedback('CLEARING · WAIT BEFORE SAVING'); return; }
+  if (exampleIdFromSlot(saveSlot.value)) {
+    showSaveFeedback('EXAMPLE SCENE · PICK SLOT 1–3 TO SAVE YOUR GAME');
+    return;
+  }
   const slot = saveSlot.value;
   const write = () => {
     try {
@@ -21847,6 +22033,19 @@ document.getElementById('btn-save').addEventListener('click', () => {
 
 document.getElementById('btn-load').addEventListener('click', () => {
   const slot = saveSlot.value;
+  const example = findExample(exampleIdFromSlot(slot));
+  if (example) {
+    requestSaveConfirmation(`Load ${example.name}?`, `${example.description} This replaces your current game. Your saved slots stay as they are.`, 'Load example', () => {
+      try {
+        loadExample(example.id);
+        showSaveFeedback(`LOADED ${example.name.toUpperCase()}`);
+        playSound(600, 0.12, 'sine', 0.06);
+      } catch {
+        showSaveFeedback('EXAMPLE CANNOT BE LOADED · TRY ANOTHER SCENE');
+      }
+    });
+    return;
+  }
   let raw;
   try { raw = localStorage.getItem(SAVE_PREFIX + slot); }
   catch { showSaveFeedback('LOAD FAILED · ALLOW SITE DATA IN THIS BROWSER, THEN RETRY'); return; }
@@ -21861,7 +22060,7 @@ document.getElementById('btn-load').addEventListener('click', () => {
   });
 });
 
-saveSlot.addEventListener('change', refreshSaveSlots);
+saveSlot.addEventListener('change', updateSaveSlotHint);
 window.addEventListener('storage', event => { if (event.key?.startsWith(SAVE_PREFIX) || event.key === null) refreshSaveSlots(); });
 refreshSaveSlots();
 

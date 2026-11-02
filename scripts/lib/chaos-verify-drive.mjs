@@ -89,6 +89,8 @@ async function readUi(page) {
       planet,
       slotLabel: slot?.selectedOptions?.[0]?.textContent || '',
       slotValue: slot?.value || '',
+      slotValues: [...(slot?.options || [])].map(option => option.value),
+      hint: document.getElementById('save-slot-hint')?.textContent || '',
       dialogOpen: Boolean(dialog?.open),
       dialogTitle: document.getElementById('save-confirm-title')?.textContent || '',
       hasCodec: Boolean(window.ChaosSaveCodec),
@@ -142,9 +144,15 @@ async function driveSaveLoad(page) {
   await shot(page, '03-lesson-started.png');
   record('lesson-started', ui.host?.lessonId === 'sample-lesson' && Number(ui.objCount) > 0, { lesson, host: ui.host, objCount: ui.objCount });
 
+  await page.select('#save-slot', '1');
   await page.click('#btn-save');
-  await new Promise(resolve => setTimeout(resolve, 250));
+  await new Promise(resolve => setTimeout(resolve, 200));
   ui = await readUi(page);
+  if (ui.dialogOpen) {
+    await page.click('#save-accept');
+    await new Promise(resolve => setTimeout(resolve, 250));
+    ui = await readUi(page);
+  }
   await shot(page, '04-after-save.png');
   const savedRaw = ui.storage['chaos-engine-save-1'];
   const saved = parseSave(savedRaw);
@@ -196,7 +204,97 @@ async function driveSaveLoad(page) {
   result.expected = 'save after a callback lesson persists and reloads without a storage error';
 }
 
-if (journey !== 'save-load') {
+async function driveExampleScenes(page) {
+  await page.goto(url, { waitUntil: 'networkidle0', timeout: 30000 });
+  await page.waitForSelector('#save-slot', { timeout: 15000 });
+  await page.waitForFunction(() => Boolean(window.ChaosExamples) && Boolean(document.getElementById('btn-load')), { timeout: 15000 });
+
+  let ui = await readUi(page);
+  const listed = ['example:kinetic-cascade', 'example:halo-garden', 'example:wreck-deck', '1', '2', '3']
+    .every(value => ui.slotValues.includes(value));
+  await page.select('#save-slot', 'example:kinetic-cascade');
+  await page.evaluate(() => {
+    const slot = document.getElementById('save-slot');
+    slot.dispatchEvent(new Event('change'));
+    slot.scrollIntoView({ inline: 'center', block: 'nearest' });
+  });
+  ui = await readUi(page);
+  await shot(page, '01-menu.png');
+  record('menu', listed && ui.slotValue === 'example:kinetic-cascade' && /Rube Goldberg|Kinetic/i.test(ui.hint), {
+    slotValues: ui.slotValues,
+    slotValue: ui.slotValue,
+    hint: ui.hint
+  });
+
+  await page.evaluate(() => localStorage.clear());
+  await page.select('#save-slot', '1');
+  await page.click('[data-tool="ball"]');
+  await clickCanvas(page);
+  await page.waitForFunction(() => Number(document.getElementById('obj-count')?.textContent) > 0, { timeout: 8000 });
+  await page.click('#btn-save');
+  await new Promise(resolve => setTimeout(resolve, 200));
+  ui = await readUi(page);
+  if (ui.dialogOpen) {
+    await page.click('#save-accept');
+    await new Promise(resolve => setTimeout(resolve, 250));
+    ui = await readUi(page);
+  }
+  const userSave = ui.storage['chaos-engine-save-1'];
+  record('user-slot-saved', Boolean(parseSave(userSave)?.graph) && ui.feedback.includes('SAVED TO SLOT'), {
+    feedback: ui.feedback,
+    chars: (userSave || '').length
+  });
+
+  const scenes = [
+    { id: 'kinetic-cascade', file: '02-kinetic-cascade.png', name: 'KINETIC CASCADE', planet: 'EARTH' },
+    { id: 'halo-garden', file: '03-halo-garden.png', name: 'HALO GARDEN', planet: 'MOON' },
+    { id: 'wreck-deck', file: '04-wreck-deck.png', name: 'WRECK DECK', planet: 'EARTH' }
+  ];
+  for (const scene of scenes) {
+    await page.select('#save-slot', `example:${scene.id}`);
+    await page.click('#btn-load');
+    await new Promise(resolve => setTimeout(resolve, 200));
+    ui = await readUi(page);
+    if (ui.dialogOpen) {
+      await page.click('#save-accept');
+      await new Promise(resolve => setTimeout(resolve, 900));
+      ui = await readUi(page);
+    }
+    await shot(page, scene.file);
+    record(`load-${scene.id}`, ui.feedback.includes(`LOADED ${scene.name}`) && Number(ui.objCount) > 5 && ui.planet === scene.planet, {
+      feedback: ui.feedback,
+      objCount: ui.objCount,
+      planet: ui.planet,
+      hint: ui.hint
+    });
+  }
+
+  ui = await readUi(page);
+  const slotsSafe = ui.storage['chaos-engine-save-1'] === userSave
+    && !ui.storage['chaos-engine-save-2']
+    && !ui.storage['chaos-engine-save-3']
+    && ['example:kinetic-cascade', 'example:halo-garden', 'example:wreck-deck'].every(value => ui.slotValues.includes(value));
+  record('slots-untouched', slotsSafe, {
+    sameUserSlot: ui.storage['chaos-engine-save-1'] === userSave,
+    storageKeys: ui.storageKeys,
+    slotValues: ui.slotValues
+  });
+
+  fs.writeFileSync(path.join(outDir, 'localStorage.json'), JSON.stringify({
+    keys: ui.storageKeys,
+    userSlotUnchanged: ui.storage['chaos-engine-save-1'] === userSave,
+    slot1Chars: (ui.storage['chaos-engine-save-1'] || '').length
+  }, null, 2));
+  fs.writeFileSync(path.join(outDir, 'page-state.json'), JSON.stringify(ui, null, 2));
+  result.passed = result.failures.length === 0 && result.steps.every(step => step.ok);
+  result.expected = 'three built-in examples load through the menu without writing user slots';
+}
+
+const journeys = {
+  'save-load': driveSaveLoad,
+  'example-scenes': driveExampleScenes
+};
+if (!journeys[journey]) {
   console.error(`unknown journey: ${journey}`);
   process.exit(2);
 }
@@ -223,7 +321,7 @@ try {
   page.on('pageerror', error => {
     consoleLines.push(`[pageerror] ${error.message}`);
   });
-  await driveSaveLoad(page);
+  await journeys[journey](page);
 } finally {
   fs.writeFileSync(path.join(outDir, 'console.log'), consoleLines.join('\n') + '\n');
   result.finishedAt = new Date().toISOString();
