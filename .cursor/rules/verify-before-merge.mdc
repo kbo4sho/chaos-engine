@@ -7,7 +7,7 @@ alwaysApply: true
 
 Every behavior or UI change in this repo must be verified with `.cursor/skills/verify-chaos-engine` on the real app, not only unit tests.
 
-Required sequence: `./scripts/verify-chaos-engine launch`, `doctor`, `drive` each affected feature journey from `features/`, capture evidence (screenshots, console, `localStorage` / other side effects), then `cleanup` without deleting evidence.
+Required sequence: `./scripts/verify-chaos-engine launch`, `doctor`, `drive` each affected feature journey from `features/` **plus `ui-layout`**, capture evidence (screenshots, console, `localStorage` / other side effects), then `cleanup` without deleting evidence.
 
 `npm test` and `npm run build` must pass.
 

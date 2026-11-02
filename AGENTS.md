@@ -9,7 +9,7 @@ Vitest is not enough. Every behavior or UI change must be proven on the live pag
 1. Read `.cursor/skills/verify-chaos-engine/SKILL.md` and `features/README.md`.
 2. `./scripts/verify-chaos-engine launch`
 3. `./scripts/verify-chaos-engine doctor`
-4. `./scripts/verify-chaos-engine drive <feature>` for every affected mapped journey (save/load is the default persistence proof).
+4. `./scripts/verify-chaos-engine drive <feature>` for every affected mapped journey (save/load is the default persistence proof). Also drive `ui-layout` on every behavior or UI change (390×664 and 1280×800).
 5. Capture evidence under `artifacts/verify-chaos-engine/<run-id>/` (action + resulting state + side effects such as `localStorage`).
 6. `./scripts/verify-chaos-engine cleanup` — keep the evidence.
 7. `npm test` and `npm run build` must pass.

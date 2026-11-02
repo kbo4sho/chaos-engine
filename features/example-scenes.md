@@ -12,10 +12,11 @@ Example scenes are three built-in showcase saves that always appear in the LOAD 
 
 ## How to get to it (user POV)
 
-- Open the `Save slot` select in the chaos bar. The first group is `Examples`.
-- Choose `⚙️ Kinetic Cascade`, `🌙 Halo Garden`, or `🏗️ Wreck Deck`. The hint under the menu names the scene.
-- Press `LOAD`, then `Load example` in the confirm dialog.
+- Open the `Save slot` select in the save cluster (the row above the scrolling chaos actions). The first group is `Examples`.
+- Choose `⚙️ Kinetic Cascade`, `🌙 Halo Garden`, or `🏗️ Wreck Deck`. The hint under the menu names the scene, and the confirm dialog opens from that choice.
+- Press `Load example` in the confirm dialog. `LOAD` still loads the selected example if you confirm later.
 - To keep your own work, pick Slot 1–3 and press `SAVE`. Examples cannot be overwritten.
+- On a phone, use [example-scenes-mobile.md](./example-scenes-mobile.md). Do not swipe past EXPLODE to hunt for the menu; it stays on its own row.
 
 ## Driving it with verify-chaos-engine
 

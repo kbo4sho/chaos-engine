@@ -76,7 +76,9 @@ Harness: **puppeteer-core** + system Chrome (`/usr/bin/google-chrome`). Recipe l
 ./scripts/verify-chaos-engine drive save-load
 ```
 
-Drive a mapped feature only after doctor passes. Use the real selectors from this repo:
+Drive a mapped feature only after doctor passes. Also drive `ui-layout` on every change. `example-scenes-mobile` emulates Playwright-style `KnownDevices['iPhone 13']` (`hasTouch: true`) and `KnownDevices['Pixel 5']`, then uses `page.tap` / `touchscreen.tap` only.
+
+Use the real selectors from this repo:
 
 | Control | Selector / handle |
 | --- | --- |
@@ -87,6 +89,7 @@ Drive a mapped feature only after doctor passes. Use the real selectors from thi
 | Tool | `[data-tool="ball"]` (also `block`, `ramp`, `eraser`, …) |
 | Chaos action | `#btn-explode`, `#btn-rain`, `#btn-pause`, `#btn-clear`, … |
 | Slot | `#save-slot` (`aria-label="Save slot"`) — user values `1`–`3`, examples `example:kinetic-cascade`, `example:halo-garden`, `example:wreck-deck` |
+| Save cluster | `#save-cluster` — slot, hint, SAVE, LOAD. Stays out of `#chaos-actions` |
 | Slot hint | `#save-slot-hint` |
 | Save / Load | `#btn-save`, `#btn-load` |
 | Confirm dialog | `#save-confirm`, `#save-accept`, `#save-cancel` |
@@ -152,6 +155,8 @@ All helpers are executable. Invoke them from the repo root.
 | `./scripts/verify-chaos-engine doctor` | Read-only health + build identity |
 | `./scripts/verify-chaos-engine drive save-load` | Browser journey for [features/save-load.md](../../features/save-load.md) |
 | `./scripts/verify-chaos-engine drive example-scenes` | Browser journey for [features/example-scenes.md](../../features/example-scenes.md) |
+| `./scripts/verify-chaos-engine drive example-scenes-mobile` | iPhone 13 + Pixel 5 tap journey for [features/example-scenes-mobile.md](../../features/example-scenes-mobile.md) |
+| `./scripts/verify-chaos-engine drive ui-layout` | Standard 390 / 1280 layout proof for [features/ui-layout.md](../../features/ui-layout.md) |
 | `./scripts/verify-chaos-engine cleanup` | Tear down this run; keep evidence |
 
 Drive needs `puppeteer-core` (devDependency) and `/usr/bin/google-chrome`. If the module is missing: `npm install`.
@@ -163,6 +168,8 @@ Shared paths and port rules live in `scripts/lib/chaos-verify-common.sh`. The br
 - [features/README.md](../../features/README.md) — index, baseline, conventions
 - [save-load](../../features/save-load.md) — default proof
 - [example-scenes](../../features/example-scenes.md)
+- [example-scenes-mobile](../../features/example-scenes-mobile.md) — iPhone 13 (`hasTouch`) and Pixel 5, tap not click
+- [ui-layout](../../features/ui-layout.md) — **standard**; run on every change
 - [spawn-objects](../../features/spawn-objects.md)
 - [chaos-actions](../../features/chaos-actions.md)
 - [gravity](../../features/gravity.md)
