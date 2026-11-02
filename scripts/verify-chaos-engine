@@ -1,0 +1,290 @@
+#!/usr/bin/env bash
+# Chaos Engine verification dispatcher. See .cursor/skills/verify-chaos-engine/SKILL.md
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/chaos-verify-common.sh
+source "$SCRIPT_DIR/lib/chaos-verify-common.sh"
+
+usage() {
+  cat <<'EOF'
+Usage: ./scripts/verify-chaos-engine <command> [options]
+
+  launch [--origin branch|main]   Start an isolated Chaos Engine instance
+  doctor                          Read-only check of the launched instance
+  drive save-load                 Drive the save/load journey in Chrome
+  cleanup                         Kill only the PID this run started
+
+Environment:
+  CHAOS_PORT          Branch verification port (default 13003)
+  CHAOS_MAIN_PORT     Main snapshot port (default 13004)
+  CHAOS_VERIFY_ORIGIN Override --origin
+EOF
+}
+
+cmd_launch() {
+  local origin="${CHAOS_VERIFY_ORIGIN:-branch}"
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --origin) origin="$2"; shift 2 ;;
+      --origin=*) origin="${1#--origin=}"; shift ;;
+      *) echo "unknown launch option: $1" >&2; exit 2 ;;
+    esac
+  done
+  if [[ "$origin" != "branch" && "$origin" != "main" ]]; then
+    echo "origin must be branch or main" >&2
+    exit 2
+  fi
+
+  if [[ -f "$STATE_FILE" ]]; then
+    local existing
+    existing="$(chaos_json_get pid || true)"
+    if chaos_pid_alive "$existing"; then
+      echo "refusing to launch: live verification PID $existing is recorded in $STATE_FILE" >&2
+      echo "run ./scripts/verify-chaos-engine cleanup first" >&2
+      exit 1
+    fi
+    rm -f "$STATE_FILE"
+  fi
+
+  local port serve_root revision run_id log_path chrome_dir snapshot
+  run_id="$(date -u +%Y%m%dT%H%M%SZ)-$origin"
+  chrome_dir="/tmp/chaos-verify-chrome-$run_id"
+  log_path="$RUN_DIR/server-$origin.log"
+  mkdir -p "$chrome_dir"
+
+  if [[ "$origin" == "main" ]]; then
+    port="${CHAOS_MAIN_PORT:-$DEFAULT_MAIN_PORT}"
+    snapshot="$RUN_DIR/main-snapshot"
+    rm -rf "$snapshot"
+    mkdir -p "$snapshot"
+    git -C "$REPO_ROOT" show main:index.html > "$snapshot/index.html"
+    git -C "$REPO_ROOT" show main:save-codec.js > "$snapshot/save-codec.js"
+    cp "$REPO_ROOT/server.js" "$snapshot/server.js"
+    serve_root="$snapshot"
+    revision="$(git -C "$REPO_ROOT" rev-parse main)"
+  else
+    port="${CHAOS_PORT:-$DEFAULT_BRANCH_PORT}"
+    serve_root="$REPO_ROOT"
+    revision="$(git -C "$REPO_ROOT" rev-parse HEAD)"
+  fi
+
+  if [[ -n "$(chaos_port_owner "$port")" ]]; then
+    echo "refusing to launch: port $port is already in use" >&2
+    exit 1
+  fi
+
+  : > "$log_path"
+  (
+    cd "$serve_root"
+    exec env CHAOS_PORT="$port" PORT="$port" node "$serve_root/server.js"
+  ) >> "$log_path" 2>&1 &
+  local pid=$!
+
+  local ready=0
+  local i
+  for ((i=0; i<50; i++)); do
+    if grep -q "CHAOS ENGINE server running at" "$log_path" 2>/dev/null; then
+      ready=1
+      break
+    fi
+    if ! chaos_pid_alive "$pid"; then
+      echo "server exited before becoming ready; log:" >&2
+      cat "$log_path" >&2
+      exit 1
+    fi
+    sleep 0.2
+  done
+  if [[ "$ready" -ne 1 ]]; then
+    echo "server did not print a ready line" >&2
+    kill "$pid" 2>/dev/null || true
+    exit 1
+  fi
+
+  if ! chaos_wait_http "http://127.0.0.1:$port/" "id=\"game\""; then
+    echo "GET / never became a usable Chaos Engine page" >&2
+    kill "$pid" 2>/dev/null || true
+    exit 1
+  fi
+  local codec_body
+  codec_body="$(curl -sf "http://127.0.0.1:$port/save-codec.js" || true)"
+  if ! grep -aF -q "ChaosSaveCodec" <<<"$codec_body"; then
+    echo "GET /save-codec.js is not the save module" >&2
+    kill "$pid" 2>/dev/null || true
+    exit 1
+  fi
+
+  node -e '
+    const fs = require("fs");
+    const state = {
+      runId: process.argv[1],
+      origin: process.argv[2],
+      pid: Number(process.argv[3]),
+      port: Number(process.argv[4]),
+      url: `http://127.0.0.1:${process.argv[4]}`,
+      serveRoot: process.argv[5],
+      revision: process.argv[6],
+      logPath: process.argv[7],
+      chromeDir: process.argv[8],
+      startedAt: new Date().toISOString()
+    };
+    fs.writeFileSync(process.argv[9], JSON.stringify(state, null, 2));
+  ' "$run_id" "$origin" "$pid" "$port" "$serve_root" "$revision" "$log_path" "$chrome_dir" "$STATE_FILE"
+
+  echo "launched origin=$origin pid=$pid url=http://127.0.0.1:$port runId=$run_id"
+}
+
+cmd_doctor() {
+  if [[ ! -f "$STATE_FILE" ]]; then
+    echo "FAIL doctor: no state file at $STATE_FILE" >&2
+    exit 1
+  fi
+  local pid port url serve_root revision origin
+  pid="$(chaos_json_get pid)"
+  port="$(chaos_json_get port)"
+  url="$(chaos_json_get url)"
+  serve_root="$(chaos_json_get serveRoot)"
+  revision="$(chaos_json_get revision)"
+  origin="$(chaos_json_get origin)"
+
+  if ! chaos_pid_alive "$pid"; then
+    echo "FAIL doctor: PID $pid is not running" >&2
+    exit 1
+  fi
+  if ! chaos_pid_is_server "$pid"; then
+    echo "FAIL doctor: PID $pid is not node server.js" >&2
+    exit 1
+  fi
+  local owner
+  owner="$(chaos_port_owner "$port")"
+  if [[ "$owner" != "$pid" ]]; then
+    echo "FAIL doctor: port $port is owned by pid ${owner:-none}, expected $pid" >&2
+    exit 1
+  fi
+
+  local tmp_html tmp_codec disk_codec disk_html
+  tmp_html="$(mktemp)"
+  tmp_codec="$(mktemp)"
+  curl -sf "$url/" > "$tmp_html" || { echo "FAIL doctor: GET $url/ failed" >&2; rm -f "$tmp_html" "$tmp_codec"; exit 1; }
+  for needle in "CHAOS ENGINE" 'id="game"' 'id="btn-save"' 'src="save-codec.js"'; do
+    if ! grep -aF -q "$needle" "$tmp_html"; then
+      echo "FAIL doctor: GET $url/ missing $needle" >&2
+      rm -f "$tmp_html" "$tmp_codec"
+      exit 1
+    fi
+  done
+
+  curl -sf "$url/save-codec.js" > "$tmp_codec" || { echo "FAIL doctor: GET $url/save-codec.js failed" >&2; rm -f "$tmp_html" "$tmp_codec"; exit 1; }
+  disk_codec="$(chaos_sha256 "$serve_root/save-codec.js")"
+  if [[ "$(chaos_sha256 "$tmp_codec")" != "$disk_codec" ]]; then
+    echo "FAIL doctor: served save-codec.js does not match $serve_root/save-codec.js" >&2
+    rm -f "$tmp_html" "$tmp_codec"
+    exit 1
+  fi
+
+  disk_html="$(chaos_sha256 "$serve_root/index.html")"
+  if [[ "$(chaos_sha256 "$tmp_html")" != "$disk_html" ]]; then
+    echo "FAIL doctor: served index.html does not match $serve_root/index.html" >&2
+    rm -f "$tmp_html" "$tmp_codec"
+    exit 1
+  fi
+  rm -f "$tmp_html" "$tmp_codec"
+
+  if [[ "$origin" == "branch" ]]; then
+    local head
+    head="$(git -C "$REPO_ROOT" rev-parse HEAD)"
+    if [[ "$revision" != "$head" ]]; then
+      echo "FAIL doctor: state revision $revision != HEAD $head" >&2
+      exit 1
+    fi
+  else
+    local main_rev
+    main_rev="$(git -C "$REPO_ROOT" rev-parse main)"
+    if [[ "$revision" != "$main_rev" ]]; then
+      echo "FAIL doctor: state revision $revision != main $main_rev" >&2
+      exit 1
+    fi
+    if [[ "$(chaos_sha256 "$serve_root/index.html")" != "$(git -C "$REPO_ROOT" show main:index.html | sha256sum | awk '{print $1}')" ]]; then
+      echo "FAIL doctor: snapshot index.html is not main" >&2
+      exit 1
+    fi
+  fi
+
+  echo "OK doctor origin=$origin pid=$pid url=$url revision=${revision:0:12} codec=$disk_codec"
+}
+
+cmd_drive() {
+  local journey="${1:-}"
+  if [[ -z "$journey" ]]; then
+    echo "usage: ./scripts/verify-chaos-engine drive save-load" >&2
+    exit 2
+  fi
+  cmd_doctor
+  local url chrome_dir run_id origin
+  url="$(chaos_json_get url)"
+  chrome_dir="$(chaos_json_get chromeDir)"
+  run_id="$(chaos_json_get runId)"
+  origin="$(chaos_json_get origin)"
+  mkdir -p "$chrome_dir" "$ARTIFACT_ROOT/$run_id"
+  node "$SCRIPT_DIR/lib/chaos-verify-drive.mjs" \
+    --journey "$journey" \
+    --url "$url" \
+    --origin "$origin" \
+    --run-id "$run_id" \
+    --repo-root "$REPO_ROOT" \
+    --chrome-bin "$CHROME_BIN" \
+    --user-data-dir "$chrome_dir" \
+    --out-dir "$ARTIFACT_ROOT/$run_id"
+}
+
+cmd_cleanup() {
+  if [[ ! -f "$STATE_FILE" ]]; then
+    echo "nothing to clean: no $STATE_FILE"
+    return 0
+  fi
+  local pid chrome_dir run_id
+  pid="$(chaos_json_get pid || true)"
+  chrome_dir="$(chaos_json_get chromeDir || true)"
+  run_id="$(chaos_json_get runId || true)"
+  if chaos_pid_alive "$pid"; then
+    if chaos_pid_is_server "$pid"; then
+      kill "$pid"
+      local i
+      for ((i=0; i<25; i++)); do
+        chaos_pid_alive "$pid" || break
+        sleep 0.1
+      done
+      if chaos_pid_alive "$pid"; then
+        kill -9 "$pid" || true
+      fi
+      echo "stopped pid $pid"
+    else
+      echo "refusing to kill pid $pid: not node server.js" >&2
+    fi
+  else
+    echo "pid ${pid:-unknown} already gone"
+  fi
+  if [[ -n "$chrome_dir" && "$chrome_dir" == /tmp/chaos-verify-chrome-* ]]; then
+    rm -rf "$chrome_dir"
+  fi
+  rm -rf "$RUN_DIR/main-snapshot"
+  rm -f "$STATE_FILE" "$RUN_DIR/server-branch.log" "$RUN_DIR/server-main.log"
+  if [[ -n "$run_id" && -d "$ARTIFACT_ROOT/$run_id" ]]; then
+    echo "evidence kept at $ARTIFACT_ROOT/$run_id"
+  fi
+}
+
+main() {
+  local cmd="${1:-}"
+  shift || true
+  case "$cmd" in
+    launch) cmd_launch "$@" ;;
+    doctor) cmd_doctor "$@" ;;
+    drive) cmd_drive "$@" ;;
+    cleanup) cmd_cleanup "$@" ;;
+    -h|--help|help|"") usage; [[ -n "$cmd" ]] || exit 2 ;;
+    *) echo "unknown command: $cmd" >&2; usage; exit 2 ;;
+  esac
+}
+
+main "$@"

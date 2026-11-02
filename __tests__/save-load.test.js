@@ -7,6 +7,7 @@ const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
 const codec = fs.readFileSync(new URL('../save-codec.js', import.meta.url), 'utf8');
 const matter = fs.readFileSync(createRequire(import.meta.url).resolve('matter-js'), 'utf8');
+const liveHarnesses = [];
 
 // Execute the real game with Matter 0.20.0. Only browser rendering, audio and
 // scheduling are stubbed; bodies, constraints, registries and storage are real.
@@ -35,8 +36,14 @@ function gameHarness(stored = {}) {
   const run = code => window.__runGame(code);
   const click = id => window.document.getElementById(id).click();
   const feedback = () => window.document.getElementById('save-feedback').textContent;
-  return { window, run, click, feedback, errors, timers };
+  const api = { window, run, click, feedback, errors, timers };
+  liveHarnesses.push(api);
+  return api;
 }
+
+afterEach(() => {
+  while (liveHarnesses.length) liveHarnesses.pop().window.close();
+});
 
 const key = 'chaos-engine-save-1';
 
@@ -2206,5 +2213,75 @@ describe('Game save and load', () => {
     api.click('save-cancel');
     expect(api.window.document.getElementById('save-confirm').open).toBe(false);
     expect(api.run('[paused, destructionMeter, engine.timing.timestamp]')).toEqual(state);
+  });
+
+  it('saves an active lesson even when the host config includes callbacks', () => {
+    const api = gameHarness();
+    api.run(`
+      ChaosEngine.loadLesson({
+        id: 'sample-lesson',
+        hideControls: false,
+        setup() {},
+        onTick() {},
+        simulation: {
+          gravity: 'earth',
+          goals: [{ type: 'count-placed', target: 1 }],
+          spawnObjects: [{ type: 'circle', x: 220, y: 140, count: 1, label: 'sample-ball' }]
+        }
+      });
+    `);
+    expect(api.run('lessonState.active')).toBe(true);
+    expect(api.run('typeof lessonState.config.setup')).toBe('function');
+    api.click('btn-save');
+    expect(api.feedback()).toContain('SAVED TO SLOT 1');
+    const raw = api.window.localStorage.getItem(key);
+    expect(raw).toBeTruthy();
+    const parsed = JSON.parse(raw);
+    expect(parsed.version).toBe(1);
+    expect(api.run('const save = JSON.parse(localStorage.getItem("chaos-engine-save-1")); save.checksum === ChaosSaveCodec.checksum(save.graph)')).toBe(true);
+    api.run('finishClear(false); ChaosEngine.endLesson(); spawnObject(400, 200);');
+    expect(api.run('[lessonState.active, captureGameState().bodies.length]')).toEqual([false, 1]);
+    api.click('btn-load');
+    api.click('save-accept');
+    expect(api.feedback()).toContain('LOADED SLOT 1');
+    expect(api.run('lessonState.active')).toBe(true);
+    expect(api.run('lessonState.config.id')).toBe('sample-lesson');
+    expect(api.run('typeof lessonState.config.setup')).not.toBe('function');
+    expect(api.run('lessonState.goals.length')).toBe(1);
+    expect(api.run('captureGameState().bodies.some(body => body.lessonLabel === "sample-ball")')).toBe(true);
+    expect(api.errors).toEqual([]);
+  });
+
+  it('keeps sleeping and static bodies valid after a reload from localStorage', () => {
+    const api = gameHarness();
+    api.run(`
+      currentTool = 'ball';
+      const ball = spawnObject(240, 180);
+      Matter.Sleeping.set(ball, true);
+      placeOrFlipRampAt({ x:420, y:260 });
+      discoMode = true;
+      discoTimer = Infinity;
+      window.saved = serializeGameState();
+    `);
+    const persisted = api.window.localStorage;
+    persisted.setItem(key, api.window.saved);
+    const fresh = gameHarness({ [key]: persisted.getItem(key) });
+    fresh.click('btn-load');
+    fresh.click('save-accept');
+    expect(fresh.run('discoTimer === Infinity')).toBe(true);
+    expect(fresh.run('discoMode')).toBe(true);
+    expect(fresh.run('captureGameState().bodies.some(body => !body.isStatic && body.isSleeping)')).toBe(true);
+    expect(fresh.run('captureGameState().bodies.some(body => body.isStatic && body.mass === Infinity && body.render.type === "ramp")')).toBe(true);
+    expect(() => fresh.run('Engine.update(engine, 1000 / 60)')).not.toThrow();
+    expect(fresh.errors).toEqual([]);
+  });
+
+  it('tells the player when the save module is missing instead of blaming storage', () => {
+    const api = gameHarness();
+    api.run('spawnObject(200, 200); delete globalThis.ChaosSaveCodec;');
+    api.click('btn-save');
+    expect(api.feedback()).toContain('RELOAD THE PAGE');
+    expect(api.window.localStorage.getItem(key)).toBeNull();
+    expect(api.run('captureGameState().bodies.length')).toBe(1);
   });
 });

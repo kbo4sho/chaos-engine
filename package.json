@@ -6,11 +6,13 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "build": "node --check server.js && node --check save-codec.js && node --check vitest.config.js && node --check scripts/lib/chaos-verify-drive.mjs"
   },
   "devDependencies": {
     "jsdom": "^24.0.0",
     "matter-js": "0.20.0",
+    "puppeteer-core": "^24.43.1",
     "vitest": "^1.2.0"
   }
 }
