@@ -76,7 +76,9 @@ cmd_launch() {
     revision="$(git -C "$REPO_ROOT" rev-parse HEAD)"
   fi
 
-  if [[ -n "$(chaos_port_owner "$port")" ]]; then
+  local owner
+  owner="$(chaos_port_owner "$port")" || { echo "cannot establish port ownership" >&2; exit 1; }
+  if [[ -n "$owner" ]]; then
     echo "refusing to launch: port $port is already in use" >&2
     exit 1
   fi
@@ -131,12 +133,13 @@ cmd_launch() {
       url: `http://127.0.0.1:${process.argv[4]}`,
       serveRoot: process.argv[5],
       revision: process.argv[6],
+      processStartedAt: process.argv[10],
       logPath: process.argv[7],
       chromeDir: process.argv[8],
       startedAt: new Date().toISOString()
     };
     fs.writeFileSync(process.argv[9], JSON.stringify(state, null, 2));
-  ' "$run_id" "$origin" "$pid" "$port" "$serve_root" "$revision" "$log_path" "$chrome_dir" "$STATE_FILE"
+  ' "$run_id" "$origin" "$pid" "$port" "$serve_root" "$revision" "$log_path" "$chrome_dir" "$STATE_FILE" "$(chaos_pid_started "$pid")"
 
   echo "launched origin=$origin pid=$pid url=http://127.0.0.1:$port runId=$run_id"
 }
@@ -211,7 +214,7 @@ cmd_doctor() {
       echo "FAIL doctor: state revision $revision != main $main_rev" >&2
       exit 1
     fi
-    if [[ "$(chaos_sha256 "$serve_root/index.html")" != "$(git -C "$REPO_ROOT" show main:index.html | sha256sum | awk '{print $1}')" ]]; then
+    if [[ "$(chaos_sha256 "$serve_root/index.html")" != "$(git -C "$REPO_ROOT" show main:index.html | chaos_sha256)" ]]; then
       echo "FAIL doctor: snapshot index.html is not main" >&2
       exit 1
     fi
@@ -261,12 +264,13 @@ cmd_cleanup() {
         chaos_pid_alive "$pid" || break
         sleep 0.1
       done
-      if chaos_pid_alive "$pid"; then
+      if chaos_pid_is_server "$pid"; then
         kill -9 "$pid" || true
       fi
       echo "stopped pid $pid"
     else
-      echo "refusing to kill pid $pid: not node server.js" >&2
+      echo "refusing to kill pid $pid: identity does not match recorded server" >&2
+      return 1
     fi
   else
     echo "pid ${pid:-unknown} already gone"

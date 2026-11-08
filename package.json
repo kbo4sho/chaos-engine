@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "vitest run",
+    "test:verify": "node scripts/test-verify-ownership.mjs",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "build": "node --check server.js && node --check save-codec.js && node --check vitest.config.js && node --check scripts/lib/chaos-verify-drive.mjs"
