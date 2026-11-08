@@ -305,7 +305,7 @@ canvas#game {
 #pivot-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
-#reverse-feedback, #deflect-feedback {
+#reverse-feedback, #deflect-feedback, #trim-feedback {
   position:absolute; top:184px; left:50%; z-index:3;
   transform:translate(-50%, -8px) scale(0.9);
   padding:4px 12px; border:1px solid currentColor;
@@ -315,7 +315,7 @@ canvas#game {
   opacity:0; pointer-events:none;
   transition:opacity .12s, transform .12s;
 }
-#reverse-feedback.active, #deflect-feedback.active {
+#reverse-feedback.active, #deflect-feedback.active, #trim-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
 #punch-feedback {
@@ -1088,6 +1088,7 @@ canvas#game {
     <div id="float-feedback" role="status" aria-live="polite"></div>
     <div id="pivot-feedback" role="status" aria-live="polite"></div>
     <div id="deflect-feedback" role="status" aria-live="polite"></div>
+    <div id="trim-feedback" role="status" aria-live="polite"></div>
     <div id="reverse-feedback" role="status" aria-live="polite"></div>
     <div id="punch-feedback" role="status" aria-live="polite"></div>
     <div id="blink-feedback" role="status" aria-live="polite"></div>
@@ -1251,6 +1252,7 @@ canvas#game {
     <button class="tool-btn" data-tool="latch" style="color:#ffc857;" title="Tap a movable part to arm a contact latch; its next touch catches another build part. Tap either end to release" aria-label="Arm a contact latch on a part or release its caught part"><span class="icon">⊏⊐</span>Latch</button>
     <button class="tool-btn" data-tool="clutch" style="color:#ffc857;" title="Tap two parts to share spin through a friction clutch; tap either end to disengage. An anchored end acts as a brake" aria-label="Connect a clutch to share spin between parts, or disengage it"><span class="icon">◎</span>Clutch</button>
     <button class="tool-btn" data-tool="deflect" style="color:#7df9ff;" title="Tap a moving part to turn its travel 90° clockwise without changing speed or spin" aria-label="Deflect a moving part clockwise by a quarter turn"><span class="icon">↱</span>Deflect</button>
+    <button class="tool-btn" data-tool="trim" style="color:#7df9ff;" title="Tap a part to stop its spin while preserving its travel" aria-label="Trim a part’s spin without stopping its travel"><span class="icon">⊣</span>Trim</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -2666,6 +2668,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
     resetDeflectFeedback();
+    resetTrimFeedback();
     if (tool === 'resize' && currentTool === 'resize' && btn.classList.contains('active')) {
       resizeMode = resizeMode === 'grow' ? 'shrink' : 'grow';
       updateResizeButton();
@@ -4359,6 +4362,7 @@ function finishClear(playFeedback = true) {
   document.getElementById('pivot-feedback').classList.remove('active');
   document.getElementById('pivot-feedback').textContent = '';
   resetDeflectFeedback();
+  resetTrimFeedback();
   reverseFlash = null;
   clearTimeout(reverseFeedbackTimer);
   document.getElementById('reverse-feedback').classList.remove('active');
@@ -6754,6 +6758,35 @@ function deflectBodyAt(pos) {
   }
   feedback.classList.add('active');
   deflectFeedbackTimer = setTimeout(resetDeflectFeedback, 1000);
+  return target;
+}
+
+let trimFeedbackTimer;
+function resetTrimFeedback() {
+  clearTimeout(trimFeedbackTimer);
+  const feedback = document.getElementById('trim-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
+function trimBodyAt(pos) {
+  const target = findReversibleBodyAt(pos);
+  const feedback = document.getElementById('trim-feedback');
+  resetTrimFeedback();
+  if (!target || target.isSensor || phaseBodies.has(target)) {
+    feedback.textContent = 'TRIM: TAP A PART';
+  } else if (Math.abs(target.angularVelocity) < 0.0001) {
+    feedback.textContent = 'TRIM: NO SPIN TO STOP';
+  } else {
+    Matter.Sleeping.set(target, false);
+    Body.setAngularVelocity(target, 0);
+    addReverseBurst(target, target.velocity);
+    feedback.textContent = 'SPIN STOPPED • TRAVEL KEPT';
+    playSound(740, 0.08, 'square', 0.06);
+    haptic([6]);
+  }
+  feedback.classList.add('active');
+  trimFeedbackTimer = setTimeout(resetTrimFeedback, 1000);
   return target;
 }
 
@@ -14164,6 +14197,13 @@ function onDown(e) {
   // Pivot tool — pin one dynamic part to the world while preserving rotation.
   if (currentTool === 'pivot') {
     togglePivotAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Trim tool — remove spin once while leaving linear travel intact.
+  if (currentTool === 'trim') {
+    trimBodyAt(pos);
     pointerDown = false;
     return;
   }

@@ -18,7 +18,7 @@ Deflect turns a moving part’s travel clockwise by 90° in one tap, preserving 
 Preconditions: isolated launch and doctor pass; fresh browser storage.
 
 - Run: `./scripts/verify-chaos-engine drive deflect` exercises 390×664 touch and 1280×800 desktop.
-- Select: tap `[data-tool="draw"]`, then `[data-tool="deflect"]`; the last toolbar button is visible and active and drawing exits.
+- Select: tap `[data-tool="draw"]`, then `[data-tool="deflect"]`; Deflect is visible and active after Clutch (later tools may follow) and drawing exits.
 - Redirect: create a Ball and use Launch through canvas taps, then tap it with Deflect; travel turns 90° without changing speed, spin or orientation. Resume physics and observe downward travel.
 - Reset: click `#btn-clear`; after the vortex, no parts or Deflect feedback remain. Capture screenshots, read-only body observations, storage and runtime errors.
 

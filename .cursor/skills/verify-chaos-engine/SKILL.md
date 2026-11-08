@@ -184,6 +184,8 @@ Shared paths and port rules live in `scripts/lib/chaos-verify-common.sh`. The br
 
 Keep the map honest with `/maintain-verification-skill` as the app changes.
 
-- [Deflect](features/deflect.md) — final toolbar button; instantaneous clockwise travel turn on touch and desktop.
+- [Deflect](features/deflect.md) — toolbar button after Clutch; instantaneous clockwise travel turn on touch and desktop.
 
 The browser harness uses Chrome’s default sandbox. Keep it enabled.
+
+- [Trim](features/trim.md) — final toolbar button after Deflect; one-shot spin removal while preserving travel. Run `./scripts/verify-chaos-engine drive trim` for touch and desktop proof.

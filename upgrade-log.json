@@ -5,6 +5,13 @@
     {
       "date": "2026-11-08",
       "ideas": [
+        "New tool: Trim spin once without stopping linear travel"
+      ],
+      "summary": "Uncommitted implementation pending supervisor verification: Trim appended after Deflect stops angular motion while preserving travel, orientation and geometry. Includes accessible transient feedback, cleanup, real-Matter tests and mapped trim mobile/desktop journey. All 934 automated tests, build and inline script syntax pass. Browser verification blocked by sandbox launch; test:verify reports loopback listen EPERM. No commit, push, deployment or live verification performed."
+    },
+    {
+      "date": "2026-11-08",
+      "ideas": [
         "New tool: Deflect moving travel clockwise by a quarter turn"
       ],
       "summary": "Local trial only: Deflect appended after Clutch; tap a moving part to redirect travel while preserving speed, spin and orientation. Includes guidance and feedback cleanup. Verified locally: 929 tests, build, 13 ownership checks, all four existing browser journeys and focused mobile/desktop Deflect proof with no console/runtime errors. Not pushed or deployed."

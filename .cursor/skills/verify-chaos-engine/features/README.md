@@ -52,4 +52,6 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Gravity](./gravity.md) covers Earth / Moon / Mars / Jupiter / Space presets and the planet label.
 - [Sandbox controls](./sandbox-controls.md) covers CLEAR, SNAP, and the lesson host API that replaces the current scene.
 
-- [Deflect](./deflect.md) covers quarter-turn travel, final toolbar selection, touch input and Clear cleanup.
+- [Deflect](./deflect.md) covers quarter-turn travel, toolbar selection, touch input and Clear cleanup.
+
+- [Trim](./trim.md) covers one-shot spin removal with travel preserved, final toolbar selection, touch/desktop input and Clear cleanup.

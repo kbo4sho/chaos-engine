@@ -6,6 +6,11 @@ Future cycles still add or improve one feature without redesigning the shell. Th
 
 ---
 
+## 2026-11-08 — Implementation pending supervisor verification: Trim tool
+**Behavior:** Appended Trim after Deflect. Tap a movable solid part to stop its spin once while preserving linear travel, orientation, shape and material. Shared touch targeting, concise accessible feedback, tool-change/Clear cleanup and selected-tool save/load use existing conventions. No persistent attachment, dependency or shell changes.
+**Verification:** All 934 automated tests, build and inline script syntax pass. Focused real-Matter tests and mapped `trim` touch/desktop journey added. Isolated launch exited before ready and doctor had no state; ownership tests reported loopback `listen EPERM`. Browser verification, all journeys and production cutover remain the native supervisor’s responsibility. No live verification is claimed.
+**Status:** uncommitted implementation; not shipped
+
 ## 2026-11-08 — Local trial: Deflect tool
 **Behavior:** Appended Deflect after Clutch. Tap a moving part to turn travel 90° clockwise while preserving speed, spin and orientation. Still/empty guidance, shared touch targeting, transient CRT feedback and tool-change/Clear cleanup. No persistent attachment or dependency.
 **Verification:** All 929 automated tests, build, and 13 ownership checks pass. Supervised isolated launch/doctor and all four existing browser journeys pass, plus focused 390px touch and 1280px desktop Deflect proof with no console/runtime errors. Real touch testing exposed noncancelable-event cancellation; the shared pointer boundary now cancels only cancelable events, with regression coverage. Chrome sandbox stays enabled. Screenshots and state evidence retained privately. This local trial has not shipped.
