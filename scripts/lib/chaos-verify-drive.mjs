@@ -544,7 +544,56 @@ async function driveUiLayout(page) {
   result.expected = 'save-slot hint stays readable on 390px and 1280px without overlapping SAVE/LOAD';
 }
 
+async function driveDeflect(page) {
+  for (const viewport of [{name:'mobile',width:390,height:664,isMobile:true,hasTouch:true}, {name:'desktop',width:1280,height:800}]) {
+    await page.setViewport(viewport);
+    await page.goto(url, {waitUntil:'networkidle0'});
+    const tap = async selector => {
+      await page.$eval(selector, element => element.scrollIntoView({block:'nearest',inline:'center'}));
+      if (viewport.hasTouch) await page.tap(selector); else await page.click(selector);
+    };
+    const point = async (x,y) => viewport.hasTouch ? page.touchscreen.tap(x,y) : page.mouse.click(x,y);
+    await tap('#btn-pause');
+    await tap('[data-tool="ball"]');
+    const rect=await page.$eval('#game',el=>{const r=el.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height};});
+    const x=rect.x+rect.w*0.45,y=rect.y+rect.h*0.4;
+    await point(x,y);
+    const observe=()=>page.evaluate(()=>{
+      const body=Composite.allBodies(world).find(b=>b.label!=='wall'&&!b.isStatic);
+      return body ? {id:body.id,x:body.position.x,y:body.position.y,vx:body.velocity.x,vy:body.velocity.y,spin:body.angularVelocity,angle:body.angle} : null;
+    });
+    record(viewport.name+'-existing-ball',Boolean(await observe()),await observe());
+    await tap('[data-tool="launch"]'); await point(x,y); await point(x+70,y);
+    const before=await observe();
+    await tap('[data-tool="draw"]');
+    await tap('[data-tool="deflect"]');
+    const placement=await page.$eval('#toolbar',el=>({last:el.lastElementChild.dataset.tool,active:el.lastElementChild.classList.contains('active'),visible:(()=>{const r=el.lastElementChild.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth;})()}));
+    record(viewport.name+'-final-selected-button',placement.last==='deflect'&&placement.active&&placement.visible,placement);
+    await shot(page,viewport.name+'-01-selected.png');
+    await point(x,y);
+    const after=await observe();
+    const feedback=await page.$eval('#deflect-feedback',el=>el.textContent);
+    record(viewport.name+'-quarter-turn',Math.hypot(before.vx,before.vy)>0.12 && Math.abs(after.vx+before.vy)<1e-8 && Math.abs(after.vy-before.vx)<1e-8 && after.spin===before.spin && after.angle===before.angle && /90/.test(feedback),{before,after,feedback});
+    await shot(page,viewport.name+'-02-deflected.png');
+    await tap('#btn-pause');
+    await new Promise(resolve=>setTimeout(resolve,180));
+    await tap('#btn-pause');
+    const moved=await observe();
+    record(viewport.name+'-canvas-motion',moved.y>after.y+2,{after,moved});
+    await shot(page,viewport.name+'-03-motion.png');
+    await tap('#btn-clear');
+    await page.waitForFunction(()=>!clearAnimating);
+    const cleanup=await page.evaluate(()=>({count:document.querySelector('#obj-count').textContent,feedback:document.querySelector('#deflect-feedback').textContent,bodies:Composite.allBodies(world).filter(b=>b.label!=='wall').length,storage:{...localStorage}}));
+    record(viewport.name+'-clear-cleanup',cleanup.bodies===0&&cleanup.feedback==='',cleanup);
+    await shot(page,viewport.name+'-04-clear.png');
+    fs.writeFileSync(path.join(outDir,viewport.name+'-state.json'),JSON.stringify({before,after,moved,cleanup},null,2));
+  }
+  record('no-runtime-errors',!consoleLines.some(line=>/^\[(error|pageerror)\]/.test(line)),consoleLines);
+  result.passed=result.failures.length===0;
+}
+
 const journeys = {
+  'deflect': driveDeflect,
   'save-load': driveSaveLoad,
   'example-scenes': driveExampleScenes,
   'example-scenes-mobile': driveExampleScenesMobile,
@@ -561,7 +610,6 @@ const browser = await launch({
   headless: 'new',
   userDataDir,
   args: [
-    '--no-sandbox',
     '--disable-gpu',
     '--disable-dev-shm-usage',
     '--window-size=1280,800'

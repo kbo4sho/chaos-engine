@@ -305,7 +305,7 @@ canvas#game {
 #pivot-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
-#reverse-feedback {
+#reverse-feedback, #deflect-feedback {
   position:absolute; top:184px; left:50%; z-index:3;
   transform:translate(-50%, -8px) scale(0.9);
   padding:4px 12px; border:1px solid currentColor;
@@ -315,7 +315,7 @@ canvas#game {
   opacity:0; pointer-events:none;
   transition:opacity .12s, transform .12s;
 }
-#reverse-feedback.active {
+#reverse-feedback.active, #deflect-feedback.active {
   opacity:1; transform:translate(-50%, 0) scale(1);
 }
 #punch-feedback {
@@ -1087,6 +1087,7 @@ canvas#game {
     <div id="launch-feedback" role="status" aria-live="polite"></div>
     <div id="float-feedback" role="status" aria-live="polite"></div>
     <div id="pivot-feedback" role="status" aria-live="polite"></div>
+    <div id="deflect-feedback" role="status" aria-live="polite"></div>
     <div id="reverse-feedback" role="status" aria-live="polite"></div>
     <div id="punch-feedback" role="status" aria-live="polite"></div>
     <div id="blink-feedback" role="status" aria-live="polite"></div>
@@ -1249,6 +1250,7 @@ canvas#game {
     <button class="tool-btn" data-tool="rack" style="color:#ffc857;" title="Tap a turning part, then a second part to couple spin with relative sideways travel; tap either end to release" aria-label="Connect a rack transmission that converts spin into sideways travel and back"><span class="icon">⚙↔</span>Rack</button>
     <button class="tool-btn" data-tool="latch" style="color:#ffc857;" title="Tap a movable part to arm a contact latch; its next touch catches another build part. Tap either end to release" aria-label="Arm a contact latch on a part or release its caught part"><span class="icon">⊏⊐</span>Latch</button>
     <button class="tool-btn" data-tool="clutch" style="color:#ffc857;" title="Tap two parts to share spin through a friction clutch; tap either end to disengage. An anchored end acts as a brake" aria-label="Connect a clutch to share spin between parts, or disengage it"><span class="icon">◎</span>Clutch</button>
+    <button class="tool-btn" data-tool="deflect" style="color:#7df9ff;" title="Tap a moving part to turn its travel 90° clockwise without changing speed or spin" aria-label="Deflect a moving part clockwise by a quarter turn"><span class="icon">↱</span>Deflect</button>
   </div>
 
   <!-- CHAOS BAR -->
@@ -2663,6 +2665,7 @@ function resetSyrupFeedback() {
 document.querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
+    resetDeflectFeedback();
     if (tool === 'resize' && currentTool === 'resize' && btn.classList.contains('active')) {
       resizeMode = resizeMode === 'grow' ? 'shrink' : 'grow';
       updateResizeButton();
@@ -4355,6 +4358,7 @@ function finishClear(playFeedback = true) {
   clearTimeout(pivotFeedbackTimer);
   document.getElementById('pivot-feedback').classList.remove('active');
   document.getElementById('pivot-feedback').textContent = '';
+  resetDeflectFeedback();
   reverseFlash = null;
   clearTimeout(reverseFeedbackTimer);
   document.getElementById('reverse-feedback').classList.remove('active');
@@ -6721,6 +6725,36 @@ function addReverseBurst(body, fromVelocity) {
       color:i % 2 ? '#ff6bff' : '#7df9ff'
     });
   }
+}
+
+let deflectFeedbackTimer;
+function resetDeflectFeedback() {
+  clearTimeout(deflectFeedbackTimer);
+  const feedback = document.getElementById('deflect-feedback');
+  feedback.classList.remove('active');
+  feedback.textContent = '';
+}
+
+function deflectBodyAt(pos) {
+  const target = findReversibleBodyAt(pos);
+  const feedback = document.getElementById('deflect-feedback');
+  resetDeflectFeedback();
+  if (!target || target.isSensor || phaseBodies.has(target)) {
+    feedback.textContent = 'DEFLECT: TAP A PART';
+  } else if (Math.hypot(target.velocity.x, target.velocity.y) < 0.12) {
+    feedback.textContent = 'DEFLECT: PART IS STILL';
+  } else {
+    const { x, y } = target.velocity;
+    Matter.Sleeping.set(target, false);
+    Body.setVelocity(target, { x:-y, y:x });
+    addReverseBurst(target, { x, y });
+    feedback.textContent = 'TRAVEL TURNED 90°';
+    playSound(740, 0.08, 'square', 0.06);
+    haptic([6]);
+  }
+  feedback.classList.add('active');
+  deflectFeedbackTimer = setTimeout(resetDeflectFeedback, 1000);
+  return target;
 }
 
 function reverseBodyAt(pos) {
@@ -14012,7 +14046,7 @@ function drawTrajectoryPreview(start, launch) {
 }
 
 function onDown(e) {
-  e.preventDefault();
+  if (e.cancelable) e.preventDefault();
   if (clearAnimating) return;
   const pos = getPointerPos(e);
   addRipple(pos.x, pos.y);
@@ -14130,6 +14164,13 @@ function onDown(e) {
   // Pivot tool — pin one dynamic part to the world while preserving rotation.
   if (currentTool === 'pivot') {
     togglePivotAt(pos);
+    pointerDown = false;
+    return;
+  }
+
+  // Deflect tool — quarter-turn travel without changing orientation or spin.
+  if (currentTool === 'deflect') {
+    deflectBodyAt(pos);
     pointerDown = false;
     return;
   }
@@ -14625,7 +14666,7 @@ function onDown(e) {
 }
 
 function onMove(e) {
-  e.preventDefault();
+  if (e.cancelable) e.preventDefault();
   const pos = getPointerPos(e);
 
   if (currentTool === 'domino-run' && pointerDown) {
@@ -14665,7 +14706,7 @@ function onMove(e) {
 }
 
 function onUp(e) {
-  e.preventDefault();
+  if (e.cancelable) e.preventDefault();
   const pos = getPointerPosFromEnd(e);
 
   // Release grab

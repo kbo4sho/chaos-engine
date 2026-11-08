@@ -157,6 +157,7 @@ All helpers are executable. Invoke them from the repo root.
 | `./scripts/verify-chaos-engine drive example-scenes` | Browser journey for [features/example-scenes.md](../../features/example-scenes.md) |
 | `./scripts/verify-chaos-engine drive example-scenes-mobile` | iPhone 13 + Pixel 5 tap journey for [features/example-scenes-mobile.md](../../features/example-scenes-mobile.md) |
 | `./scripts/verify-chaos-engine drive ui-layout` | Standard 390 / 1280 layout proof for [features/ui-layout.md](../../features/ui-layout.md) |
+| `./scripts/verify-chaos-engine drive deflect` | Touch and desktop quarter-turn travel proof for [features/deflect.md](features/deflect.md) |
 | `./scripts/verify-chaos-engine cleanup` | Tear down this run; keep evidence |
 
 Drive needs `puppeteer-core` (devDependency) and system Chrome. If the module is missing: `npm install`.
@@ -182,3 +183,7 @@ Shared paths and port rules live in `scripts/lib/chaos-verify-common.sh`. The br
 - [sandbox-controls](../../features/sandbox-controls.md)
 
 Keep the map honest with `/maintain-verification-skill` as the app changes.
+
+- [Deflect](features/deflect.md) — final toolbar button; instantaneous clockwise travel turn on touch and desktop.
+
+The browser harness uses Chrome’s default sandbox. Keep it enabled.

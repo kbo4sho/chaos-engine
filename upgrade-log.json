@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-11-08",
+      "ideas": [
+        "New tool: Deflect moving travel clockwise by a quarter turn"
+      ],
+      "summary": "Local trial only: Deflect appended after Clutch; tap a moving part to redirect travel while preserving speed, spin and orientation. Includes guidance and feedback cleanup. Verified locally: 929 tests, build, 13 ownership checks, all four existing browser journeys and focused mobile/desktop Deflect proof with no console/runtime errors. Not pushed or deployed."
+    },
+    {
       "date": "2026-10-28",
       "ideas": [
         "New tool: Engage a friction Clutch between two parts to passively share spin, then disengage either end"
