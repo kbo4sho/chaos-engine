@@ -25,7 +25,7 @@ That command:
 
 1. Refuses if `artifacts/verify-chaos-engine/.run/state.json` already names a live PID.
 2. Starts `CHAOS_PORT=13003 node server.js` from this checkout (or a `main` snapshot — see below).
-3. Writes PID, port, URL, serve root, git revision, and log path to `artifacts/verify-chaos-engine/.run/state.json`.
+3. Writes PID, process start identity, port, URL, serve root, git revision, and log path to `artifacts/verify-chaos-engine/.run/state.json`.
 4. Waits until the log contains `CHAOS ENGINE server running at` **and** `GET /` returns HTML that includes `CHAOS ENGINE` plus a `#game` canvas, **and** `GET /save-codec.js` is 200.
 
 Ready means the page is usable, not only that a TCP port answers.
@@ -60,8 +60,8 @@ Read-only. Run this first whenever anything looks off.
 Doctor must answer yes to all of:
 
 - A state file exists and its PID is still alive.
-- That PID's command line is `node server.js` (or `node /abs/path/server.js`).
-- The recorded port is listening and owned by that PID (`/proc/<pid>/net/tcp` or `ss -ltnp`).
+- That PID's command line exactly names this run's Node executable and absolute `server.js`, and its process start time matches the recorded identity. Legacy state without a start identity is rejected.
+- The recorded port is listening and owned by that PID (all owners from `lsof`, or `ss -ltnp` on Linux).
 - `GET $URL/` is 200, contains `CHAOS ENGINE`, `id="game"`, `id="btn-save"`, and `<script src="save-codec.js">`.
 - `GET $URL/save-codec.js` is 200 and its SHA-256 matches the file on disk at the recorded serve root.
 - Recorded `revision` matches `git rev-parse HEAD` for `--origin branch`. For `--origin main`, served `index.html` / `save-codec.js` match `git show main:…`.
@@ -70,7 +70,7 @@ If any check fails, stop. Do not drive a foreign or stale instance.
 
 ## Drive
 
-Harness: **puppeteer-core** + system Chrome (`/usr/bin/google-chrome`). Recipe lives in `scripts/lib/chaos-verify-drive.mjs`. Isolated Chrome profile: `/tmp/chaos-verify-chrome-<run-id>` (created by launch/drive, removed by cleanup).
+Harness: **puppeteer-core** + system Chrome (`/usr/bin/google-chrome` on Linux, `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome` on macOS). Set `CHAOS_CHROME` for another executable. Recipe lives in `scripts/lib/chaos-verify-drive.mjs`. Isolated Chrome profile: `/tmp/chaos-verify-chrome-<run-id>` (created by launch/drive, removed by cleanup).
 
 ```bash
 ./scripts/verify-chaos-engine drive save-load
@@ -159,7 +159,13 @@ All helpers are executable. Invoke them from the repo root.
 | `./scripts/verify-chaos-engine drive ui-layout` | Standard 390 / 1280 layout proof for [features/ui-layout.md](../../features/ui-layout.md) |
 | `./scripts/verify-chaos-engine cleanup` | Tear down this run; keep evidence |
 
-Drive needs `puppeteer-core` (devDependency) and `/usr/bin/google-chrome`. If the module is missing: `npm install`.
+Drive needs `puppeteer-core` (devDependency) and system Chrome. If the module is missing: `npm install`.
+
+### Platform and ownership checks
+
+Node, Bash, `ps`, `curl`, and either `lsof` (macOS/Linux) or `ss` (Linux) are required. SHA-256 uses Node's crypto implementation; `/proc` and GNU hashing tools are not required. PID checks reject zombies and malformed PIDs. Cleanup refuses mismatched command/start identities and keeps their state file rather than signaling another process. Old state files without `processStartedAt` require manual identity review; do not simply remove a live run's state.
+
+Run `npm run test:verify` on both platforms when changing these helpers. It creates only its own temporary fixture server, checks actual port ownership, tests foreign-checkout/port/start-identity rejection and cleanup refusal, and verifies file/stdin hashing. Keep browser journeys as separate runs (cleanup between them), so each run's `result.json` and screenshots survive without overwriting another journey's evidence.
 
 Shared paths and port rules live in `scripts/lib/chaos-verify-common.sh`. The browser recipe is `scripts/lib/chaos-verify-drive.mjs`.
 
