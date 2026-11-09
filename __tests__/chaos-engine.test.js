@@ -8,6 +8,18 @@ import { JSDOM } from 'jsdom';
 import fs from 'fs';
 import path from 'path';
 
+const WORLD_HELPER_STUB = `let worldBounds={x:0,y:0,width:10000,height:10000};
+function worldMinX(){return worldBounds.x;}
+function worldMaxX(){return worldBounds.x+worldBounds.width;}
+function worldMinY(){return worldBounds.y;}
+function worldMaxY(){return worldBounds.y+worldBounds.height;}
+function worldCenterX(){return worldBounds.x+worldBounds.width*0.5;}
+function worldCenterY(){return worldBounds.y+worldBounds.height*0.5;}
+function clampWorldAxes(x,y,pl,pr,pt,pb,bounds=worldBounds){const minX=bounds.x,minY=bounds.y,maxX=bounds.x+bounds.width,maxY=bounds.y+bounds.height;return{x:Math.max(minX+pl,Math.min(maxX-pr,x)),y:Math.max(minY+pt,Math.min(maxY-pb,y))};}
+function clampWorldPoint(pos,padX=0,padY=0,padBottom=padY){return clampWorldAxes(pos.x,pos.y,padX,padX,padY,padBottom);}
+`;
+
+
 let dom, document, html, scriptContent;
 
 beforeAll(() => {
@@ -278,7 +290,7 @@ describe('Tripwire Tool', () => {
       scriptContent.indexOf('function getTripwireCrossing'),
       scriptContent.indexOf('\nfunction getTripwireKickVelocity')
     );
-    const helpers = new Function(`
+    const helpers = new Function(`${WORLD_HELPER_STUB}
       ${pointSource}
       ${geometrySource}
       ${metricSource}
@@ -317,7 +329,7 @@ describe('Tripwire Tool', () => {
       scriptContent.indexOf('function getTripwireDefaultDirection'),
       scriptContent.indexOf('\nfunction getTripwireDirectionName')
     );
-    const helpers = new Function(`
+    const helpers = new Function(`${WORLD_HELPER_STUB}
       const TRIPWIRE_KICK_SPEED = 11.5;
       ${geometrySource}
       ${kickSource}
@@ -382,7 +394,7 @@ describe('Winch Tool', () => {
       scriptContent.indexOf('function getWinchNextLength'),
       scriptContent.indexOf('\nfunction isWinchableBody')
     );
-    const helpers = new Function(`
+    const helpers = new Function(`${WORLD_HELPER_STUB}
       const WINCH_REEL_SPEED = 2.1;
       ${anchorSource}
       ${stepSource}
@@ -451,7 +463,7 @@ describe('Sieve Tool', () => {
       scriptContent.indexOf('function getSieveBarLayout'),
       scriptContent.indexOf('\nfunction createSieveAssembly')
     );
-    const helpers = new Function(`
+    const helpers = new Function(`${WORLD_HELPER_STUB}
       const SIEVE_TOTAL_WIDTH = 168;
       const SIEVE_GAPS = [12, 44, 68];
       const SIEVE_HALF_WIDTH = SIEVE_TOTAL_WIDTH / 2;
@@ -530,7 +542,7 @@ describe('Rail Tool', () => {
       scriptContent.indexOf('function getRailConstrainedMotion'),
       scriptContent.indexOf('\nfunction isRailableBody')
     );
-    const helpers = new Function(`
+    const helpers = new Function(`${WORLD_HELPER_STUB}
       const RAIL_EDGE_BOUNCE = 0.42;
       ${endpointSource}
       ${geometrySource}
@@ -606,7 +618,7 @@ describe('Gearbox Tool', () => {
       scriptContent.indexOf('function getGearboxCoupling'),
       scriptContent.indexOf('\nfunction getGearboxRadius')
     );
-    const getGearboxCoupling = new Function(`
+    const getGearboxCoupling = new Function(`${WORLD_HELPER_STUB}
       const GEARBOX_IDLE_SPEED = 0.18;
       const GEARBOX_MAX_SPEED = 0.72;
       ${couplingSource}
@@ -676,7 +688,7 @@ describe('Siphon Tool', () => {
       scriptContent.indexOf('function getSiphonTransfer'),
       scriptContent.indexOf('\nfunction isSiphonableBody')
     );
-    const getSiphonTransfer = new Function(`
+    const getSiphonTransfer = new Function(`${WORLD_HELPER_STUB}
       const SIPHON_MIN_AREA = 180;
       const SIPHON_MAX_AREA = 24000;
       const SIPHON_PORTION = 0.22;
@@ -747,7 +759,7 @@ describe('Zipline Tool', () => {
       scriptContent.indexOf('function getZiplineStep'),
       scriptContent.indexOf('\nfunction isZiplineableBody')
     );
-    const helpers = new Function(`${endpointSource}\n${geometrySource}\n${stepSource}; return { getZiplineEndpoint, getZiplineGeometry, getZiplineStep };`)();
+    const helpers = new Function(`${WORLD_HELPER_STUB}${endpointSource}\n${geometrySource}\n${stepSource}; return { getZiplineEndpoint, getZiplineGeometry, getZiplineStep };`)();
 
     expect(helpers.getZiplineEndpoint({ x:2, y:4 }, 390, 500)).toEqual({ x:24, y:24 });
     expect(helpers.getZiplineEndpoint({ x:388, y:498 }, 390, 500)).toEqual({ x:366, y:458 });
@@ -809,7 +821,7 @@ describe('Press Tool', () => {
       scriptContent.indexOf('function getPressStep'),
       scriptContent.indexOf('\nfunction createPressAssembly')
     );
-    const helpers = new Function(`
+    const helpers = new Function(`${WORLD_HELPER_STUB}
       const PRESS_WIDTH = 112;
       const PRESS_OPEN_OFFSET = 96;
       const PRESS_CLOSED_OFFSET = 44;
@@ -885,7 +897,7 @@ describe('Catapult Tool', () => {
       scriptContent.indexOf('function getCatapultLaunchVelocity'),
       scriptContent.indexOf('\nfunction createCatapultAssembly')
     );
-    const helpers = new Function(`
+    const helpers = new Function(`${WORLD_HELPER_STUB}
       const CATAPULT_ARM_LENGTH = 96;
       ${placementSource}
       ${poseSource}
@@ -951,7 +963,7 @@ describe('Funnel Tool', () => {
     const layoutSource = scriptContent.match(/function getFunnelRailLayout\([\s\S]*?\n\}/)?.[0];
     expect(placementSource).toBeTruthy();
     expect(layoutSource).toBeTruthy();
-    const helpers = new Function(`
+    const helpers = new Function(`${WORLD_HELPER_STUB}
       const FUNNEL_BOUND_RADIUS = 52;
       const FUNNEL_RAIL_OFFSET = 28;
       const FUNNEL_RAIL_ANGLE = 1.12;
@@ -1019,7 +1031,7 @@ describe('Saw Tool', () => {
     const spinSource = scriptContent.match(/function getSawSpin\([\s\S]*?\n\}/)?.[0];
     expect(placementSource).toBeTruthy();
     expect(spinSource).toBeTruthy();
-    const helpers = new Function(`
+    const helpers = new Function(`${WORLD_HELPER_STUB}
       const SAW_RADIUS = 42;
       const SAW_SPIN_SPEED = 0.48;
       ${placementSource}
@@ -1082,7 +1094,7 @@ describe('Parachute Tool', () => {
   it('should apply capped gravity-aware drag only while descending', () => {
     const forceSource = scriptContent.match(/function getParachuteForce\([\s\S]*?\n\}/)?.[0];
     expect(forceSource).toBeTruthy();
-    const getParachuteForce = new Function(`
+    const getParachuteForce = new Function(`${WORLD_HELPER_STUB}
       const PARACHUTE_DRAG_COEFFICIENT = 0.00005;
       const PARACHUTE_LATERAL_COEFFICIENT = 0.000012;
       ${forceSource}
@@ -1141,7 +1153,7 @@ describe('Piston Tool', () => {
   it('should clamp placement and point the ram toward the canvas center', () => {
     const placementSource = scriptContent.match(/function getPistonPlacement\([\s\S]*?\n\}/)?.[0];
     expect(placementSource).toBeTruthy();
-    const getPistonPlacement = new Function(`
+    const getPistonPlacement = new Function(`${WORLD_HELPER_STUB}
       const PISTON_WIDTH = 28;
       const PISTON_HEIGHT = 72;
       const PISTON_TRAVEL = 96;
@@ -1160,7 +1172,7 @@ describe('Piston Tool', () => {
   it('should move in capped steps and land exactly at each stop', () => {
     const stepSource = scriptContent.match(/function getPistonStep\([\s\S]*?\n\}/)?.[0];
     expect(stepSource).toBeTruthy();
-    const getPistonStep = new Function(`
+    const getPistonStep = new Function(`${WORLD_HELPER_STUB}
       const PISTON_SPEED = 7;
       ${stepSource}
       return getPistonStep;
@@ -1215,7 +1227,7 @@ describe('Hatch Tool', () => {
   it('should clamp placement and hinge toward the nearest outer edge', () => {
     const placementSource = scriptContent.match(/function getHatchPlacement\([\s\S]*?\n\}/)?.[0];
     expect(placementSource).toBeTruthy();
-    const getHatchPlacement = new Function(`
+    const getHatchPlacement = new Function(`${WORLD_HELPER_STUB}
       const HATCH_WIDTH = 112;
       ${placementSource}
       return getHatchPlacement;
@@ -1232,7 +1244,7 @@ describe('Hatch Tool', () => {
   it('should move in capped steps and land exactly at each stop', () => {
     const stepSource = scriptContent.match(/function getHatchStep\([\s\S]*?\n\}/)?.[0];
     expect(stepSource).toBeTruthy();
-    const getHatchStep = new Function(`
+    const getHatchStep = new Function(`${WORLD_HELPER_STUB}
       const HATCH_SPEED = 0.12;
       ${stepSource}
       return getHatchStep;
@@ -1291,7 +1303,7 @@ describe('Recycler Tool', () => {
     const radiusSource = scriptContent.match(/function getRecyclerScrapRadius\([\s\S]*?\n\}/)?.[0];
     expect(placementSource).toBeTruthy();
     expect(radiusSource).toBeTruthy();
-    const helpers = new Function(`
+    const helpers = new Function(`${WORLD_HELPER_STUB}
       const RECYCLER_WIDTH = 96;
       const RECYCLER_HEIGHT = 62;
       ${placementSource}
@@ -1366,7 +1378,7 @@ describe('Elevator Tool', () => {
   it('should clamp placement and create two fixed vertical stops', () => {
     const placementSource = scriptContent.match(/function getElevatorPlacement\([\s\S]*?\n\}/)?.[0];
     expect(placementSource).toBeTruthy();
-    const getElevatorPlacement = new Function(`
+    const getElevatorPlacement = new Function(`${WORLD_HELPER_STUB}
       const ELEVATOR_WIDTH = 112;
       const ELEVATOR_TRAVEL = 132;
       ${placementSource}
@@ -1380,7 +1392,7 @@ describe('Elevator Tool', () => {
   it('should move toward either stop without overshooting', () => {
     const stepSource = scriptContent.match(/function getElevatorStep\([\s\S]*?\n\}/)?.[0];
     expect(stepSource).toBeTruthy();
-    const getElevatorStep = new Function(`
+    const getElevatorStep = new Function(`${WORLD_HELPER_STUB}
       const ELEVATOR_SPEED = 2.8;
       ${stepSource}
       return getElevatorStep;
@@ -1441,7 +1453,7 @@ describe('Domino Run Tool', () => {
     const layoutSource = scriptContent.match(/function getDominoRunLayout\([\s\S]*?\n\}/)?.[0];
     expect(distanceSource).toBeTruthy();
     expect(layoutSource).toBeTruthy();
-    const getDominoRunLayout = new Function(`
+    const getDominoRunLayout = new Function(`${WORLD_HELPER_STUB}
       const DOMINO_RUN_SPACING = 34;
       const DOMINO_RUN_HEIGHT = 54;
       const DOMINO_RUN_MIN_DRAG = 30;
@@ -1460,7 +1472,7 @@ describe('Domino Run Tool', () => {
   it('should sample a dragged path at stable spacing and orient each domino to the path', () => {
     const distanceSource = scriptContent.match(/function getDominoRunDistance\([\s\S]*?\n\}/)?.[0];
     const layoutSource = scriptContent.match(/function getDominoRunLayout\([\s\S]*?\n\}/)?.[0];
-    const getDominoRunLayout = new Function(`
+    const getDominoRunLayout = new Function(`${WORLD_HELPER_STUB}
       const DOMINO_RUN_SPACING = 34;
       const DOMINO_RUN_HEIGHT = 54;
       const DOMINO_RUN_MIN_DRAG = 30;
@@ -1523,7 +1535,7 @@ describe('Cannon Tool', () => {
   it('should clamp placement and point each cannon toward the canvas center', () => {
     const placementSource = scriptContent.match(/function getCannonPlacement\([\s\S]*?\n\}/)?.[0];
     expect(placementSource).toBeTruthy();
-    const getCannonPlacement = new Function(`
+    const getCannonPlacement = new Function(`${WORLD_HELPER_STUB}
       const CANNON_WIDTH = 84;
       const CANNON_HEIGHT = 34;
       ${placementSource}
@@ -1537,7 +1549,7 @@ describe('Cannon Tool', () => {
   it('should calculate mirrored cannonball launch vectors', () => {
     const shotSource = scriptContent.match(/function getCannonShot\([\s\S]*?\n\}/)?.[0];
     expect(shotSource).toBeTruthy();
-    const getCannonShot = new Function(`
+    const getCannonShot = new Function(`${WORLD_HELPER_STUB}
       const CANNON_SHOT_SPEED = 14;
       ${shotSource}
       return getCannonShot;
@@ -1603,7 +1615,7 @@ describe('Basket Tool', () => {
     const tipSource = scriptContent.match(/function getBasketTip\([\s\S]*?\n\}/)?.[0];
     expect(placementSource).toBeTruthy();
     expect(tipSource).toBeTruthy();
-    const helpers = new Function(`
+    const helpers = new Function(`${WORLD_HELPER_STUB}
       const BASKET_WIDTH = 104;
       const BASKET_HEIGHT = 74;
       const BASKET_TIP_SPEED = 0.34;
@@ -1675,7 +1687,7 @@ describe('Pinwheel Tool', () => {
     const kickSource = scriptContent.match(/function getPinwheelKick\([\s\S]*?\n\}/)?.[0];
     expect(placementSource).toBeTruthy();
     expect(kickSource).toBeTruthy();
-    const helpers = new Function(`
+    const helpers = new Function(`${WORLD_HELPER_STUB}
       const PINWHEEL_ARM_LENGTH = 104;
       const PINWHEEL_KICK_SPEED = 0.42;
       ${placementSource}
@@ -1740,7 +1752,7 @@ describe('Ramp Tool', () => {
     const placementSource = scriptContent.match(/function getRampPlacement\([\s\S]*?\n\}/)?.[0];
     expect(verticesSource).toBeTruthy();
     expect(placementSource).toBeTruthy();
-    const helpers = new Function(`
+    const helpers = new Function(`${WORLD_HELPER_STUB}
       const RAMP_WIDTH = 112;
       const RAMP_HEIGHT = 58;
       ${verticesSource}
@@ -1807,7 +1819,7 @@ describe('Web Tool', () => {
     const attachmentSource = scriptContent.match(/function getWebAttachmentPoints\([\s\S]*?\n\}/)?.[0];
     expect(localSource).toBeTruthy();
     expect(attachmentSource).toBeTruthy();
-    const getWebAttachmentPoints = new Function(`${localSource}; ${attachmentSource}; return getWebAttachmentPoints;`)();
+    const getWebAttachmentPoints = new Function(`${WORLD_HELPER_STUB}${localSource}; ${attachmentSource}; return getWebAttachmentPoints;`)();
 
     const points = getWebAttachmentPoints(
       { position:{ x:100, y:200 }, angle:0 },
@@ -1868,7 +1880,7 @@ describe('Mirror Tool', () => {
   it('should reflect position, horizontal motion, orientation, and spin across the centerline', () => {
     const source = scriptContent.match(/function getMirroredTransform\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getMirroredTransform = new Function(`${source}; return getMirroredTransform;`)();
+    const getMirroredTransform = new Function(`let worldBounds={x:0,y:0,width:10000,height:10000}; function clampWorldAxes(x,y,pl,pr,pt,pb,bounds=worldBounds){const minX=bounds.x,minY=bounds.y,maxX=bounds.x+bounds.width,maxY=bounds.y+bounds.height;return{x:Math.max(minX+pl,Math.min(maxX-pr,x)),y:Math.max(minY+pt,Math.min(maxY-pb,y))};} function worldCenterX(){return worldBounds.x+worldBounds.width*0.5;} ${source}; return getMirroredTransform;`)();
     const bounds = { min:{ x:70, y:90 }, max:{ x:130, y:130 } };
 
     expect(getMirroredTransform(
@@ -1932,7 +1944,7 @@ describe('Stack Tool', () => {
   it('should calculate a centered, canvas-safe position above the selected base', () => {
     const source = scriptContent.match(/function getStackPosition\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getStackPosition = new Function(`${source}; return getStackPosition;`)();
+    const getStackPosition = new Function(`${WORLD_HELPER_STUB}${source}; return getStackPosition;`)();
 
     const sourceBounds = { min:{ x:10, y:20 }, max:{ x:50, y:60 } };
     const targetBounds = { min:{ x:170, y:200 }, max:{ x:230, y:240 } };
@@ -1992,7 +2004,7 @@ describe('Twist Tool', () => {
   it('should add a directional angular kick and clamp runaway spin', () => {
     const source = scriptContent.match(/function getTwistedAngularVelocity\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getTwistedAngularVelocity = new Function(`const TWIST_KICK = 0.32; const TWIST_MAX_SPEED = 0.6; ${source}; return getTwistedAngularVelocity;`)();
+    const getTwistedAngularVelocity = new Function(`${WORLD_HELPER_STUB}const TWIST_KICK = 0.32; const TWIST_MAX_SPEED = 0.6; ${source}; return getTwistedAngularVelocity;`)();
 
     expect(getTwistedAngularVelocity(0, 1)).toBeCloseTo(0.32);
     expect(getTwistedAngularVelocity(0, -1)).toBeCloseTo(-0.32);
@@ -2057,7 +2069,7 @@ describe('Lift Tool', () => {
   it('should calculate a mass-scaled force that inverts the current scene gravity', () => {
     const source = scriptContent.match(/function getLiftForce\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getLiftForce = new Function(`${source}; return getLiftForce;`)();
+    const getLiftForce = new Function(`${WORLD_HELPER_STUB}${source}; return getLiftForce;`)();
 
     expect(getLiftForce({ mass:2 }, { x:0, y:1 }, 0.001)).toEqual({ x:-0, y:-0.004 });
     expect(getLiftForce({ mass:4 }, { x:-1, y:0 }, 0.001)).toEqual({ x:0.008, y:-0 });
@@ -2130,7 +2142,7 @@ describe('Orbit Tool', () => {
     const forceSource = scriptContent.match(/function getOrbitForce\([\s\S]*?\n\}/)?.[0];
     expect(speedSource).toBeTruthy();
     expect(forceSource).toBeTruthy();
-    const getOrbitForce = new Function(`
+    const getOrbitForce = new Function(`${WORLD_HELPER_STUB}
       const ORBIT_MIN_RADIUS = 70;
       const ORBIT_STEP_SQUARED = (1000 / 60) ** 2;
       ${speedSource}
@@ -2204,7 +2216,7 @@ describe('Weld Tool', () => {
     const velocitySource = scriptContent.match(/function getWeldAngularVelocities\([\s\S]*?\n\}/)?.[0];
     expect(normalizeSource).toBeTruthy();
     expect(velocitySource).toBeTruthy();
-    const getWeldAngularVelocities = new Function(`${normalizeSource}\n${velocitySource}; return getWeldAngularVelocities;`)();
+    const getWeldAngularVelocities = new Function(`${WORLD_HELPER_STUB}${normalizeSource}\n${velocitySource}; return getWeldAngularVelocities;`)();
 
     const balanced = getWeldAngularVelocities(
       { angle:0, angularVelocity:0.4, inertia:2, isStatic:false },
@@ -2286,7 +2298,7 @@ describe('Tether Tool', () => {
   it('should calculate a shortened but safely bounded elastic rest length', () => {
     const source = scriptContent.match(/function getTetherRestLength\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getTetherRestLength = new Function(`
+    const getTetherRestLength = new Function(`${WORLD_HELPER_STUB}
       const TETHER_REST_RATIO = 0.64;
       const TETHER_MIN_LENGTH = 42;
       const TETHER_MAX_LENGTH = 260;
@@ -2360,7 +2372,7 @@ describe('Charge Tool', () => {
   it('should cycle positive, negative, and neutral charge', () => {
     const source = scriptContent.match(/function getNextChargeState\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getNextChargeState = new Function(`${source}; return getNextChargeState;`)();
+    const getNextChargeState = new Function(`${WORLD_HELPER_STUB}${source}; return getNextChargeState;`)();
 
     expect(getNextChargeState()).toBe(1);
     expect(getNextChargeState(1)).toBe(-1);
@@ -2371,7 +2383,7 @@ describe('Charge Tool', () => {
   it('should attract opposite charges, repel equal charges, and fade with distance', () => {
     const source = scriptContent.match(/function getChargePairForce\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getChargePairForce = new Function(`const CHARGE_MIN_DISTANCE = 16; const CHARGE_RANGE = 240; ${source}; return getChargePairForce;`)();
+    const getChargePairForce = new Function(`${WORLD_HELPER_STUB}const CHARGE_MIN_DISTANCE = 16; const CHARGE_RANGE = 240; ${source}; return getChargePairForce;`)();
 
     const attract = getChargePairForce(1, -1, 100, 0, 100);
     const repel = getChargePairForce(1, 1, 100, 0, 100);
@@ -2436,7 +2448,7 @@ describe('Gyro Tool', () => {
   it('should choose the nearest stable quarter-turn', () => {
     const source = scriptContent.match(/function getGyroTargetAngle\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getGyroTargetAngle = new Function(`${source}; return getGyroTargetAngle;`)();
+    const getGyroTargetAngle = new Function(`${WORLD_HELPER_STUB}${source}; return getGyroTargetAngle;`)();
 
     expect(getGyroTargetAngle(0.2)).toBe(0);
     expect(getGyroTargetAngle(1.2)).toBeCloseTo(Math.PI / 2);
@@ -2448,7 +2460,7 @@ describe('Gyro Tool', () => {
   it('should steer toward level with a capped angular velocity and settle cleanly', () => {
     const source = scriptContent.match(/function getGyroAngularVelocity\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getGyroAngularVelocity = new Function(`${source}; return getGyroAngularVelocity;`)();
+    const getGyroAngularVelocity = new Function(`${WORLD_HELPER_STUB}${source}; return getGyroAngularVelocity;`)();
 
     expect(getGyroAngularVelocity(0.5, 0)).toBeLessThan(0);
     expect(getGyroAngularVelocity(-0.5, 0)).toBeGreaterThan(0);
@@ -2507,7 +2519,7 @@ describe('Phase Tool', () => {
   it('should disable every collision and restore the original filter', () => {
     const source = scriptContent.match(/function getPhasedCollisionFilter\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getPhasedCollisionFilter = new Function(`${source}; return getPhasedCollisionFilter;`)();
+    const getPhasedCollisionFilter = new Function(`${WORLD_HELPER_STUB}${source}; return getPhasedCollisionFilter;`)();
     const original = { category:4, mask:0x0007, group:-2 };
 
     expect(getPhasedCollisionFilter(original, true)).toEqual({ category:4, mask:0, group:0 });
@@ -2564,7 +2576,7 @@ describe('Thruster Tool', () => {
   it('should calculate mass-scaled force along the body facing direction', () => {
     const source = scriptContent.match(/function getThrusterForce\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getThrusterForce = new Function(`${source}; return getThrusterForce;`)();
+    const getThrusterForce = new Function(`${WORLD_HELPER_STUB}${source}; return getThrusterForce;`)();
 
     expect(getThrusterForce(0, 2, 0.001)).toEqual({ x:0.002, y:0 });
     const downward = getThrusterForce(Math.PI / 2, 4, 0.001);
@@ -2624,7 +2636,7 @@ describe('Brake Tool', () => {
   it('should reduce both linear and angular motion to zero', () => {
     const source = scriptContent.match(/function getBrakedMotion\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getBrakedMotion = new Function(`${source}; return getBrakedMotion;`)();
+    const getBrakedMotion = new Function(`${WORLD_HELPER_STUB}${source}; return getBrakedMotion;`)();
 
     expect(getBrakedMotion({ x:12, y:-5 }, -0.7)).toEqual({
       velocity:{ x:0, y:0 }, angularVelocity:0, speed:13, spin:0.7
@@ -2682,7 +2694,7 @@ describe('Swirl Tool', () => {
   it('should calculate perpendicular clockwise and counter-clockwise impulses with distance falloff', () => {
     const source = scriptContent.match(/function getSwirlVelocityDelta\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getSwirlVelocityDelta = new Function(`${source}; return getSwirlVelocityDelta;`)();
+    const getSwirlVelocityDelta = new Function(`${WORLD_HELPER_STUB}${source}; return getSwirlVelocityDelta;`)();
 
     expect(getSwirlVelocityDelta({ x:100, y:0 }, { x:0, y:0 }, 1, 200, 16)).toMatchObject({ x:-0, y:4, magnitude:4, falloff:0.5 });
     expect(getSwirlVelocityDelta({ x:100, y:0 }, { x:0, y:0 }, -1, 200, 16)).toMatchObject({ x:0, y:-4, magnitude:4, falloff:0.5 });
@@ -2739,7 +2751,7 @@ describe('Curve Tool', () => {
   it('should rotate momentum exactly 90 degrees left or right while preserving speed', () => {
     const source = scriptContent.match(/function getCurvedVelocity\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getCurvedVelocity = new Function(`${source}; return getCurvedVelocity;`)();
+    const getCurvedVelocity = new Function(`${WORLD_HELPER_STUB}${source}; return getCurvedVelocity;`)();
 
     expect(getCurvedVelocity({ x:12, y:-5 }, 1)).toEqual({ x:5, y:12, speed:13 });
     expect(getCurvedVelocity({ x:12, y:-5 }, -1)).toEqual({ x:-5, y:-12, speed:13 });
@@ -2794,7 +2806,7 @@ describe('Relay Tool', () => {
   it('should exchange linear and angular motion exactly', () => {
     const source = scriptContent.match(/function getRelayedMotion\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getRelayedMotion = new Function(`${source}; return getRelayedMotion;`)();
+    const getRelayedMotion = new Function(`${WORLD_HELPER_STUB}${source}; return getRelayedMotion;`)();
     const firstVelocity = { x:12, y:-4 };
     const secondVelocity = { x:-3, y:8 };
     const motion = getRelayedMotion(firstVelocity, 0.35, secondVelocity, -0.6);
@@ -2859,7 +2871,7 @@ describe('Pulse Tool', () => {
   it('should calculate an outward radial impulse with quadratic distance falloff', () => {
     const source = scriptContent.match(/function getPulseVelocityDelta\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getPulseVelocityDelta = new Function(`${source}; return getPulseVelocityDelta;`)();
+    const getPulseVelocityDelta = new Function(`${WORLD_HELPER_STUB}${source}; return getPulseVelocityDelta;`)();
 
     expect(getPulseVelocityDelta({ x:0, y:0 }, { x:0, y:0 }, 200, 15)).toMatchObject({ x:0, y:-15, magnitude:15, falloff:1 });
     expect(getPulseVelocityDelta({ x:100, y:0 }, { x:0, y:0 }, 200, 15)).toMatchObject({ x:3.75, y:0, magnitude:3.75, falloff:0.5 });
@@ -2913,7 +2925,7 @@ describe('Squash Tool', () => {
   it('should cycle wide, tall, and original proportions while preserving area', () => {
     const source = scriptContent.match(/function getSquashTransition\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getSquashTransition = new Function(`${source}; return getSquashTransition;`)();
+    const getSquashTransition = new Function(`${WORLD_HELPER_STUB}${source}; return getSquashTransition;`)();
     const wide = getSquashTransition('normal');
     const tall = getSquashTransition(wide.mode);
     const original = getSquashTransition(tall.mode);
@@ -2975,7 +2987,7 @@ describe('Blink Tool', () => {
   it('should clamp teleport destinations so the whole object stays on canvas', () => {
     const source = scriptContent.match(/function getSafeBlinkPosition\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getSafeBlinkPosition = new Function(`${source}; return getSafeBlinkPosition;`)();
+    const getSafeBlinkPosition = new Function(`let worldBounds={x:0,y:0,width:10000,height:10000}; function clampWorldAxes(x,y,pl,pr,pt,pb,bounds=worldBounds){const minX=bounds.x,minY=bounds.y,maxX=bounds.x+bounds.width,maxY=bounds.y+bounds.height;return{x:Math.max(minX+pl,Math.min(maxX-pr,x)),y:Math.max(minY+pt,Math.min(maxY-pb,y))};} function worldCenterX(){return worldBounds.x+worldBounds.width*0.5;} ${source}; return getSafeBlinkPosition;`)();
     const body = { bounds:{ min:{ x:80, y:70 }, max:{ x:120, y:130 } } };
 
     expect(getSafeBlinkPosition(body, { x:-20, y:-40 }, 500, 400)).toEqual({ x:30, y:40 });
@@ -3028,7 +3040,7 @@ describe('Punch Tool', () => {
   it('should create an upward mass-scaled impulse and opposite spin from left/right hits', () => {
     const source = scriptContent.match(/function getPunchImpulse\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getPunchImpulse = new Function(`${source}; return getPunchImpulse;`)();
+    const getPunchImpulse = new Function(`${WORLD_HELPER_STUB}${source}; return getPunchImpulse;`)();
     const body = {
       position:{ x:100, y:100 },
       bounds:{ min:{ x:80, y:80 }, max:{ x:120, y:120 } },
@@ -3091,7 +3103,7 @@ describe('Reverse Tool', () => {
   it('should invert linear and angular velocity exactly', () => {
     const source = scriptContent.match(/function getReversedMotion\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getReversedMotion = new Function(`${source}; return getReversedMotion;`)();
+    const getReversedMotion = new Function(`${WORLD_HELPER_STUB}${source}; return getReversedMotion;`)();
 
     expect(getReversedMotion({ velocity:{ x:7.5, y:-3 }, angularVelocity:0.24 }))
       .toEqual({ velocity:{ x:-7.5, y:3 }, angularVelocity:-0.24 });
@@ -3139,7 +3151,7 @@ describe('Pivot Tool', () => {
   it('should convert the exact tapped world point into body-local coordinates', () => {
     const source = scriptContent.match(/function getPivotLocalPoint\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getPivotLocalPoint = new Function(`${source}; return getPivotLocalPoint;`)();
+    const getPivotLocalPoint = new Function(`${WORLD_HELPER_STUB}${source}; return getPivotLocalPoint;`)();
     const point = getPivotLocalPoint(
       { position:{ x:100, y:80 }, angle:Math.PI / 2 },
       { x:100, y:100 }
@@ -3201,7 +3213,7 @@ describe('Float Tool', () => {
   it('should calculate exact gravity cancellation for any gravity direction', () => {
     const source = scriptContent.match(/function getFloatCounterForce\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getFloatCounterForce = new Function(`${source}; return getFloatCounterForce;`)();
+    const getFloatCounterForce = new Function(`${WORLD_HELPER_STUB}${source}; return getFloatCounterForce;`)();
 
     expect(getFloatCounterForce({ mass:4 }, { x:0, y:1 }, 0.001))
       .toEqual({ x:-0, y:-0.004 });
@@ -3251,7 +3263,7 @@ describe('Launch Tool', () => {
   it('should calculate a bounded velocity toward the chosen destination', () => {
     const source = scriptContent.match(/function getLaunchVelocity\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getLaunchVelocity = new Function(`
+    const getLaunchVelocity = new Function(`${WORLD_HELPER_STUB}
       const LAUNCH_MIN_DISTANCE = 36;
       const LAUNCH_MIN_SPEED = 8;
       const LAUNCH_MAX_SPEED = 24;
@@ -3315,7 +3327,7 @@ describe('Spring Tool', () => {
   it('should calculate a shortened, safely bounded rest length', () => {
     const source = scriptContent.match(/function getSpringRestLength\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getSpringRestLength = new Function(`
+    const getSpringRestLength = new Function(`${WORLD_HELPER_STUB}
       const SPRING_REST_RATIO = 0.72;
       const SPRING_MIN_LENGTH = 32;
       const SPRING_MAX_LENGTH = 220;
@@ -3384,7 +3396,7 @@ describe('Hinge Tool', () => {
   it('should convert a tapped world pivot into stable body-local coordinates', () => {
     const source = scriptContent.match(/function getHingeLocalPoint\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getHingeLocalPoint = new Function(`${source}; return getHingeLocalPoint;`)();
+    const getHingeLocalPoint = new Function(`${WORLD_HELPER_STUB}${source}; return getHingeLocalPoint;`)();
 
     expect(getHingeLocalPoint({ position:{ x:10, y:20 }, angle:0 }, { x:14, y:27 }))
       .toEqual({ x:4, y:7 });
@@ -3450,7 +3462,7 @@ describe('Fusion Tool', () => {
   it('should conserve mass-weighted position and momentum in a canvas-safe core', () => {
     const source = scriptContent.match(/function getFusionKinematics\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getFusionKinematics = new Function(`${source}; return getFusionKinematics;`)();
+    const getFusionKinematics = new Function(`${WORLD_HELPER_STUB}${source}; return getFusionKinematics;`)();
     const a = { mass:2, area:Math.PI * 100, position:{ x:20, y:40 }, velocity:{ x:6, y:0 }, angularVelocity:0.3 };
     const b = { mass:1, area:Math.PI * 300, position:{ x:80, y:70 }, velocity:{ x:0, y:9 }, angularVelocity:-0.3 };
     const result = getFusionKinematics(a, b, 500, 300);
@@ -3517,7 +3529,7 @@ describe('Rotate Tool', () => {
   it('should toggle clockwise and counter-clockwise modes on reselection', () => {
     const source = scriptContent.match(/function getNextRotateDirection\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getNextRotateDirection = new Function(`${source}; return getNextRotateDirection;`)();
+    const getNextRotateDirection = new Function(`${WORLD_HELPER_STUB}${source}; return getNextRotateDirection;`)();
 
     expect(getNextRotateDirection()).toBe(-1);
     expect(getNextRotateDirection(-1)).toBe(1);
@@ -3531,8 +3543,8 @@ describe('Rotate Tool', () => {
     const positionSource = scriptContent.match(/function getCanvasSafeBodyPosition\([\s\S]*?\n\}/)?.[0];
     expect(angleSource).toBeTruthy();
     expect(positionSource).toBeTruthy();
-    const getQuarterTurnAngle = new Function(`const ROTATE_STEP = Math.PI / 2; ${angleSource}; return getQuarterTurnAngle;`)();
-    const getCanvasSafeBodyPosition = new Function(`${positionSource}; return getCanvasSafeBodyPosition;`)();
+    const getQuarterTurnAngle = new Function(`${WORLD_HELPER_STUB}const ROTATE_STEP = Math.PI / 2; ${angleSource}; return getQuarterTurnAngle;`)();
+    const getCanvasSafeBodyPosition = new Function(`let worldBounds={x:0,y:0,width:10000,height:10000}; function clampWorldAxes(x,y,pl,pr,pt,pb,bounds=worldBounds){const minX=bounds.x,minY=bounds.y,maxX=bounds.x+bounds.width,maxY=bounds.y+bounds.height;return{x:Math.max(minX+pl,Math.min(maxX-pr,x)),y:Math.max(minY+pt,Math.min(maxY-pb,y))};} function worldCenterX(){return worldBounds.x+worldBounds.width*0.5;} ${positionSource}; return getCanvasSafeBodyPosition;`)();
 
     expect(getQuarterTurnAngle(0, 1)).toBeCloseTo(Math.PI / 2);
     expect(getQuarterTurnAngle(Math.PI / 2, -1)).toBeCloseTo(0);
@@ -3587,7 +3599,7 @@ describe('Strut Tool', () => {
   it('should preserve the selected bodies current distance as the brace length', () => {
     const source = scriptContent.match(/function getStrutLength\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getStrutLength = new Function(`${source}; return getStrutLength;`)();
+    const getStrutLength = new Function(`${WORLD_HELPER_STUB}${source}; return getStrutLength;`)();
     const a = { position:{ x:10, y:20 } };
     const b = { position:{ x:40, y:60 } };
 
@@ -3654,7 +3666,7 @@ describe('Alchemy Tool', () => {
   it('should cycle bouncy, heavy, slippery, then normal', () => {
     const source = scriptContent.match(/function getNextAlchemyMode\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getNextAlchemyMode = new Function(`${source}; return getNextAlchemyMode;`)();
+    const getNextAlchemyMode = new Function(`${WORLD_HELPER_STUB}${source}; return getNextAlchemyMode;`)();
 
     expect(getNextAlchemyMode()).toBe('bouncy');
     expect(getNextAlchemyMode('bouncy')).toBe('heavy');
@@ -3665,7 +3677,7 @@ describe('Alchemy Tool', () => {
   it('should alter real physics and restore the original material values', () => {
     const source = scriptContent.match(/function getAlchemyPhysics\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getAlchemyPhysics = new Function(`${source}; return getAlchemyPhysics;`)();
+    const getAlchemyPhysics = new Function(`${WORLD_HELPER_STUB}${source}; return getAlchemyPhysics;`)();
     const original = { density:0.001, restitution:0.5, friction:0.3, frictionStatic:0.5, frictionAir:0.01 };
 
     const bouncy = getAlchemyPhysics('bouncy', original);
@@ -3729,7 +3741,7 @@ describe('Fission Tool', () => {
   it('should calculate separated, canvas-safe twin positions', () => {
     const source = scriptContent.match(/function getFissionLayout\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getFissionLayout = new Function(`${source}; return getFissionLayout;`)();
+    const getFissionLayout = new Function(`let worldBounds={x:0,y:0,width:10000,height:10000}; function clampWorldAxes(x,y,pl,pr,pt,pb,bounds=worldBounds){const minX=bounds.x,minY=bounds.y,maxX=bounds.x+bounds.width,maxY=bounds.y+bounds.height;return{x:Math.max(minX+pl,Math.min(maxX-pr,x)),y:Math.max(minY+pt,Math.min(maxY-pb,y))};} function worldCenterX(){return worldBounds.x+worldBounds.width*0.5;} ${source}; return getFissionLayout;`)();
     const body = {
       angle: 0,
       position: { x: 100, y: 100 },
@@ -3797,7 +3809,7 @@ describe('Snip Tool', () => {
   it('should measure taps against a connection segment', () => {
     const source = scriptContent.match(/function distancePointToSegment\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const distancePointToSegment = new Function(`${source}; return distancePointToSegment;`)();
+    const distancePointToSegment = new Function(`${WORLD_HELPER_STUB}${source}; return distancePointToSegment;`)();
 
     expect(distancePointToSegment({ x:50, y:20 }, { x:0, y:0 }, { x:100, y:0 })).toBe(20);
     expect(distancePointToSegment({ x:-10, y:0 }, { x:0, y:0 }, { x:100, y:0 })).toBe(10);
@@ -3852,7 +3864,7 @@ describe('Swap Tool', () => {
   it('should clamp differently sized bodies to canvas-safe destinations', () => {
     const source = scriptContent.match(/function getSafeSwapPosition\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getSafeSwapPosition = new Function(`${source}; return getSafeSwapPosition;`)();
+    const getSafeSwapPosition = new Function(`let worldBounds={x:0,y:0,width:10000,height:10000}; function clampWorldAxes(x,y,pl,pr,pt,pb,bounds=worldBounds){const minX=bounds.x,minY=bounds.y,maxX=bounds.x+bounds.width,maxY=bounds.y+bounds.height;return{x:Math.max(minX+pl,Math.min(maxX-pr,x)),y:Math.max(minY+pt,Math.min(maxY-pb,y))};} function worldCenterX(){return worldBounds.x+worldBounds.width*0.5;} ${source}; return getSafeSwapPosition;`)();
     const body = { bounds: { min: { x: 0, y: 0 }, max: { x: 80, y: 60 } } };
 
     expect(getSafeSwapPosition(body, { x: 5, y: 5 }, 500, 300)).toEqual({ x: 50, y: 40 });
@@ -3903,8 +3915,8 @@ describe('Flipper Tool', () => {
     const angleSource = scriptContent.match(/function getFlipperAngles\([\s\S]*?\n\}/)?.[0];
     expect(nextSource).toBeTruthy();
     expect(angleSource).toBeTruthy();
-    const getNextFlipperSide = new Function(`${nextSource}; return getNextFlipperSide;`)();
-    const getFlipperAngles = new Function(`${angleSource}; return getFlipperAngles;`)();
+    const getNextFlipperSide = new Function(`${WORLD_HELPER_STUB}${nextSource}; return getNextFlipperSide;`)();
+    const getFlipperAngles = new Function(`${WORLD_HELPER_STUB}${angleSource}; return getFlipperAngles;`)();
 
     expect(getNextFlipperSide('left')).toBe('right');
     expect(getNextFlipperSide('right')).toBe('left');
@@ -3956,7 +3968,7 @@ describe('Motor Tool', () => {
   it('should cycle a motor clockwise, counter-clockwise, then off', () => {
     const source = scriptContent.match(/function getNextMotorDirection\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getNextMotorDirection = new Function(`${source}; return getNextMotorDirection;`)();
+    const getNextMotorDirection = new Function(`${WORLD_HELPER_STUB}${source}; return getNextMotorDirection;`)();
 
     expect(getNextMotorDirection(0)).toBe(1);
     expect(getNextMotorDirection(1)).toBe(-1);
@@ -4002,7 +4014,7 @@ describe('Clone Tool', () => {
   it('should choose a bounded duplicate position on either side of the canvas', () => {
     const source = scriptContent.match(/function getClonePosition\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getClonePosition = new Function(`${source}; return getClonePosition;`)();
+    const getClonePosition = new Function(`let worldBounds={x:0,y:0,width:10000,height:10000}; function clampWorldAxes(x,y,pl,pr,pt,pb,bounds=worldBounds){const minX=bounds.x,minY=bounds.y,maxX=bounds.x+bounds.width,maxY=bounds.y+bounds.height;return{x:Math.max(minX+pl,Math.min(maxX-pr,x)),y:Math.max(minY+pt,Math.min(maxY-pb,y))};} function worldCenterX(){return worldBounds.x+worldBounds.width*0.5;} ${source}; return getClonePosition;`)();
     const leftBody = { position: { x: 80, y: 100 }, bounds: { min: { x: 60, y: 80 }, max: { x: 100, y: 120 } } };
     const rightBody = { position: { x: 470, y: 285 }, bounds: { min: { x: 450, y: 265 }, max: { x: 490, y: 305 } } };
 
@@ -4053,7 +4065,7 @@ describe('Resize Tool', () => {
   it('should keep resize steps within safe limits in both modes', () => {
     const source = scriptContent.match(/function getResizeStep\([\s\S]*?\n\}/)?.[0];
     expect(source).toBeTruthy();
-    const getResizeStep = new Function(`${source}; return getResizeStep;`)();
+    const getResizeStep = new Function(`${WORLD_HELPER_STUB}${source}; return getResizeStep;`)();
 
     expect(getResizeStep(1, 'grow').nextScale).toBeCloseTo(1.35);
     expect(getResizeStep(1, 'shrink').nextScale).toBeCloseTo(1 / 1.35);

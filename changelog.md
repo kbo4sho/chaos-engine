@@ -1,3 +1,9 @@
+## 2026-11-08 — Logical-world cleanup: geometry infer, complete bounds, origin clamps
+**Why:** Fresh review blocked letterbox creation and zero-origin clamps. Firstmate authorized five reversible newly-introduced-only cleanups while preserving all legacy save formats.
+**Implementation:** Reject letterbox creation via `isWorldPoint` (sling outside aim kept). Origin-aware placement clamps. Geometry-only `inferWorldBounds`. Require complete worldBounds when present (no `{x:0,y:0,...}` merge). Remove redundant heatmap-row fallback and nested portal `!paused`. Vitest writable cache only when `node_modules` is a symlink.
+**Verified:** 946/946 tests; build; ownership helpers; doctor; journeys ui-layout, example-scenes, example-scenes-mobile, save-load, deflect, trim, logical-world. Verify taps aim into authored world (letterbox-safe). Evidence: agent-data responsive-ship-20261108 (five-cleanups-evidence.md, journeys-final).
+**Status:** feature branch tip for independent review; no main publish/deploy.
+
 ## 2026-11-08 — Halo portal path alignment + canonical usable-canvas world
 **Why:** Captain authorized a minimal Halo correction: place paired portals on one existing star orbit. Re-measure showed the approved 1280×800 desktop usable canvas is 1280×531 (wrap clientHeight), not the older 549 backing artifact.
 **Implementation:** WORLD_HEIGHT=531. Halo only changes portal coordinates to the left/right points of the first ring star’s radius-150 orbit; all other Halo geometry unchanged. Entry verified by real teleport across phone/iPad/desktop.

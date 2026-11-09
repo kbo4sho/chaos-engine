@@ -2,3 +2,6 @@ node_modules/
 .playwright-cli/
 output/playwright/
 artifacts/
+
+# Writable vitest cache for worktrees with symlinked node_modules
+.vitest-local-cache/

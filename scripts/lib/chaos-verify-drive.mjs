@@ -60,20 +60,33 @@ async function shot(page, name) {
   return file;
 }
 
-async function clickCanvas(page) {
-  const box = await page.$eval('#game', canvas => {
+async function canvasWorldPoint(page, fx = 0.42, fy = 0.42) {
+  // Aim inside the authored logical world. Fixed canvas fractions land in letterbox
+  // margins on tall phone viewports and are rejected by isWorldPoint.
+  return page.$eval('#game', (canvas, fx, fy) => {
     const rect = canvas.getBoundingClientRect();
-    return { x: rect.x + rect.width * 0.42, y: rect.y + rect.height * 0.32, width: rect.width, height: rect.height };
-  });
+    if (typeof worldToScreen === 'function' && typeof worldBounds !== 'undefined') {
+      const world = {
+        x: worldBounds.x + worldBounds.width * fx,
+        y: worldBounds.y + worldBounds.height * fy
+      };
+      const screen = worldToScreen(world);
+      const sx = rect.left + screen.x * (rect.width / Math.max(1, canvas.width));
+      const sy = rect.top + screen.y * (rect.height / Math.max(1, canvas.height));
+      return { x: sx, y: sy, width: rect.width, height: rect.height, world };
+    }
+    return { x: rect.x + rect.width * fx, y: rect.y + rect.height * 0.32, width: rect.width, height: rect.height };
+  }, fx, fy);
+}
+
+async function clickCanvas(page) {
+  const box = await canvasWorldPoint(page);
   await page.mouse.click(box.x, box.y);
   return box;
 }
 
 async function tapCanvas(page) {
-  const box = await page.$eval('#game', canvas => {
-    const rect = canvas.getBoundingClientRect();
-    return { x: rect.x + rect.width * 0.42, y: rect.y + rect.height * 0.32, width: rect.width, height: rect.height };
-  });
+  const box = await canvasWorldPoint(page);
   await page.touchscreen.tap(box.x, box.y);
   return box;
 }

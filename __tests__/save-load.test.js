@@ -2446,7 +2446,7 @@ describe('Authored logical world and uniform camera', () => {
     expect(writes).not.toHaveBeenCalled(); expect(next.window.localStorage.getItem(key)).toBe(raw);
     expect(next.run('captureGameState().bodies[0].position')).toEqual({x:1800,y:700});
     expect(next.run('worldBounds.x')).toBeLessThanOrEqual(-144);
-    expect(next.run('worldBounds.width+worldBounds.x')).toBeGreaterThan(1824);
+    expect(next.run('worldBounds.width+worldBounds.x')).toBeGreaterThanOrEqual(1824);
     next.click('btn-save'); next.click('save-accept'); expect(writes).toHaveBeenCalled();
     expect(next.run(`readGameSave(localStorage.getItem('${key}')).worldBounds.width`)).toBeGreaterThan(1280);
   });
@@ -2488,6 +2488,45 @@ describe('Authored logical world and uniform camera', () => {
       expect(after.cd).toBe(true);
       expect(Math.hypot(after.x-left.x, after.y-left.y)).toBeLessThan(40);
     }
+  });
+
+
+  it('rejects letterbox creation but still allows outside sling aiming',()=>{
+    const api=gameHarness();
+    api.run(`currentTool='portal';
+             const event={cancelable:true,preventDefault(){},clientX:-50,clientY:-50};
+             // Bypass DOM mapping by feeding an outside world point through a stubbed converter.
+             const real=getPointerPos; getPointerPos=()=>({x:worldMaxX()+40,y:worldMaxY()+40});
+             onDown(event); getPointerPos=real;`);
+    expect(api.run('portals.length')).toBe(0);
+    expect(api.run('pointerDown')).toBe(false);
+    api.run(`slingStart={x:640,y:240}; slingCurrent={x:worldMinX()-90,y:worldMinY()-40};`);
+    expect(api.run('slingCurrent.x < worldMinX() && slingCurrent.y < worldMinY()')).toBe(true);
+  });
+
+  it('keeps negative-origin migrated bodies inside actual walls via origin-aware clamps',()=>{
+    const api=gameHarness();
+    const safe=api.run(`(()=>{worldBounds={x:-200,y:-50,width:1280,height:531}; updateCamera(); rebuildWalls(); initCollisionHeatmap();
+      const body=spawnObject(-150,10,0,0); return getCanvasSafeBodyPosition(body);})()`);
+    expect(safe.x).toBeGreaterThanOrEqual(-200);
+    expect(safe.x).toBeLessThanOrEqual(1080);
+    expect(safe.y).toBeGreaterThanOrEqual(-50);
+    expect(safe.y).toBeLessThanOrEqual(481);
+    const mirror=api.run(`(()=>{worldBounds={x:-200,y:-50,width:1280,height:531}; updateCamera();
+      const body=spawnObject(-150,10,0,0);
+      return getMirroredTransform(body.position,{x:1,y:0},0,0,body.bounds,worldBounds.width).position;})()`);
+    expect(mirror.x).toBeGreaterThanOrEqual(-200);
+    expect(mirror.x).toBeLessThanOrEqual(1080);
+  });
+
+  it('requires complete worldBounds when present and keeps legacy absent saves working',()=>{
+    const api=gameHarness();
+    const legacy=api.run(`(()=>{spawnObject(100,100,0,0); paused=true; const g=captureGameState(); delete g.worldBounds;
+      const graph=ChaosSaveCodec.encode(g); return JSON.stringify({version:1,savedAt:new Date().toISOString(),graph,checksum:ChaosSaveCodec.checksum(graph)});})()`);
+    expect(()=>api.run(`restoreGameState(readGameSave(${JSON.stringify(legacy)}))`)).not.toThrow();
+    const partial=api.run(`(()=>{spawnObject(100,100,0,0); paused=true; const g=captureGameState(); g.worldBounds={width:1280,height:531};
+      const graph=ChaosSaveCodec.encode(g); return JSON.stringify({version:1,savedAt:new Date().toISOString(),graph,checksum:ChaosSaveCodec.checksum(graph)});})()`);
+    expect(()=>api.run(`readGameSave(${JSON.stringify(partial)})`)).toThrow();
   });
 
   it('finishes CLEAR while paused so the button cannot hang',()=>{
