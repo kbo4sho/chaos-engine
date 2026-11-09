@@ -1391,14 +1391,17 @@ function isWorldPoint(pos, pad = 0) {
     pos.y >= worldMinY() + pad && pos.y <= worldMaxY() - pad;
 }
 function clampWorldAxes(x, y, padLeft, padRight, padTop, padBottom, bounds = worldBounds) {
-  const minX = bounds.x, minY = bounds.y;
-  const maxX = bounds.x + bounds.width, maxY = bounds.y + bounds.height;
+  const minX = bounds.x + padLeft, maxX = bounds.x + bounds.width - padRight;
+  const minY = bounds.y + padTop, maxY = bounds.y + bounds.height - padBottom;
+  // Non-fitting fixed geometry must not invert Math.max/min into an outside point.
+  if (!(minX <= maxX && minY <= maxY)) return null;
   return {
-    x: Math.max(minX + padLeft, Math.min(maxX - padRight, x)),
-    y: Math.max(minY + padTop, Math.min(maxY - padBottom, y))
+    x: Math.max(minX, Math.min(maxX, x)),
+    y: Math.max(minY, Math.min(maxY, y))
   };
 }
 function clampWorldPoint(pos, padX = 0, padY = 0, padBottom = padY) {
+  if (!pos) return null;
   return clampWorldAxes(pos.x, pos.y, padX, padX, padY, padBottom);
 }
 // Infer legacy envelopes from true world-space geometry only. Never treat
@@ -1425,10 +1428,20 @@ function inferWorldBounds(game) {
     if (!center || !Number.isFinite(center.x) || !Number.isFinite(center.y) || !Number.isFinite(radius)) return;
     include(center.x, center.y, Math.abs(radius) + pad);
   };
+  const includePoint = (point, pad = 8) => {
+    if (!point) return;
+    include(point.x, point.y, pad);
+  };
+  const includeSegment = (a, b, pad = 8) => {
+    includePoint(a, pad);
+    includePoint(b, pad);
+  };
   (game.bodies || []).forEach(body => {
     includeBounds(body.bounds);
     include(body.position?.x, body.position?.y, 24);
     (body.vertices || []).forEach(vertex => include(vertex.x, vertex.y, 8));
+    // Cam travel envelope around the fixed axle (body may sit offset while rotating).
+    if (body.camAnchor) includeCircle(body.camAnchor, (typeof CAM_RADIUS === 'number' ? CAM_RADIUS : 28) + (typeof CAM_OFFSET === 'number' ? CAM_OFFSET : 18), 8);
   });
   (game.constraints || []).forEach(constraint => {
     try {
@@ -1441,14 +1454,45 @@ function inferWorldBounds(game) {
   });
   const state = game.state || {};
   (state.portals || []).forEach(portal => includeCircle(portal, portal.radius || 30, 8));
-  const orbits = state.orbitingBodies;
-  if (orbits instanceof Map) orbits.forEach(orbit => includeCircle(orbit?.center, orbit?.radius || 0, 8));
-  else if (Array.isArray(orbits)) orbits.forEach(entry => {
-    const orbit = Array.isArray(entry) ? entry[1] : entry;
-    includeCircle(orbit?.center, orbit?.radius || 0, 8);
-  });
+  // Supported saves always restore orbitingBodies as a Map (codec + readGameSave).
+  if (state.orbitingBodies instanceof Map) {
+    state.orbitingBodies.forEach(orbit => includeCircle(orbit?.center, orbit?.radius || 0, 8));
+  }
   (state.bumpers || []).forEach(bumper => includeBounds(bumper?.body?.bounds || bumper?.bounds, 8));
   (state.magnets || []).forEach(magnet => includeBounds(magnet?.bounds || magnet?.body?.bounds, 8));
+  // Route / machine travel envelopes — walls must not clip authored paths.
+  (state.rails || []).forEach(entry => includeSegment(entry?.start, entry?.end, 12));
+  (state.ziplines || []).forEach(entry => includeSegment(entry?.start, entry?.end, 12));
+  (state.tripwires || []).forEach(entry => includeSegment(entry?.start, entry?.end, 12));
+  (state.elevators || []).forEach(entry => {
+    include(entry?.body?.position?.x, entry?.upperY, 16);
+    include(entry?.body?.position?.x, entry?.lowerY, 16);
+  });
+  (state.pistons || []).forEach(entry => {
+    include(entry?.retractedX, entry?.y, 16);
+    include(entry?.extendedX, entry?.y, 16);
+  });
+  (state.presses || []).forEach(entry => {
+    include(entry?.x, entry?.bedY, 16);
+    include(entry?.x, entry?.openY, 16);
+    include(entry?.x, entry?.closedY, 16);
+  });
+  (state.catapults || []).forEach(entry => includePoint(entry?.pivot, 24));
+  (state.cannons || []).forEach(body => includeBounds(body?.bounds, 12));
+  (state.ramps || []).forEach(body => includeBounds(body?.bounds, 12));
+  (state.pinwheels || []).forEach(body => includeBounds(body?.bounds, 12));
+  (state.baskets || []).forEach(body => includeBounds(body?.bounds, 12));
+  (state.saws || []).forEach(body => includeBounds(body?.bounds, 12));
+  (state.funnels || []).forEach(entry => includeBounds(entry?.body?.bounds || entry?.bounds, 12));
+  (state.hatches || []).forEach(entry => {
+    include(entry?.pivotX, entry?.pivotY, 24);
+    includeBounds(entry?.body?.bounds, 12);
+  });
+  (state.webTraps || []).forEach(entry => includeBounds(entry?.body?.bounds || entry?.bounds, 12));
+  (state.sieves || []).forEach(entry => includeBounds(entry?.body?.bounds || entry?.bounds, 12));
+  (state.recyclers || []).forEach(entry => includeBounds(entry?.body?.bounds || entry?.bounds, 12));
+  (state.winches || []).forEach(entry => includePoint(entry?.anchor || entry?.point, 16));
+  (state.cams || []).forEach(body => includeCircle(body?.camAnchor, (typeof CAM_RADIUS === 'number' ? CAM_RADIUS : 28) + (typeof CAM_OFFSET === 'number' ? CAM_OFFSET : 18), 8));
   if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
     return { x:0, y:0, width:WORLD_WIDTH, height:WORLD_HEIGHT };
   }
@@ -3714,8 +3758,8 @@ function placePortal(x, y) {
 
 // ── RANDOM EXPLOSION (CHAOS BUTTON) ──
 function randomExplosion() {
-  const x = 100 + Math.random() * (worldBounds.width - 200);
-  const y = 100 + Math.random() * (worldBounds.height - 200);
+  const x = worldMinX() + 100 + Math.random() * (worldBounds.width - 200);
+  const y = worldMinY() + 100 + Math.random() * (worldBounds.height - 200);
   const radius = 200;
   const force = 0.1;
 
@@ -3805,7 +3849,7 @@ document.getElementById('btn-antigrav').addEventListener('click', () => {
   for (let i = 0; i < 30; i++) {
     particles.push({
       x: worldMinX() + Math.random() * worldBounds.width,
-      y: worldBounds.height,
+      y: worldMaxY(),
       vx: (Math.random()-0.5)*2,
       vy: -(3 + Math.random()*5),
       life: 1 + Math.random()*1,
@@ -3929,7 +3973,7 @@ document.getElementById('btn-tornado').addEventListener('click', () => {
   tornadoActive = true;
   tornadoTimer = 360; // 6 seconds
   tornadoX = Math.random() > 0.5 ? worldMinX() - 30 : worldMaxX() + 30;
-  tornadoDir = tornadoX < 0 ? 1 : -1;
+  tornadoDir = tornadoX < worldCenterX() ? 1 : -1;
   shakeIntensity = 10;
   playSound(150, 0.8, 'sawtooth', 0.1);
   playSound(80, 1.0, 'sine', 0.06);
@@ -5100,16 +5144,15 @@ function getClonePosition(source, canvasWidth, canvasHeight) {
   const direction = source.position.x > centerX ? -1 : 1;
   const offset = Math.max(38, Math.min(84, width * 1.15));
   const bounds = { x: originX, y: originY, width: canvasWidth, height: canvasHeight };
-  return {
-    ...clampWorldAxes(
+  const clamped = clampWorldAxes(
       source.position.x + direction * offset,
       source.position.y - Math.min(24, height * 0.35),
       width / 2 + 8, width / 2 + 8,
       height / 2 + 8, height / 2 + 28,
       bounds
-    ),
-    direction
-  };
+    );
+  if (!clamped) return null;
+  return { ...clamped, direction };
 }
 
 function createBodyClone(source, position) {
@@ -8806,8 +8849,10 @@ function getMirroredTransform(position, velocity, angle, angularVelocity, bounds
   const originX = worldBounds?.x || 0;
   const centerX = originX + canvasWidth * 0.5;
   const area = { x: originX, y: worldBounds?.y || 0, width: canvasWidth, height: worldBounds?.height || canvasWidth };
+  const mirrored = clampWorldAxes(2 * centerX - position.x, position.y, halfWidth + 10, halfWidth + 10, 0, 0, area);
+  if (!mirrored) return null;
   return {
-    position: clampWorldAxes(2 * centerX - position.x, position.y, halfWidth + 10, halfWidth + 10, 0, 0, area),
+    position: mirrored,
     velocity:{ x:-velocity.x, y:velocity.y },
     angle:-angle,
     angularVelocity:-angularVelocity
@@ -8859,6 +8904,10 @@ function mirrorBodyAt(pos) {
     target.bounds,
     worldBounds.width
   );
+  if (!transform) {
+    showMirrorFeedback('MIRROR: WORLD TOO SMALL', '#aaaaaa');
+    return false;
+  }
   Matter.Sleeping.set(target, false);
   Body.setPosition(target, transform.position);
   Body.setVelocity(target, transform.velocity);
@@ -8981,8 +9030,14 @@ function placeOrReleaseWebAt(pos) {
   const existing = findWebTrapAt(pos);
   if (existing) return { released:releaseWebTrap(existing), body:existing.body };
 
-  const x = Math.max(worldBounds.x + WEB_WIDTH / 2 + 10, Math.min(worldBounds.x + worldBounds.width - WEB_WIDTH / 2 - 10, pos.x));
-  const y = Math.max(worldBounds.y + WEB_HEIGHT / 2 + 10, Math.min(worldBounds.y + worldBounds.height - WEB_HEIGHT / 2 - 30, pos.y));
+  const placed = clampWorldAxes(pos.x, pos.y,
+    WEB_WIDTH / 2 + 10, WEB_WIDTH / 2 + 10,
+    WEB_HEIGHT / 2 + 10, WEB_HEIGHT / 2 + 30);
+  if (!placed) {
+    showWebFeedback?.('WEB: WORLD TOO SMALL', '#aaaaaa');
+    return false;
+  }
+  const { x, y } = placed;
   const body = Bodies.rectangle(x, y, WEB_WIDTH, WEB_HEIGHT, {
     isStatic:true,
     friction:0.9,
@@ -9051,10 +9106,10 @@ function getRampVertices(direction = 1) {
 }
 
 function getRampPlacement(pos, canvasWidth, canvasHeight) {
-  return {
-    x:Math.max(worldBounds.x + (RAMP_WIDTH / 2 + 10), Math.min(worldBounds.x + canvasWidth - RAMP_WIDTH / 2 - 10, pos.x)),
-    y:Math.max(worldBounds.y + (RAMP_HEIGHT / 2 + 10), Math.min(worldBounds.y + canvasHeight - RAMP_HEIGHT / 2 - 30, pos.y))
-  };
+  return clampWorldAxes(pos.x, pos.y,
+    RAMP_WIDTH / 2 + 10, RAMP_WIDTH / 2 + 10,
+    RAMP_HEIGHT / 2 + 10, RAMP_HEIGHT / 2 + 30,
+    { x:worldBounds.x, y:worldBounds.y, width:canvasWidth, height:canvasHeight });
 }
 
 function createRampBody(position, direction = 1) {
@@ -9133,6 +9188,7 @@ function placeOrFlipRampAt(pos) {
   }
 
   const placement = getRampPlacement(pos, worldBounds.width, worldBounds.height);
+  if (!placement) return false;
   const body = createRampBody(placement, 1);
   Composite.add(world, body);
   ramps.push(body);
@@ -9150,10 +9206,9 @@ const PINWHEEL_KICK_SPEED = 0.42;
 
 function getPinwheelPlacement(pos, canvasWidth, canvasHeight) {
   const radius = PINWHEEL_ARM_LENGTH / 2;
-  return {
-    x:Math.max(worldBounds.x + (radius + 10), Math.min(worldBounds.x + canvasWidth - radius - 10, pos.x)),
-    y:Math.max(worldBounds.y + (radius + 10), Math.min(worldBounds.y + canvasHeight - radius - 30, pos.y))
-  };
+  return clampWorldAxes(pos.x, pos.y,
+    radius + 10, radius + 10, radius + 10, radius + 30,
+    { x:worldBounds.x, y:worldBounds.y, width:canvasWidth, height:canvasHeight });
 }
 
 function getPinwheelKick(direction = 1) {
@@ -9268,6 +9323,7 @@ function placeOrKickPinwheelAt(pos) {
   }
 
   const placement = getPinwheelPlacement(pos, worldBounds.width, worldBounds.height);
+  if (!placement) return false;
   const assembly = createPinwheelAssembly(placement);
   Composite.add(world, [assembly.body, assembly.constraint]);
   pinwheels.push(assembly);
@@ -9285,10 +9341,10 @@ const BASKET_WALL = 12;
 const BASKET_TIP_SPEED = 0.34;
 
 function getBasketPlacement(pos, canvasWidth, canvasHeight) {
-  return {
-    x:Math.max(worldBounds.x + (BASKET_WIDTH / 2 + 10), Math.min(worldBounds.x + canvasWidth - BASKET_WIDTH / 2 - 10, pos.x)),
-    y:Math.max(worldBounds.y + (BASKET_HEIGHT / 2 + 10), Math.min(worldBounds.y + canvasHeight - BASKET_HEIGHT / 2 - 30, pos.y))
-  };
+  return clampWorldAxes(pos.x, pos.y,
+    BASKET_WIDTH / 2 + 10, BASKET_WIDTH / 2 + 10,
+    BASKET_HEIGHT / 2 + 10, BASKET_HEIGHT / 2 + 30,
+    { x:worldBounds.x, y:worldBounds.y, width:canvasWidth, height:canvasHeight });
 }
 
 function getBasketTip(direction = 1, velocity = { x:0, y:0 }) {
@@ -9401,6 +9457,7 @@ function placeOrTipBasketAt(pos) {
   }
 
   const placement = getBasketPlacement(pos, worldBounds.width, worldBounds.height);
+  if (!placement) return false;
   const body = createBasketBody(placement);
   Composite.add(world, body);
   baskets.push(body);
@@ -9418,9 +9475,12 @@ const CANNON_BALL_RADIUS = 11;
 const CANNON_SHOT_SPEED = 14;
 
 function getCannonPlacement(pos, canvasWidth, canvasHeight) {
-  const x = Math.max(worldBounds.x + (CANNON_WIDTH / 2 + 14), Math.min(worldBounds.x + canvasWidth - CANNON_WIDTH / 2 - 14, pos.x));
-  const y = Math.max(worldBounds.y + (CANNON_HEIGHT / 2 + 28), Math.min(worldBounds.y + canvasHeight - CANNON_HEIGHT / 2 - 24, pos.y));
-  return { x, y, direction:x <= worldBounds.x + canvasWidth / 2 ? 1 : -1 };
+  const point = clampWorldAxes(pos.x, pos.y,
+    CANNON_WIDTH / 2 + 14, CANNON_WIDTH / 2 + 14,
+    CANNON_HEIGHT / 2 + 28, CANNON_HEIGHT / 2 + 24,
+    { x:worldBounds.x, y:worldBounds.y, width:canvasWidth, height:canvasHeight });
+  if (!point) return null;
+  return { ...point, direction:point.x <= worldBounds.x + canvasWidth / 2 ? 1 : -1 };
 }
 
 function getCannonShot(position, direction = 1) {
@@ -9535,6 +9595,7 @@ function placeOrFireCannonAt(pos) {
   if (existing) return fireCannon(existing);
 
   const placement = getCannonPlacement(pos, worldBounds.width, worldBounds.height);
+  if (!placement) return false;
   const body = createCannonBody(placement);
   Composite.add(world, body);
   cannons.push(body);
@@ -9562,17 +9623,21 @@ function getDominoRunDistance(path) {
 function getDominoRunLayout(path, canvasWidth, canvasHeight, spacing = DOMINO_RUN_SPACING) {
   if (!path.length) return [];
   const margin = DOMINO_RUN_HEIGHT / 2 + 5;
-  const clampPoint = point => ({
-    x:Math.max(worldBounds.x + (margin), Math.min(worldBounds.x + canvasWidth - margin, point.x)),
-    y:Math.max(worldBounds.y + (margin), Math.min(worldBounds.y + canvasHeight - margin, point.y)),
-    angle:point.angle || 0
-  });
+  const clampPoint = point => {
+    const c = clampWorldAxes(point.x, point.y, margin, margin, margin, margin,
+      { x:worldBounds.x, y:worldBounds.y, width:canvasWidth, height:canvasHeight });
+    if (!c) return null;
+    return { x:c.x, y:c.y, angle:point.angle || 0 };
+  };
   const total = getDominoRunDistance(path);
 
   if (total < DOMINO_RUN_MIN_DRAG) {
     const halfSpan = spacing * 2;
-    const centerX = Math.max(worldBounds.x + margin + halfSpan, Math.min(worldBounds.x + canvasWidth - margin - halfSpan, path[0].x));
-    const centerY = Math.max(worldBounds.y + margin, Math.min(worldBounds.y + canvasHeight - margin, path[0].y));
+    const center = clampWorldAxes(path[0].x, path[0].y,
+      margin + halfSpan, margin + halfSpan, margin, margin,
+      { x:worldBounds.x, y:worldBounds.y, width:canvasWidth, height:canvasHeight });
+    if (!center) return [];
+    const centerX = center.x, centerY = center.y;
     return [-2, -1, 0, 1, 2].map(offset => ({
       x:centerX + offset * spacing,
       y:centerY,
@@ -9596,11 +9661,12 @@ function getDominoRunLayout(path, canvasWidth, canvasHeight, spacing = DOMINO_RU
     const segment = segments.find(item => distance <= item.to) || segments[segments.length - 1];
     if (!segment) break;
     const t = Math.max(0, Math.min(1, (distance - segment.from) / segment.length));
-    layout.push(clampPoint({
+    const next = clampPoint({
       x:segment.start.x + (segment.end.x - segment.start.x) * t,
       y:segment.start.y + (segment.end.y - segment.start.y) * t,
       angle:Math.atan2(segment.end.y - segment.start.y, segment.end.x - segment.start.x)
-    }));
+    });
+    if (next) layout.push(next);
   }
   return layout;
 }
@@ -9693,13 +9759,15 @@ const HATCH_SPEED = 0.12;
 
 function getHatchPlacement(pos, canvasWidth, canvasHeight) {
   const halfWidth = HATCH_WIDTH / 2;
-  const centerX = Math.max(worldBounds.x + halfWidth + 16, Math.min(worldBounds.x + canvasWidth - halfWidth - 16, pos.x));
-  const direction = centerX <= worldBounds.x + canvasWidth / 2 ? 1 : -1;
-  const pivotY = Math.max(worldBounds.y + 24, Math.min(worldBounds.y + canvasHeight - halfWidth - 24, pos.y));
+  const point = clampWorldAxes(pos.x, pos.y,
+    halfWidth + 16, halfWidth + 16, 24, halfWidth + 24,
+    { x:worldBounds.x, y:worldBounds.y, width:canvasWidth, height:canvasHeight });
+  if (!point) return null;
+  const direction = point.x <= worldBounds.x + canvasWidth / 2 ? 1 : -1;
   return {
-    centerX,
-    pivotX:centerX - direction * halfWidth,
-    pivotY,
+    centerX:point.x,
+    pivotX:point.x - direction * halfWidth,
+    pivotY:point.y,
     direction,
     closedAngle:0,
     openAngle:direction * Math.PI / 2
@@ -9806,6 +9874,7 @@ function placeOrToggleHatchAt(pos) {
   if (existing) return toggleHatch(existing);
 
   const placement = getHatchPlacement(pos, worldBounds.width, worldBounds.height);
+  if (!placement) return false;
   const body = createHatchBody(placement);
   const entry = {
     body,
@@ -9856,12 +9925,14 @@ function getPistonPlacement(pos, canvasWidth, canvasHeight) {
   const maxX = direction === 1
     ? worldBounds.x + canvasWidth - PISTON_TRAVEL - halfWidth - 18
     : worldBounds.x + canvasWidth - halfWidth - 18;
+  const yPoint = clampWorldAxes(pos.x, pos.y, 0, 0, halfHeight + 20, halfHeight + 28,
+    { x:worldBounds.x, y:worldBounds.y, width:canvasWidth, height:canvasHeight });
+  if (!yPoint || minX > maxX) return null;
   const retractedX = Math.max(minX, Math.min(maxX, pos.x));
-  const y = Math.max(worldBounds.y + (halfHeight + 20), Math.min(worldBounds.y + canvasHeight - halfHeight - 28, pos.y));
   return {
     retractedX,
     extendedX:retractedX + direction * PISTON_TRAVEL,
-    y,
+    y:yPoint.y,
     direction
   };
 }
@@ -9963,6 +10034,7 @@ function placeOrTogglePistonAt(pos) {
   if (existing) return togglePiston(existing);
 
   const placement = getPistonPlacement(pos, worldBounds.width, worldBounds.height);
+  if (!placement) return false;
   const body = createPistonBody(placement);
   const entry = {
     body,
@@ -10127,10 +10199,9 @@ const SAW_SLICE_SCALE = Math.SQRT1_2;
 const MAX_SAW_CUT_DEPTH = 2;
 
 function getSawPlacement(pos, canvasWidth, canvasHeight) {
-  return {
-    x:Math.max(worldBounds.x + (SAW_RADIUS + 12), Math.min(worldBounds.x + canvasWidth - SAW_RADIUS - 12, pos.x)),
-    y:Math.max(worldBounds.y + (SAW_RADIUS + 12), Math.min(worldBounds.y + canvasHeight - SAW_RADIUS - 32, pos.y))
-  };
+  return clampWorldAxes(pos.x, pos.y,
+    SAW_RADIUS + 12, SAW_RADIUS + 12, SAW_RADIUS + 12, SAW_RADIUS + 32,
+    { x:worldBounds.x, y:worldBounds.y, width:canvasWidth, height:canvasHeight });
 }
 
 function getSawSpin(direction = 1) {
@@ -10232,6 +10303,7 @@ function placeOrReverseSawAt(pos) {
   }
 
   const placement = getSawPlacement(pos, worldBounds.width, worldBounds.height);
+  if (!placement) return false;
   const assembly = createSawAssembly(placement);
   Composite.add(world, [assembly.body, assembly.constraint]);
   saws.push(assembly);
@@ -10347,10 +10419,10 @@ const FUNNEL_BOUND_RADIUS = 52;
 const FUNNEL_DIRECTIONS = ['DOWN', 'LEFT', 'UP', 'RIGHT'];
 
 function getFunnelPlacement(pos, canvasWidth, canvasHeight) {
-  return {
-    x:Math.max(worldBounds.x + (FUNNEL_BOUND_RADIUS + 12), Math.min(worldBounds.x + canvasWidth - FUNNEL_BOUND_RADIUS - 12, pos.x)),
-    y:Math.max(worldBounds.y + (FUNNEL_BOUND_RADIUS + 12), Math.min(worldBounds.y + canvasHeight - FUNNEL_BOUND_RADIUS - 32, pos.y))
-  };
+  return clampWorldAxes(pos.x, pos.y,
+    FUNNEL_BOUND_RADIUS + 12, FUNNEL_BOUND_RADIUS + 12,
+    FUNNEL_BOUND_RADIUS + 12, FUNNEL_BOUND_RADIUS + 32,
+    { x:worldBounds.x, y:worldBounds.y, width:canvasWidth, height:canvasHeight });
 }
 
 function getFunnelRailLayout(center, orientation = 0) {
@@ -10474,6 +10546,7 @@ function placeOrRotateFunnelAt(pos) {
   }
 
   const placement = getFunnelPlacement(pos, worldBounds.width, worldBounds.height);
+  if (!placement) return false;
   const assembly = createFunnelAssembly(placement, 0);
   Composite.add(world, assembly.bodies);
   funnels.push(assembly);
@@ -10495,13 +10568,12 @@ function getCatapultPlacement(pos, canvasWidth, canvasHeight) {
   const direction = pos.x <= worldBounds.x + canvasWidth / 2 ? 1 : -1;
   const minX = direction === 1 ? worldBounds.x + 28 : worldBounds.x + CATAPULT_ARM_LENGTH + 28;
   const maxX = direction === 1 ? worldBounds.x + canvasWidth - CATAPULT_ARM_LENGTH - 28 : worldBounds.x + canvasWidth - 28;
-  return {
-    pivot:{
-      x:Math.max(minX, Math.min(maxX, pos.x)),
-      y:Math.max(worldBounds.y + (54), Math.min(worldBounds.y + canvasHeight - 64, pos.y))
-    },
-    direction
-  };
+  if (minX > maxX) return null;
+  const pivot = clampWorldAxes(pos.x, pos.y, 0, 0, 54, 64,
+    { x:worldBounds.x, y:worldBounds.y, width:canvasWidth, height:canvasHeight });
+  if (!pivot) return null;
+  pivot.x = Math.max(minX, Math.min(maxX, pos.x));
+  return { pivot, direction };
 }
 
 function getCatapultPose(pivot, direction = 1, progress = 0) {
@@ -10640,6 +10712,7 @@ function placeOrFireCatapultAt(pos) {
   if (existing) return fireCatapult(existing);
 
   const placement = getCatapultPlacement(pos, worldBounds.width, worldBounds.height);
+  if (!placement) return false;
   const entry = createCatapultAssembly(placement);
   Composite.add(world, entry.body);
   catapults.push(entry);
@@ -10674,9 +10747,14 @@ const PRESS_MAX_PASSES = 3;
 
 function getPressPlacement(pos, canvasWidth, canvasHeight) {
   const xMargin = PRESS_WIDTH / 2 + 12;
-  const bedY = Math.max(worldBounds.y + 116, Math.min(worldBounds.y + canvasHeight - 36, pos.y + 48));
+  const xPoint = clampWorldAxes(pos.x, pos.y, xMargin, xMargin, 0, 0,
+    { x:worldBounds.x, y:worldBounds.y, width:canvasWidth, height:canvasHeight });
+  const bedYRangeMin = worldBounds.y + 116;
+  const bedYRangeMax = worldBounds.y + canvasHeight - 36;
+  if (!xPoint || bedYRangeMin > bedYRangeMax) return null;
+  const bedY = Math.max(bedYRangeMin, Math.min(bedYRangeMax, pos.y + 48));
   return {
-    x:Math.max(worldBounds.x + (xMargin), Math.min(worldBounds.x + canvasWidth - xMargin, pos.x)),
+    x:xPoint.x,
     bedY,
     openY:bedY - PRESS_OPEN_OFFSET,
     closedY:bedY - PRESS_CLOSED_OFFSET
@@ -10799,7 +10877,7 @@ function flattenPressPayloads(entry) {
     body.pressCount = (body.pressCount || 0) + 1;
     Matter.Sleeping.set(body, false);
     Body.setPosition(body, {
-      x:Math.max(worldBounds.x + 24, Math.min(worldBounds.x + worldBounds.width - 24, entry.x + direction * 18)),
+      x:(clampWorldAxes(entry.x + direction * 18, entry.bedY - 32, 24, 24, 0, 0) || {x:entry.x}).x,
       y:entry.bedY - 32
     });
     Body.setVelocity(body, { x:direction * (4.2 + body.pressCount), y:-4.1 });
@@ -10829,6 +10907,7 @@ function placeOrTogglePressAt(pos) {
   if (existing) return { entry:existing, placed:false, action:togglePress(existing) };
 
   const placement = getPressPlacement(pos, worldBounds.width, worldBounds.height);
+  if (!placement) return false;
   const entry = createPressAssembly(placement);
   Composite.add(world, entry.bodies);
   presses.push(entry);
@@ -10859,10 +10938,8 @@ const ZIPLINE_MIN_SPEED = 1.6;
 const ZIPLINE_MAX_SPEED = 10;
 
 function getZiplineEndpoint(pos, canvasWidth, canvasHeight) {
-  return {
-    x:Math.max(worldBounds.x + (24), Math.min(worldBounds.x + canvasWidth - 24, pos.x)),
-    y:Math.max(worldBounds.y + (24), Math.min(worldBounds.y + canvasHeight - 42, pos.y))
-  };
+  return clampWorldAxes(pos.x, pos.y, 24, 24, 24, 42,
+    { x:worldBounds.x, y:worldBounds.y, width:canvasWidth, height:canvasHeight });
 }
 
 function getZiplineGeometry(start, end) {
@@ -10966,6 +11043,7 @@ function ziplineBodyAt(pos) {
   const body = ziplineSelection;
   const start = { x:body.position.x, y:body.position.y };
   const end = getZiplineEndpoint(pos, worldBounds.width, worldBounds.height);
+  if (!end) return false;
   const geometry = getZiplineGeometry(start, end);
   if (geometry.length < ZIPLINE_MIN_LENGTH) {
     showZiplineFeedback('ZIPLINE: DESTINATION TOO CLOSE', '#ffc857');
@@ -11354,10 +11432,8 @@ const RAIL_START_SPEED = 2.4;
 const RAIL_EDGE_BOUNCE = 0.42;
 
 function getRailEndpoint(pos, canvasWidth, canvasHeight) {
-  return {
-    x:Math.max(worldBounds.x + (24), Math.min(worldBounds.x + canvasWidth - 24, pos.x)),
-    y:Math.max(worldBounds.y + (24), Math.min(worldBounds.y + canvasHeight - 42, pos.y))
-  };
+  return clampWorldAxes(pos.x, pos.y, 24, 24, 24, 42,
+    { x:worldBounds.x, y:worldBounds.y, width:canvasWidth, height:canvasHeight });
 }
 
 function getRailGeometry(start, end) {
@@ -11504,6 +11580,7 @@ function railBodyAt(pos) {
   const body = railSelection;
   const start = { x:body.position.x, y:body.position.y };
   const end = getRailEndpoint(pos, worldBounds.width, worldBounds.height);
+  if (!end) return false;
   const geometry = getRailGeometry(start, end);
   if (geometry.length < RAIL_MIN_LENGTH) {
     showRailFeedback(`RAIL: END ${Math.ceil(RAIL_MIN_LENGTH)}PX AWAY`, '#ffc857');
@@ -11556,10 +11633,8 @@ const WINCH_MIN_CABLE = 52;
 const WINCH_REEL_SPEED = 2.1;
 
 function getWinchAnchor(pos, canvasWidth, canvasHeight) {
-  return {
-    x:Math.max(worldBounds.x + (26), Math.min(worldBounds.x + canvasWidth - 26, pos.x)),
-    y:Math.max(worldBounds.y + (26), Math.min(worldBounds.y + canvasHeight - 44, pos.y))
-  };
+  return clampWorldAxes(pos.x, pos.y, 26, 26, 26, 44,
+    { x:worldBounds.x, y:worldBounds.y, width:canvasWidth, height:canvasHeight });
 }
 
 function getWinchNextLength(current, target, speed = WINCH_REEL_SPEED) {
@@ -11693,6 +11768,7 @@ function winchBodyAt(pos) {
 
   const body = winchSelection;
   const anchor = getWinchAnchor(pos, worldBounds.width, worldBounds.height);
+  if (!anchor) return false;
   const distance = Math.hypot(body.position.x - anchor.x, body.position.y - anchor.y);
   if (distance < WINCH_MIN_ROUTE) {
     showWinchFeedback(`WINCH: ANCHOR ${WINCH_MIN_ROUTE}PX AWAY`, '#ffc857');
@@ -11769,10 +11845,8 @@ const TRIPWIRE_TOUCH_RADIUS = 52;
 const TRIPWIRE_REARM_FRAMES = 18;
 
 function getTripwirePoint(pos, canvasWidth, canvasHeight) {
-  return {
-    x:Math.max(worldBounds.x + (20), Math.min(worldBounds.x + canvasWidth - 20, pos.x)),
-    y:Math.max(worldBounds.y + (20), Math.min(worldBounds.y + canvasHeight - 44, pos.y))
-  };
+  return clampWorldAxes(pos.x, pos.y, 20, 20, 20, 44,
+    { x:worldBounds.x, y:worldBounds.y, width:canvasWidth, height:canvasHeight });
 }
 
 function getTripwireGeometry(start, end) {
@@ -11935,6 +12009,7 @@ function placeOrReverseTripwireAt(pos) {
   }
 
   const end = getTripwirePoint(pos, worldBounds.width, worldBounds.height);
+  if (!end) return false;
   const geometry = getTripwireGeometry(tripwireStart, end);
   if (geometry.length < TRIPWIRE_MIN_LENGTH) {
     if (Math.hypot(end.x - tripwireStart.x, end.y - tripwireStart.y) < 24) {
@@ -12030,7 +12105,9 @@ function placeOrDrainSyrupAt(pos) {
     return 'drained';
   }
   const radius = Math.max(12, Math.min(SYRUP_RADIUS, (worldBounds.width - 20) / 2, (worldBounds.height - 20) / 2));
-  const { x, y } = clampWorldAxes(pos.x, pos.y, radius + 10, radius + 10, radius + 10, radius + 10);
+  const syrupAt = clampWorldAxes(pos.x, pos.y, radius + 10, radius + 10, radius + 10, radius + 10);
+  if (!syrupAt) return false;
+  const { x, y } = syrupAt;
   const body = Bodies.circle(x, y, radius, {
     isStatic:true, isSensor:true, label:'syrup-pool', collisionFilter:{mask:0},
     render:{type:'syrup-pool', color:'#ffc857', radius}
@@ -12602,12 +12679,10 @@ function showCamFeedback(message) {
   camFeedbackTimer = setTimeout(() => feedback.classList.remove('active'), 1400);
 }
 
-function getCamPlacement(pos, width, height) {
+function getCamPlacement(pos, width = worldBounds.width, height = worldBounds.height) {
   const reach = CAM_RADIUS + CAM_OFFSET;
-  return {
-    x:Math.max(worldBounds.x + (reach + 12), Math.min(worldBounds.x + width - reach - 12, pos.x)),
-    y:Math.max(worldBounds.y + (reach + 12), Math.min(worldBounds.y + height - reach - 28, pos.y))
-  };
+  return clampWorldAxes(pos.x, pos.y, reach + 12, reach + 12, reach + 12, reach + 28,
+    { x:worldBounds.x, y:worldBounds.y, width, height });
 }
 
 function getCamPosition(anchor, angle) {
@@ -12630,6 +12705,7 @@ function placeOrToggleCamAt(pos) {
     showCamFeedback(body.camRunning ? 'CAM RUNNING • TAP TO STOP' : 'CAM STOPPED • TAP TO RESUME');
   } else {
     const anchor = getCamPlacement(pos, worldBounds.width, worldBounds.height);
+  if (!anchor) return false;
     const angle = Math.PI / 2; // start on the low lobe so a load rises through the first half-cycle
     const center = getCamPosition(anchor, angle);
     body = Bodies.circle(center.x, center.y, CAM_RADIUS, {
@@ -12832,7 +12908,9 @@ function placeOrReverseOnewayAt(pos) {
     wakeOnewayPayloads(gate);
   } else {
     const width = Math.min(ONEWAY_WIDTH, Math.max(20, worldBounds.width - 32));
-    const { x, y } = clampWorldAxes(pos.x, pos.y, width / 2 + 8, width / 2 + 8, 44, 44);
+    const placedGear = clampWorldAxes(pos.x, pos.y, width / 2 + 8, width / 2 + 8, 44, 44);
+  if (!placedGear) return false;
+  const { x, y } = placedGear;
     gate = Bodies.rectangle(x, y, width, 6, {
       isStatic:true, isSensor:true, label:'oneway-gate', collisionFilter:{mask:0},
       render:{type:'oneway-gate', color:'#0abdc6', width}
@@ -12950,10 +13028,8 @@ function pulleyAt(pos) {
     haptic([6]);
     return 'selected';
   }
-  const anchor = {
-    x:Math.max(worldBounds.x + 24, Math.min(worldBounds.x + worldBounds.width - 24, pos.x)),
-    y:Math.max(worldBounds.y + 24, Math.min(worldBounds.y + worldBounds.height - 24, pos.y))
-  };
+  const anchor = clampWorldAxes(pos.x, pos.y, 24, 24, 24, 24);
+  if (!anchor) return false;
   const [bodyA, bodyB] = pulleySelection;
   const legs = [bodyA, bodyB].map(body => Math.hypot(body.position.x - anchor.x, body.position.y - anchor.y));
   if (Math.min(...legs) < 48) {
@@ -13392,10 +13468,9 @@ const SIEVE_GAP_NAMES = ['NARROW', 'MEDIUM', 'WIDE'];
 const SIEVE_HALF_WIDTH = SIEVE_TOTAL_WIDTH / 2;
 
 function getSievePlacement(pos, canvasWidth, canvasHeight) {
-  return {
-    x:Math.max(worldBounds.x + (SIEVE_HALF_WIDTH + 12), Math.min(worldBounds.x + canvasWidth - SIEVE_HALF_WIDTH - 12, pos.x)),
-    y:Math.max(worldBounds.y + (34), Math.min(worldBounds.y + canvasHeight - 42, pos.y))
-  };
+  return clampWorldAxes(pos.x, pos.y,
+    SIEVE_HALF_WIDTH + 12, SIEVE_HALF_WIDTH + 12, 34, 42,
+    { x:worldBounds.x, y:worldBounds.y, width:canvasWidth, height:canvasHeight });
 }
 
 function getSieveBarLayout(center, gapIndex = 0) {
@@ -13519,6 +13594,7 @@ function placeOrCycleSieveAt(pos) {
   }
 
   const placement = getSievePlacement(pos, worldBounds.width, worldBounds.height);
+  if (!placement) return false;
   const assembly = createSieveAssembly(placement, 0);
   const layout = getSieveBarLayout(placement, 0);
   Composite.add(world, assembly.bodies);
@@ -13539,12 +13615,14 @@ const ELEVATOR_SPEED = 2.8;
 
 function getElevatorPlacement(pos, canvasWidth, canvasHeight) {
   const xMargin = ELEVATOR_WIDTH / 2 + 12;
-  const lowerY = Math.max(
-    worldBounds.y + ELEVATOR_TRAVEL + 36,
-    Math.min(worldBounds.y + canvasHeight - 42, pos.y)
-  );
+  const xPoint = clampWorldAxes(pos.x, pos.y, xMargin, xMargin, 0, 0,
+    { x:worldBounds.x, y:worldBounds.y, width:canvasWidth, height:canvasHeight });
+  const lowerMin = worldBounds.y + ELEVATOR_TRAVEL + 36;
+  const lowerMax = worldBounds.y + canvasHeight - 42;
+  if (!xPoint || lowerMin > lowerMax) return null;
+  const lowerY = Math.max(lowerMin, Math.min(lowerMax, pos.y));
   return {
-    x:Math.max(worldBounds.x + (xMargin), Math.min(worldBounds.x + canvasWidth - xMargin, pos.x)),
+    x:xPoint.x,
     lowerY,
     upperY:lowerY - ELEVATOR_TRAVEL
   };
@@ -13638,6 +13716,7 @@ function placeOrToggleElevatorAt(pos) {
   if (existing) return toggleElevator(existing);
 
   const placement = getElevatorPlacement(pos, worldBounds.width, worldBounds.height);
+  if (!placement) return false;
   const body = createElevatorBody(placement);
   const entry = { body, upperY:placement.upperY, lowerY:placement.lowerY, targetY:placement.lowerY };
   Composite.add(world, body);
@@ -13710,10 +13789,10 @@ const RECYCLER_HEIGHT = 62;
 const RECYCLER_MAX_STORED = 9;
 
 function getRecyclerPlacement(pos, canvasWidth, canvasHeight) {
-  return {
-    x:Math.max(worldBounds.x + (RECYCLER_WIDTH / 2 + 12), Math.min(worldBounds.x + canvasWidth - RECYCLER_WIDTH / 2 - 12, pos.x)),
-    y:Math.max(worldBounds.y + (RECYCLER_HEIGHT / 2 + 12), Math.min(worldBounds.y + canvasHeight - RECYCLER_HEIGHT / 2 - 34, pos.y))
-  };
+  return clampWorldAxes(pos.x, pos.y,
+    RECYCLER_WIDTH / 2 + 12, RECYCLER_WIDTH / 2 + 12,
+    RECYCLER_HEIGHT / 2 + 12, RECYCLER_HEIGHT / 2 + 34,
+    { x:worldBounds.x, y:worldBounds.y, width:canvasWidth, height:canvasHeight });
 }
 
 function getRecyclerScrapRadius(stored) {
@@ -13854,6 +13933,7 @@ function placeOrEjectRecyclerAt(pos) {
   if (existing) return ejectRecyclerScrap(existing);
 
   const position = getRecyclerPlacement(pos, worldBounds.width, worldBounds.height);
+  if (!position) return false;
   const body = createRecyclerBody(position);
   const entry = { body, stored:0, nextDirection:1 };
   Composite.add(world, body);
@@ -14824,10 +14904,11 @@ function onMove(e) {
   // Handle grab drag (doesn't need pointerDown)
   if (grabActive && grabBody) {
     if (Composite.get(world, grabBody.id, 'body')) {
-      Body.setPosition(grabBody, clampWorldPoint({
+      const grabPos = clampWorldPoint({
         x: pos.x - grabOffsetX,
         y: pos.y - grabOffsetY
-      }, 8, 8, 28));
+      }, 8, 8, 28);
+      if (grabPos) Body.setPosition(grabBody, grabPos);
       Body.setVelocity(grabBody, { x: 0, y: 0 });
       grabHistory.push({ x: pos.x, y: pos.y, t: Date.now() });
       if (grabHistory.length > 15) grabHistory.shift();
@@ -17351,7 +17432,7 @@ function drawWindIndicator() {
   ctx.fillStyle = '#0abdc6';
   ctx.font = '24px VT323';
   ctx.textAlign = 'center';
-  ctx.fillText(`WIND ${dir}${dir}${dir}`, worldBounds.width/2, 40);
+  ctx.fillText(`WIND ${dir}${dir}${dir}`, worldCenterX(), worldMinY() + 40);
   ctx.textAlign = 'left';
 }
 
@@ -18378,7 +18459,7 @@ function drawMirrorFlash(timestamp) {
     return;
   }
   const alpha = 1 - progress;
-  const axisX = worldBounds.width / 2;
+  const axisX = worldCenterX();
   const beamY = mirrorFlash.from.y + (mirrorFlash.to.y - mirrorFlash.from.y) * progress;
   ctx.save();
   ctx.globalAlpha = alpha;
@@ -20293,7 +20374,7 @@ function loop(timestamp) {
         const angle = Math.random() * Math.PI * 2;
         const speed = 3 + Math.random() * 6;
         particles.push({
-          x: worldBounds.width/2, y: worldBounds.height/2,
+          x: worldCenterX(), y: worldCenterY(),
           vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed,
           life: 1 + Math.random(), color: ['#ffdd00','#ff3333','#00ff41','#ffffff'][Math.floor(Math.random()*4)],
           size: 3 + Math.random()*4
@@ -20353,8 +20434,8 @@ function loop(timestamp) {
     if (ultraChaosTimer % 20 === 0) {
       const actions = [
         () => { // mini explosion
-          const ex = 50 + Math.random() * (worldBounds.width-100);
-          const ey = 50 + Math.random() * (worldBounds.height-100);
+          const ex = worldMinX() + 50 + Math.random() * (worldBounds.width-100);
+          const ey = worldMinY() + 50 + Math.random() * (worldBounds.height-100);
           explosions.push({ x:ex, y:ey, r:0, maxR:100, alpha:0.8 });
           const ab = Composite.allBodies(world);
           ab.forEach(b => {
@@ -20806,7 +20887,7 @@ function loop(timestamp) {
     ctx.fillStyle = '#ffdd00';
     ctx.font = '28px VT323';
     ctx.textAlign = 'center';
-    ctx.fillText('GRAVITY: ' + (window._gravFlipLabel || ''), worldBounds.width/2, worldBounds.height/2 - 20);
+    ctx.fillText('GRAVITY: ' + (window._gravFlipLabel || ''), worldCenterX(), worldCenterY() - 20);
     ctx.textAlign = 'left';
     ctx.globalAlpha = 1;
   }
@@ -20816,10 +20897,10 @@ function loop(timestamp) {
     ctx.fillStyle = '#cc00ff';
     ctx.font = '28px VT323';
     ctx.textAlign = 'center';
-    ctx.fillText('🫧 ZERO-G ACTIVE 🫧', worldBounds.width/2, 70);
+    ctx.fillText('🫧 ZERO-G ACTIVE 🫧', worldCenterX(), worldMinY() + 70);
     // Timer bar
     const barW = 200, barH = 6;
-    const barX = worldBounds.width/2 - barW/2;
+    const barX = worldCenterX() - barW / 2;
     const barY = 80;
     const pct = antiGravTimer / 240;
     ctx.fillStyle = '#cc00ff33';
@@ -20836,8 +20917,8 @@ function loop(timestamp) {
     ctx.fillRect(worldBounds.x, worldBounds.y, worldBounds.width, worldBounds.height);
     // Vignette edges
     const vigGrd = ctx.createRadialGradient(
-      worldBounds.width/2, worldBounds.height/2, worldBounds.height * 0.3,
-      worldBounds.width/2, worldBounds.height/2, worldBounds.height * 0.8
+      worldCenterX(), worldCenterY(), worldBounds.height * 0.3,
+      worldCenterX(), worldCenterY(), worldBounds.height * 0.8
     );
     vigGrd.addColorStop(0, 'rgba(100,0,180,0)');
     vigGrd.addColorStop(1, 'rgba(100,0,180,0.15)');
@@ -20849,11 +20930,11 @@ function loop(timestamp) {
     ctx.textAlign = 'center';
     const pulse = 0.7 + Math.sin(timestamp / 300) * 0.3;
     ctx.globalAlpha = pulse;
-    ctx.fillText('⏳ S L O W   M O T I O N ⏳', worldBounds.width/2, 50);
+    ctx.fillText('⏳ S L O W   M O T I O N ⏳', worldCenterX(), worldMinY() + 50);
     ctx.globalAlpha = 1;
     // Timer bar
     const barW = 200, barH = 6;
-    const barX = worldBounds.width/2 - barW/2;
+    const barX = worldCenterX() - barW / 2;
     const barY = 62;
     const pct = timeWarpTimer / 300;
     ctx.fillStyle = '#cc00ff33';
@@ -20882,10 +20963,10 @@ function loop(timestamp) {
     ctx.textAlign = 'center';
     const pulse = 0.7 + Math.sin(timestamp / 150) * 0.3;
     ctx.globalAlpha = pulse;
-    ctx.fillText('🏀 M E G A   B O U N C E 🏀', worldBounds.width/2, antiGravActive ? 110 : 50);
+    ctx.fillText('🏀 M E G A   B O U N C E 🏀', worldCenterX(), worldMinY() + (antiGravActive ? 110 : 50));
     ctx.globalAlpha = 1;
     const barW = 200, barH = 6;
-    const barX = worldBounds.width/2 - barW/2;
+    const barX = worldCenterX() - barW / 2;
     const barY = (antiGravActive ? 120 : 62);
     const pct = megaBounceTimer / 300;
     ctx.fillStyle = '#00ff4133';
@@ -20919,7 +21000,7 @@ function loop(timestamp) {
     ctx.fillStyle = '#0088ff';
     ctx.font = '28px VT323';
     ctx.textAlign = 'center';
-    ctx.fillText('🌊 O C E A N   M O D E 🌊', worldBounds.width/2, antiGravActive ? 140 : megaBounceActive ? 100 : 50);
+    ctx.fillText('🌊 O C E A N   M O D E 🌊', worldCenterX(), worldMinY() + (antiGravActive ? 140 : megaBounceActive ? 100 : 50));
     ctx.globalAlpha = 1;
     ctx.textAlign = 'left';
   }
@@ -20931,8 +21012,8 @@ function loop(timestamp) {
     ctx.fillRect(worldBounds.x, worldBounds.y, worldBounds.width, worldBounds.height);
     // Frost border
     const frostGrd = ctx.createRadialGradient(
-      worldBounds.width/2, worldBounds.height/2, worldBounds.height * 0.35,
-      worldBounds.width/2, worldBounds.height/2, worldBounds.height * 0.75
+      worldCenterX(), worldCenterY(), worldBounds.height * 0.35,
+      worldCenterX(), worldCenterY(), worldBounds.height * 0.75
     );
     frostGrd.addColorStop(0, 'rgba(0,200,255,0)');
     frostGrd.addColorStop(1, 'rgba(0,200,255,0.12)');
@@ -20944,11 +21025,11 @@ function loop(timestamp) {
     ctx.fillStyle = '#00ddff';
     ctx.font = '32px VT323';
     ctx.textAlign = 'center';
-    ctx.fillText('🧊 F R O Z E N 🧊', worldBounds.width/2, 50);
+    ctx.fillText('🧊 F R O Z E N 🧊', worldCenterX(), worldMinY() + 50);
     ctx.globalAlpha = 1;
     // Timer bar
     const barW = 200, barH = 6;
-    const barX = worldBounds.width/2 - barW/2;
+    const barX = worldCenterX() - barW / 2;
     ctx.fillStyle = '#00ddff33';
     ctx.fillRect(barX, 62, barW, barH);
     ctx.fillStyle = '#00ddff';
@@ -20975,7 +21056,7 @@ function loop(timestamp) {
     ctx.textAlign = 'center';
     const pulse = 0.6 + Math.sin(timestamp / 100) * 0.4;
     ctx.globalAlpha = pulse;
-    ctx.fillText('☠️ U L T R A   C H A O S ☠️', worldBounds.width/2, worldBounds.height/2);
+    ctx.fillText('☠️ U L T R A   C H A O S ☠️', worldCenterX(), worldCenterY());
     ctx.globalAlpha = 1;
     ctx.textAlign = 'left';
   }
@@ -21136,10 +21217,10 @@ function loop(timestamp) {
     ctx.fillStyle = '#ffdd00';
     ctx.font = '28px VT323';
     ctx.textAlign = 'center';
-    ctx.fillText('🍿 P O P C O R N ! 🍿', worldBounds.width/2, 50);
+    ctx.fillText('🍿 P O P C O R N ! 🍿', worldCenterX(), worldMinY() + 50);
     ctx.globalAlpha = 1;
     const barW = 200, barH = 6;
-    const barX = worldBounds.width/2 - barW/2;
+    const barX = worldCenterX() - barW / 2;
     ctx.fillStyle = '#ffdd0033';
     ctx.fillRect(barX, 62, barW, barH);
     ctx.fillStyle = '#ffdd00';
@@ -21152,17 +21233,17 @@ function loop(timestamp) {
     const remaining = targetBodies.filter(t => !t.targetHit).length;
     // Score overlay top-right
     ctx.fillStyle = '#0a0a0acc';
-    ctx.fillRect(worldBounds.width - 180, 8, 172, 60);
+    ctx.fillRect(worldMaxX() - 180, worldMinY() + 8, 172, 60);
     ctx.strokeStyle = '#ff3333';
     ctx.lineWidth = 2;
-    ctx.strokeRect(worldBounds.width - 180, 8, 172, 60);
+    ctx.strokeRect(worldMaxX() - 180, worldMinY() + 8, 172, 60);
     ctx.fillStyle = '#ff3333';
     ctx.font = '24px VT323';
     ctx.textAlign = 'right';
-    ctx.fillText('🎯 SCORE: ' + targetScore, worldBounds.width - 16, 34);
+    ctx.fillText('🎯 SCORE: ' + targetScore, worldMaxX() - 16, worldMinY() + 34);
     ctx.fillStyle = '#ffdd00';
     ctx.font = '18px VT323';
-    ctx.fillText('LEFT: ' + remaining + '  ⏱ ' + Math.ceil(targetTimer/60) + 's', worldBounds.width - 16, 58);
+    ctx.fillText('LEFT: ' + remaining + '  ⏱ ' + Math.ceil(targetTimer/60) + 's', worldMaxX() - 16, worldMinY() + 58);
     ctx.textAlign = 'left';
     // Cleared flash
     if (targetCleared && targetClearedTimer > 0) {
@@ -21172,10 +21253,10 @@ function loop(timestamp) {
       ctx.fillStyle = '#ffdd00';
       ctx.font = '48px VT323';
       ctx.textAlign = 'center';
-      ctx.fillText('🎯 C L E A R E D ! 🎯', worldBounds.width/2, worldBounds.height/2);
+      ctx.fillText('🎯 C L E A R E D ! 🎯', worldCenterX(), worldCenterY());
       ctx.fillStyle = '#ffffff';
       ctx.font = '28px VT323';
-      ctx.fillText('BONUS +50!', worldBounds.width/2, worldBounds.height/2 + 40);
+      ctx.fillText('BONUS +50!', worldCenterX(), worldCenterY() + 40);
       ctx.textAlign = 'left';
       ctx.globalAlpha = 1;
     }
@@ -21186,7 +21267,7 @@ function loop(timestamp) {
     const comboScale = 1 + Math.min(comboCount * 0.035, 0.45);
     const comboColor = comboCount >= 20 ? '#ff3399' : comboCount >= 10 ? '#ff6600' : '#ffdd00';
     const flashAlpha = Math.min(1, 0.72 + comboFlash * 0.28);
-    const comboY = (antiGravActive || timeWarpActive || megaBounceActive || freezeActive || popcornActive) ? 112 : 84;
+    const comboY = worldMinY() + ((antiGravActive || timeWarpActive || megaBounceActive || freezeActive || popcornActive) ? 112 : 84);
     ctx.save();
     ctx.globalAlpha = flashAlpha;
     ctx.fillStyle = comboColor;
@@ -21194,11 +21275,11 @@ function loop(timestamp) {
     ctx.shadowBlur = 12 + Math.min(comboCount, 30) * 0.45;
     ctx.font = Math.floor(26 * comboScale) + 'px VT323';
     ctx.textAlign = 'center';
-    ctx.fillText(comboCount + 'x COMBO', worldBounds.width / 2, comboY);
+    ctx.fillText(comboCount + 'x COMBO', worldCenterX(), comboY);
     ctx.font = '16px VT323';
     ctx.fillStyle = '#ffffff';
     ctx.shadowBlur = 8;
-    ctx.fillText('BEST ' + comboBest + 'x', worldBounds.width / 2, comboY + 22);
+    ctx.fillText('BEST ' + comboBest + 'x', worldCenterX(), comboY + 22);
     ctx.restore();
   }
 
@@ -21214,7 +21295,7 @@ function loop(timestamp) {
     ctx.shadowBlur = 16;
     ctx.font = '34px VT323';
     ctx.textAlign = 'center';
-    ctx.fillText(banner.text, worldBounds.width / 2, worldBounds.height * 0.38);
+    ctx.fillText(banner.text, worldCenterX(), worldMinY() + worldBounds.height * 0.38);
     ctx.restore();
     banner.timer--;
     if (banner.timer <= 0) destructionLevelBanner = null;
@@ -21222,7 +21303,7 @@ function loop(timestamp) {
 
   // Destruction meter (bottom-left HUD)
   if (destructionMeter > 0) {
-    const meterX = 12, meterY = worldBounds.height - 20;
+    const meterX = worldMinX() + 12, meterY = worldMaxY() - 20;
     const meterW = 160, meterH = 14;
     // Milestones at powers of 10
     const lvl = getDestructionLevel();
@@ -21261,7 +21342,7 @@ function loop(timestamp) {
     ctx.fillRect(worldBounds.x, worldBounds.y, worldBounds.width, worldBounds.height);
     // Disco ball spotlight beams
     const beamCount = 6;
-    const centerX = worldBounds.width / 2, centerY = 60;
+    const centerX = worldCenterX(), centerY = worldMinY() + 60;
     for (let i = 0; i < beamCount; i++) {
       const angle = (t / 800) + (Math.PI * 2 * i / beamCount);
       const beamLen = Math.max(worldBounds.width, worldBounds.height);
@@ -21303,7 +21384,7 @@ function loop(timestamp) {
     ctx.fillStyle = `hsl(${hue}, 100%, 70%)`;
     ctx.font = '24px VT323';
     ctx.textAlign = 'center';
-    ctx.fillText('🪩 D I S C O   M O D E 🪩', worldBounds.width/2, worldBounds.height - 40);
+    ctx.fillText('🪩 D I S C O   M O D E 🪩', worldCenterX(), worldMaxY() - 40);
     ctx.textAlign = 'left';
     ctx.globalAlpha = 1;
     // Random sparkle particles
@@ -21325,8 +21406,8 @@ function loop(timestamp) {
   if (sloMoActive) {
     // Green vignette edges
     const sloGrd = ctx.createRadialGradient(
-      worldBounds.width/2, worldBounds.height/2, worldBounds.height * 0.3,
-      worldBounds.width/2, worldBounds.height/2, worldBounds.height * 0.8
+      worldCenterX(), worldCenterY(), worldBounds.height * 0.3,
+      worldCenterX(), worldCenterY(), worldBounds.height * 0.8
     );
     sloGrd.addColorStop(0, 'rgba(0,180,100,0)');
     sloGrd.addColorStop(1, 'rgba(0,180,100,0.12)');
@@ -21338,7 +21419,7 @@ function loop(timestamp) {
     ctx.fillStyle = '#00ff41';
     ctx.font = '22px VT323';
     ctx.textAlign = 'right';
-    ctx.fillText('SLO-MO', worldBounds.width - 15, 30);
+    ctx.fillText('SLO-MO', worldMaxX() - 15, worldMinY() + 30);
     ctx.textAlign = 'left';
     ctx.globalAlpha = 1;
   }
@@ -21375,7 +21456,7 @@ function loop(timestamp) {
     ctx.fillStyle = '#00ff41';
     ctx.font = '48px VT323';
     ctx.textAlign = 'center';
-    ctx.fillText('⏸ PAUSED', worldBounds.width/2, worldBounds.height/2);
+    ctx.fillText('⏸ PAUSED', worldCenterX(), worldCenterY());
     ctx.textAlign = 'left';
   }
 
@@ -21474,7 +21555,7 @@ document.addEventListener('keydown', (e) => {
       const angle = Math.random() * Math.PI * 2;
       const speed = 3 + Math.random() * 8;
       particles.push({
-        x: worldBounds.width/2, y: worldBounds.height/2,
+        x: worldCenterX(), y: worldCenterY(),
         vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed,
         life: 1 + Math.random()*1.5,
         color: ['#ff3333','#ffdd00','#00ff41','#0abdc6','#cc00ff','#ff6600'][Math.floor(Math.random()*6)],
@@ -21747,7 +21828,7 @@ function runPendingPhysicsActions(now) {
       const oldTool = currentTool;
       const types = ['ball','block','star','bomb','balloon'];
       currentTool = types[Math.floor(Math.random() * types.length)];
-      spawnObject(30 + Math.random() * (worldBounds.width - 60), -10 - Math.random() * 80,
+      spawnObject(worldMinX() + 30 + Math.random() * (worldBounds.width - 60), worldMinY() - 10 - Math.random() * 80,
         (Math.random() - 0.5) * 3, 1 + Math.random() * 3);
       currentTool = oldTool;
     } else if (Composite.get(world, action.body.id, 'body') === action.body) {

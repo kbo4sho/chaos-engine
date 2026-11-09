@@ -1,3 +1,9 @@
+## 2026-11-08 — Premise attack: complete spatial infer, origin HUD/effects, non-fit clamps
+**Why:** Fresh review of be3a3f0 falsified “envelope alone usable + origin migration complete”: rails clipped, effects/HUD zero-origin, tiny-world clamps inverted.
+**Implementation:** Full spatial-state infer (routes/machines/cams); clampWorldAxes null when non-fitting; placeOr refuse; worldMin/Center/Max for effects/HUD; Map-only orbit infer; tornadoDir vs worldCenterX. No coordinate translation; no silent world expansion.
+**Verified:** legacy-world-matrix 8/8; 954/954 tests; build; ownership; doctor; journeys ui-layout, example-scenes, example-scenes-mobile, save-load, deflect, trim, logical-world. Evidence premise-attack-be3a3f0.
+**Status:** feature branch tip for independent review; no main publish/deploy.
+
 ## 2026-11-08 — Logical-world cleanup: geometry infer, complete bounds, origin clamps
 **Why:** Fresh review blocked letterbox creation and zero-origin clamps. Firstmate authorized five reversible newly-introduced-only cleanups while preserving all legacy save formats.
 **Implementation:** Reject letterbox creation via `isWorldPoint` (sling outside aim kept). Origin-aware placement clamps. Geometry-only `inferWorldBounds`. Require complete worldBounds when present (no `{x:0,y:0,...}` merge). Remove redundant heatmap-row fallback and nested portal `!paused`. Vitest writable cache only when `node_modules` is a symlink.
