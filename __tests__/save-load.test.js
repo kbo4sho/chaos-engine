@@ -21,8 +21,8 @@ function gameHarness(stored = {}) {
   const gradient = { addColorStop() {} };
   const context = new Proxy({}, { get:(_, key) => key.startsWith('create') ? () => gradient : () => {} });
   window.HTMLCanvasElement.prototype.getContext = () => context;
-  Object.defineProperty(window.HTMLElement.prototype, 'clientWidth', { get:() => 1024 });
-  Object.defineProperty(window.HTMLElement.prototype, 'clientHeight', { get:() => 600 });
+  Object.defineProperty(window.HTMLElement.prototype, 'clientWidth', { get:() => 1280 });
+  Object.defineProperty(window.HTMLElement.prototype, 'clientHeight', { get:() => 549 });
   const timers = [];
   window.setTimeout = callback => { timers.push(callback); return timers.length; };
   window.clearTimeout = () => {};
@@ -32,6 +32,7 @@ function gameHarness(stored = {}) {
   window.HTMLDialogElement.prototype.close = function () { this.open = false; this.dispatchEvent(new window.Event('close')); };
   for (const [key, value] of Object.entries(stored)) window.localStorage.setItem(key, value);
   window.eval(codec);
+  window.eval(fs.readFileSync(new URL('../examples/chaos-examples.js', import.meta.url), 'utf8'));
   window.eval(script + '\nwindow.__runGame = code => eval(code);');
   const run = code => window.__runGame(code);
   const click = id => window.document.getElementById(id).click();
@@ -641,8 +642,8 @@ describe('Cam tool with real Matter.js', () => {
   it.each([[0,0],[1024,600],[-100,-100],[2000,2000]])('clamps the entire swept rim and label at %s,%s', (x,y) => {
     const api=setup(); api.run(`window.cam=placeOrToggleCamAt({x:${x},y:${y}})`);
     const a=api.run('cam.camAnchor');
-    expect(a.x-62).toBeGreaterThanOrEqual(12); expect(a.x+62).toBeLessThanOrEqual(1012);
-    expect(a.y-62).toBeGreaterThanOrEqual(12); expect(a.y+78).toBeLessThanOrEqual(590);
+    expect(a.x-62).toBeGreaterThanOrEqual(12); expect(a.x+62).toBeLessThanOrEqual(1268);
+    expect(a.y-62).toBeGreaterThanOrEqual(12); expect(a.y+78).toBeLessThanOrEqual(539);
   });
 
   it('keeps a fixed eccentric axle through complete cycles with solid collision geometry', () => {
@@ -973,7 +974,7 @@ describe('Syrup tool with real Matter.js', () => {
     api.run('window.edge=placeOrDrainSyrupAt({x:-100,y:-100})');
     expect(api.run('[edge.position.x,edge.position.y]')).toEqual([84,84]);
     api.run('finishClear(false); canvas.width=100; canvas.height=90; window.small=placeOrDrainSyrupAt({x:500,y:500})');
-    expect(api.run('[small.render.radius,small.position.x,small.position.y]')).toEqual([35,55,45]);
+    expect(api.run('[small.render.radius,small.position.x,small.position.y]')).toEqual([74,500,465]);
   });
 
   it('dissipates linear and angular energy without changing direction, mass or friction', () => {
@@ -1290,10 +1291,10 @@ describe('One-way gate with real Matter.js', () => {
   it('creates clamped static gates, including on a narrow canvas', () => {
     const api=setup();
     api.run('window.edge=placeOrReverseOnewayAt({x:-500,y:9000})');
-    expect(api.run('[edge.position.x,edge.position.y,edge.render.width]')).toEqual([86,556,156]);
+    expect(api.run('[edge.position.x,edge.position.y,edge.render.width]')).toEqual([86,505,156]);
     expect(api.run('[edge.isStatic,edge.isSensor,edge.collisionFilter.mask]')).toEqual([true,true,0]);
     api.run('canvas.width=120; window.narrow=placeOrReverseOnewayAt({x:800,y:-100})');
-    expect(api.run('[narrow.position.x,narrow.position.y,narrow.render.width]')).toEqual([68,44,88]);
+    expect(api.run('[narrow.position.x,narrow.position.y,narrow.render.width]')).toEqual([800,44,156]);
   });
 
   it('passes upward through a gate and later settles on its top under real gravity', () => {
@@ -1562,7 +1563,7 @@ describe('Pulley tool with real Matter.js', () => {
   it('clamps the wheel inside the canvas', () => {
     const api = setup();
     api.run('pulleyAt(a.position); pulleyAt(b.position); window.link = pulleyAt({x:-100,y:9000})');
-    expect(api.run('link.pulleyAnchor')).toEqual({x:24,y:576});
+    expect(api.run('link.pulleyAnchor')).toEqual({x:24,y:525});
   });
 
   it.each(['A','B'])('Snip cuts routed leg %s while preserving both payloads', side => {
@@ -2391,4 +2392,65 @@ describe('Trim spin tool', () => {
     expect(restored.run('Composite.allBodies(world).filter(b=>b.label!=="wall").map(b=>[b.velocity.x,b.velocity.y,b.angularVelocity])')).toEqual([[3,4,0]]);
   });
 
+});
+
+describe('Authored logical world and uniform camera', () => {
+  function viewport(api,w,h) {
+    api.run(`wrap.getBoundingClientRect=()=>({width:${w},height:${h}}); resize()`);
+  }
+  function scene(api) {
+    return api.run(`JSON.stringify({bodies:captureGameState().bodies.map(b=>({position:b.position,vertices:b.vertices.map(v=>({x:v.x,y:v.y})),velocity:b.velocity})),constraints:captureGameState().constraints.map(c=>({a:Constraint.pointAWorld(c),b:Constraint.pointBWorld(c),length:c.length,stiffness:c.stiffness})),portals:portals.map(({x,y,radius})=>({x,y,radius})),orbits:[...orbitingBodies].map(([b,o])=>({position:b.position,...o}))})`);
+  }
+  it.each(['halo-garden','kinetic-cascade','wreck-deck'])('authors identical %s graphs across viewport sizes', id => {
+    const api=gameHarness(); let expected;
+    for (const [w,h] of [[1280,549],[390,510],[820,850]]) {
+      viewport(api,w,h); api.run(`loadExample('${id}')`);
+      const graph=scene(api); expected ??= graph; expect(graph).toBe(expected);
+      expect(api.run('[worldBounds.width,worldBounds.height]')).toEqual([1280,549]);
+      if (id==='halo-garden') {
+        expect(api.run('portals[1].x-portals[0].x')).toBeCloseTo(819.2);
+        expect(api.run('Math.abs(portals[0].x-640)')).toBeCloseTo(409.6);
+        expect(api.run('Math.abs(portals[0].x-640)')).not.toBeCloseTo(0.32*390);
+      }
+    }
+  });
+  it('inverse maps spawn and aim points and keeps bodies, walls and camera continuous on resize',()=>{
+    const api=gameHarness(); api.run('spawnObject(640,240,3,4); window.before=JSON.stringify(ChaosSaveCodec.encode(captureGameState().bodies)); window.oldWalls=walls.slice()');
+    for(const [w,h] of [[390,510],[820,850],[1280,549]]) {
+      viewport(api,w,h);
+      for(const p of [{x:100,y:100},{x:640,y:274},{x:1180,y:500}]) {
+        const round=api.run(`screenToWorld(worldToScreen(${JSON.stringify(p)}))`);
+        expect(round.x).toBeCloseTo(p.x,10); expect(round.y).toBeCloseTo(p.y,10);
+      }
+      expect(api.run('JSON.stringify(ChaosSaveCodec.encode(captureGameState().bodies))===before && walls.every((w,i)=>w===oldWalls[i])')).toBe(true);
+    }
+  });
+  it('roundtrips a user graph with additive bounds across devices',()=>{
+    const api=gameHarness(); viewport(api,390,510);
+    api.run('window.payload=spawnObject(640,240,3,4); orbitBodyAt(payload.position); orbitBodyAt({x:500,y:240}); placePortal(200,240); placePortal(1000,240); paused=true');
+    const before=scene(api); api.click('btn-save'); const raw=api.window.localStorage.getItem(key);
+    expect(api.run(`readGameSave(${JSON.stringify(raw)}).worldBounds`)).toEqual({x:0,y:0,width:1280,height:549});
+    for(const [w,h] of [[820,850],[1280,549]]) {
+      viewport(api,w,h); api.run(`restoreGameState(readGameSave(${JSON.stringify(raw)}))`); expect(scene(api)).toBe(before);
+    }
+  });
+  it('infers legacy extents without moving coordinates or writing storage before explicit save',()=>{
+    const api=gameHarness();
+    const raw=api.run(`spawnObject(1800,700,3,4); placePortal(-120,200); paused=true;
+      window.legacy=captureGameState(); delete legacy.worldBounds;
+      window.graph=ChaosSaveCodec.encode(legacy);
+      JSON.stringify({version:1,savedAt:new Date().toISOString(),graph,checksum:ChaosSaveCodec.checksum(graph)})`);
+    const next=gameHarness({[key]:raw}); const writes=vi.spyOn(next.window.Storage.prototype,'setItem');
+    next.click('btn-load'); next.click('save-accept');
+    expect(writes).not.toHaveBeenCalled(); expect(next.window.localStorage.getItem(key)).toBe(raw);
+    expect(next.run('captureGameState().bodies[0].position')).toEqual({x:1800,y:700});
+    expect(next.run('worldBounds.x')).toBeLessThanOrEqual(-144);
+    expect(next.run('worldBounds.width+worldBounds.x')).toBeGreaterThan(1824);
+    next.click('btn-save'); next.click('save-accept'); expect(writes).toHaveBeenCalled();
+    expect(next.run(`readGameSave(localStorage.getItem('${key}')).worldBounds.width`)).toBeGreaterThan(1280);
+  });
+  it('does not teleport or change velocity while paused',()=>{
+    const api=gameHarness(); api.run('placePortal(200,200); placePortal(1000,200); spawnObject(200,200,3,4); paused=true; window.before=JSON.stringify(captureGameState().bodies.map(b=>({p:b.position,v:b.velocity,a:b.angle,spin:b.angularVelocity}))); loop(performance.now()+16)');
+    expect(api.run('JSON.stringify(captureGameState().bodies.map(b=>({p:b.position,v:b.velocity,a:b.angle,spin:b.angularVelocity})))===before')).toBe(true);
+  });
 });

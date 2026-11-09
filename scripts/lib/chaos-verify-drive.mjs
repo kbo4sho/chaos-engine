@@ -646,7 +646,50 @@ async function driveTrim(page) {
   result.passed=result.failures.length===0;
 }
 
+async function driveLogicalWorld(page) {
+  const views=[{name:'phone',width:390,height:844},{name:'ipad',width:820,height:1180},{name:'desktop',width:1280,height:800}];
+  const observe=()=>page.evaluate(()=>({bounds:{...worldBounds},camera:{...camera},
+    graph:JSON.stringify({bodies:captureGameState().bodies, constraints:captureGameState().constraints},(key,value)=>['parent','parts','body','bodyA','bodyB','spawnTime','firedAt','cannonFiredAt','catapultFiredAt','blockedUntil','dueAt'].includes(key)?undefined:value),
+    portals:portals.map(p=>({...p})),orbits:[...orbitingBodies].map(([b,o])=>({position:{...b.position},...o})),
+    storage:{...localStorage}}));
+  let expected;
+  for(const view of views) {
+    await page.setViewport(view); await page.goto(url,{waitUntil:'networkidle0'});
+    await page.select('#save-slot','example:halo-garden'); await page.click('#btn-load');
+    if(await page.$eval('#save-confirm',d=>d.open)) await page.click('#save-accept');
+    await page.click('#btn-pause');
+    // Reload the saved paused snapshot via actual SAVE/LOAD to freeze the graph
+    // before comparing orientation changes (never call a state setter).
+    await page.select('#save-slot','1'); await page.click('#btn-save');
+    if(await page.$eval('#save-confirm',d=>d.open)) await page.click('#save-accept');
+    const state=await observe();
+    record(view.name+'-halo-geometry',Math.abs(state.portals[1].x-state.portals[0].x-819.2)<1e-8,state);
+    await shot(page,view.name+'-halo.png');
+    const before=await observe();
+    await page.setViewport(view.name==='desktop'?views[0]:views[2]);
+    const after=await observe();
+    record(view.name+'-resize-continuity',before.graph===after.graph&&JSON.stringify(before.portals)===JSON.stringify(after.portals)&&JSON.stringify(before.orbits)===JSON.stringify(after.orbits),{before,after});
+  }
+  await page.goto(url,{waitUntil:'networkidle0'}); await page.click('#btn-pause');
+  await page.click('[data-tool=ball]'); await clickCanvas(page);
+  await page.select('#save-slot','2'); await page.click('#btn-save');
+  if(await page.$eval('#save-confirm',d=>d.open)) await page.click('#save-accept');
+  expected=await observe(); await shot(page,'user-world-saved.png');
+  for(const view of views) {
+    await page.setViewport(view); await page.reload({waitUntil:'networkidle0'});
+    await page.select('#save-slot','2'); await page.click('#btn-load');
+    if(await page.$eval('#save-confirm',d=>d.open)) await page.click('#save-accept');
+    const state=await observe();
+    record(view.name+'-user-roundtrip',state.graph===expected.graph&&JSON.stringify(state.bounds)===JSON.stringify(expected.bounds),state);
+    await shot(page,view.name+'-user-loaded.png');
+  }
+  fs.writeFileSync(path.join(outDir,'logical-world.json'),JSON.stringify(result.steps,null,2));
+  record('unfiltered-runtime-errors',!consoleLines.some(line=>/^\[(error|pageerror)\]/.test(line)),consoleLines);
+  result.passed=result.failures.length===0;
+}
+
 const journeys = {
+  'logical-world': driveLogicalWorld,
   'trim': driveTrim,
   'deflect': driveDeflect,
   'save-load': driveSaveLoad,

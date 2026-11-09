@@ -189,3 +189,5 @@ Keep the map honest with `/maintain-verification-skill` as the app changes.
 The browser harness uses Chrome’s default sandbox. Keep it enabled.
 
 - [Trim](features/trim.md) — final toolbar button after Deflect; one-shot spin removal while preserving travel. Run `./scripts/verify-chaos-engine drive trim` for touch and desktop proof.
+
+- [Logical world and camera](features/logical-world.md) — `./scripts/verify-chaos-engine drive logical-world`: phone/iPad/desktop Halo geometry, paused resize continuity and user-world roundtrip. All new saves add `worldBounds` to the version-1 graph; legacy loads infer bounds without writing storage.

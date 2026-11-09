@@ -55,3 +55,5 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Deflect](./deflect.md) covers quarter-turn travel, toolbar selection, touch input and Clear cleanup.
 
 - [Trim](./trim.md) covers one-shot spin removal with travel preserved, final toolbar selection, touch/desktop input and Clear cleanup.
+
+- [Logical world and camera](./logical-world.md) covers authored bounds, letterboxing, cross-device roundtrip and paused Halo continuity. Drive `logical-world`.

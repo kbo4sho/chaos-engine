@@ -81,7 +81,7 @@ body::after {
 
 /* ── CANVAS AREA ── */
 #canvas-wrap {
-  flex:1; position:relative; overflow:hidden;
+  flex:1; min-width:0; min-height:0; position:relative; overflow:hidden;
   /* CRT curvature */
   border-radius:8px;
   /* subtle barrel distortion via box-shadow inset */
@@ -93,7 +93,7 @@ body::after {
   box-shadow: inset 0 0 100px rgba(0,0,0,0.5);
 }
 canvas#game {
-  display:block; width:100%; height:100%;
+  position:absolute; inset:0; display:block; width:100%; height:100%;
   background:#080c10;
   touch-action:none;
 }
@@ -1360,11 +1360,52 @@ saveFeedback.setAttribute('role', 'status');
 saveFeedback.setAttribute('aria-live', 'polite');
 wrap.appendChild(saveFeedback);
 
+// Approved 1280×800 desktop authored Matter world. Its former 1280×549
+// backing store disagreed with the 1280×530.8125 CSS canvas; camera mapping
+// makes that layout discrepancy explicit without stretching physics geometry.
+const WORLD_WIDTH = 1280, WORLD_HEIGHT = 549;
+let worldBounds = { x:0, y:0, width:WORLD_WIDTH, height:WORLD_HEIGHT };
+let camera = { scale:1, x:0, y:0 };
 function resize() {
-  canvas.width = wrap.clientWidth;
-  canvas.height = wrap.clientHeight;
-  rebuildWalls();
-  initCollisionHeatmap();
+  const rect = wrap.getBoundingClientRect();
+  canvas.width = Math.round(rect.width || wrap.clientWidth);
+  canvas.height = Math.round(rect.height || wrap.clientHeight);
+  updateCamera();
+}
+function updateCamera() {
+  const scale = Math.min(canvas.width / worldBounds.width, canvas.height / worldBounds.height);
+  camera = { scale, x:(canvas.width - worldBounds.width * scale)/2 - worldBounds.x*scale,
+    y:(canvas.height - worldBounds.height * scale)/2 - worldBounds.y*scale };
+}
+function worldToScreen(p) { return { x:p.x*camera.scale+camera.x, y:p.y*camera.scale+camera.y }; }
+function screenToWorld(p) { return { x:(p.x-camera.x)/camera.scale, y:(p.y-camera.y)/camera.scale }; }
+// Walk the decoded graph, including compound vertices, constraint anchors and
+// tool registries. Never mutate coordinates or persist this inferred envelope.
+function inferWorldBounds(game) {
+  let minX=0, minY=0, maxX=WORLD_WIDTH, maxY=WORLD_HEIGHT;
+  const seen=new Set();
+  function visit(value) {
+    if (!value || typeof value!=='object' || seen.has(value)) return;
+    seen.add(value);
+    if (Number.isFinite(value.x) && Number.isFinite(value.y)) {
+      minX=Math.min(minX,value.x-24); minY=Math.min(minY,value.y-24);
+      maxX=Math.max(maxX,value.x+24); maxY=Math.max(maxY,value.y+24);
+    }
+    const items=value instanceof Map ? [...value].flat() : value instanceof Set ? [...value] : Object.values(value);
+    items.forEach(visit);
+  }
+  visit(game.bodies); visit(game.constraints); visit(game.state);
+  function circle(center, radius) {
+    if (!center || !Number.isFinite(radius)) return;
+    visit({x:center.x-radius,y:center.y-radius});
+    visit({x:center.x+radius,y:center.y+radius});
+  }
+  game.state.portals?.forEach(portal => circle(portal,portal.radius));
+  game.state.orbitingBodies?.forEach(orbit => circle(orbit.center,orbit.radius));
+  game.constraints.forEach(constraint => {
+    visit(Constraint.pointAWorld(constraint)); visit(Constraint.pointBWorld(constraint));
+  });
+  return { x:minX, y:minY, width:maxX-minX, height:maxY-minY };
 }
 
 const engine = Engine.create({ enableSleeping: true });
@@ -1948,8 +1989,8 @@ function getDestructionLevel(value = destructionMeter) {
 function celebrateDestructionLevel(level) {
   const color = DESTRUCTION_LEVEL_COLORS[level] || '#ffffff';
   const burstColors = [color, '#ffffff', '#ffdd00', '#ff3399', '#00ff41'];
-  const burstX = canvas.width / 2;
-  const burstY = canvas.height * 0.42;
+  const burstX = worldBounds.width / 2;
+  const burstY = worldBounds.height * 0.42;
   for (let i = 0; i < 40; i++) {
     const angle = Math.random() * Math.PI * 2;
     const speed = 3 + Math.random() * 8;
@@ -2112,7 +2153,7 @@ function popBalloon(balloonBody, popPower = BALLOON_POP_REL_VELOCITY) {
 // ── WALLS ──
 function rebuildWalls() {
   walls.forEach(w => Composite.remove(world, w));
-  const W = canvas.width, H = canvas.height, T = 40;
+  const W = worldBounds.width, H = worldBounds.height, T = 40;
   const opts = { isStatic: true, restitution: 0.3, friction: 0.5, label: 'wall' };
   walls = [
     Bodies.rectangle(W/2, H + T/2, W + T*2, T, opts),   // floor
@@ -2120,13 +2161,14 @@ function rebuildWalls() {
     Bodies.rectangle(-T/2, H/2, T, H + T*2, opts),        // left
     Bodies.rectangle(W + T/2, H/2, T, H + T*2, opts),     // right
   ];
+  walls.forEach(w => Body.translate(w, {x:worldBounds.x,y:worldBounds.y}));
   Composite.add(world, walls);
 }
 
 // ── COLLISION HEATMAP ──
 function initCollisionHeatmap() {
-  heatCols = Math.max(1, Math.ceil(canvas.width / HEAT_CELL));
-  heatRows = Math.max(1, Math.ceil(canvas.height / HEAT_CELL));
+  heatCols = Math.max(1, Math.ceil(worldBounds.width / HEAT_CELL));
+  heatRows = Math.max(1, Math.ceil(worldBounds.height / HEAT_CELL));
   heatGrid = Array.from({ length: heatRows }, () => new Float32Array(heatCols));
   if (!heatCanvas) {
     heatCanvas = document.createElement('canvas');
@@ -2208,13 +2250,16 @@ function drawCollisionHeatmap(dt) {
   ctx.globalCompositeOperation = 'screen';
   ctx.imageSmoothingEnabled = true;
   ctx.filter = 'blur(10px)';
-  ctx.drawImage(heatCanvas, 0, 0, canvas.width, canvas.height);
+  ctx.drawImage(heatCanvas, 0, 0, worldBounds.width, worldBounds.height);
   ctx.restore();
 }
 
 // ── INIT ──
 resize();
+rebuildWalls();
+initCollisionHeatmap();
 window.addEventListener('resize', resize);
+if (typeof ResizeObserver !== 'undefined') new ResizeObserver(resize).observe(wrap);
 
 // ── GRAVITY BUTTONS ──
 document.querySelectorAll('.planet-btn').forEach(btn => {
@@ -2848,8 +2893,8 @@ function getFlipperAngularVelocity(side, angle, active) {
 function createFlipperAssembly(x, y, side) {
   const angles = getFlipperAngles(side);
   const marginX = FLIPPER_WIDTH / 2 + 14;
-  const centerX = Math.max(marginX, Math.min(canvas.width - marginX, x));
-  const centerY = Math.max(24, Math.min(canvas.height - 34, y));
+  const centerX = Math.max(marginX, Math.min(worldBounds.width - marginX, x));
+  const centerY = Math.max(24, Math.min(worldBounds.height - 34, y));
   const pointB = { x: side === 'left' ? -FLIPPER_WIDTH / 2 : FLIPPER_WIDTH / 2, y: 0 };
   const rotatedPin = Vector.rotate(pointB, angles.rest);
   const pivotX = centerX + rotatedPin.x;
@@ -3622,8 +3667,8 @@ function placePortal(x, y) {
 
 // ── RANDOM EXPLOSION (CHAOS BUTTON) ──
 function randomExplosion() {
-  const x = 100 + Math.random() * (canvas.width - 200);
-  const y = 100 + Math.random() * (canvas.height - 200);
+  const x = 100 + Math.random() * (worldBounds.width - 200);
+  const y = 100 + Math.random() * (worldBounds.height - 200);
   const radius = 200;
   const force = 0.1;
 
@@ -3690,7 +3735,7 @@ document.getElementById('btn-blackhole').addEventListener('click', () => {
   haptic([10, 5, 10, 5, 10, 5, 30]);
   blackHoleActive = true;
   blackHoleTimer = 300; // 5 seconds at 60fps
-  blackHolePos = { x: canvas.width / 2, y: canvas.height / 2 };
+  blackHolePos = { x: worldBounds.width / 2, y: worldBounds.height / 2 };
   blackHoleAlpha = 1;
   playSound(60, 1.5, 'sine', 0.15);
   playSound(90, 1.5, 'sawtooth', 0.06);
@@ -3712,8 +3757,8 @@ document.getElementById('btn-antigrav').addEventListener('click', () => {
   // Upward burst particles
   for (let i = 0; i < 30; i++) {
     particles.push({
-      x: Math.random() * canvas.width,
-      y: canvas.height,
+      x: Math.random() * worldBounds.width,
+      y: worldBounds.height,
       vx: (Math.random()-0.5)*2,
       vy: -(3 + Math.random()*5),
       life: 1 + Math.random()*1,
@@ -3733,8 +3778,8 @@ document.getElementById('btn-timewarp').addEventListener('click', () => {
   // Dramatic entry particles
   for (let i = 0; i < 20; i++) {
     particles.push({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height,
+      x: Math.random() * worldBounds.width,
+      y: Math.random() * worldBounds.height,
       vx: (Math.random()-0.5)*2,
       vy: (Math.random()-0.5)*2,
       life: 1.5 + Math.random(),
@@ -3798,8 +3843,8 @@ document.getElementById('btn-megabounce').addEventListener('click', () => {
   // Green burst particles
   for (let i = 0; i < 25; i++) {
     particles.push({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height,
+      x: Math.random() * worldBounds.width,
+      y: Math.random() * worldBounds.height,
       vx: (Math.random()-0.5)*4, vy: -(2 + Math.random()*4),
       life: 0.8 + Math.random()*0.5,
       color: ['#00ff41','#33ff77','#00ccaa'][Math.floor(Math.random()*3)],
@@ -3816,7 +3861,7 @@ document.getElementById('btn-vortex').addEventListener('click', () => {
   if (vortexActive) return;
   vortexActive = true;
   vortexTimer = 300; // 5 seconds
-  vortexCenter = { x: canvas.width / 2, y: canvas.height / 2 };
+  vortexCenter = { x: worldBounds.width / 2, y: worldBounds.height / 2 };
   shakeIntensity = 8;
   playSound(400, 0.5, 'sine', 0.1);
   playSound(600, 0.4, 'sawtooth', 0.06);
@@ -3836,7 +3881,7 @@ document.getElementById('btn-tornado').addEventListener('click', () => {
   if (tornadoActive) return;
   tornadoActive = true;
   tornadoTimer = 360; // 6 seconds
-  tornadoX = Math.random() > 0.5 ? -30 : canvas.width + 30;
+  tornadoX = Math.random() > 0.5 ? -30 : worldBounds.width + 30;
   tornadoDir = tornadoX < 0 ? 1 : -1;
   shakeIntensity = 10;
   playSound(150, 0.8, 'sawtooth', 0.1);
@@ -3863,8 +3908,8 @@ document.getElementById('btn-freeze').addEventListener('click', () => {
   // Ice crystal particles
   for (let i = 0; i < 40; i++) {
     particles.push({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height,
+      x: Math.random() * worldBounds.width,
+      y: Math.random() * worldBounds.height,
       vx: (Math.random()-0.5)*3, vy: -(1 + Math.random()*2),
       life: 1 + Math.random()*1,
       color: ['#00ddff','#aaeeff','#ffffff','#66ccff'][Math.floor(Math.random()*4)],
@@ -3883,8 +3928,8 @@ document.getElementById('btn-popcorn').addEventListener('click', () => {
   // Butter-yellow burst
   for (let i = 0; i < 20; i++) {
     particles.push({
-      x: Math.random() * canvas.width,
-      y: canvas.height,
+      x: Math.random() * worldBounds.width,
+      y: worldBounds.height,
       vx: (Math.random()-0.5)*3, vy: -(4 + Math.random()*6),
       life: 0.6 + Math.random()*0.6,
       color: ['#ffdd00','#ffffff','#ff8800'][Math.floor(Math.random()*3)],
@@ -3932,8 +3977,8 @@ document.getElementById('btn-target').addEventListener('click', () => {
   targetBodies = [];
   // Spawn 5 targets at random positions
   for (let i = 0; i < 5; i++) {
-    const tx = 60 + Math.random() * (canvas.width - 120);
-    const ty = 60 + Math.random() * (canvas.height - 120);
+    const tx = 60 + Math.random() * (worldBounds.width - 120);
+    const ty = 60 + Math.random() * (worldBounds.height - 120);
     const tr = 25;
     const tbody = Bodies.circle(tx, ty, tr, {
       isStatic: true,
@@ -3972,8 +4017,8 @@ document.getElementById('btn-ocean').addEventListener('click', () => {
 });
 
 document.getElementById('btn-jenga').addEventListener('click', () => {
-  const cx = canvas.width / 2;
-  const baseY = canvas.height - 40;
+  const cx = worldBounds.width / 2;
+  const baseY = worldBounds.height - 40;
   const blockW = 80, blockH = 18, gap = 1;
   const rows = 12;
   for (let row = 0; row < rows; row++) {
@@ -4026,8 +4071,8 @@ document.getElementById('btn-ambient').addEventListener('click', () => {
 
 function startClearVortex(bodiesToClear) {
   clearAnimating = true;
-  const cx = canvas.width / 2;
-  const cy = canvas.height / 2;
+  const cx = worldBounds.width / 2;
+  const cy = worldBounds.height / 2;
   const now = performance.now();
   clearVortex = {
     start: now,
@@ -4155,6 +4200,10 @@ function drawClearVortex(timestamp) {
 }
 
 function finishClear(playFeedback = true) {
+  worldBounds = { x:0, y:0, width:WORLD_WIDTH, height:WORLD_HEIGHT };
+  updateCamera();
+  rebuildWalls();
+  initCollisionHeatmap();
   clearAnimating = false;
   clearVortex = null;
   pendingPhysicsActions = [];
@@ -4463,19 +4512,19 @@ pauseBtn.addEventListener('click', () => {
 function getPointerPos(e) {
   const rect = canvas.getBoundingClientRect();
   const touch = e.touches ? e.touches[0] : e;
-  return {
+  return screenToWorld({
     x: (touch.clientX - rect.left) * (canvas.width / rect.width),
     y: (touch.clientY - rect.top) * (canvas.height / rect.height)
-  };
+  });
 }
 
 function getPointerPosFromEnd(e) {
   const rect = canvas.getBoundingClientRect();
   const touch = e.changedTouches ? e.changedTouches[0] : e;
-  return {
+  return screenToWorld({
     x: (touch.clientX - rect.left) * (canvas.width / rect.width),
     y: (touch.clientY - rect.top) * (canvas.height / rect.height)
-  };
+  });
 }
 
 function getToolAccentColor(tool) {
@@ -5094,7 +5143,7 @@ function cloneBodyAt(pos) {
 
   if (!source) return false;
 
-  const position = getClonePosition(source, canvas.width, canvas.height);
+  const position = getClonePosition(source, worldBounds.width, worldBounds.height);
   const clone = createBodyClone(source, position);
   Body.setVelocity(clone, {
     x: source.velocity.x * 0.45 + position.direction * 1.4,
@@ -5193,7 +5242,7 @@ function fissionBodyAt(pos) {
     return false;
   }
 
-  const layout = getFissionLayout(source, canvas.width, canvas.height, FISSION_SCALE);
+  const layout = getFissionLayout(source, worldBounds.width, worldBounds.height, FISSION_SCALE);
   const sourceVelocity = { x:source.velocity.x, y:source.velocity.y };
   const sourceAngularVelocity = source.angularVelocity;
   const sourceDepth = source.fissionDepth || 0;
@@ -6335,7 +6384,7 @@ function blinkBodyAt(pos) {
     return 'cancelled';
   }
 
-  const destination = getSafeBlinkPosition(selected, pos, canvas.width, canvas.height);
+  const destination = getSafeBlinkPosition(selected, pos, worldBounds.width, worldBounds.height);
   const velocity = { x:selected.velocity.x, y:selected.velocity.y };
   const angularVelocity = selected.angularVelocity;
   Body.setPosition(selected, destination);
@@ -6446,7 +6495,7 @@ function squashBodyAt(pos) {
   target.squashMode = transition.mode;
   target.squashScaleX = transition.scaleX;
   target.squashScaleY = transition.scaleY;
-  Body.setPosition(target, getCanvasSafeBodyPosition(target, canvas.width, canvas.height));
+  Body.setPosition(target, getCanvasSafeBodyPosition(target, worldBounds.width, worldBounds.height));
   Body.setVelocity(target, velocity);
   Body.setAngularVelocity(target, angularVelocity);
   Matter.Sleeping.set(target, false);
@@ -8120,7 +8169,7 @@ function rotateBodyAt(pos) {
 
   const direction = rotateDirection;
   Body.setAngle(target, getQuarterTurnAngle(target.angle, direction));
-  Body.setPosition(target, getCanvasSafeBodyPosition(target, canvas.width, canvas.height));
+  Body.setPosition(target, getCanvasSafeBodyPosition(target, worldBounds.width, worldBounds.height));
   Body.setAngularVelocity(target, 0);
   rotateFlash = { body:target, direction, startedAt:performance.now() };
   addRotateBurst(target, direction);
@@ -8265,7 +8314,7 @@ function fuseBodiesAt(pos) {
   }
 
   const first = fusionFirstBody;
-  const kinematics = getFusionKinematics(first, target, canvas.width, canvas.height);
+  const kinematics = getFusionKinematics(first, target, worldBounds.width, worldBounds.height);
   const colorA = first.render?.color || '#00ffee';
   const colorB = target.render?.color || '#ff66ff';
   const firstRestitution = megaBounceOriginal.has(first.id) ? megaBounceOriginal.get(first.id) : first.restitution;
@@ -8548,8 +8597,8 @@ function swapBodiesAt(pos) {
   const first = swapFirstBody;
   const firstStart = { x: first.position.x, y: first.position.y };
   const secondStart = { x: target.position.x, y: target.position.y };
-  const firstDestination = getSafeSwapPosition(first, secondStart, canvas.width, canvas.height);
-  const secondDestination = getSafeSwapPosition(target, firstStart, canvas.width, canvas.height);
+  const firstDestination = getSafeSwapPosition(first, secondStart, worldBounds.width, worldBounds.height);
+  const secondDestination = getSafeSwapPosition(target, firstStart, worldBounds.width, worldBounds.height);
   Body.setPosition(first, firstDestination);
   Body.setPosition(target, secondDestination);
   addSwapBurst(firstDestination, '#00ffee', -1);
@@ -8647,7 +8696,7 @@ function stackBodiesAt(pos) {
   }
 
   const source = stackFirstBody;
-  const destination = getStackPosition(source.bounds, target.bounds, canvas.width, canvas.height);
+  const destination = getStackPosition(source.bounds, target.bounds, worldBounds.width, worldBounds.height);
   if (!destination) {
     showStackFeedback('NO ROOM ABOVE', '#ff9966');
     haptic([5, 12, 5]);
@@ -8757,7 +8806,7 @@ function mirrorBodyAt(pos) {
     target.angle,
     target.angularVelocity,
     target.bounds,
-    canvas.width
+    worldBounds.width
   );
   Matter.Sleeping.set(target, false);
   Body.setPosition(target, transform.position);
@@ -8770,8 +8819,8 @@ function mirrorBodyAt(pos) {
     to:{ x:transform.position.x, y:transform.position.y },
     startedAt:performance.now()
   };
-  addMirrorBurst(from, '#ff5fd7', from.x <= canvas.width / 2 ? 1 : -1);
-  addMirrorBurst(transform.position, '#67e8ff', transform.position.x <= canvas.width / 2 ? -1 : 1);
+  addMirrorBurst(from, '#ff5fd7', from.x <= worldBounds.width / 2 ? 1 : -1);
+  addMirrorBurst(transform.position, '#67e8ff', transform.position.x <= worldBounds.width / 2 ? -1 : 1);
   showMirrorFeedback('MIRRORED!');
   playSound(880, 0.08, 'square', 0.06);
   playSound(440, 0.12, 'sine', 0.07);
@@ -8881,8 +8930,8 @@ function placeOrReleaseWebAt(pos) {
   const existing = findWebTrapAt(pos);
   if (existing) return { released:releaseWebTrap(existing), body:existing.body };
 
-  const x = Math.max(WEB_WIDTH / 2 + 10, Math.min(canvas.width - WEB_WIDTH / 2 - 10, pos.x));
-  const y = Math.max(WEB_HEIGHT / 2 + 10, Math.min(canvas.height - WEB_HEIGHT / 2 - 30, pos.y));
+  const x = Math.max(WEB_WIDTH / 2 + 10, Math.min(worldBounds.width - WEB_WIDTH / 2 - 10, pos.x));
+  const y = Math.max(WEB_HEIGHT / 2 + 10, Math.min(worldBounds.height - WEB_HEIGHT / 2 - 30, pos.y));
   const body = Bodies.rectangle(x, y, WEB_WIDTH, WEB_HEIGHT, {
     isStatic:true,
     friction:0.9,
@@ -9032,7 +9081,7 @@ function placeOrFlipRampAt(pos) {
     return { body:replacement, flipped:true, direction };
   }
 
-  const placement = getRampPlacement(pos, canvas.width, canvas.height);
+  const placement = getRampPlacement(pos, worldBounds.width, worldBounds.height);
   const body = createRampBody(placement, 1);
   Composite.add(world, body);
   ramps.push(body);
@@ -9167,7 +9216,7 @@ function placeOrKickPinwheelAt(pos) {
     return { ...existing, placed:false, direction:Math.sign(kick.angularVelocity) };
   }
 
-  const placement = getPinwheelPlacement(pos, canvas.width, canvas.height);
+  const placement = getPinwheelPlacement(pos, worldBounds.width, worldBounds.height);
   const assembly = createPinwheelAssembly(placement);
   Composite.add(world, [assembly.body, assembly.constraint]);
   pinwheels.push(assembly);
@@ -9300,7 +9349,7 @@ function placeOrTipBasketAt(pos) {
     return { body:existing, placed:false, direction:Math.sign(tip.angularVelocity) };
   }
 
-  const placement = getBasketPlacement(pos, canvas.width, canvas.height);
+  const placement = getBasketPlacement(pos, worldBounds.width, worldBounds.height);
   const body = createBasketBody(placement);
   Composite.add(world, body);
   baskets.push(body);
@@ -9434,7 +9483,7 @@ function placeOrFireCannonAt(pos) {
   const existing = findCannonAt(pos);
   if (existing) return fireCannon(existing);
 
-  const placement = getCannonPlacement(pos, canvas.width, canvas.height);
+  const placement = getCannonPlacement(pos, worldBounds.width, worldBounds.height);
   const body = createCannonBody(placement);
   Composite.add(world, body);
   cannons.push(body);
@@ -9531,7 +9580,7 @@ function showDominoRunFeedback(message) {
 }
 
 function placeDominoRun(path) {
-  const layout = getDominoRunLayout(path, canvas.width, canvas.height);
+  const layout = getDominoRunLayout(path, worldBounds.width, worldBounds.height);
   const bodies = layout.map((point, index) => createDominoRunBody(point, index));
   if (!bodies.length) return [];
   markSpawnPop(bodies);
@@ -9561,7 +9610,7 @@ function placeDominoRun(path) {
 
 function drawDominoRunPreview() {
   if (currentTool !== 'domino-run' || !dominoRunPath.length) return;
-  const layout = getDominoRunLayout(dominoRunPath, canvas.width, canvas.height);
+  const layout = getDominoRunLayout(dominoRunPath, worldBounds.width, worldBounds.height);
   ctx.save();
   if (dominoRunPath.length > 1) {
     ctx.beginPath();
@@ -9705,7 +9754,7 @@ function placeOrToggleHatchAt(pos) {
   const existing = findHatchAt(pos);
   if (existing) return toggleHatch(existing);
 
-  const placement = getHatchPlacement(pos, canvas.width, canvas.height);
+  const placement = getHatchPlacement(pos, worldBounds.width, worldBounds.height);
   const body = createHatchBody(placement);
   const entry = {
     body,
@@ -9862,7 +9911,7 @@ function placeOrTogglePistonAt(pos) {
   const existing = findPistonAt(pos);
   if (existing) return togglePiston(existing);
 
-  const placement = getPistonPlacement(pos, canvas.width, canvas.height);
+  const placement = getPistonPlacement(pos, worldBounds.width, worldBounds.height);
   const body = createPistonBody(placement);
   const entry = {
     body,
@@ -10131,7 +10180,7 @@ function placeOrReverseSawAt(pos) {
     return { ...existing, placed:false, direction:existing.body.sawDirection };
   }
 
-  const placement = getSawPlacement(pos, canvas.width, canvas.height);
+  const placement = getSawPlacement(pos, worldBounds.width, worldBounds.height);
   const assembly = createSawAssembly(placement);
   Composite.add(world, [assembly.body, assembly.constraint]);
   saws.push(assembly);
@@ -10184,7 +10233,7 @@ function sliceBodyWithSaw(sawBody, source) {
     sawCutDebounce.delete(source.id);
     return false;
   }
-  const layout = getSawSliceLayout(source, sawBody.position, canvas.width, canvas.height, SAW_SLICE_SCALE);
+  const layout = getSawSliceLayout(source, sawBody.position, worldBounds.width, worldBounds.height, SAW_SLICE_SCALE);
   const sourceVelocity = { x:source.velocity.x, y:source.velocity.y };
   const sourceAngularVelocity = source.angularVelocity;
   const sourceColor = source.render?.color || '#ff5f57';
@@ -10373,7 +10422,7 @@ function placeOrRotateFunnelAt(pos) {
     return { ...existing, placed:false, orientation };
   }
 
-  const placement = getFunnelPlacement(pos, canvas.width, canvas.height);
+  const placement = getFunnelPlacement(pos, worldBounds.width, worldBounds.height);
   const assembly = createFunnelAssembly(placement, 0);
   Composite.add(world, assembly.bodies);
   funnels.push(assembly);
@@ -10539,7 +10588,7 @@ function placeOrFireCatapultAt(pos) {
   const existing = findCatapultAt(pos);
   if (existing) return fireCatapult(existing);
 
-  const placement = getCatapultPlacement(pos, canvas.width, canvas.height);
+  const placement = getCatapultPlacement(pos, worldBounds.width, worldBounds.height);
   const entry = createCatapultAssembly(placement);
   Composite.add(world, entry.body);
   catapults.push(entry);
@@ -10699,7 +10748,7 @@ function flattenPressPayloads(entry) {
     body.pressCount = (body.pressCount || 0) + 1;
     Matter.Sleeping.set(body, false);
     Body.setPosition(body, {
-      x:Math.max(24, Math.min(canvas.width - 24, entry.x + direction * 18)),
+      x:Math.max(24, Math.min(worldBounds.width - 24, entry.x + direction * 18)),
       y:entry.bedY - 32
     });
     Body.setVelocity(body, { x:direction * (4.2 + body.pressCount), y:-4.1 });
@@ -10728,7 +10777,7 @@ function placeOrTogglePressAt(pos) {
   const existing = findPressAt(pos);
   if (existing) return { entry:existing, placed:false, action:togglePress(existing) };
 
-  const placement = getPressPlacement(pos, canvas.width, canvas.height);
+  const placement = getPressPlacement(pos, worldBounds.width, worldBounds.height);
   const entry = createPressAssembly(placement);
   Composite.add(world, entry.bodies);
   presses.push(entry);
@@ -10865,7 +10914,7 @@ function ziplineBodyAt(pos) {
 
   const body = ziplineSelection;
   const start = { x:body.position.x, y:body.position.y };
-  const end = getZiplineEndpoint(pos, canvas.width, canvas.height);
+  const end = getZiplineEndpoint(pos, worldBounds.width, worldBounds.height);
   const geometry = getZiplineGeometry(start, end);
   if (geometry.length < ZIPLINE_MIN_LENGTH) {
     showZiplineFeedback('ZIPLINE: DESTINATION TOO CLOSE', '#ffc857');
@@ -11042,8 +11091,8 @@ function siphonBodiesAt(pos) {
   Body.scale(target, transfer.receiverFactor, transfer.receiverFactor);
   donor.resizeScale = (donor.resizeScale || 1) * transfer.donorFactor;
   target.resizeScale = (target.resizeScale || 1) * transfer.receiverFactor;
-  Body.setPosition(donor, getCanvasSafeBodyPosition(donor, canvas.width, canvas.height));
-  Body.setPosition(target, getCanvasSafeBodyPosition(target, canvas.width, canvas.height));
+  Body.setPosition(donor, getCanvasSafeBodyPosition(donor, worldBounds.width, worldBounds.height));
+  Body.setPosition(target, getCanvasSafeBodyPosition(target, worldBounds.width, worldBounds.height));
   Matter.Sleeping.set(donor, false);
   Matter.Sleeping.set(target, false);
   addSiphonBurst(donorPosition, receiverPosition);
@@ -11403,7 +11452,7 @@ function railBodyAt(pos) {
 
   const body = railSelection;
   const start = { x:body.position.x, y:body.position.y };
-  const end = getRailEndpoint(pos, canvas.width, canvas.height);
+  const end = getRailEndpoint(pos, worldBounds.width, worldBounds.height);
   const geometry = getRailGeometry(start, end);
   if (geometry.length < RAIL_MIN_LENGTH) {
     showRailFeedback(`RAIL: END ${Math.ceil(RAIL_MIN_LENGTH)}PX AWAY`, '#ffc857');
@@ -11592,7 +11641,7 @@ function winchBodyAt(pos) {
   }
 
   const body = winchSelection;
-  const anchor = getWinchAnchor(pos, canvas.width, canvas.height);
+  const anchor = getWinchAnchor(pos, worldBounds.width, worldBounds.height);
   const distance = Math.hypot(body.position.x - anchor.x, body.position.y - anchor.y);
   if (distance < WINCH_MIN_ROUTE) {
     showWinchFeedback(`WINCH: ANCHOR ${WINCH_MIN_ROUTE}PX AWAY`, '#ffc857');
@@ -11826,7 +11875,7 @@ function placeOrReverseTripwireAt(pos) {
       haptic([7, 6, 7]);
       return 'reversed';
     }
-    tripwireStart = getTripwirePoint(pos, canvas.width, canvas.height);
+    tripwireStart = getTripwirePoint(pos, worldBounds.width, worldBounds.height);
     showTripwireFeedback('POST SET • PICK WIRE END');
     addTripwireBurst(tripwireStart, null, '#67e8ff');
     playSound(520, 0.07, 'triangle', 0.05);
@@ -11834,7 +11883,7 @@ function placeOrReverseTripwireAt(pos) {
     return 'selected';
   }
 
-  const end = getTripwirePoint(pos, canvas.width, canvas.height);
+  const end = getTripwirePoint(pos, worldBounds.width, worldBounds.height);
   const geometry = getTripwireGeometry(tripwireStart, end);
   if (geometry.length < TRIPWIRE_MIN_LENGTH) {
     if (Math.hypot(end.x - tripwireStart.x, end.y - tripwireStart.y) < 24) {
@@ -11855,7 +11904,7 @@ function placeOrReverseTripwireAt(pos) {
     start,
     end,
     geometry,
-    direction:getTripwireDefaultDirection(geometry, midpoint, canvas.width),
+    direction:getTripwireDefaultDirection(geometry, midpoint, worldBounds.width),
     cooldowns:new Map()
   };
   tripwires.push(entry);
@@ -11929,9 +11978,9 @@ function placeOrDrainSyrupAt(pos) {
     haptic([6]);
     return 'drained';
   }
-  const radius = Math.max(12, Math.min(SYRUP_RADIUS, (canvas.width - 20) / 2, (canvas.height - 20) / 2));
-  const x = Math.max(radius + 10, Math.min(canvas.width - radius - 10, pos.x));
-  const y = Math.max(radius + 10, Math.min(canvas.height - radius - 10, pos.y));
+  const radius = Math.max(12, Math.min(SYRUP_RADIUS, (worldBounds.width - 20) / 2, (worldBounds.height - 20) / 2));
+  const x = Math.max(radius + 10, Math.min(worldBounds.width - radius - 10, pos.x));
+  const y = Math.max(radius + 10, Math.min(worldBounds.height - radius - 10, pos.y));
   const body = Bodies.circle(x, y, radius, {
     isStatic:true, isSensor:true, label:'syrup-pool', collisionFilter:{mask:0},
     render:{type:'syrup-pool', color:'#ffc857', radius}
@@ -12530,7 +12579,7 @@ function placeOrToggleCamAt(pos) {
     Body.setAngularVelocity(body, 0);
     showCamFeedback(body.camRunning ? 'CAM RUNNING • TAP TO STOP' : 'CAM STOPPED • TAP TO RESUME');
   } else {
-    const anchor = getCamPlacement(pos, canvas.width, canvas.height);
+    const anchor = getCamPlacement(pos, worldBounds.width, worldBounds.height);
     const angle = Math.PI / 2; // start on the low lobe so a load rises through the first half-cycle
     const center = getCamPosition(anchor, angle);
     body = Bodies.circle(center.x, center.y, CAM_RADIUS, {
@@ -12732,9 +12781,9 @@ function placeOrReverseOnewayAt(pos) {
     gate.onewayHitUntil = 0;
     wakeOnewayPayloads(gate);
   } else {
-    const width = Math.min(ONEWAY_WIDTH, Math.max(20, canvas.width - 32));
-    const x = Math.max(width / 2 + 8, Math.min(canvas.width - width / 2 - 8, pos.x));
-    const y = Math.max(44, Math.min(canvas.height - 44, pos.y));
+    const width = Math.min(ONEWAY_WIDTH, Math.max(20, worldBounds.width - 32));
+    const x = Math.max(width / 2 + 8, Math.min(worldBounds.width - width / 2 - 8, pos.x));
+    const y = Math.max(44, Math.min(worldBounds.height - 44, pos.y));
     gate = Bodies.rectangle(x, y, width, 6, {
       isStatic:true, isSensor:true, label:'oneway-gate', collisionFilter:{mask:0},
       render:{type:'oneway-gate', color:'#0abdc6', width}
@@ -12853,8 +12902,8 @@ function pulleyAt(pos) {
     return 'selected';
   }
   const anchor = {
-    x:Math.max(24, Math.min(canvas.width - 24, pos.x)),
-    y:Math.max(24, Math.min(canvas.height - 24, pos.y))
+    x:Math.max(24, Math.min(worldBounds.width - 24, pos.x)),
+    y:Math.max(24, Math.min(worldBounds.height - 24, pos.y))
   };
   const [bodyA, bodyB] = pulleySelection;
   const legs = [bodyA, bodyB].map(body => Math.hypot(body.position.x - anchor.x, body.position.y - anchor.y));
@@ -13420,7 +13469,7 @@ function placeOrCycleSieveAt(pos) {
     return { ...existing, placed:false, gap:layout.gap };
   }
 
-  const placement = getSievePlacement(pos, canvas.width, canvas.height);
+  const placement = getSievePlacement(pos, worldBounds.width, worldBounds.height);
   const assembly = createSieveAssembly(placement, 0);
   const layout = getSieveBarLayout(placement, 0);
   Composite.add(world, assembly.bodies);
@@ -13539,7 +13588,7 @@ function placeOrToggleElevatorAt(pos) {
   const existing = findElevatorAt(pos);
   if (existing) return toggleElevator(existing);
 
-  const placement = getElevatorPlacement(pos, canvas.width, canvas.height);
+  const placement = getElevatorPlacement(pos, worldBounds.width, worldBounds.height);
   const body = createElevatorBody(placement);
   const entry = { body, upperY:placement.upperY, lowerY:placement.lowerY, targetY:placement.lowerY };
   Composite.add(world, body);
@@ -13755,7 +13804,7 @@ function placeOrEjectRecyclerAt(pos) {
   const existing = findRecyclerAt(pos);
   if (existing) return ejectRecyclerScrap(existing);
 
-  const position = getRecyclerPlacement(pos, canvas.width, canvas.height);
+  const position = getRecyclerPlacement(pos, worldBounds.width, worldBounds.height);
   const body = createRecyclerBody(position);
   const entry = { body, stored:0, nextDirection:1 };
   Composite.add(world, body);
@@ -16801,7 +16850,7 @@ function drawWalls() {
     ctx.setLineDash([8, 4]);
     ctx.beginPath();
     ctx.moveTo(0, floorY);
-    ctx.lineTo(canvas.width, floorY);
+    ctx.lineTo(worldBounds.width, floorY);
     ctx.stroke();
     ctx.setLineDash([]);
   }
@@ -17247,7 +17296,7 @@ function drawWindIndicator() {
   ctx.fillStyle = '#0abdc6';
   ctx.font = '24px VT323';
   ctx.textAlign = 'center';
-  ctx.fillText(`WIND ${dir}${dir}${dir}`, canvas.width/2, 40);
+  ctx.fillText(`WIND ${dir}${dir}${dir}`, worldBounds.width/2, 40);
   ctx.textAlign = 'left';
 }
 
@@ -17255,16 +17304,16 @@ function drawGrid() {
   ctx.strokeStyle = '#0a1a1a';
   ctx.lineWidth = 0.5;
   const step = 50;
-  for (let x = 0; x < canvas.width; x += step) {
+  for (let x = 0; x < worldBounds.width; x += step) {
     ctx.beginPath();
     ctx.moveTo(x, 0);
-    ctx.lineTo(x, canvas.height);
+    ctx.lineTo(x, worldBounds.height);
     ctx.stroke();
   }
-  for (let y = 0; y < canvas.height; y += step) {
+  for (let y = 0; y < worldBounds.height; y += step) {
     ctx.beginPath();
     ctx.moveTo(0, y);
-    ctx.lineTo(canvas.width, y);
+    ctx.lineTo(worldBounds.width, y);
     ctx.stroke();
   }
 }
@@ -18274,7 +18323,7 @@ function drawMirrorFlash(timestamp) {
     return;
   }
   const alpha = 1 - progress;
-  const axisX = canvas.width / 2;
+  const axisX = worldBounds.width / 2;
   const beamY = mirrorFlash.from.y + (mirrorFlash.to.y - mirrorFlash.from.y) * progress;
   ctx.save();
   ctx.globalAlpha = alpha;
@@ -18286,7 +18335,7 @@ function drawMirrorFlash(timestamp) {
   ctx.setLineDash([7, 5]);
   ctx.beginPath();
   ctx.moveTo(axisX, 14);
-  ctx.lineTo(axisX, canvas.height - 28);
+  ctx.lineTo(axisX, worldBounds.height - 28);
   ctx.stroke();
   ctx.setLineDash([]);
   ctx.beginPath();
@@ -19696,6 +19745,7 @@ function loop(timestamp) {
   pruneRatchets();
   pruneHatches();
 
+  if (!paused) {
   // Smooth gravity transition (skip during anti-grav pulse and gravity flip)
   if (!antiGravActive && gravityAngle === 0) {
     const currentG = engine.gravity.y;
@@ -19747,8 +19797,8 @@ function loop(timestamp) {
     // Spawn bubble particles from bottom
     if (Math.random() < 0.3) {
       oceanBubbles.push({
-        x: Math.random() * canvas.width,
-        y: canvas.height + 5,
+        x: Math.random() * worldBounds.width,
+        y: worldBounds.height + 5,
         r: 2 + Math.random() * 5,
         speed: 0.5 + Math.random() * 1.5,
         wobble: Math.random() * Math.PI * 2,
@@ -19784,8 +19834,8 @@ function loop(timestamp) {
     // Floating sparkle particles
     if (antiGravTimer % 8 === 0) {
       particles.push({
-        x: Math.random() * canvas.width,
-        y: canvas.height * 0.6 + Math.random() * canvas.height * 0.4,
+        x: Math.random() * worldBounds.width,
+        y: worldBounds.height * 0.6 + Math.random() * worldBounds.height * 0.4,
         vx: (Math.random()-0.5)*1.5,
         vy: -(1 + Math.random()*3),
         life: 0.6 + Math.random()*0.6,
@@ -19885,7 +19935,7 @@ function loop(timestamp) {
   }
 
   // Portal teleportation
-  if (portals.length === 2) {
+  if (!paused && portals.length === 2) {
     // Decay cooldowns
     portalCooldowns.forEach((val, key) => {
       if (val <= 0) portalCooldowns.delete(key);
@@ -20008,7 +20058,7 @@ function loop(timestamp) {
   if (tornadoActive && tornadoTimer > 0) {
     tornadoTimer--;
     tornadoX += tornadoDir * 2.5;
-    const tornadoY = canvas.height * 0.6;
+    const tornadoY = worldBounds.height * 0.6;
     const tornadoRadius = 120;
     const allT = Composite.allBodies(world);
     allT.forEach(b => {
@@ -20077,8 +20127,8 @@ function loop(timestamp) {
       // Thaw burst particles
       for (let i = 0; i < 30; i++) {
         particles.push({
-          x: Math.random() * canvas.width,
-          y: Math.random() * canvas.height,
+          x: Math.random() * worldBounds.width,
+          y: Math.random() * worldBounds.height,
           vx: (Math.random()-0.5)*4, vy: (Math.random()-0.5)*4,
           life: 0.5 + Math.random()*0.5,
           color: ['#00ddff','#ffffff'][Math.floor(Math.random()*2)],
@@ -20190,7 +20240,7 @@ function loop(timestamp) {
         const angle = Math.random() * Math.PI * 2;
         const speed = 3 + Math.random() * 6;
         particles.push({
-          x: canvas.width/2, y: canvas.height/2,
+          x: worldBounds.width/2, y: worldBounds.height/2,
           vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed,
           life: 1 + Math.random(), color: ['#ffdd00','#ff3333','#00ff41','#ffffff'][Math.floor(Math.random()*4)],
           size: 3 + Math.random()*4
@@ -20250,8 +20300,8 @@ function loop(timestamp) {
     if (ultraChaosTimer % 20 === 0) {
       const actions = [
         () => { // mini explosion
-          const ex = 50 + Math.random() * (canvas.width-100);
-          const ey = 50 + Math.random() * (canvas.height-100);
+          const ex = 50 + Math.random() * (worldBounds.width-100);
+          const ey = 50 + Math.random() * (worldBounds.height-100);
           explosions.push({ x:ex, y:ey, r:0, maxR:100, alpha:0.8 });
           const ab = Composite.allBodies(world);
           ab.forEach(b => {
@@ -20265,7 +20315,7 @@ function loop(timestamp) {
           const types = ['ball','star','duck','bomb','balloon'];
           const old = currentTool;
           currentTool = types[Math.floor(Math.random()*types.length)];
-          spawnObject(Math.random()*canvas.width, -20, (Math.random()-0.5)*5, 3+Math.random()*5);
+          spawnObject(Math.random()*worldBounds.width, -20, (Math.random()-0.5)*5, 3+Math.random()*5);
           currentTool = old;
         },
         () => { // random gravity nudge
@@ -20286,6 +20336,8 @@ function loop(timestamp) {
       window._ultraChaosHue = null;
     }
   }
+
+  } // paused worlds keep force, velocity, portal and chaos state intact.
 
   // Gravity flip label timer
   if (window._gravFlipTimer > 0) window._gravFlipTimer--;
@@ -20391,11 +20443,19 @@ function loop(timestamp) {
 
   // ── RENDER ──
   ctx.save();
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.fillStyle = '#080c10';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.translate(camera.x,camera.y);
+  ctx.scale(camera.scale,camera.scale);
+  ctx.beginPath();
+  ctx.rect(worldBounds.x,worldBounds.y,worldBounds.width,worldBounds.height);
+  ctx.clip();
   ctx.translate(shakeOffset.x, shakeOffset.y);
 
   // Clear
   ctx.fillStyle = '#080c10';
-  ctx.fillRect(-10, -10, canvas.width+20, canvas.height+20);
+  ctx.fillRect(-10, -10, worldBounds.width+20, worldBounds.height+20);
 
   // Grid
   drawGrid();
@@ -20690,7 +20750,7 @@ function loop(timestamp) {
     ctx.fillStyle = '#ffdd00';
     ctx.font = '28px VT323';
     ctx.textAlign = 'center';
-    ctx.fillText('GRAVITY: ' + (window._gravFlipLabel || ''), canvas.width/2, canvas.height/2 - 20);
+    ctx.fillText('GRAVITY: ' + (window._gravFlipLabel || ''), worldBounds.width/2, worldBounds.height/2 - 20);
     ctx.textAlign = 'left';
     ctx.globalAlpha = 1;
   }
@@ -20700,10 +20760,10 @@ function loop(timestamp) {
     ctx.fillStyle = '#cc00ff';
     ctx.font = '28px VT323';
     ctx.textAlign = 'center';
-    ctx.fillText('🫧 ZERO-G ACTIVE 🫧', canvas.width/2, 70);
+    ctx.fillText('🫧 ZERO-G ACTIVE 🫧', worldBounds.width/2, 70);
     // Timer bar
     const barW = 200, barH = 6;
-    const barX = canvas.width/2 - barW/2;
+    const barX = worldBounds.width/2 - barW/2;
     const barY = 80;
     const pct = antiGravTimer / 240;
     ctx.fillStyle = '#cc00ff33';
@@ -20717,27 +20777,27 @@ function loop(timestamp) {
   if (timeWarpActive) {
     // Purple tint overlay
     ctx.fillStyle = 'rgba(100,0,180,0.08)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, worldBounds.width, worldBounds.height);
     // Vignette edges
     const vigGrd = ctx.createRadialGradient(
-      canvas.width/2, canvas.height/2, canvas.height * 0.3,
-      canvas.width/2, canvas.height/2, canvas.height * 0.8
+      worldBounds.width/2, worldBounds.height/2, worldBounds.height * 0.3,
+      worldBounds.width/2, worldBounds.height/2, worldBounds.height * 0.8
     );
     vigGrd.addColorStop(0, 'rgba(100,0,180,0)');
     vigGrd.addColorStop(1, 'rgba(100,0,180,0.15)');
     ctx.fillStyle = vigGrd;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, worldBounds.width, worldBounds.height);
     // Label
     ctx.fillStyle = '#cc00ff';
     ctx.font = '32px VT323';
     ctx.textAlign = 'center';
     const pulse = 0.7 + Math.sin(timestamp / 300) * 0.3;
     ctx.globalAlpha = pulse;
-    ctx.fillText('⏳ S L O W   M O T I O N ⏳', canvas.width/2, 50);
+    ctx.fillText('⏳ S L O W   M O T I O N ⏳', worldBounds.width/2, 50);
     ctx.globalAlpha = 1;
     // Timer bar
     const barW = 200, barH = 6;
-    const barX = canvas.width/2 - barW/2;
+    const barX = worldBounds.width/2 - barW/2;
     const barY = 62;
     const pct = timeWarpTimer / 300;
     ctx.fillStyle = '#cc00ff33';
@@ -20748,8 +20808,8 @@ function loop(timestamp) {
     // Floating clock particles
     if (timeWarpTimer % 12 === 0) {
       particles.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
+        x: Math.random() * worldBounds.width,
+        y: Math.random() * worldBounds.height,
         vx: (Math.random()-0.5)*0.5,
         vy: (Math.random()-0.5)*0.5,
         life: 1.5,
@@ -20766,10 +20826,10 @@ function loop(timestamp) {
     ctx.textAlign = 'center';
     const pulse = 0.7 + Math.sin(timestamp / 150) * 0.3;
     ctx.globalAlpha = pulse;
-    ctx.fillText('🏀 M E G A   B O U N C E 🏀', canvas.width/2, antiGravActive ? 110 : 50);
+    ctx.fillText('🏀 M E G A   B O U N C E 🏀', worldBounds.width/2, antiGravActive ? 110 : 50);
     ctx.globalAlpha = 1;
     const barW = 200, barH = 6;
-    const barX = canvas.width/2 - barW/2;
+    const barX = worldBounds.width/2 - barW/2;
     const barY = (antiGravActive ? 120 : 62);
     const pct = megaBounceTimer / 300;
     ctx.fillStyle = '#00ff4133';
@@ -20783,7 +20843,7 @@ function loop(timestamp) {
   if (oceanMode) {
     // Blue tint
     ctx.fillStyle = 'rgba(0,40,120,0.12)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, worldBounds.width, worldBounds.height);
     // Draw bubbles
     oceanBubbles.forEach(bub => {
       ctx.beginPath();
@@ -20803,7 +20863,7 @@ function loop(timestamp) {
     ctx.fillStyle = '#0088ff';
     ctx.font = '28px VT323';
     ctx.textAlign = 'center';
-    ctx.fillText('🌊 O C E A N   M O D E 🌊', canvas.width/2, antiGravActive ? 140 : megaBounceActive ? 100 : 50);
+    ctx.fillText('🌊 O C E A N   M O D E 🌊', worldBounds.width/2, antiGravActive ? 140 : megaBounceActive ? 100 : 50);
     ctx.globalAlpha = 1;
     ctx.textAlign = 'left';
   }
@@ -20812,27 +20872,27 @@ function loop(timestamp) {
   if (freezeActive) {
     // Ice blue overlay
     ctx.fillStyle = 'rgba(0,180,255,0.06)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, worldBounds.width, worldBounds.height);
     // Frost border
     const frostGrd = ctx.createRadialGradient(
-      canvas.width/2, canvas.height/2, canvas.height * 0.35,
-      canvas.width/2, canvas.height/2, canvas.height * 0.75
+      worldBounds.width/2, worldBounds.height/2, worldBounds.height * 0.35,
+      worldBounds.width/2, worldBounds.height/2, worldBounds.height * 0.75
     );
     frostGrd.addColorStop(0, 'rgba(0,200,255,0)');
     frostGrd.addColorStop(1, 'rgba(0,200,255,0.12)');
     ctx.fillStyle = frostGrd;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, worldBounds.width, worldBounds.height);
     // Label
     const pulse = 0.7 + Math.sin(timestamp / 200) * 0.3;
     ctx.globalAlpha = pulse;
     ctx.fillStyle = '#00ddff';
     ctx.font = '32px VT323';
     ctx.textAlign = 'center';
-    ctx.fillText('🧊 F R O Z E N 🧊', canvas.width/2, 50);
+    ctx.fillText('🧊 F R O Z E N 🧊', worldBounds.width/2, 50);
     ctx.globalAlpha = 1;
     // Timer bar
     const barW = 200, barH = 6;
-    const barX = canvas.width/2 - barW/2;
+    const barX = worldBounds.width/2 - barW/2;
     ctx.fillStyle = '#00ddff33';
     ctx.fillRect(barX, 62, barW, barH);
     ctx.fillStyle = '#00ddff';
@@ -20841,8 +20901,8 @@ function loop(timestamp) {
     // Floating ice crystals
     if (freezeTimer % 10 === 0) {
       particles.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
+        x: Math.random() * worldBounds.width,
+        y: Math.random() * worldBounds.height,
         vx: (Math.random()-0.5)*0.5, vy: -(0.5 + Math.random()),
         life: 1.5, color: '#aaeeff', size: 1 + Math.random()*2
       });
@@ -20853,13 +20913,13 @@ function loop(timestamp) {
   if (ultraChaosActive && window._ultraChaosHue != null) {
     const hue = window._ultraChaosHue;
     ctx.fillStyle = `hsla(${hue}, 100%, 50%, 0.06)`;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, worldBounds.width, worldBounds.height);
     ctx.fillStyle = '#ff3333';
     ctx.font = '36px VT323';
     ctx.textAlign = 'center';
     const pulse = 0.6 + Math.sin(timestamp / 100) * 0.4;
     ctx.globalAlpha = pulse;
-    ctx.fillText('☠️ U L T R A   C H A O S ☠️', canvas.width/2, canvas.height/2);
+    ctx.fillText('☠️ U L T R A   C H A O S ☠️', worldBounds.width/2, worldBounds.height/2);
     ctx.globalAlpha = 1;
     ctx.textAlign = 'left';
   }
@@ -20935,11 +20995,11 @@ function loop(timestamp) {
 
   // Tornado visual
   if (tornadoActive) {
-    const tornadoY = canvas.height * 0.6;
+    const tornadoY = worldBounds.height * 0.6;
     // Funnel shape — widening upward
     for (let i = 0; i < 8; i++) {
       const t = i / 8;
-      const funnelY = tornadoY - t * canvas.height * 0.5;
+      const funnelY = tornadoY - t * worldBounds.height * 0.5;
       const funnelW = 10 + t * 70;
       const sway = Math.sin(timestamp/200 + i * 0.8) * (5 + t * 15);
       ctx.beginPath();
@@ -20954,14 +21014,14 @@ function loop(timestamp) {
     ctx.fillStyle = '#ff8800';
     ctx.font = '28px VT323';
     ctx.textAlign = 'center';
-    ctx.fillText('🌪️ T O R N A D O 🌪️', tornadoX, tornadoY - canvas.height * 0.5 - 15);
+    ctx.fillText('🌪️ T O R N A D O 🌪️', tornadoX, tornadoY - worldBounds.height * 0.5 - 15);
     ctx.globalAlpha = 1;
     // Timer bar
     const barW = 150, barH = 5;
     ctx.fillStyle = '#ff880033';
-    ctx.fillRect(tornadoX - barW/2, tornadoY - canvas.height * 0.5 - 5, barW, barH);
+    ctx.fillRect(tornadoX - barW/2, tornadoY - worldBounds.height * 0.5 - 5, barW, barH);
     ctx.fillStyle = '#ff8800';
-    ctx.fillRect(tornadoX - barW/2, tornadoY - canvas.height * 0.5 - 5, barW * (tornadoTimer/360), barH);
+    ctx.fillRect(tornadoX - barW/2, tornadoY - worldBounds.height * 0.5 - 5, barW * (tornadoTimer/360), barH);
     ctx.textAlign = 'left';
   }
 
@@ -21009,7 +21069,7 @@ function loop(timestamp) {
     // White screen flash (brief)
     if (chromaticAberration > 4) {
       ctx.fillStyle = `rgba(255,255,255,${(chromaticAberration - 4) * 0.04})`;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, worldBounds.width, worldBounds.height);
     }
   }
 
@@ -21020,10 +21080,10 @@ function loop(timestamp) {
     ctx.fillStyle = '#ffdd00';
     ctx.font = '28px VT323';
     ctx.textAlign = 'center';
-    ctx.fillText('🍿 P O P C O R N ! 🍿', canvas.width/2, 50);
+    ctx.fillText('🍿 P O P C O R N ! 🍿', worldBounds.width/2, 50);
     ctx.globalAlpha = 1;
     const barW = 200, barH = 6;
-    const barX = canvas.width/2 - barW/2;
+    const barX = worldBounds.width/2 - barW/2;
     ctx.fillStyle = '#ffdd0033';
     ctx.fillRect(barX, 62, barW, barH);
     ctx.fillStyle = '#ffdd00';
@@ -21036,17 +21096,17 @@ function loop(timestamp) {
     const remaining = targetBodies.filter(t => !t.targetHit).length;
     // Score overlay top-right
     ctx.fillStyle = '#0a0a0acc';
-    ctx.fillRect(canvas.width - 180, 8, 172, 60);
+    ctx.fillRect(worldBounds.width - 180, 8, 172, 60);
     ctx.strokeStyle = '#ff3333';
     ctx.lineWidth = 2;
-    ctx.strokeRect(canvas.width - 180, 8, 172, 60);
+    ctx.strokeRect(worldBounds.width - 180, 8, 172, 60);
     ctx.fillStyle = '#ff3333';
     ctx.font = '24px VT323';
     ctx.textAlign = 'right';
-    ctx.fillText('🎯 SCORE: ' + targetScore, canvas.width - 16, 34);
+    ctx.fillText('🎯 SCORE: ' + targetScore, worldBounds.width - 16, 34);
     ctx.fillStyle = '#ffdd00';
     ctx.font = '18px VT323';
-    ctx.fillText('LEFT: ' + remaining + '  ⏱ ' + Math.ceil(targetTimer/60) + 's', canvas.width - 16, 58);
+    ctx.fillText('LEFT: ' + remaining + '  ⏱ ' + Math.ceil(targetTimer/60) + 's', worldBounds.width - 16, 58);
     ctx.textAlign = 'left';
     // Cleared flash
     if (targetCleared && targetClearedTimer > 0) {
@@ -21056,10 +21116,10 @@ function loop(timestamp) {
       ctx.fillStyle = '#ffdd00';
       ctx.font = '48px VT323';
       ctx.textAlign = 'center';
-      ctx.fillText('🎯 C L E A R E D ! 🎯', canvas.width/2, canvas.height/2);
+      ctx.fillText('🎯 C L E A R E D ! 🎯', worldBounds.width/2, worldBounds.height/2);
       ctx.fillStyle = '#ffffff';
       ctx.font = '28px VT323';
-      ctx.fillText('BONUS +50!', canvas.width/2, canvas.height/2 + 40);
+      ctx.fillText('BONUS +50!', worldBounds.width/2, worldBounds.height/2 + 40);
       ctx.textAlign = 'left';
       ctx.globalAlpha = 1;
     }
@@ -21078,11 +21138,11 @@ function loop(timestamp) {
     ctx.shadowBlur = 12 + Math.min(comboCount, 30) * 0.45;
     ctx.font = Math.floor(26 * comboScale) + 'px VT323';
     ctx.textAlign = 'center';
-    ctx.fillText(comboCount + 'x COMBO', canvas.width / 2, comboY);
+    ctx.fillText(comboCount + 'x COMBO', worldBounds.width / 2, comboY);
     ctx.font = '16px VT323';
     ctx.fillStyle = '#ffffff';
     ctx.shadowBlur = 8;
-    ctx.fillText('BEST ' + comboBest + 'x', canvas.width / 2, comboY + 22);
+    ctx.fillText('BEST ' + comboBest + 'x', worldBounds.width / 2, comboY + 22);
     ctx.restore();
   }
 
@@ -21098,7 +21158,7 @@ function loop(timestamp) {
     ctx.shadowBlur = 16;
     ctx.font = '34px VT323';
     ctx.textAlign = 'center';
-    ctx.fillText(banner.text, canvas.width / 2, canvas.height * 0.38);
+    ctx.fillText(banner.text, worldBounds.width / 2, worldBounds.height * 0.38);
     ctx.restore();
     banner.timer--;
     if (banner.timer <= 0) destructionLevelBanner = null;
@@ -21106,7 +21166,7 @@ function loop(timestamp) {
 
   // Destruction meter (bottom-left HUD)
   if (destructionMeter > 0) {
-    const meterX = 12, meterY = canvas.height - 20;
+    const meterX = 12, meterY = worldBounds.height - 20;
     const meterW = 160, meterH = 14;
     // Milestones at powers of 10
     const lvl = getDestructionLevel();
@@ -21142,13 +21202,13 @@ function loop(timestamp) {
     const hue = (t / 3) % 360;
     // Pulsing background color wash
     ctx.fillStyle = `hsla(${hue}, 100%, 50%, 0.04)`;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, worldBounds.width, worldBounds.height);
     // Disco ball spotlight beams
     const beamCount = 6;
-    const centerX = canvas.width / 2, centerY = 60;
+    const centerX = worldBounds.width / 2, centerY = 60;
     for (let i = 0; i < beamCount; i++) {
       const angle = (t / 800) + (Math.PI * 2 * i / beamCount);
-      const beamLen = Math.max(canvas.width, canvas.height);
+      const beamLen = Math.max(worldBounds.width, worldBounds.height);
       const endX = centerX + Math.cos(angle) * beamLen;
       const endY = centerY + Math.sin(angle) * beamLen;
       const beamHue = (hue + i * 60) % 360;
@@ -21187,15 +21247,15 @@ function loop(timestamp) {
     ctx.fillStyle = `hsl(${hue}, 100%, 70%)`;
     ctx.font = '24px VT323';
     ctx.textAlign = 'center';
-    ctx.fillText('🪩 D I S C O   M O D E 🪩', canvas.width/2, canvas.height - 40);
+    ctx.fillText('🪩 D I S C O   M O D E 🪩', worldBounds.width/2, worldBounds.height - 40);
     ctx.textAlign = 'left';
     ctx.globalAlpha = 1;
     // Random sparkle particles
     if (Math.random() < 0.3) {
       const sparkHue = Math.random() * 360;
       particles.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height * 0.8,
+        x: Math.random() * worldBounds.width,
+        y: Math.random() * worldBounds.height * 0.8,
         vx: (Math.random()-0.5)*2,
         vy: -(0.5 + Math.random()*2),
         life: 0.5 + Math.random()*0.5,
@@ -21209,20 +21269,20 @@ function loop(timestamp) {
   if (sloMoActive) {
     // Green vignette edges
     const sloGrd = ctx.createRadialGradient(
-      canvas.width/2, canvas.height/2, canvas.height * 0.3,
-      canvas.width/2, canvas.height/2, canvas.height * 0.8
+      worldBounds.width/2, worldBounds.height/2, worldBounds.height * 0.3,
+      worldBounds.width/2, worldBounds.height/2, worldBounds.height * 0.8
     );
     sloGrd.addColorStop(0, 'rgba(0,180,100,0)');
     sloGrd.addColorStop(1, 'rgba(0,180,100,0.12)');
     ctx.fillStyle = sloGrd;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, worldBounds.width, worldBounds.height);
     // Label
     const sPulse = 0.7 + Math.sin(timestamp / 400) * 0.3;
     ctx.globalAlpha = sPulse;
     ctx.fillStyle = '#00ff41';
     ctx.font = '22px VT323';
     ctx.textAlign = 'right';
-    ctx.fillText('SLO-MO', canvas.width - 15, 30);
+    ctx.fillText('SLO-MO', worldBounds.width - 15, 30);
     ctx.textAlign = 'left';
     ctx.globalAlpha = 1;
   }
@@ -21255,11 +21315,11 @@ function loop(timestamp) {
   // Pause overlay
   if (paused) {
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, worldBounds.width, worldBounds.height);
     ctx.fillStyle = '#00ff41';
     ctx.font = '48px VT323';
     ctx.textAlign = 'center';
-    ctx.fillText('⏸ PAUSED', canvas.width/2, canvas.height/2);
+    ctx.fillText('⏸ PAUSED', worldBounds.width/2, worldBounds.height/2);
     ctx.textAlign = 'left';
   }
 
@@ -21358,7 +21418,7 @@ document.addEventListener('keydown', (e) => {
       const angle = Math.random() * Math.PI * 2;
       const speed = 3 + Math.random() * 8;
       particles.push({
-        x: canvas.width/2, y: canvas.height/2,
+        x: worldBounds.width/2, y: worldBounds.height/2,
         vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed,
         life: 1 + Math.random()*1.5,
         color: ['#ff3333','#ffdd00','#00ff41','#0abdc6','#cc00ff','#ff6600'][Math.floor(Math.random()*6)],
@@ -21526,7 +21586,7 @@ window.ChaosEngine = {
       
       const count = spec.count || 1;
       for (let i = 0; i < count; i++) {
-        const x = spec.x ?? (80 + Math.random() * (canvas.width - 160));
+        const x = spec.x ?? (80 + Math.random() * (worldBounds.width - 160));
         const y = spec.y ?? (60 + i * 40);
         const body = spawnObject(x, y);
         if (body) {
@@ -21631,7 +21691,7 @@ function runPendingPhysicsActions(now) {
       const oldTool = currentTool;
       const types = ['ball','block','star','bomb','balloon'];
       currentTool = types[Math.floor(Math.random() * types.length)];
-      spawnObject(30 + Math.random() * (canvas.width - 60), -10 - Math.random() * 80,
+      spawnObject(30 + Math.random() * (worldBounds.width - 60), -10 - Math.random() * 80,
         (Math.random() - 0.5) * 3, 1 + Math.random() * 3);
       currentTool = oldTool;
     } else if (Composite.get(world, action.body.id, 'body') === action.body) {
@@ -21694,7 +21754,7 @@ function spawnToolAt(tool, x, y, vx = 0, vy = 0) {
 }
 
 function buildKineticCascade() {
-  const width = canvas.width, height = canvas.height;
+  const width = worldBounds.width, height = worldBounds.height;
   const y = height * 0.52;
   applyExampleGravity('Earth', 1);
   placeOrFlipRampAt({ x: width * 0.16, y: y - 20 });
@@ -21716,7 +21776,7 @@ function buildKineticCascade() {
 }
 
 function buildHaloGarden() {
-  const width = canvas.width, height = canvas.height;
+  const width = worldBounds.width, height = worldBounds.height;
   const cx = width * 0.5, cy = height * 0.46;
   applyExampleGravity('Moon', 0.166);
   spawnToolAt('magnet', cx, cy);
@@ -21742,7 +21802,7 @@ function buildHaloGarden() {
 }
 
 function buildWreckDeck() {
-  const width = canvas.width, height = canvas.height;
+  const width = worldBounds.width, height = worldBounds.height;
   const cx = width * 0.52;
   const baseY = height - 40;
   applyExampleGravity('Earth', 1);
@@ -21792,6 +21852,7 @@ function loadExample(id) {
 
 function captureGameState() {
   return {
+    worldBounds:{ ...worldBounds },
     bodies: Composite.allBodies(world).filter(body => body.label !== 'wall'),
     constraints: Composite.allConstraints(world),
     state: {
@@ -21845,6 +21906,10 @@ function readGameSave(serialized) {
   if (save?.version !== SAVE_VERSION || !Number.isFinite(Date.parse(save.savedAt))) throw new Error('Unsupported save');
   if (save.checksum !== ChaosSaveCodec.checksum(save.graph)) throw new Error('Damaged save');
   const game = ChaosSaveCodec.decode(save.graph);
+  if (game.worldBounds && (!Number.isFinite(game.worldBounds.width) || game.worldBounds.width <= 0 ||
+      !Number.isFinite(game.worldBounds.height) || game.worldBounds.height <= 0 ||
+      (game.worldBounds.x !== undefined && !Number.isFinite(game.worldBounds.x)) ||
+      (game.worldBounds.y !== undefined && !Number.isFinite(game.worldBounds.y)))) throw new Error('Invalid world bounds');
   const vector = value => value && Number.isFinite(value.x) && Number.isFinite(value.y);
   if (!game || !Array.isArray(game.bodies) || !Array.isArray(game.constraints) || !game.state ||
       !vector(game.gravity) || !Number.isFinite(game.gravity.scale) || !Number.isFinite(game.clock) ||
@@ -21975,6 +22040,9 @@ function readGameSave(serialized) {
 
 function restoreGameState(game) {
   finishClear(false);
+  worldBounds = game.worldBounds ? { x:0, y:0, ...game.worldBounds } : inferWorldBounds(game);
+  updateCamera();
+  initCollisionHeatmap();
   Composite.clear(world, false, true);
   Engine.clear(engine);
   // The same decoded objects populate both the world and the tool registries.
@@ -22005,7 +22073,7 @@ function restoreGameState(game) {
   Body._nextCollidingGroupId = Math.max(Body._nextCollidingGroupId, game.counters.collidingGroup);
   Composite.add(world, [...game.bodies, ...game.constraints]);
   walls = [];
-  rebuildWalls(); // Boundaries match this viewport, with fresh, non-conflicting IDs.
+  rebuildWalls(); // Boundaries match the authored logical world, never the viewport.
   if (megaBounceActive) walls.forEach(wall => { wall.restitution = 1.2; });
   const elapsed = performance.now() - game.clock;
   const visited = new Set();

@@ -5,6 +5,13 @@
     {
       "date": "2026-11-08",
       "ideas": [
+        "Authored logical world with uniform letterbox camera and cross-device saves"
+      ],
+      "summary": "Local implementation, not shipped: canonical 1280×549 Matter world at approved 1280×800 desktop; uniform rendering and inverse input; additive version-1 bounds; legacy envelope inference preserves coordinates and storage until explicit SAVE. Pause stops world mutation. Halo authored geometry unchanged; portal-entry ambiguity remains. 941 tests, build and inline syntax pass. Browser journeys and doctor ownership blocked by sandbox loopback EPERM; cleanup found no owned run. Evidence in artifacts/verify-chaos-engine/responsive-blocked-20261108; external evidence writes denied."
+    },
+    {
+      "date": "2026-11-08",
+      "ideas": [
         "New tool: Trim spin once without stopping linear travel"
       ],
       "summary": "Uncommitted implementation pending supervisor verification: Trim appended after Deflect stops angular motion while preserving travel, orientation and geometry. Includes accessible transient feedback, cleanup, real-Matter tests and mapped trim mobile/desktop journey. All 934 automated tests, build and inline script syntax pass. Browser verification blocked by sandbox launch; test:verify reports loopback listen EPERM. No commit, push, deployment or live verification performed."

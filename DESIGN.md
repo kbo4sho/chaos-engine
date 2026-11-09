@@ -127,3 +127,7 @@ Write terse machine-like feedback with a concrete result or next action: `HATCH 
 - **Do:** Keep direct manipulation touch-friendly and provide a tap alternative for any drag gesture.
 - **Don't:** Add a new panel, dependency, theme abstraction, or layout region for one tool.
 - **Don't:** Ship an effect-only control as an object tool; it must create, connect, transform, manipulate, or remove something on the canvas.
+
+## Authored world camera
+
+The approved 1280×800 desktop reference authors a 1280×549 Matter world. The former CSS canvas measured 1280×530.8125; explicit uniform letterboxing replaces that stretch. Keep the existing CRT shell and independently responsive DOM controls. World rendering, feedback and pointer input share one camera; viewport changes never rebuild geometry.

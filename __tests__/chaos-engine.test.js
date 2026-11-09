@@ -336,7 +336,7 @@ describe('Tripwire Tool', () => {
       scriptContent.indexOf('const TRIPWIRE_MIN_LENGTH'),
       scriptContent.indexOf('const SIEVE_TOTAL_WIDTH')
     );
-    expect(source).toContain('tripwireStart = getTripwirePoint(pos, canvas.width, canvas.height)');
+    expect(source).toContain('tripwireStart = getTripwirePoint(pos, worldBounds.width, worldBounds.height)');
     expect(source).toContain('tripwires.push(entry)');
     expect(source).toContain('existing.entry.direction *= -1');
     expect(source).toContain('getTripwireCrossing(previous, body.position');
@@ -3556,7 +3556,7 @@ describe('Rotate Tool', () => {
   it('should apply one snapped turn with visible feedback and complete cleanup', () => {
     expect(document.getElementById('rotate-feedback')?.getAttribute('role')).toBe('status');
     expect(scriptContent).toContain('Body.setAngle(target, getQuarterTurnAngle(target.angle, direction))');
-    expect(scriptContent).toContain('Body.setPosition(target, getCanvasSafeBodyPosition(target, canvas.width, canvas.height))');
+    expect(scriptContent).toContain('Body.setPosition(target, getCanvasSafeBodyPosition(target, worldBounds.width, worldBounds.height))');
     expect(scriptContent).toContain('Body.setAngularVelocity(target, 0)');
     expect(scriptContent).toContain('function addRotateBurst(body, direction)');
     expect(scriptContent).toContain('function drawRotateFlash(timestamp)');
