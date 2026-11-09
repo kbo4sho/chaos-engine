@@ -62,9 +62,9 @@ describe('Clutch spin coupling with real Matter.js', () => {
   }
   it('keeps the accessible Clutch button and routes actual canvas input after Draw',()=>{
     const api=setup(),button=api.window.document.querySelector('#toolbar > :last-child');
-    expect(button.dataset.tool).toBe('trim'); expect(button.previousElementSibling.dataset.tool).toBe('deflect');
+    expect(button.dataset.tool).toBe('bank'); expect(button.previousElementSibling.dataset.tool).toBe('trim');
     const clutchButton=api.window.document.querySelector('[data-tool=clutch]');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(104);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(105);
     expect(clutchButton.getAttribute('aria-label')).toContain('share spin'); expect(clutchButton.title).toContain('tap either end');
     api.select('draw'); clutchButton.click(); expect(api.run('[currentTool,drawMode]')).toEqual(['clutch',false]);
     expect(clutchButton.classList.contains('active')).toBe(true);
@@ -173,7 +173,7 @@ describe('Latch contact catches with real Matter.js', () => {
   it('keeps the accessible Latch button and routes real canvas taps after Draw', () => {
     const api=setup(), button=api.window.document.querySelector('[data-tool=latch]');
     expect(button.dataset.tool).toBe('latch'); expect(button.previousElementSibling.dataset.tool).toBe('rack');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(104);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(105);
     expect(button.getAttribute('aria-label')).toContain('contact latch'); expect(button.title).toContain('Tap either end to release');
     api.select('draw'); button.click(); expect(api.run('[currentTool,drawMode]')).toEqual(['latch',false]);
     expect(button.classList.contains('active')).toBe(true);
@@ -335,7 +335,7 @@ describe('Rack transmission with real Matter.js', () => {
   it('keeps the accessible Rack button and routes canvas taps after leaving Draw', () => {
     const api=setup(), button=api.window.document.querySelector('[data-tool=rack]');
     expect(button.dataset.tool).toBe('rack'); expect(button.previousElementSibling.dataset.tool).toBe('hopper');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(104);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(105);
     expect(button.getAttribute('aria-label')).toContain('spin into sideways travel'); expect(button.title).toContain('tap either end to release');
     api.select('draw'); button.click(); expect(api.run('[currentTool,drawMode]')).toEqual(['rack',false]);
     expect(button.classList.contains('active')).toBe(true);
@@ -493,7 +493,7 @@ describe('Hopper tool with real Matter.js', () => {
   it('keeps the accessible Hopper button and routes actual canvas taps through Draw', () => {
     const api=setup(), button=api.window.document.querySelector('[data-tool=hopper]');
     expect(button.dataset.tool).toBe('hopper'); expect(button.previousElementSibling.dataset.tool).toBe('cam');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(104);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(105);
     expect(button.getAttribute('aria-label')).toContain('automatically jumps'); expect(button.title).toContain('tap again');
     api.select('draw'); button.click();
     expect(api.run('[currentTool,drawMode]')).toEqual(['hopper',false]); expect(button.classList.contains('active')).toBe(true);
@@ -618,7 +618,7 @@ describe('Cam tool with real Matter.js', () => {
     const api=setup(), button=api.window.document.querySelector('[data-tool=cam]');
     expect(button.dataset.tool).toBe('cam');
     expect(button.previousElementSibling.dataset.tool).toBe('keel');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(104);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(105);
     expect(button.getAttribute('aria-label')).toContain('eccentric cam');
     expect(button.title).toContain('stop or resume');
     api.select('draw'); button.click();
@@ -767,7 +767,7 @@ describe('Keel tool with real Matter.js', () => {
     const api=setup(), button=api.window.document.querySelector('[data-tool=keel]');
     expect(button.dataset.tool).toBe('keel');
     expect(button.previousElementSibling.dataset.tool).toBe('syrup');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(104);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(105);
     expect(button.getAttribute('aria-label')).toContain('keel');
     expect(button.title).toContain('sideways');
     api.select('draw'); button.click();
@@ -947,7 +947,7 @@ describe('Syrup tool with real Matter.js', () => {
     const api=gameHarness(),button=api.window.document.querySelector('[data-tool=syrup]');
     expect(button.dataset.tool).toBe('syrup');
     expect(button.previousElementSibling.dataset.tool).toBe('torsion');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(104);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(105);
     expect(button.getAttribute('aria-label')).toContain('syrup pool');
     expect(button.title).toContain('drain');
     api.window.document.querySelector('[data-tool=draw]').click(); button.click();
@@ -1092,7 +1092,7 @@ describe('Torsion tool with real Matter.js', () => {
     const api=setup(),button=api.window.document.querySelector('[data-tool=torsion]');
     expect(button.dataset.tool).toBe('torsion');
     expect(button.previousElementSibling.dataset.tool).toBe('oneway');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(104);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(105);
     expect(button.getAttribute('aria-label')).toContain('torsion spring');
     expect(button.title).toContain('Snip');
     api.select('draw'); button.click();
@@ -1268,7 +1268,7 @@ describe('One-way gate with real Matter.js', () => {
     const api=gameHarness(), button=api.window.document.querySelector('[data-tool=oneway]');
     expect(button.dataset.tool).toBe('oneway');
     expect(button.previousElementSibling.dataset.tool).toBe('pulley');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(104);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(105);
     expect(button.getAttribute('aria-label')).toContain('one-way gate');
     expect(button.title).toContain('reverse');
     button.click();
@@ -1460,7 +1460,7 @@ describe('Pulley tool with real Matter.js', () => {
     const button = api.window.document.querySelector('[data-tool=pulley]');
     expect(button.dataset.tool).toBe('pulley');
     expect(button.previousElementSibling.dataset.tool).toBe('damper');
-    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(104);
+    expect(api.window.document.querySelectorAll('#toolbar .tool-btn')).toHaveLength(105);
     expect(button.getAttribute('aria-label')).toContain('counterweight pulley');
     expect(button.title).toContain('Snip');
     api.select('pulley');
@@ -2391,4 +2391,57 @@ describe('Trim spin tool', () => {
     expect(restored.run('Composite.allBodies(world).filter(b=>b.label!=="wall").map(b=>[b.velocity.x,b.velocity.y,b.angularVelocity])')).toEqual([[3,4,0]]);
   });
 
+});
+
+describe('Bank local-axis reflection tool', () => {
+  it('routes canvas input after Draw and reflects travel while preserving spin, speed and geometry', () => {
+    const api=gameHarness();
+    api.run(`paused=true; window.part=Bodies.rectangle(240,240,40,30); Composite.add(world,part);
+      Body.setAngle(part,Math.PI/4); Body.setVelocity(part,{x:3,y:4}); Body.setAngularVelocity(part,0.2);
+      window.shape=JSON.stringify(part.vertices.map(v=>[v.x,v.y]));`);
+    api.window.document.querySelector('[data-tool=draw]').click();
+    const button=api.window.document.querySelector('[data-tool=bank]');button.click();
+    expect(api.run('[currentTool,drawMode]')).toEqual(['bank',false]);
+    expect(button.classList.contains('active')).toBe(true);
+    expect(button.previousElementSibling.dataset.tool).toBe('trim');
+    const canvas=api.window.document.querySelector('#game');
+    canvas.getBoundingClientRect=()=>({left:0,top:0,width:canvas.width,height:canvas.height});
+    canvas.dispatchEvent(new api.window.MouseEvent('mousedown',{clientX:240,clientY:240}));
+    expect(api.run('part.velocity.x')).toBeCloseTo(4,10);
+    expect(api.run('part.velocity.y')).toBeCloseTo(3,10);
+    expect(api.run('part.angularVelocity')).toBeCloseTo(0.2,12);
+    expect(api.run('[part.angle,pointerDown]')).toEqual([Math.PI/4,false]);
+    expect(api.run('JSON.stringify(part.vertices.map(v=>[v.x,v.y]))')).toBe(api.run('shape'));
+    expect(api.window.document.querySelector('#bank-feedback').textContent).toContain('TRAVEL BANKED');
+    api.run('bankBodyAt(part.position)');
+    expect(api.run('part.velocity.x')).toBeCloseTo(3,10);
+    expect(api.run('part.velocity.y')).toBeCloseTo(4,10);
+    api.click('btn-clear');api.click('btn-clear');
+    expect(api.run('captureGameState().bodies.length')).toBe(0);
+    expect(api.window.document.querySelector('#bank-feedback').textContent).toBe('');
+  });
+  it('rejects static, phased, sensor and empty targets with guidance that clears on tool change', () => {
+    const api=gameHarness();
+    api.run('window.part=Bodies.rectangle(240,240,40,30);Composite.add(world,part);Body.setVelocity(part,{x:3,y:4})');
+    for(const setup of ['part.isSensor=true','part.isSensor=false;phaseBodies.set(part,{})','phaseBodies.clear();Body.setStatic(part,true)']) {
+      api.run(setup+';window.before=[part.velocity.x,part.velocity.y];bankBodyAt(part.position)');
+      expect(api.run('[part.velocity.x,part.velocity.y]')).toEqual(api.run('before'));
+      expect(api.window.document.querySelector('#bank-feedback').textContent).toContain('TAP A PART');
+    }
+    api.run('bankBodyAt({x:800,y:100})');
+    api.window.document.querySelector('[data-tool=ball]').click();
+    expect(api.window.document.querySelector('#bank-feedback').textContent).toBe('');
+    expect(api.errors).toEqual([]);
+  });
+  it('handles still and sleeping compound parents and persists resulting motion and selection', () => {
+    const api=gameHarness();
+    api.run(`window.part=Body.create({parts:[Bodies.rectangle(240,240,30,20),Bodies.circle(265,240,12)]});Composite.add(world,part);bankBodyAt(part.position)`);
+    expect(api.window.document.querySelector('#bank-feedback').textContent).toContain('STILL');
+    api.run('Matter.Sleeping.set(part,true);Body.setVelocity(part,{x:3,y:4});bankBodyAt(part.parts[1].position)');
+    expect(api.run('[part.velocity.x,part.velocity.y,part.isSleeping]')).toEqual([3,-4,false]);
+    api.window.document.querySelector('[data-tool=bank]').click();api.click('btn-save');
+    const restored=gameHarness({[key]:api.window.localStorage.getItem(key)});restored.click('btn-load');restored.click('save-accept');
+    expect(restored.run('currentTool')).toBe('bank');
+    expect(restored.run('Composite.allBodies(world).find(b=>b.label!=="wall").velocity.y')).toBe(-4);
+  });
 });

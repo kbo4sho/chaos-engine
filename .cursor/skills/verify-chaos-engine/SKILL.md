@@ -188,4 +188,6 @@ Keep the map honest with `/maintain-verification-skill` as the app changes.
 
 The browser harness uses Chrome’s default sandbox. Keep it enabled.
 
-- [Trim](features/trim.md) — final toolbar button after Deflect; one-shot spin removal while preserving travel. Run `./scripts/verify-chaos-engine drive trim` for touch and desktop proof.
+- [Trim](features/trim.md) — toolbar button immediately after Deflect; one-shot spin removal while preserving travel. Run `./scripts/verify-chaos-engine drive trim` for touch and desktop proof.
+
+- [Bank](features/bank.md) — final toolbar button after Trim; local-axis travel reflection. Run `./scripts/verify-chaos-engine drive bank` for real touch and desktop proof. Prior tools retain relative-order checks as new tools append.

@@ -54,4 +54,6 @@ Keep implementation details out of the map. Name only user paths, stable handles
 
 - [Deflect](./deflect.md) covers quarter-turn travel, toolbar selection, touch input and Clear cleanup.
 
-- [Trim](./trim.md) covers one-shot spin removal with travel preserved, final toolbar selection, touch/desktop input and Clear cleanup.
+- [Trim](./trim.md) covers one-shot spin removal with travel preserved, toolbar selection after Deflect, touch/desktop input and Clear cleanup.
+
+- [Bank](./bank.md) covers local-axis travel reflection, final toolbar selection after Trim, real touch/desktop input, motion and Clear cleanup.

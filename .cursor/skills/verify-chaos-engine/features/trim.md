@@ -19,7 +19,7 @@ Preconditions: isolated launch and doctor pass; fresh browser storage.
 
 - Run: `./scripts/verify-chaos-engine drive trim` exercises real touch at 390×664 and mouse input at 1280×800, with `mobile-` and `desktop-` evidence steps.
 - Build: select `[data-tool="ball"]`, tap `#game`, then use `[data-tool="launch"]` and two canvas taps to set travel and spin while paused. Observe the existing tool’s result.
-- Select: select Draw then `[data-tool="trim"]`; Trim is the final toolbar button, visible and active.
+- Select: select Draw then `[data-tool="trim"]`; Trim is immediately after Deflect, visible and active.
 - Trim: tap the part; its spin becomes zero, linear velocity and angle stay unchanged, and `#trim-feedback` reports SPIN STOPPED. Capture the action and resulting state.
 - Motion: resume physics briefly and pause; the part visibly moves across the canvas.
 - Cleanup: use `#btn-clear` and wait for the vortex; no parts or Trim feedback remain. Capture screenshots, read-only body observations and storage. Any console error or runtime exception fails the journey.

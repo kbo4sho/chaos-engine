@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-11-09",
+      "ideas": [
+        "New tool: Bank travel across a moving part’s local axis while preserving speed and spin"
+      ],
+      "summary": "Uncommitted implementation pending supervisor verification: Bank appended after Trim reflects velocity about each part’s own axis without changing spin, orientation or geometry. Includes accessible feedback, cleanup, real-Matter tests and mapped bank mobile-touch/desktop-input journey. All 938 automated tests, build and inline script syntax pass. Browser verification blocked by isolated launch failure; doctor has no state and test:verify reports loopback listen EPERM. No commit, push, deployment or live verification performed."
+    },
+    {
       "date": "2026-11-08",
       "ideas": [
         "New tool: Trim spin once without stopping linear travel"

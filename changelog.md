@@ -6,6 +6,11 @@ Future cycles still add or improve one feature without redesigning the shell. Th
 
 ---
 
+## 2026-11-09 — Implementation pending supervisor verification: Bank tool
+**Behavior:** Appended Bank after Trim. Tap a moving solid part to reflect its travel across its own local horizontal axis, preserving speed, spin, orientation, geometry and material. Repeating the tap restores travel. Shared touch targeting, accessible transient feedback, tool-change/Clear cleanup and selected-tool save/load follow existing conventions. No dependency or shell changes.
+**Verification:** All 938 automated tests pass. Focused real-Matter tests and mapped `bank` mobile-touch/desktop-input journey added; Trim now checks relative placement so appended tools preserve its proof. Build and inline script syntax pass. Isolated launch exited before ready; doctor found no state; `test:verify` failed with loopback `listen EPERM`. Browser journeys, UI layouts and production cutover require native supervisor verification. Evidence stays in the private environment-provided directory. No live verification is claimed.
+**Status:** uncommitted implementation; not shipped
+
 ## 2026-11-08 — Implementation pending supervisor verification: Trim tool
 **Behavior:** Appended Trim after Deflect. Tap a movable solid part to stop its spin once while preserving linear travel, orientation, shape and material. Shared touch targeting, concise accessible feedback, tool-change/Clear cleanup and selected-tool save/load use existing conventions. No persistent attachment, dependency or shell changes.
 **Verification:** All 934 automated tests, build and inline script syntax pass. Focused real-Matter tests and mapped `trim` touch/desktop journey added. Isolated launch exited before ready and doctor had no state; ownership tests reported loopback `listen EPERM`. Browser verification, all journeys and production cutover remain the native supervisor’s responsibility. No live verification is claimed.
