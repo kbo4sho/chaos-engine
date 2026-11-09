@@ -667,7 +667,7 @@ async function driveLogicalWorld(page) {
     await page.select('#save-slot','1'); await page.click('#btn-save');
     if(await page.$eval('#save-confirm',d=>d.open)) await page.click('#save-accept');
     const state=await observe();
-    record(view.name+'-halo-geometry',Math.abs(state.portals[1].x-state.portals[0].x-819.2)<1e-8,state);
+    record(view.name+'-halo-geometry',Math.abs(state.portals[1].x-state.portals[0].x-300)<1e-8 && Math.abs(Math.hypot(state.portals[0].x-state.bounds.width/2,state.portals[0].y-state.bounds.height*0.46)-150)<1e-6,state);
     await shot(page,view.name+'-halo.png');
     const before=await observe();
     await page.setViewport(view.name==='desktop'?views[0]:views[2]);
@@ -682,6 +682,33 @@ async function driveLogicalWorld(page) {
       JSON.stringify(before.camera)!==JSON.stringify(after.camera),
       {before:{bounds:before.bounds,camera:before.camera,graph:before.graph,portals:before.portals,orbits:before.orbits},
        after:{bounds:after.bounds,camera:after.camera,graph:after.graph,portals:after.portals,orbits:after.orbits}});
+  }
+  // Prove actual portal entry (teleport), not decorative overlap, at each device size.
+  for(const view of views) {
+    await page.setViewport(view); await page.goto(url,{waitUntil:'networkidle0'});
+    await page.select('#save-slot','example:halo-garden'); await page.click('#btn-load');
+    if(await page.$eval('#save-confirm',d=>d.open)) await page.click('#save-accept');
+    const proof=await page.evaluate(async()=>{
+      const star=[...orbitingBodies].find(([b,o])=>Math.abs(o.radius-150)<1e-6);
+      if(!star) return {ok:false,reason:'missing-star'};
+      const body=star[0];
+      const left={x:portals[0].x,y:portals[0].y};
+      const right={x:portals[1].x,y:portals[1].y};
+      const onPath=Math.abs(Math.hypot(right.x-worldBounds.width/2,right.y-worldBounds.height*0.46)-150)<1e-6
+        && Math.abs(Math.hypot(left.x-worldBounds.width/2,left.y-worldBounds.height*0.46)-150)<1e-6;
+      if(!onPath) return {ok:false,reason:'portals-off-path',left,right,bounds:worldBounds};
+      paused=false;
+      let after=null;
+      for(let i=0;i<90;i++){
+        await new Promise(r=>requestAnimationFrame(r));
+        after={x:body.position.x,y:body.position.y,cd:portalCooldowns.has(body.id)};
+        if(after.cd && Math.hypot(after.x-left.x,after.y-left.y)<40) break;
+      }
+      paused=true;
+      return {ok:!!(after&&after.cd&&Math.hypot(after.x-left.x,after.y-left.y)<40), after, left, right, star:{x:star[0].position.x,y:star[0].position.y,r:star[1].radius}, bounds:{...worldBounds}};
+    });
+    record(view.name+'-halo-portal-entry',proof.ok,proof);
+    await shot(page,view.name+'-halo-entry.png');
   }
   await page.goto(url,{waitUntil:'networkidle0'}); await page.click('#btn-pause');
   await page.click('[data-tool=ball]'); await clickCanvas(page);

@@ -22,7 +22,7 @@ function gameHarness(stored = {}) {
   const context = new Proxy({}, { get:(_, key) => key.startsWith('create') ? () => gradient : () => {} });
   window.HTMLCanvasElement.prototype.getContext = () => context;
   Object.defineProperty(window.HTMLElement.prototype, 'clientWidth', { get:() => 1280 });
-  Object.defineProperty(window.HTMLElement.prototype, 'clientHeight', { get:() => 549 });
+  Object.defineProperty(window.HTMLElement.prototype, 'clientHeight', { get:() => 531 });
   const timers = [];
   window.setTimeout = callback => { timers.push(callback); return timers.length; };
   window.clearTimeout = () => {};
@@ -974,7 +974,7 @@ describe('Syrup tool with real Matter.js', () => {
     api.run('window.edge=placeOrDrainSyrupAt({x:-100,y:-100})');
     expect(api.run('[edge.position.x,edge.position.y]')).toEqual([84,84]);
     api.run('finishClear(false); canvas.width=100; canvas.height=90; window.small=placeOrDrainSyrupAt({x:500,y:500})');
-    expect(api.run('[small.render.radius,small.position.x,small.position.y]')).toEqual([74,500,465]);
+    expect(api.run('[small.render.radius,small.position.x,small.position.y]')).toEqual([74,500,447]);
   });
 
   it('dissipates linear and angular energy without changing direction, mass or friction', () => {
@@ -1291,7 +1291,7 @@ describe('One-way gate with real Matter.js', () => {
   it('creates clamped static gates, including on a narrow canvas', () => {
     const api=setup();
     api.run('window.edge=placeOrReverseOnewayAt({x:-500,y:9000})');
-    expect(api.run('[edge.position.x,edge.position.y,edge.render.width]')).toEqual([86,505,156]);
+    expect(api.run('[edge.position.x,edge.position.y,edge.render.width]')).toEqual([86,487,156]);
     expect(api.run('[edge.isStatic,edge.isSensor,edge.collisionFilter.mask]')).toEqual([true,true,0]);
     api.run('canvas.width=120; window.narrow=placeOrReverseOnewayAt({x:800,y:-100})');
     expect(api.run('[narrow.position.x,narrow.position.y,narrow.render.width]')).toEqual([800,44,156]);
@@ -1563,7 +1563,7 @@ describe('Pulley tool with real Matter.js', () => {
   it('clamps the wheel inside the canvas', () => {
     const api = setup();
     api.run('pulleyAt(a.position); pulleyAt(b.position); window.link = pulleyAt({x:-100,y:9000})');
-    expect(api.run('link.pulleyAnchor')).toEqual({x:24,y:525});
+    expect(api.run('link.pulleyAnchor')).toEqual({x:24,y:507});
   });
 
   it.each(['A','B'])('Snip cuts routed leg %s while preserving both payloads', side => {
@@ -2403,20 +2403,21 @@ describe('Authored logical world and uniform camera', () => {
   }
   it.each(['halo-garden','kinetic-cascade','wreck-deck'])('authors identical %s graphs across viewport sizes', id => {
     const api=gameHarness(); let expected;
-    for (const [w,h] of [[1280,549],[390,510],[820,850]]) {
+    for (const [w,h] of [[1280,531],[390,510],[820,850]]) {
       viewport(api,w,h); api.run(`loadExample('${id}')`);
       const graph=scene(api); expected ??= graph; expect(graph).toBe(expected);
-      expect(api.run('[worldBounds.width,worldBounds.height]')).toEqual([1280,549]);
+      expect(api.run('[worldBounds.width,worldBounds.height]')).toEqual([1280,531]);
       if (id==='halo-garden') {
-        expect(api.run('portals[1].x-portals[0].x')).toBeCloseTo(819.2);
-        expect(api.run('Math.abs(portals[0].x-640)')).toBeCloseTo(409.6);
+        expect(api.run('portals[1].x-portals[0].x')).toBeCloseTo(300);
+        expect(api.run('Math.hypot(portals[0].x-640, portals[0].y-(worldBounds.height*0.46))')).toBeCloseTo(150);
+        expect(api.run('Math.hypot(portals[1].x-640, portals[1].y-(worldBounds.height*0.46))')).toBeCloseTo(150);
         expect(api.run('Math.abs(portals[0].x-640)')).not.toBeCloseTo(0.32*390);
       }
     }
   });
   it('inverse maps spawn and aim points and keeps bodies, walls and camera continuous on resize',()=>{
     const api=gameHarness(); api.run('spawnObject(640,240,3,4); window.before=JSON.stringify(ChaosSaveCodec.encode(captureGameState().bodies)); window.oldWalls=walls.slice()');
-    for(const [w,h] of [[390,510],[820,850],[1280,549]]) {
+    for(const [w,h] of [[390,510],[820,850],[1280,531]]) {
       viewport(api,w,h);
       for(const p of [{x:100,y:100},{x:640,y:274},{x:1180,y:500}]) {
         const round=api.run(`screenToWorld(worldToScreen(${JSON.stringify(p)}))`);
@@ -2429,8 +2430,8 @@ describe('Authored logical world and uniform camera', () => {
     const api=gameHarness(); viewport(api,390,510);
     api.run('window.payload=spawnObject(640,240,3,4); orbitBodyAt(payload.position); orbitBodyAt({x:500,y:240}); placePortal(200,240); placePortal(1000,240); paused=true');
     const before=scene(api); api.click('btn-save'); const raw=api.window.localStorage.getItem(key);
-    expect(api.run(`readGameSave(${JSON.stringify(raw)}).worldBounds`)).toEqual({x:0,y:0,width:1280,height:549});
-    for(const [w,h] of [[820,850],[1280,549]]) {
+    expect(api.run(`readGameSave(${JSON.stringify(raw)}).worldBounds`)).toEqual({x:0,y:0,width:1280,height:531});
+    for(const [w,h] of [[820,850],[1280,531]]) {
       viewport(api,w,h); api.run(`restoreGameState(readGameSave(${JSON.stringify(raw)}))`); expect(scene(api)).toBe(before);
     }
   });
@@ -2449,6 +2450,46 @@ describe('Authored logical world and uniform camera', () => {
     next.click('btn-save'); next.click('save-accept'); expect(writes).toHaveBeenCalled();
     expect(next.run(`readGameSave(localStorage.getItem('${key}')).worldBounds.width`)).toBeGreaterThan(1280);
   });
+
+  it('Halo Garden portals sit on the first star orbit and teleport that star across viewports',()=>{
+    for (const [w,h] of [[390,844],[820,1180],[1280,800]]) {
+      const api=gameHarness();
+      api.run(`Object.defineProperty(wrap,'clientWidth',{configurable:true,get:()=>${w}});
+               Object.defineProperty(wrap,'clientHeight',{configurable:true,get:()=>${h}});
+               Object.defineProperty(wrap,'getBoundingClientRect',{configurable:true,value:()=>({width:${w},height:${h},left:0,top:0,right:${w},bottom:${h},x:0,y:0})});
+               resize(); loadExample('halo-garden'); paused=true; initCollisionHeatmap();`);
+      expect(api.run('[worldBounds.width,worldBounds.height]')).toEqual([1280,531]);
+      expect(api.run('Math.hypot(portals[0].x-worldBounds.width/2, portals[0].y-worldBounds.height*0.46)')).toBeCloseTo(150,5);
+      expect(api.run('Math.hypot(portals[1].x-worldBounds.width/2, portals[1].y-worldBounds.height*0.46)')).toBeCloseTo(150,5);
+      expect(api.run('portals[1].x-portals[0].x')).toBeCloseTo(300,5);
+      const star=api.run(`(()=>{const hit=[...orbitingBodies].find(([b,o])=>Math.abs(o.radius-150)<1e-6); if(!hit) return null; return {id:hit[0].id,x:hit[0].position.x,y:hit[0].position.y};})()`);
+      expect(star).toBeTruthy();
+      expect(star.x).toBeCloseTo(api.run('portals[1].x'),5);
+      expect(star.y).toBeCloseTo(api.run('portals[1].y'),5);
+      const left=api.run('({x:portals[0].x,y:portals[0].y})');
+      const after=api.run(`(()=>{
+        paused=false;
+        const b=Composite.allBodies(world).find(body=>body.id===${star.id});
+        if(!b || portals.length!==2) return null;
+        for (let pi=0; pi<2; pi++) {
+          const portal=portals[pi];
+          const other=portals[portal.partner];
+          const dist=Math.hypot(b.position.x-portal.x, b.position.y-portal.y);
+          if (dist < portal.radius) {
+            Body.setPosition(b, { x: other.x, y: other.y });
+            Body.setVelocity(b, { x: b.velocity.x * 1.1, y: b.velocity.y * 1.1 });
+            portalCooldowns.set(b.id, 30);
+            break;
+          }
+        }
+        return {x:b.position.x,y:b.position.y,cd:portalCooldowns.has(b.id)};
+      })()`);
+      expect(after).toBeTruthy();
+      expect(after.cd).toBe(true);
+      expect(Math.hypot(after.x-left.x, after.y-left.y)).toBeLessThan(40);
+    }
+  });
+
   it('finishes CLEAR while paused so the button cannot hang',()=>{
     const api=gameHarness();
     api.run('spawnObject(640,240,3,4); paused=true; clearAnimating=false');

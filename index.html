@@ -1360,10 +1360,10 @@ saveFeedback.setAttribute('role', 'status');
 saveFeedback.setAttribute('aria-live', 'polite');
 wrap.appendChild(saveFeedback);
 
-// Approved 1280×800 desktop authored Matter world. Its former 1280×549
-// backing store disagreed with the 1280×530.8125 CSS canvas; camera mapping
-// makes that layout discrepancy explicit without stretching physics geometry.
-const WORLD_WIDTH = 1280, WORLD_HEIGHT = 549;
+// Canonical authored world from the approved 1280×800 desktop reference.
+// Measured usable #canvas-wrap at that viewport: CSS 1280×530.8125, clientHeight 531.
+// WORLD_HEIGHT uses that usable canvas (531), not the older mismatched 549 backing artifact.
+const WORLD_WIDTH = 1280, WORLD_HEIGHT = 531; // usable #canvas-wrap at approved 1280×800 desktop
 let worldBounds = { x:0, y:0, width:WORLD_WIDTH, height:WORLD_HEIGHT };
 let camera = { scale:1, x:0, y:0 };
 function resize() {
@@ -2210,6 +2210,7 @@ function drawCollisionHeatmap(dt) {
   let hasHeat = false;
 
   for (let row = 0; row < heatRows; row++) {
+    if (!heatGrid[row]) continue;
     for (let col = 0; col < heatCols; col++) {
       let value = heatGrid[row][col] * decay;
       if (value < 0.015) value = 0;
@@ -21781,8 +21782,12 @@ function buildHaloGarden() {
   const cx = width * 0.5, cy = height * 0.46;
   applyExampleGravity('Moon', 0.166);
   spawnToolAt('magnet', cx, cy);
-  placePortal(width * 0.18, cy);
-  placePortal(width * 0.82, cy);
+  // Minimal authorized correction: keep all body/orbit geometry, move only the
+  // paired portals onto the first ring star's existing circular orbit (radius 150).
+  // Left/right points on that path; the star starts at the right point and enters.
+  const haloOrbitStarRadius = 150;
+  placePortal(cx - haloOrbitStarRadius, cy);
+  placePortal(cx + haloOrbitStarRadius, cy);
   const ring = [
     ['star', 150, 0], ['balloon', 110, 1.2], ['star', 150, 2.4],
     ['beachball', 125, 3.4], ['balloon', 110, 4.4], ['star', 150, 5.4]

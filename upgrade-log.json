@@ -5,6 +5,13 @@
     {
       "date": "2026-11-08",
       "ideas": [
+        "Align Halo portals to first star orbit; canonicalize 1280\u00d7531 usable desktop world"
+      ],
+      "summary": "Minimal Halo portal coordinate correction onto the existing radius-150 star orbit. Canonical world height corrected to usable desktop canvas 531 at approved 1280\u00d7800 reference."
+    },
+    {
+      "date": "2026-11-08",
+      "ideas": [
         "Authored logical world with uniform letterbox camera and cross-device saves"
       ],
       "summary": "Feature branch: canonical 1280\u00d7549 Matter world at approved 1280\u00d7800 desktop; uniform rendering and inverse input; additive version-1 bounds; legacy envelope inference preserves coordinates and storage until explicit SAVE. Pause stops portal/physics mutation; CLEAR still completes while paused. Halo authored geometry unchanged; portal-entry ambiguity remains. 942 tests, build, ownership helpers, doctor, and all verify journeys pass."
