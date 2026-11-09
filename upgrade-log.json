@@ -7,7 +7,7 @@
       "ideas": [
         "Authored logical world with uniform letterbox camera and cross-device saves"
       ],
-      "summary": "Local implementation, not shipped: canonical 1280×549 Matter world at approved 1280×800 desktop; uniform rendering and inverse input; additive version-1 bounds; legacy envelope inference preserves coordinates and storage until explicit SAVE. Pause stops world mutation. Halo authored geometry unchanged; portal-entry ambiguity remains. 941 tests, build and inline syntax pass. Browser journeys and doctor ownership blocked by sandbox loopback EPERM; cleanup found no owned run. Evidence in artifacts/verify-chaos-engine/responsive-blocked-20261108; external evidence writes denied."
+      "summary": "Feature branch: canonical 1280\u00d7549 Matter world at approved 1280\u00d7800 desktop; uniform rendering and inverse input; additive version-1 bounds; legacy envelope inference preserves coordinates and storage until explicit SAVE. Pause stops portal/physics mutation; CLEAR still completes while paused. Halo authored geometry unchanged; portal-entry ambiguity remains. 942 tests, build, ownership helpers, doctor, and all verify journeys pass."
     },
     {
       "date": "2026-11-08",
@@ -28,84 +28,84 @@
       "ideas": [
         "New tool: Engage a friction Clutch between two parts to passively share spin, then disengage either end"
       ],
-      "summary": "Implemented Clutch tool (◎) — the final button after Latch couples two parts through passive, inertia-weighted angular impulses that equalize spin in the same direction while conserving free-end angular momentum and dissipating energy. Translation, geometry and materials stay intact. Tap either endpoint or Snip the cyan shaft to disengage. Compound parents, sleeping receivers, anchored braking, sensor/Phase suspension, amber friction plates and rotating spokes, readable SLIP/SYNC/IDLE labels, accessible feedback, shared 46px touch targeting, audio/sparks/haptics, cancellation/Draw/tool-change/Eraser/pruning/Clear cleanup and validated backward-compatible save/load support rotational contraptions on desktop and mobile."
+      "summary": "Implemented Clutch tool (\u25ce) \u2014 the final button after Latch couples two parts through passive, inertia-weighted angular impulses that equalize spin in the same direction while conserving free-end angular momentum and dissipating energy. Translation, geometry and materials stay intact. Tap either endpoint or Snip the cyan shaft to disengage. Compound parents, sleeping receivers, anchored braking, sensor/Phase suspension, amber friction plates and rotating spokes, readable SLIP/SYNC/IDLE labels, accessible feedback, shared 46px touch targeting, audio/sparks/haptics, cancellation/Draw/tool-change/Eraser/pruning/Clear cleanup and validated backward-compatible save/load support rotational contraptions on desktop and mobile."
     },
     {
       "date": "2026-10-27",
       "ideas": [
         "New tool: Arm a moving Latch that catches another build part on real contact, then release either end"
       ],
-      "summary": "Implemented Latch tool (⊏⊐) — the final button after Rack arms or disarms a movable part. Its next eligible real collision creates a damped swiveling contact joint, consumes the arm, and carries the caught part until either endpoint is tapped or the seam is Snipped. One catch per endpoint, correctly oriented contact anchors, compound parents, existing touching contacts, sleeping payloads and anchored receivers work without changing material, geometry or mass. Walls, fragments, sensors, Phase, filtered/stale contacts, anchored catchers and already-connected pairs do not capture. Cyan spokes, amber seam/armed outline, readable state labels, shared 46px targeting, accessible feedback, audio/sparks/haptics, Draw/tool-change/Eraser/transformation/pruning/Clear cleanup and validated backward-compatible save/load support contact-built contraptions on desktop and mobile."
+      "summary": "Implemented Latch tool (\u228f\u2290) \u2014 the final button after Rack arms or disarms a movable part. Its next eligible real collision creates a damped swiveling contact joint, consumes the arm, and carries the caught part until either endpoint is tapped or the seam is Snipped. One catch per endpoint, correctly oriented contact anchors, compound parents, existing touching contacts, sleeping payloads and anchored receivers work without changing material, geometry or mass. Walls, fragments, sensors, Phase, filtered/stale contacts, anchored catchers and already-connected pairs do not capture. Cyan spokes, amber seam/armed outline, readable state labels, shared 46px targeting, accessible feedback, audio/sparks/haptics, Draw/tool-change/Eraser/transformation/pruning/Clear cleanup and validated backward-compatible save/load support contact-built contraptions on desktop and mobile."
     },
     {
       "date": "2026-10-26",
       "ideas": [
         "New tool: Connect a Rack transmission that converts spin into relative sideways travel and back"
       ],
-      "summary": "Implemented Rack tool (⚙↔) — the final button after Hopper connects a turning part to a second solid part. A passive timestep-scaled, mass/inertia-aware impulse converts the first part's spin to relative horizontal travel and lets travel back-drive spin, preserving free-end linear momentum without adding kinetic energy or changing material, geometry, vertical travel or receiver spin. Tap either endpoint or Snip the shaft to release. Compound parts, sleeping receivers, anchored second endpoints, sensor/Phase/static-pinions suspension, cyan shaft and amber pinion/slide teeth, readable labels, shared 46px touch targeting, accessible feedback, audio/sparks/haptics, Draw/tool-change/Eraser/pruning/Clear cleanup and validated backward-compatible save/load support rotary-to-linear contraptions on desktop and mobile."
+      "summary": "Implemented Rack tool (\u2699\u2194) \u2014 the final button after Hopper connects a turning part to a second solid part. A passive timestep-scaled, mass/inertia-aware impulse converts the first part's spin to relative horizontal travel and lets travel back-drive spin, preserving free-end linear momentum without adding kinetic energy or changing material, geometry, vertical travel or receiver spin. Tap either endpoint or Snip the shaft to release. Compound parts, sleeping receivers, anchored second endpoints, sensor/Phase/static-pinions suspension, cyan shaft and amber pinion/slide teeth, readable labels, shared 46px touch targeting, accessible feedback, audio/sparks/haptics, Draw/tool-change/Eraser/pruning/Clear cleanup and validated backward-compatible save/load support rotary-to-linear contraptions on desktop and mobile."
     },
     {
       "date": "2026-10-25",
       "ideas": [
         "New tool: Attach a Hopper foot that automatically jumps a movable part from supporting surfaces against gravity"
       ],
-      "summary": "Implemented Hopper tool (🦘) — the final button after Cam toggles an active support-sensing foot on movable parts. Actual Matter collision normals trigger gravity-aware 8px/frame jumps with a 700ms simulation-clock rearm, preserving sideways travel, spin, mass and material. It works with compound parents and Lift inversion; walls, ceilings, filtered collisions, sensors, Phase, static parts and zero gravity do not trigger hops. Cyan spring feet, amber rearm indicator, readable ON/IDLE labels, shared 46px touch targeting, accessible feedback, audio/sparks/haptics, Draw/tool-change/Eraser/pruning/Clear cleanup and validated backward-compatible save/load support autonomous hopping contraptions on desktop and mobile."
+      "summary": "Implemented Hopper tool (\ud83e\udd98) \u2014 the final button after Cam toggles an active support-sensing foot on movable parts. Actual Matter collision normals trigger gravity-aware 8px/frame jumps with a 700ms simulation-clock rearm, preserving sideways travel, spin, mass and material. It works with compound parents and Lift inversion; walls, ceilings, filtered collisions, sensors, Phase, static parts and zero gravity do not trigger hops. Cyan spring feet, amber rearm indicator, readable ON/IDLE labels, shared 46px touch targeting, accessible feedback, audio/sparks/haptics, Draw/tool-change/Eraser/pruning/Clear cleanup and validated backward-compatible save/load support autonomous hopping contraptions on desktop and mobile."
     },
     {
       "date": "2026-10-24",
       "ideas": [
         "New tool: Place a powered eccentric Cam that repeatedly lifts parts with a solid rim, then stop and resume its cycle"
       ],
-      "summary": "Implemented Cam tool (◔) — the final button after Keel places a powered eccentric wheel whose real solid rim raises and lowers loads through a 40px stroke. A timestep-scaled drive circles a fixed offset axle; tapping the rim or stationary axle stops/resumes the same phase. Canvas clamping, sleeping-load wakeup, amber/cyan rim and axle rendering, readable ON/STOPPED labels, accessible feedback, sound/sparks/haptics, shared desktop/mobile controls, Draw/tool-change/Eraser/external-removal/Clear cleanup and validated backward-compatible save/load support cyclic lifting contraptions without a new panel, dependency or layout change."
+      "summary": "Implemented Cam tool (\u25d4) \u2014 the final button after Keel places a powered eccentric wheel whose real solid rim raises and lowers loads through a 40px stroke. A timestep-scaled drive circles a fixed offset axle; tapping the rim or stationary axle stops/resumes the same phase. Canvas clamping, sleeping-load wakeup, amber/cyan rim and axle rendering, readable ON/STOPPED labels, accessible feedback, sound/sparks/haptics, shared desktop/mobile controls, Draw/tool-change/Eraser/external-removal/Clear cleanup and validated backward-compatible save/load support cyclic lifting contraptions without a new panel, dependency or layout change."
     },
     {
       "date": "2026-10-23",
       "ideas": [
-        "New tool: Attach a Keel fin that grips sideways while sliding along a part’s rotating local axis"
+        "New tool: Attach a Keel fin that grips sideways while sliding along a part\u2019s rotating local axis"
       ],
-      "summary": "Implemented Keel tool (⟷) — the final button after Syrup toggles a body-mounted fin on existing movable parts. Timestep-scaled passive sideways damping preserves axial travel, spin, mass, material and gravity; rotating the part steers its free axis, and detaching restores free skidding. Compound parents, anchored/phased/sleeping/sensor suspension, cyan fin/travel arrows and amber grip marks, readable KEEL/IDLE label, shared 46px touch targeting, accessible feedback, sparks/audio/haptics, tool-change/Draw/Eraser/fission/fusion/saw/pruning/Clear cleanup and validated backward-compatible save/load support steering contraptions on desktop and mobile."
+      "summary": "Implemented Keel tool (\u27f7) \u2014 the final button after Syrup toggles a body-mounted fin on existing movable parts. Timestep-scaled passive sideways damping preserves axial travel, spin, mass, material and gravity; rotating the part steers its free axis, and detaching restores free skidding. Compound parents, anchored/phased/sleeping/sensor suspension, cyan fin/travel arrows and amber grip marks, readable KEEL/IDLE label, shared 46px touch targeting, accessible feedback, sparks/audio/haptics, tool-change/Draw/Eraser/fission/fusion/saw/pruning/Clear cleanup and validated backward-compatible save/load support steering contraptions on desktop and mobile."
     },
     {
       "date": "2026-10-22",
       "ideas": [
         "New tool: Pour a local Syrup pool that slows passing parts and spin, then tap to drain it"
       ],
-      "summary": "Implemented Syrup tool (🍯) — the final button after Torsion pours a canvas-clamped non-solid viscous pool, and tapping the pool drains it without removing payloads. Timestep-scaled linear/angular drag with a soft rim and strongest-only overlap slows parts locally while preserving their mass, material, direction and gravity; static, sensor and phased parts are excluded. Amber pool/rim rendering, a readable drain hint, accessible feedback, sparks/audio/haptics, shared desktop/mobile controls, Eraser/pruning/tool-change/Draw/Clear cleanup and validated backward-compatible save/load support local cushioning and slow-motion contraptions."
+      "summary": "Implemented Syrup tool (\ud83c\udf6f) \u2014 the final button after Torsion pours a canvas-clamped non-solid viscous pool, and tapping the pool drains it without removing payloads. Timestep-scaled linear/angular drag with a soft rim and strongest-only overlap slows parts locally while preserving their mass, material, direction and gravity; static, sensor and phased parts are excluded. Amber pool/rim rendering, a readable drain hint, accessible feedback, sparks/audio/haptics, shared desktop/mobile controls, Eraser/pruning/tool-change/Draw/Clear cleanup and validated backward-compatible save/load support local cushioning and slow-motion contraptions."
     },
     {
       "date": "2026-10-21",
       "ideas": [
         "New tool: Couple two parts with a Torsion spring that stores winding and restores their original relative angle"
       ],
-      "summary": "Implemented Torsion tool (➰) — the final button after One-way selects two parts and couples their rotation with an angular spring while leaving translation free. Equal/opposite timestep-scaled impulses use real inertia, conserve free endpoints’ angular momentum, retain multiple turns of winding, damp relative spin and bound extreme corrections; anchored endpoints work too. A wound cyan/amber coil, endpoint rotation spokes, degree readout, accessible status, shared 46px targeting, sparks/audio/haptics, cancellation and duplicate/short-link/fixed-pair guidance, Snip/Eraser/pruning/tool-change/Clear cleanup and validated backward-compatible save/load support desktop and mobile spring-return contraptions."
+      "summary": "Implemented Torsion tool (\u27b0) \u2014 the final button after One-way selects two parts and couples their rotation with an angular spring while leaving translation free. Equal/opposite timestep-scaled impulses use real inertia, conserve free endpoints\u2019 angular momentum, retain multiple turns of winding, damp relative spin and bound extreme corrections; anchored endpoints work too. A wound cyan/amber coil, endpoint rotation spokes, degree readout, accessible status, shared 46px targeting, sparks/audio/haptics, cancellation and duplicate/short-link/fixed-pair guidance, Snip/Eraser/pruning/tool-change/Clear cleanup and validated backward-compatible save/load support desktop and mobile spring-return contraptions."
     },
     {
       "date": "2026-10-20",
       "ideas": [
         "New tool: Place a reversible One-way gate that passes parts in one direction and catches their return"
       ],
-      "summary": "Implemented One-way tool (⇧) — the final button after Pulley places a canvas-clamped passive directional gate that passes parts upward and supports them falling back; a repeat tap reverses PASS UP/PASS DOWN. Swept actual collision geometry catches fast crossings and compound parts while preserving horizontal motion and spin, respects Phase/sensors and already-straddling parts, and wakes resting payloads on reversal or removal. Cyan rails, amber direction chevrons/contact feedback, readable labels, a full-width 52px touch strip, accessible status, sound/sparks/haptics, tool-change/pruning/Eraser/Clear cleanup and backward-compatible validated save/load support desktop and mobile catch-floor contraptions."
+      "summary": "Implemented One-way tool (\u21e7) \u2014 the final button after Pulley places a canvas-clamped passive directional gate that passes parts upward and supports them falling back; a repeat tap reverses PASS UP/PASS DOWN. Swept actual collision geometry catches fast crossings and compound parts while preserving horizontal motion and spin, respects Phase/sensors and already-straddling parts, and wakes resting payloads on reversal or removal. Cyan rails, amber direction chevrons/contact feedback, readable labels, a full-width 52px touch strip, accessible status, sound/sparks/haptics, tool-change/pruning/Eraser/Clear cleanup and backward-compatible validated save/load support desktop and mobile catch-floor contraptions."
     },
     {
       "date": "2026-10-19",
       "ideas": [
         "New tool: Route a shared cable through a fixed Pulley so one counterweight lifts the other end"
       ],
-      "summary": "Implemented Pulley tool (⏀) — the final button after Damper selects two build parts, then places a fixed world wheel routing one shared tension-only cable. A passive inverse-mass solver trades cable length and outward motion between endpoints without driving spin or tangential travel, allows slack, supports anchored ends and caps extreme corrections at the wheel. Amber cable/wheel rendering, sag and taut/slack labels, A/B selection outlines, shared 46px touch targeting, accessible feedback, sound/sparks/haptics, same-part cancellation, duplicate/static-pair/short-leg guards, Snip on either routed leg, Eraser, tool-change/pruning/Clear cleanup and backward-compatible save/load support desktop and mobile counterweight contraptions."
+      "summary": "Implemented Pulley tool (\u23c0) \u2014 the final button after Damper selects two build parts, then places a fixed world wheel routing one shared tension-only cable. A passive inverse-mass solver trades cable length and outward motion between endpoints without driving spin or tangential travel, allows slack, supports anchored ends and caps extreme corrections at the wheel. Amber cable/wheel rendering, sag and taut/slack labels, A/B selection outlines, shared 46px touch targeting, accessible feedback, sound/sparks/haptics, same-part cancellation, duplicate/static-pair/short-leg guards, Snip on either routed leg, Eraser, tool-change/pruning/Clear cleanup and backward-compatible save/load support desktop and mobile counterweight contraptions."
     },
     {
       "date": "2026-10-18",
       "ideas": [
         "New tool: Connect two parts with a passive Damper that softens relative motion without a spring"
       ],
-      "summary": "Implemented Damper tool (⊣⊢) — the final button after Breaklink joins two build parts with a real Matter.js shock absorber using 0.18 axial damping and zero stiffness set after construction. It dissipates relative approach and separation while conserving two moving endpoints' total momentum, preserving tangential motion and spin, and adding no rest-length force or energy. A cyan telescoping piston with amber activity feedback, selection outline, accessible status, 46px touch targeting, audio/sparks/haptics, cancellation and duplicate/short-link/static-pair guards, anchored endpoints, Snip/Eraser support, tool-change/pruning/Clear cleanup, and backward-compatible save/load support desktop and mobile contraptions."
+      "summary": "Implemented Damper tool (\u22a3\u22a2) \u2014 the final button after Breaklink joins two build parts with a real Matter.js shock absorber using 0.18 axial damping and zero stiffness set after construction. It dissipates relative approach and separation while conserving two moving endpoints' total momentum, preserving tangential motion and spin, and adding no rest-length force or energy. A cyan telescoping piston with amber activity feedback, selection outline, accessible status, 46px touch targeting, audio/sparks/haptics, cancellation and duplicate/short-link/static-pair guards, anchored endpoints, Snip/Eraser support, tool-change/pruning/Clear cleanup, and backward-compatible save/load support desktop and mobile contraptions."
     },
     {
       "date": "2026-10-17",
       "ideas": [
         "New tool: Join two parts with a Breaklink that snaps automatically when overstretched"
       ],
-      "summary": "Implemented Breaklink tool (⛓) — the final button after Ratchet selects two build parts and creates a soft physical constraint that snaps when stretched beyond its initial length plus the larger of 28px or 30%, releasing both payloads without removing them. A pre-solver extension check immediately disables the cached joint, while cyan/amber/red strain rendering, a percentage label, selection outline, 46px touch targeting, accessible status, sparks/audio/haptics, cancellation, duplicate and short-link guards, Snip/Eraser support, tool-change/pruning/Clear cleanup, and backward-compatible save/load make breakaway contraptions usable on desktop and mobile."
+      "summary": "Implemented Breaklink tool (\u26d3) \u2014 the final button after Ratchet selects two build parts and creates a soft physical constraint that snaps when stretched beyond its initial length plus the larger of 28px or 30%, releasing both payloads without removing them. A pre-solver extension check immediately disables the cached joint, while cyan/amber/red strain rendering, a percentage label, selection outline, 46px touch targeting, accessible status, sparks/audio/haptics, cancellation, duplicate and short-link guards, Snip/Eraser support, tool-change/pruning/Clear cleanup, and backward-compatible save/load make breakaway contraptions usable on desktop and mobile."
     },
     {
       "date": "2026-10-16",
@@ -119,601 +119,601 @@
       "ideas": [
         "New tool: Give an existing part a passive one-way Ratchet that blocks reverse rotation"
       ],
-      "summary": "Implemented Ratchet tool (⥁) — the final button after Tripwire cycles a tapped part through clockwise-only rotation, counter-clockwise-only rotation, and free spin; the passive clutch advances its stop angle only in the allowed direction, rejects backward angle and angular velocity after each physics step without changing linear travel or adding spin, and suspends safely on anchored parts. A visible amber tooth ring, cyan pawl, direction label and lock flash, 46px touch targeting, accessible status, particle/audio/haptic feedback, keyboard selection, tool-change feedback cleanup, source-removal/Eraser pruning, and Clear reset support desktop and mobile contraptions."
+      "summary": "Implemented Ratchet tool (\u2941) \u2014 the final button after Tripwire cycles a tapped part through clockwise-only rotation, counter-clockwise-only rotation, and free spin; the passive clutch advances its stop angle only in the allowed direction, rejects backward angle and angular velocity after each physics step without changing linear travel or adding spin, and suspends safely on anchored parts. A visible amber tooth ring, cyan pawl, direction label and lock flash, 46px touch targeting, accessible status, particle/audio/haptic feedback, keyboard selection, tool-change feedback cleanup, source-removal/Eraser pruning, and Clear reset support desktop and mobile contraptions."
     },
     {
       "date": "2026-10-16",
       "ideas": [
         "New tool: Stretch a directional Tripwire that launches crossing physics objects"
       ],
-      "summary": "Implemented Tripwire tool (⚡) — the final button in the existing object toolbar now places a canvas-clamped two-post sensor beam with two taps, detects real frame-to-frame body crossings, preserves along-wire momentum while replacing perpendicular speed with a directional 11.5 px/frame kick, and reverses the launch side when the beam is tapped; 52px touch targeting, magenta/cyan CRT rendering with a gold direction arrow, re-arm protection, status/particle/audio/haptic feedback, Eraser support, and tool-change/Clear cleanup make reusable launch gates reliable on desktop and mobile."
+      "summary": "Implemented Tripwire tool (\u26a1) \u2014 the final button in the existing object toolbar now places a canvas-clamped two-post sensor beam with two taps, detects real frame-to-frame body crossings, preserves along-wire momentum while replacing perpendicular speed with a directional 11.5 px/frame kick, and reverses the launch side when the beam is tapped; 52px touch targeting, magenta/cyan CRT rendering with a gold direction arrow, re-arm protection, status/particle/audio/haptic feedback, Eraser support, and tool-change/Clear cleanup make reusable launch gates reliable on desktop and mobile."
     },
     {
       "date": "2026-10-11",
       "ideas": [
         "New tool: Suspend one loose part from a powered Winch and reel it in or out"
       ],
-      "summary": "Implemented Winch tool (◉) — the final button in the existing object toolbar now selects one loose standalone part and a canvas-clamped remote anchor, creates a real body-to-world cable, powers its length between a 52–96px raised stop and the original lowered stop, and reverses direction when the spool is tapped while the payload remains free to swing and collide; 46/58px touch targeting, amber/cyan CRT rendering, status/particle/audio/haptic feedback, tool-change selection cleanup, and direct/Snip/Eraser/Clear cable release make reusable hoisting reliable on desktop and mobile."
+      "summary": "Implemented Winch tool (\u25c9) \u2014 the final button in the existing object toolbar now selects one loose standalone part and a canvas-clamped remote anchor, creates a real body-to-world cable, powers its length between a 52\u201396px raised stop and the original lowered stop, and reverses direction when the spool is tapped while the payload remains free to swing and collide; 46/58px touch targeting, amber/cyan CRT rendering, status/particle/audio/haptic feedback, tool-change selection cleanup, and direct/Snip/Eraser/Clear cable release make reusable hoisting reliable on desktop and mobile."
     },
     {
       "date": "2026-10-10",
       "ideas": [
         "New tool: Place an adjustable physical Sieve that sorts loose parts by size"
       ],
-      "summary": "Implemented Sieve tool (▔◇▔) — the final button in the existing object toolbar now places a canvas-clamped pair of real static collision bars and cycles their center opening through exact 12px, 44px, and 68px gaps on repeat taps so larger payloads can be caught while smaller parts fall through; 62px touch targeting, mint/cyan CRT rendering, status/particle/audio/haptic feedback, grouped Eraser behavior, and tool-change/Clear cleanup make adjustable physical sorting reliable on desktop and mobile."
+      "summary": "Implemented Sieve tool (\u2594\u25c7\u2594) \u2014 the final button in the existing object toolbar now places a canvas-clamped pair of real static collision bars and cycles their center opening through exact 12px, 44px, and 68px gaps on repeat taps so larger payloads can be caught while smaller parts fall through; 62px touch targeting, mint/cyan CRT rendering, status/particle/audio/haptic feedback, grouped Eraser behavior, and tool-change/Clear cleanup make adjustable physical sorting reliable on desktop and mobile."
     },
     {
       "date": "2026-10-09",
       "ideas": [
         "New tool: Guide one loose part along a finite passive Rail"
       ],
-      "summary": "Implemented Rail tool (═) — the final button in the existing object toolbar now selects one loose standalone part and a canvas-clamped destination, then persistently projects the rider's position and velocity onto a visible finite guide with a small starter kick and damped endpoint reversals; 46px touch targeting, direct tap-to-release behavior, cyan sleeper-track and gold carriage rendering, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make reusable linear sliders reliable on desktop and mobile."
+      "summary": "Implemented Rail tool (\u2550) \u2014 the final button in the existing object toolbar now selects one loose standalone part and a canvas-clamped destination, then persistently projects the rider's position and velocity onto a visible finite guide with a small starter kick and damped endpoint reversals; 46px touch targeting, direct tap-to-release behavior, cyan sleeper-track and gold carriage rendering, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make reusable linear sliders reliable on desktop and mobile."
     },
     {
       "date": "2026-10-08",
       "ideas": [
         "New tool: Couple two loose parts in a ratio-aware Gearbox"
       ],
-      "summary": "Implemented Gearbox tool (⛭) — the final button in the existing object toolbar now selects two loose standalone parts and persistently couples their angular motion with exact equal-and-opposite edge speeds derived from each member's visible size; an automatic starter turn, 46px touch targeting, 0.72 rad/frame safety cap, direct tap-to-disengage behavior, neon gear-ring/transmission rendering, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make reusable rotational transmissions reliable on desktop and mobile."
+      "summary": "Implemented Gearbox tool (\u26ed) \u2014 the final button in the existing object toolbar now selects two loose standalone parts and persistently couples their angular motion with exact equal-and-opposite edge speeds derived from each member's visible size; an automatic starter turn, 46px touch targeting, 0.72 rad/frame safety cap, direct tap-to-disengage behavior, neon gear-ring/transmission rendering, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make reusable rotational transmissions reliable on desktop and mobile."
     },
     {
       "date": "2026-10-07",
       "ideas": [
         "New tool: Siphon physical area from one loose part into another"
       ],
-      "summary": "Implemented Siphon tool (⇄) — the final button in the existing object toolbar now selects a loose donor part and a loose receiver, transfers a capped 22% chunk of the donor's physical area with exact area conservation, and visibly shrinks one body while growing the other; 46px touch targeting, minimum/maximum size guards, animated donor/receiver markers and transfer beads, status/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make two-part size transfer reliable on desktop and mobile."
+      "summary": "Implemented Siphon tool (\u21c4) \u2014 the final button in the existing object toolbar now selects a loose donor part and a loose receiver, transfers a capped 22% chunk of the donor's physical area with exact area conservation, and visibly shrinks one body while growing the other; 46px touch targeting, minimum/maximum size guards, animated donor/receiver markers and transfer beads, status/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make two-part size transfer reliable on desktop and mobile."
     },
     {
       "date": "2026-10-06",
       "ideas": [
         "New tool: Send one loose part along a powered Zipline to a tapped destination"
       ],
-      "summary": "Implemented Zipline tool (🚡) — the final button in the existing object toolbar now selects one loose standalone part and a canvas-clamped destination, renders a persistent cyan-and-gold cable with a powered trolley, carries the part along the exact route, and releases it with forward momentum at the endpoint; an 80px minimum route, exact plus 46px touch targeting, tap-to-release behavior, gravity-aware powered speed, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make point-to-point transport reliable on desktop and mobile."
+      "summary": "Implemented Zipline tool (\ud83d\udea1) \u2014 the final button in the existing object toolbar now selects one loose standalone part and a canvas-clamped destination, renders a persistent cyan-and-gold cable with a powered trolley, carries the part along the exact route, and releases it with forward momentum at the endpoint; an 80px minimum route, exact plus 46px touch targeting, tap-to-release behavior, gravity-aware powered speed, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make point-to-point transport reliable on desktop and mobile."
     },
     {
       "date": "2026-10-05",
       "ideas": [
         "New tool: Place a reusable Hydraulic Press that flattens and ejects loose objects"
       ],
-      "summary": "Implemented Hydraulic Press tool (⇩) — the final button in the existing object toolbar now places a canvas-clamped pair of real static collision plates, closes the animated ram on repeat tap, flattens eligible loose standalone payloads by 1.35×/0.72× for up to three passes, and ejects them to alternating sides before reopening; 64px touch targeting, magenta/gold CRT rendering, press-specific shatter protection, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make reusable compression contraptions reliable on desktop and mobile."
+      "summary": "Implemented Hydraulic Press tool (\u21e9) \u2014 the final button in the existing object toolbar now places a canvas-clamped pair of real static collision plates, closes the animated ram on repeat tap, flattens eligible loose standalone payloads by 1.35\u00d7/0.72\u00d7 for up to three passes, and ejects them to alternating sides before reopening; 64px touch targeting, magenta/gold CRT rendering, press-specific shatter protection, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make reusable compression contraptions reliable on desktop and mobile."
     },
     {
       "date": "2026-10-04",
       "ideas": [
         "New tool: Place a reusable Catapult and launch existing objects loaded in its cup"
       ],
-      "summary": "Implemented Catapult tool (⤴) — the final button in the existing object toolbar now places a canvas-clamped inward-facing static collision arm, launches nearby loose existing objects from its cup with mirrored velocity and spin, and visibly cycles through a full fire-and-return motion on repeat taps; 62px touch targeting, amber/cyan CRT rendering, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make reusable contraption launches reliable on desktop and mobile."
+      "summary": "Implemented Catapult tool (\u2934) \u2014 the final button in the existing object toolbar now places a canvas-clamped inward-facing static collision arm, launches nearby loose existing objects from its cup with mirrored velocity and spin, and visibly cycles through a full fire-and-return motion on repeat taps; 62px touch targeting, amber/cyan CRT rendering, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make reusable contraption launches reliable on desktop and mobile."
     },
     {
       "date": "2026-10-03",
       "ideas": [
         "New tool: Place a physical Funnel and rotate it to reroute moving objects"
       ],
-      "summary": "Implemented Funnel tool (▽) — the final button in the existing object toolbar now places a canvas-clamped two-rail static collision chute and rotates both rails through exact quarter-turns on repeat taps so falling or launched objects can be redirected down, left, up, or right; 58px touch targeting, amber/cyan CRT rail rendering, payload wake-up, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make reusable routing reliable on desktop and mobile."
+      "summary": "Implemented Funnel tool (\u25bd) \u2014 the final button in the existing object toolbar now places a canvas-clamped two-rail static collision chute and rotates both rails through exact quarter-turns on repeat taps so falling or launched objects can be redirected down, left, up, or right; 58px touch targeting, amber/cyan CRT rail rendering, payload wake-up, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make reusable routing reliable on desktop and mobile."
     },
     {
       "date": "2026-10-02",
       "ideas": [
         "New tool: Place a reusable spinning Saw that slices loose parts on contact"
       ],
-      "summary": "Implemented Saw tool (✹) — the final button in the existing object toolbar now places a canvas-clamped physical blade on a fixed world pin, maintains its spin, slices eligible loose standalone parts into two smaller momentum-carrying pieces on contact, and reverses direction when tapped; capped two-pass cutting, 58px touch targeting, CRT tooth/hub rendering, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make collision-driven cutting reliable and reusable on desktop and mobile."
+      "summary": "Implemented Saw tool (\u2739) \u2014 the final button in the existing object toolbar now places a canvas-clamped physical blade on a fixed world pin, maintains its spin, slices eligible loose standalone parts into two smaller momentum-carrying pieces on contact, and reverses direction when tapped; capped two-pass cutting, 58px touch targeting, CRT tooth/hub rendering, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make collision-driven cutting reliable and reusable on desktop and mobile."
     },
     {
       "date": "2026-10-01",
       "ideas": [
         "New tool: Deploy or release a gravity-aware Parachute on one dynamic part"
       ],
-      "summary": "Implemented Parachute tool (🪂) — the final button in the existing object toolbar now toggles a visible CRT canopy on one dynamic part and applies capped, speed-dependent drag opposite the current gravity direction while preserving gravity, collisions, rotation, and connections; exact plus 46px touch targeting, gentle lateral damping, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make controlled air-drops reliable and reversible on desktop and mobile."
+      "summary": "Implemented Parachute tool (\ud83e\ude82) \u2014 the final button in the existing object toolbar now toggles a visible CRT canopy on one dynamic part and applies capped, speed-dependent drag opposite the current gravity direction while preserving gravity, collisions, rotation, and connections; exact plus 46px touch targeting, gentle lateral damping, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make controlled air-drops reliable and reversible on desktop and mobile."
     },
     {
       "date": "2026-09-30",
       "ideas": [
         "New tool: Place a reusable Piston and tap it to push nearby physics objects horizontally"
       ],
-      "summary": "Implemented Piston tool (⇥) — the final button in the existing object toolbar now places a canvas-clamped, inward-facing static ram that extends exactly 96px on tap to physically shove nearby objects, then retracts to its original stop on the next tap; 58px touch targeting, payload wake-up, neon housing/rod rendering, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make repeatable horizontal launches reliable on desktop and mobile."
+      "summary": "Implemented Piston tool (\u21e5) \u2014 the final button in the existing object toolbar now places a canvas-clamped, inward-facing static ram that extends exactly 96px on tap to physically shove nearby objects, then retracts to its original stop on the next tap; 58px touch targeting, payload wake-up, neon housing/rod rendering, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make repeatable horizontal launches reliable on desktop and mobile."
     },
     {
       "date": "2026-09-29",
       "ideas": [
         "New tool: Place a hinged Hatch and tap it to open or close a real trapdoor"
       ],
-      "summary": "Implemented Hatch tool (▰) — the final button in the existing object toolbar now places a canvas-clamped, hazard-striped static platform hinged toward the nearest outer edge, then swings it exactly 90 degrees down or back closed on repeat taps so resting physics objects can be deliberately dropped; 58px touch targeting, fixed-pivot animation, payload wake-up, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make reusable gates reliable on desktop and mobile."
+      "summary": "Implemented Hatch tool (\u25b0) \u2014 the final button in the existing object toolbar now places a canvas-clamped, hazard-striped static platform hinged toward the nearest outer edge, then swings it exactly 90 degrees down or back closed on repeat taps so resting physics objects can be deliberately dropped; 58px touch targeting, fixed-pivot animation, payload wake-up, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make reusable gates reliable on desktop and mobile."
     },
     {
       "date": "2026-09-28",
       "ideas": [
         "New tool: Place a Recycler that converts loose objects into an ejectable scrap ball"
       ],
-      "summary": "Implemented Recycler tool (♻) — the final button in the existing object toolbar now places a canvas-clamped sensor intake that removes loose standalone physics parts on contact, banks up to nine as visible scrap, and ejects one size-scaled dynamic metal scrap ball when tapped; 58px touch targeting, neon CRT rendering, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make the recycle-and-reuse loop readable and reliable on desktop and mobile."
+      "summary": "Implemented Recycler tool (\u267b) \u2014 the final button in the existing object toolbar now places a canvas-clamped sensor intake that removes loose standalone physics parts on contact, banks up to nine as visible scrap, and ejects one size-scaled dynamic metal scrap ball when tapped; 58px touch targeting, neon CRT rendering, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make the recycle-and-reuse loop readable and reliable on desktop and mobile."
     },
     {
       "date": "2026-09-27",
       "ideas": [
         "New tool: Place a reusable Elevator and tap it to transport objects between two levels"
       ],
-      "summary": "Implemented Elevator tool (↕) — the final button in the existing object toolbar now places a canvas-clamped static platform on a visible 132px neon rail, then sends it to the opposite stop on repeat taps; real colliding riders are awakened and carried with the deck, while 58px touch targeting, mid-trip reversal, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make vertical transport reliable on desktop and mobile."
+      "summary": "Implemented Elevator tool (\u2195) \u2014 the final button in the existing object toolbar now places a canvas-clamped static platform on a visible 132px neon rail, then sends it to the opposite stop on repeat taps; real colliding riders are awakened and carried with the deck, while 58px touch targeting, mid-trip reversal, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make vertical transport reliable on desktop and mobile."
     },
     {
       "date": "2026-09-26",
       "ideas": [
         "New tool: Drag or tap to place an evenly spaced physical Domino Run"
       ],
-      "summary": "Implemented Domino Run tool (▥) — the final button in the existing object toolbar now records a mouse or touch path, previews an evenly spaced amber/gold chain, and commits up to 36 real dynamic domino bodies with path-aligned angles; a tap-only five-domino starter line provides a non-drag alternative, while canvas clamping, status/particle/audio/haptic feedback, and tool-change/Clear cleanup make rapid chain building reliable on desktop and mobile."
+      "summary": "Implemented Domino Run tool (\u25a5) \u2014 the final button in the existing object toolbar now records a mouse or touch path, previews an evenly spaced amber/gold chain, and commits up to 36 real dynamic domino bodies with path-aligned angles; a tap-only five-domino starter line provides a non-drag alternative, while canvas clamping, status/particle/audio/haptic feedback, and tool-change/Clear cleanup make rapid chain building reliable on desktop and mobile."
     },
     {
       "date": "2026-09-25",
       "ideas": [
         "New tool: Place a reusable Cannon and tap it to fire real physics cannonballs"
       ],
-      "summary": "Implemented Cannon tool (☄️) — the final button in the existing object toolbar now places a canvas-clamped static launcher that automatically faces toward the playfield center and fires a fast dynamic metal cannonball from its muzzle on repeat taps; exact plus 58px touch targeting, mirrored launch math, recoil/muzzle-flash rendering, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make repeatable target ranges and crossfire reliable on desktop and mobile."
+      "summary": "Implemented Cannon tool (\u2604\ufe0f) \u2014 the final button in the existing object toolbar now places a canvas-clamped static launcher that automatically faces toward the playfield center and fires a fast dynamic metal cannonball from its muzzle on repeat taps; exact plus 58px touch targeting, mirrored launch math, recoil/muzzle-flash rendering, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make repeatable target ranges and crossfire reliable on desktop and mobile."
     },
     {
       "date": "2026-09-24",
       "ideas": [
         "New tool: Place an open-top Basket that catches objects and hops into alternating tips"
       ],
-      "summary": "Implemented Basket tool (🧺) — the final button in the existing object toolbar now places a canvas-clamped dynamic U-shaped compound body whose open top physically catches smaller objects, then hops and alternates right/left angular tips when tapped again; exact plus 56px touch targeting, center-of-mass-aligned neon CRT rendering, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make catch-and-dump contraptions readable and reliable on desktop and mobile."
+      "summary": "Implemented Basket tool (\ud83e\uddfa) \u2014 the final button in the existing object toolbar now places a canvas-clamped dynamic U-shaped compound body whose open top physically catches smaller objects, then hops and alternates right/left angular tips when tapped again; exact plus 56px touch targeting, center-of-mass-aligned neon CRT rendering, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make catch-and-dump contraptions readable and reliable on desktop and mobile."
     },
     {
       "date": "2026-09-23",
       "ideas": [
         "New tool: Place a pinned four-arm Pinwheel and tap it to reverse its spin"
       ],
-      "summary": "Implemented Pinwheel tool (✣) — the final button in the existing object toolbar now places a canvas-clamped compound four-arm rotor on a zero-length world pin, starts it spinning, and alternates equal clockwise and counter-clockwise kicks when tapped; exact plus 52px touch targeting, neon CRT rendering, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make reusable pinball obstacles readable and reliable on desktop and mobile."
+      "summary": "Implemented Pinwheel tool (\u2723) \u2014 the final button in the existing object toolbar now places a canvas-clamped compound four-arm rotor on a zero-length world pin, starts it spinning, and alternates equal clockwise and counter-clockwise kicks when tapped; exact plus 52px touch targeting, neon CRT rendering, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make reusable pinball obstacles readable and reliable on desktop and mobile."
     },
     {
       "date": "2026-09-22",
       "ideas": [
         "New tool: Place a solid triangular Ramp and tap it to flip the slope"
       ],
-      "summary": "Implemented Ramp tool (◢) — the final button in the existing object toolbar now places a canvas-clamped static triangular physics slope and flips an existing ramp between right-rise and left-rise on tap; exact plus 50px touch targeting, neon CRT rendering, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make reusable launches, ricochets, and obstacle courses readable and reliable on desktop and mobile."
+      "summary": "Implemented Ramp tool (\u25e2) \u2014 the final button in the existing object toolbar now places a canvas-clamped static triangular physics slope and flips an existing ramp between right-rise and left-rise on tap; exact plus 50px touch targeting, neon CRT rendering, status/particle/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make reusable launches, ricochets, and obstacle courses readable and reliable on desktop and mobile."
     },
     {
       "date": "2026-09-21",
       "ideas": [
         "New tool: Place a sticky Web trap that catches moving parts on contact and releases them on tap"
       ],
-      "summary": "Implemented Web tool (🕸️) — the final button in the existing object toolbar now places a neon static trap that automatically connects up to three colliding dynamic parts at their contact points, then releases the full catch when tapped again; local-point physical constraints, duplicate/cap guards, touch-friendly trap targeting, visible web strands, status/particle/audio/haptic feedback, and Snip/Eraser/Clear pruning make collision-triggered catches reliable and reversible on desktop and mobile."
+      "summary": "Implemented Web tool (\ud83d\udd78\ufe0f) \u2014 the final button in the existing object toolbar now places a neon static trap that automatically connects up to three colliding dynamic parts at their contact points, then releases the full catch when tapped again; local-point physical constraints, duplicate/cap guards, touch-friendly trap targeting, visible web strands, status/particle/audio/haptic feedback, and Snip/Eraser/Clear pruning make collision-triggered catches reliable and reversible on desktop and mobile."
     },
     {
       "date": "2026-09-20",
       "ideas": [
         "New tool: Mirror one standalone movable part across the canvas centerline"
       ],
-      "summary": "Implemented Mirror tool (🪞) — the final button in the existing object toolbar now reflects one tapped standalone movable part across the vertical canvas centerline while reversing its horizontal velocity, orientation, and spin and preserving vertical motion, object count, shape, and physics properties; canvas-safe placement, exact plus 46px touch targeting, neon centerline/particle/status/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make symmetric ricochets readable and reliable on desktop and mobile."
+      "summary": "Implemented Mirror tool (\ud83e\ude9e) \u2014 the final button in the existing object toolbar now reflects one tapped standalone movable part across the vertical canvas centerline while reversing its horizontal velocity, orientation, and spin and preserving vertical motion, object count, shape, and physics properties; canvas-safe placement, exact plus 46px touch targeting, neon centerline/particle/status/audio/haptic feedback, and tool-change/Eraser/Clear cleanup make symmetric ricochets readable and reliable on desktop and mobile."
     },
     {
       "date": "2026-09-19",
       "ideas": [
         "New tool: Stack one standalone movable part neatly on top of another part"
       ],
-      "summary": "Implemented Stack tool (🧱) — the final button in the existing object toolbar now selects one standalone movable part at an exact or 46px fallback tap point, then places it at a canvas-safe 4px gap above a second part while inheriting the base's linear motion and settling source spin; a persistent neon TOP? selection marker, animated placement guide, status/particle/audio/haptic feedback, blocked/cancel handling, and tool-change/Eraser/Clear cleanup make quick towers and demolition setups precise and touch-friendly on desktop and mobile."
+      "summary": "Implemented Stack tool (\ud83e\uddf1) \u2014 the final button in the existing object toolbar now selects one standalone movable part at an exact or 46px fallback tap point, then places it at a canvas-safe 4px gap above a second part while inheriting the base's linear motion and settling source spin; a persistent neon TOP? selection marker, animated placement guide, status/particle/audio/haptic feedback, blocked/cancel handling, and tool-change/Eraser/Clear cleanup make quick towers and demolition setups precise and touch-friendly on desktop and mobile."
     },
     {
       "date": "2026-09-18",
       "ideas": [
         "New tool: Tether one dynamic part to a remote fixed point with an elastic cord"
       ],
-      "summary": "Implemented Tether tool (🪝) — the final button in the existing object toolbar now selects one dynamic part at an exact or 46px fallback tap point and connects it to a remote world anchor with a shortened, energy-storing elastic cord; a persistent magenta/cyan cord and anchor, selection/status/particle/audio/haptic feedback, tap-to-release behavior, Snip support, and tool-change/Eraser/Clear pruning make bungees and pendulums readable, reversible, and touch-friendly on desktop and mobile."
+      "summary": "Implemented Tether tool (\ud83e\ude9d) \u2014 the final button in the existing object toolbar now selects one dynamic part at an exact or 46px fallback tap point and connects it to a remote world anchor with a shortened, energy-storing elastic cord; a persistent magenta/cyan cord and anchor, selection/status/particle/audio/haptic feedback, tap-to-release behavior, Snip support, and tool-change/Eraser/Clear pruning make bungees and pendulums readable, reversible, and touch-friendly on desktop and mobile."
     },
     {
       "date": "2026-09-17",
       "ideas": [
         "New tool: Weld two build parts into one rigid assembly"
       ],
-      "summary": "Implemented Weld tool (🔧) — the final button in the existing object toolbar now selects two dynamic or anchored build parts at touch-friendly tapped points and joins them with a persistent rigid seam that preserves both spacing and relative rotation; live angular correction, a glowing amber/cyan seam plate, selection/status/particle/audio/haptic feedback, and tool-change/Snip/Eraser/Clear cleanup make rigid beams, panels, and machines readable and reversible on desktop and mobile."
+      "summary": "Implemented Weld tool (\ud83d\udd27) \u2014 the final button in the existing object toolbar now selects two dynamic or anchored build parts at touch-friendly tapped points and joins them with a persistent rigid seam that preserves both spacing and relative rotation; live angular correction, a glowing amber/cyan seam plate, selection/status/particle/audio/haptic feedback, and tool-change/Snip/Eraser/Clear cleanup make rigid beams, panels, and machines readable and reversible on desktop and mobile."
     },
     {
       "date": "2026-09-16",
       "ideas": [
         "New tool: Send one dynamic part into a persistent orbit around a tapped remote center"
       ],
-      "summary": "Implemented Orbit tool (🛰️) — the final button in the existing object toolbar now selects one dynamic part and a remote center, then applies live mass-scaled centripetal, tangential, and gravity-canceling force to keep it circling while preserving collisions, object count, connections, and spin; exact plus 46px touch targeting, 70–260px radius limits, tap-to-release behavior, a persistent cyan/magenta path-center-tangent marker, status/particle/audio/haptic feedback, Float/Lift mutual exclusion, and Eraser/Fission/Fusion/Clear cleanup keep orbital contraptions readable and reliable on desktop and mobile."
+      "summary": "Implemented Orbit tool (\ud83d\udef0\ufe0f) \u2014 the final button in the existing object toolbar now selects one dynamic part and a remote center, then applies live mass-scaled centripetal, tangential, and gravity-canceling force to keep it circling while preserving collisions, object count, connections, and spin; exact plus 46px touch targeting, 70\u2013260px radius limits, tap-to-release behavior, a persistent cyan/magenta path-center-tangent marker, status/particle/audio/haptic feedback, Float/Lift mutual exclusion, and Eraser/Fission/Fusion/Clear cleanup keep orbital contraptions readable and reliable on desktop and mobile."
     },
     {
       "date": "2026-09-15",
       "ideas": [
         "New tool: Toggle inverted local gravity on one dynamic part"
       ],
-      "summary": "Implemented Lift tool (🪁) — the final button in the existing object toolbar now toggles one tapped dynamic part between normal gravity and falling opposite the current scene gravity while preserving its position, velocity, spin, collisions, object count, and connections; exact plus 46px touch targeting, Float mutual exclusion, a persistent gravity-aware violet/cyan −G marker, status/particle/audio/haptic feedback, clone/fission preservation, and Eraser/Fusion/Clear cleanup keep counter-gravity contraptions readable and reliable on desktop and mobile."
+      "summary": "Implemented Lift tool (\ud83e\ude81) \u2014 the final button in the existing object toolbar now toggles one tapped dynamic part between normal gravity and falling opposite the current scene gravity while preserving its position, velocity, spin, collisions, object count, and connections; exact plus 46px touch targeting, Float mutual exclusion, a persistent gravity-aware violet/cyan \u2212G marker, status/particle/audio/haptic feedback, clone/fission preservation, and Eraser/Fusion/Clear cleanup keep counter-gravity contraptions readable and reliable on desktop and mobile."
     },
     {
       "date": "2026-09-14",
       "ideas": [
         "New tool: Give one dynamic part a capped clockwise or counter-clockwise one-shot angular kick"
       ],
-      "summary": "Implemented Twist tool (↻/↺) — the final button in the existing object toolbar now gives one tapped dynamic part a capped one-shot angular kick while preserving its position and linear velocity; reselecting the active tool reverses between clockwise and counter-clockwise, 46px touch targeting keeps small parts practical, and a neon torque ring, tangential particles, status/audio/haptic feedback, plus Eraser/Fission/Clear/tool-change cleanup make precisely timed spins readable and reliable on desktop and mobile."
+      "summary": "Implemented Twist tool (\u21bb/\u21ba) \u2014 the final button in the existing object toolbar now gives one tapped dynamic part a capped one-shot angular kick while preserving its position and linear velocity; reselecting the active tool reverses between clockwise and counter-clockwise, 46px touch targeting keeps small parts practical, and a neon torque ring, tangential particles, status/audio/haptic feedback, plus Eraser/Fission/Clear/tool-change cleanup make precisely timed spins readable and reliable on desktop and mobile."
     },
     {
       "date": "2026-09-13",
       "ideas": [
         "New tool: Cycle pairwise positive, negative, and neutral charge on dynamic parts"
       ],
-      "summary": "Implemented Charge tool (±) — the final button in the existing object toolbar now cycles one tapped dynamic part through positive, negative, and neutral polarity; opposite charges attract, matching charges repel, and neutral parts stop participating while positions, shapes, object count, collisions, and connections remain intact. A 240px range with squared falloff, 46px touch targeting, persistent magenta/cyan polarity badges, animated attraction/repulsion field lines, status/particle/audio/haptic feedback, clone/fission preservation, and Eraser/Fusion/Clear cleanup make charged clusters readable and reliable on desktop and mobile."
+      "summary": "Implemented Charge tool (\u00b1) \u2014 the final button in the existing object toolbar now cycles one tapped dynamic part through positive, negative, and neutral polarity; opposite charges attract, matching charges repel, and neutral parts stop participating while positions, shapes, object count, collisions, and connections remain intact. A 240px range with squared falloff, 46px touch targeting, persistent magenta/cyan polarity badges, animated attraction/repulsion field lines, status/particle/audio/haptic feedback, clone/fission preservation, and Eraser/Fusion/Clear cleanup make charged clusters readable and reliable on desktop and mobile."
     },
     {
       "date": "2026-09-12",
       "ideas": [
         "New tool: Toggle persistent self-leveling on one dynamic part"
       ],
-      "summary": "Implemented Gyro tool (🧭) — the final button in the existing object toolbar now toggles a persistent controller that pulls one tapped dynamic part toward its nearest 90-degree orientation while preserving translation, collisions, object count, and connections; capped angular correction, exact plus 46px touch targeting, a persistent lime/gold horizon marker, status/particle/audio/haptic feedback, and Eraser/Fission/Fusion/Clear cleanup make self-righting platforms and stable moving contraptions readable and reliable on desktop and mobile."
+      "summary": "Implemented Gyro tool (\ud83e\udded) \u2014 the final button in the existing object toolbar now toggles a persistent controller that pulls one tapped dynamic part toward its nearest 90-degree orientation while preserving translation, collisions, object count, and connections; capped angular correction, exact plus 46px touch targeting, a persistent lime/gold horizon marker, status/particle/audio/haptic feedback, and Eraser/Fission/Fusion/Clear cleanup make self-righting platforms and stable moving contraptions readable and reliable on desktop and mobile."
     },
     {
       "date": "2026-09-11",
       "ideas": [
         "New tool: Toggle collision-free phasing on one dynamic part"
       ],
-      "summary": "Implemented Phase tool (👻) — the final button in the existing object toolbar now toggles one tapped dynamic part between normal solid physics and collision-free phasing while preserving its position, velocity, spin, category, and connections; exact plus 46px touch targeting, full collision-group suppression with reversible filter restoration, translucent violet scanline markers, status/particle/audio/haptic feedback, and Clone/Eraser/Fission/Fusion/Clear cleanup keep ghost-through-floor tricks readable and reliable on desktop and mobile."
+      "summary": "Implemented Phase tool (\ud83d\udc7b) \u2014 the final button in the existing object toolbar now toggles one tapped dynamic part between normal solid physics and collision-free phasing while preserving its position, velocity, spin, category, and connections; exact plus 46px touch targeting, full collision-group suppression with reversible filter restoration, translucent violet scanline markers, status/particle/audio/haptic feedback, and Clone/Eraser/Fission/Fusion/Clear cleanup keep ghost-through-floor tricks readable and reliable on desktop and mobile."
     },
     {
       "date": "2026-09-10",
       "ideas": [
         "New tool: Toggle continuous body-facing thrust on one dynamic part"
       ],
-      "summary": "Implemented Thruster tool (🔥) — the final button in the existing object toolbar now toggles a persistent, mass-scaled force along one tapped dynamic part's live facing direction without moving, replacing, anchoring, or disconnecting it; 46px touch targeting, a stable speed cap, orange exhaust and direction markers, burst/status/audio/haptic feedback, and Eraser/Fission/Fusion/Clear cleanup turn ordinary props into collision-steered rockets on desktop and mobile."
+      "summary": "Implemented Thruster tool (\ud83d\udd25) \u2014 the final button in the existing object toolbar now toggles a persistent, mass-scaled force along one tapped dynamic part's live facing direction without moving, replacing, anchoring, or disconnecting it; 46px touch targeting, a stable speed cap, orange exhaust and direction markers, burst/status/audio/haptic feedback, and Eraser/Fission/Fusion/Clear cleanup turn ordinary props into collision-steered rockets on desktop and mobile."
     },
     {
       "date": "2026-09-09",
       "ideas": [
         "New tool: Brake one dynamic part's movement and spin without anchoring it"
       ],
-      "summary": "Implemented Brake tool (🛑) — the final button in the existing object toolbar now stops one tapped dynamic part's linear and angular motion without moving it, anchoring it, changing its shape, replacing it, or altering its connections; exact plus 46px touch targeting, already-still handling, a red/yellow collapsing CRT stop ring, particles, status/audio/haptic feedback, and tool-change/Clear cleanup keep precise midair catches and construction settling readable and reliable on desktop and mobile."
+      "summary": "Implemented Brake tool (\ud83d\uded1) \u2014 the final button in the existing object toolbar now stops one tapped dynamic part's linear and angular motion without moving it, anchoring it, changing its shape, replacing it, or altering its connections; exact plus 46px touch targeting, already-still handling, a red/yellow collapsing CRT stop ring, particles, status/audio/haptic feedback, and tool-change/Clear cleanup keep precise midair catches and construction settling readable and reliable on desktop and mobile."
     },
     {
       "date": "2026-09-08",
       "ideas": [
         "New tool: Swirl nearby dynamic objects clockwise or counter-clockwise around a tapped point"
       ],
-      "summary": "Implemented Swirl tool (💫) — the final button in the existing object toolbar now emits a localized 220px tangential impulse that wakes and curls every nearby dynamic body clockwise or counter-clockwise around a tapped point while preserving positions, object count, and connections; reselection toggles direction, capped velocity and spin keep physics stable, and spiral particles, expanding CRT arcs, hit-count status, audio/haptic feedback, plus tool-change/Clear cleanup keep cluster rotation readable and reliable on desktop and mobile."
+      "summary": "Implemented Swirl tool (\ud83d\udcab) \u2014 the final button in the existing object toolbar now emits a localized 220px tangential impulse that wakes and curls every nearby dynamic body clockwise or counter-clockwise around a tapped point while preserving positions, object count, and connections; reselection toggles direction, capped velocity and spin keep physics stable, and spiral particles, expanding CRT arcs, hit-count status, audio/haptic feedback, plus tool-change/Clear cleanup keep cluster rotation readable and reliable on desktop and mobile."
     },
     {
       "date": "2026-09-07",
       "ideas": [
         "New tool: Curve one moving dynamic part's momentum 90 degrees left or right"
       ],
-      "summary": "Implemented Curve tool (🏎️) — the final button in the existing object toolbar now turns one tapped dynamic part's current velocity exactly 90 degrees left or right while preserving its speed, position, shape, connections, and object count; reselection toggles direction, 46px touch targeting supports mobile, a capped spin kick plus neon curved-arrow/particle feedback makes each turn readable, and stationary-body handling plus tool-change/Clear cleanup keep momentum steering reliable on desktop and mobile."
+      "summary": "Implemented Curve tool (\ud83c\udfce\ufe0f) \u2014 the final button in the existing object toolbar now turns one tapped dynamic part's current velocity exactly 90 degrees left or right while preserving its speed, position, shape, connections, and object count; reselection toggles direction, 46px touch targeting supports mobile, a capped spin kick plus neon curved-arrow/particle feedback makes each turn readable, and stationary-body handling plus tool-change/Clear cleanup keep momentum steering reliable on desktop and mobile."
     },
     {
       "date": "2026-09-06",
       "ideas": [
         "New tool: Relay linear and angular motion between two standalone objects"
       ],
-      "summary": "Implemented Relay tool (🔁) — the final button in the existing object toolbar now selects two standalone dynamic objects and exchanges their exact linear velocity and angular velocity while keeping both positions, shapes, and object count unchanged; 46px touch targeting, protected assemblies, cancel handling, wake-up behavior, neon two-way transfer particles/animation, status/audio/haptic feedback, and Eraser/Clear/tool-change cleanup keep motion handoffs readable and reliable on desktop and mobile."
+      "summary": "Implemented Relay tool (\ud83d\udd01) \u2014 the final button in the existing object toolbar now selects two standalone dynamic objects and exchanges their exact linear velocity and angular velocity while keeping both positions, shapes, and object count unchanged; 46px touch targeting, protected assemblies, cancel handling, wake-up behavior, neon two-way transfer particles/animation, status/audio/haptic feedback, and Eraser/Clear/tool-change cleanup keep motion handoffs readable and reliable on desktop and mobile."
     },
     {
       "date": "2026-09-05",
       "ideas": [
         "New tool: Pulse nearby dynamic objects outward from a tapped canvas point"
       ],
-      "summary": "Implemented Pulse tool (📡) — the final button in the existing object toolbar now emits a localized 200px radial impulse that wakes and pushes every nearby dynamic body outward with quadratic distance falloff while preserving object count and connections; capped velocity, subtle spin, cyan/magenta particles, an expanding CRT shock ring, hit-count status, audio/haptic feedback, and tool-change/Clear cleanup keep cluster scattering readable and reliable on desktop and mobile."
+      "summary": "Implemented Pulse tool (\ud83d\udce1) \u2014 the final button in the existing object toolbar now emits a localized 200px radial impulse that wakes and pushes every nearby dynamic body outward with quadratic distance falloff while preserving object count and connections; capped velocity, subtle spin, cyan/magenta particles, an expanding CRT shock ring, hit-count status, audio/haptic feedback, and tool-change/Clear cleanup keep cluster scattering readable and reliable on desktop and mobile."
     },
     {
       "date": "2026-09-04",
       "ideas": [
         "New tool: Squash one standalone object through wide, tall, and original proportions"
       ],
-      "summary": "Implemented Squash tool (🗜️) — the final button in the existing object toolbar now cycles one standalone dynamic object through wide, tall, and original proportions using reciprocal non-uniform scaling that preserves area, position, linear motion, and angular motion; canvas-safe clamping, 46px touch targeting, custom-art scaling, clone compatibility, neon directional feedback, status/audio/haptic responses, and Eraser/Clear/tool-change cleanup keep shape experiments readable and reliable on desktop and mobile."
+      "summary": "Implemented Squash tool (\ud83d\udddc\ufe0f) \u2014 the final button in the existing object toolbar now cycles one standalone dynamic object through wide, tall, and original proportions using reciprocal non-uniform scaling that preserves area, position, linear motion, and angular motion; canvas-safe clamping, 46px touch targeting, custom-art scaling, clone compatibility, neon directional feedback, status/audio/haptic responses, and Eraser/Clear/tool-change cleanup keep shape experiments readable and reliable on desktop and mobile."
     },
     {
       "date": "2026-09-03",
       "ideas": [
         "New tool: Blink one standalone object to a tapped destination while preserving motion"
       ],
-      "summary": "Implemented Blink tool (⚡) — the final button in the existing object toolbar now selects one standalone dynamic object and teleports it to a second tapped destination while preserving linear and angular motion; canvas-safe clamping, 46px touch targeting, a live destination sight, cyan/magenta warp rings, status/audio/haptic feedback, short-distance cancellation, and Eraser/Clear/tool-change cleanup keep spatial tricks readable and reliable on desktop and mobile."
+      "summary": "Implemented Blink tool (\u26a1) \u2014 the final button in the existing object toolbar now selects one standalone dynamic object and teleports it to a second tapped destination while preserving linear and angular motion; canvas-safe clamping, 46px touch targeting, a live destination sight, cyan/magenta warp rings, status/audio/haptic feedback, short-distance cancellation, and Eraser/Clear/tool-change cleanup keep spatial tricks readable and reliable on desktop and mobile."
     },
     {
       "date": "2026-09-02",
       "ideas": [
         "New tool: Punch one dynamic part with point-sensitive knockback and spin"
       ],
-      "summary": "Implemented Punch tool (👊) — the final button in the existing object toolbar now strikes one tapped dynamic part upward with a mass-scaled impulse applied at the exact contact point; left and right hits add opposite sideways kick and torque, while 46px touch targeting, orange impact particles, a comic burst/arrow flash, status/audio/haptic feedback, and Eraser/Clear cleanup keep one-tap juggling and redirects readable and reliable on desktop and mobile."
+      "summary": "Implemented Punch tool (\ud83d\udc4a) \u2014 the final button in the existing object toolbar now strikes one tapped dynamic part upward with a mass-scaled impulse applied at the exact contact point; left and right hits add opposite sideways kick and torque, while 46px touch targeting, orange impact particles, a comic burst/arrow flash, status/audio/haptic feedback, and Eraser/Clear cleanup keep one-tap juggling and redirects readable and reliable on desktop and mobile."
     },
     {
       "date": "2026-09-01",
       "ideas": [
         "New tool: Reverse one dynamic part's linear and angular motion"
       ],
-      "summary": "Implemented Reverse tool (⏪) — the final button in the existing object toolbar now inverts one tapped dynamic part's current linear velocity and angular velocity in a single step; exact hit detection plus a 46px touch fallback, wake-up handling, magenta/cyan particles, a spinning rewind arrow, status/audio/haptic feedback, and Eraser/Clear cleanup keep sudden rebounds and unwinding mechanisms readable and reliable on desktop and mobile."
+      "summary": "Implemented Reverse tool (\u23ea) \u2014 the final button in the existing object toolbar now inverts one tapped dynamic part's current linear velocity and angular velocity in a single step; exact hit detection plus a 46px touch fallback, wake-up handling, magenta/cyan particles, a spinning rewind arrow, status/audio/haptic feedback, and Eraser/Clear cleanup keep sudden rebounds and unwinding mechanisms readable and reliable on desktop and mobile."
     },
     {
       "date": "2026-08-31",
       "ideas": [
         "New tool: Pin one exact point of a dynamic build part to a rotating world pivot"
       ],
-      "summary": "Implemented Pivot tool (📌) — the final button in the existing object toolbar now pins the exact tapped point of one dynamic build part to the world with a zero-length Matter.js constraint while preserving free rotation, then releases it on a second tap; 46px touch targeting, persistent gold pin feedback, reversible audio/haptics, orphan pruning, and Eraser/Clear cleanup keep pendulums, spinner arms, hanging obstacles, and fixed axles readable and reliable on desktop and mobile."
+      "summary": "Implemented Pivot tool (\ud83d\udccc) \u2014 the final button in the existing object toolbar now pins the exact tapped point of one dynamic build part to the world with a zero-length Matter.js constraint while preserving free rotation, then releases it on a second tap; 46px touch targeting, persistent gold pin feedback, reversible audio/haptics, orphan pruning, and Eraser/Clear cleanup keep pendulums, spinner arms, hanging obstacles, and fixed axles readable and reliable on desktop and mobile."
     },
     {
       "date": "2026-08-30",
       "ideas": [
         "New tool: Toggle local zero gravity on one standalone object"
       ],
-      "summary": "Implemented Float tool (🛸) — the final button in the existing object toolbar now toggles gravity cancellation on one standalone dynamic body while preserving collisions, momentum, rotation, and other forces; exact gravity-vector counterforce, 46px touch targeting, reversible status/particle/audio/haptic feedback, a persistent cyan 0G levitation marker, clone-state preservation, and Clear cleanup keep floating builds readable and reliable on desktop and mobile."
+      "summary": "Implemented Float tool (\ud83d\udef8) \u2014 the final button in the existing object toolbar now toggles gravity cancellation on one standalone dynamic body while preserving collisions, momentum, rotation, and other forces; exact gravity-vector counterforce, 46px touch targeting, reversible status/particle/audio/haptic feedback, a persistent cyan 0G levitation marker, clone-state preservation, and Clear cleanup keep floating builds readable and reliable on desktop and mobile."
     },
     {
       "date": "2026-08-29",
       "ideas": [
         "New tool: Aim and launch an existing object toward a tapped destination"
       ],
-      "summary": "Implemented Launch tool (🏹) — the final button in the existing object toolbar now selects one dynamic object, shows a live neon aim vector, and fires it toward a second tapped destination with distance-scaled velocity capped for stable physics; 46px touch targeting, short-vector cancel handling, selection/status/arrow feedback, and Eraser/Clear/tool-change cleanup keep precision launches readable and reliable on desktop and mobile."
+      "summary": "Implemented Launch tool (\ud83c\udff9) \u2014 the final button in the existing object toolbar now selects one dynamic object, shows a live neon aim vector, and fires it toward a second tapped destination with distance-scaled velocity capped for stable physics; 46px touch targeting, short-vector cancel handling, selection/status/arrow feedback, and Eraser/Clear/tool-change cleanup keep precision launches readable and reliable on desktop and mobile."
     },
     {
       "date": "2026-08-28",
       "ideas": [
         "New tool: Connect two build parts with an energy-storing Spring"
       ],
-      "summary": "Implemented Spring tool (〰️) — the final button in the existing object toolbar now selects two dynamic or anchored build parts and joins them with a visibly coiled, shortened low-stiffness constraint that pulls, overshoots, and settles at its elastic rest length; 46px touch targeting, tuned damping, duplicate/cancel protection, neon selection/status feedback, orphan pruning, and Snip/Eraser/Clear/tool-change cleanup keep spring-powered builds readable and reliable on desktop and mobile."
+      "summary": "Implemented Spring tool (\u3030\ufe0f) \u2014 the final button in the existing object toolbar now selects two dynamic or anchored build parts and joins them with a visibly coiled, shortened low-stiffness constraint that pulls, overshoots, and settles at its elastic rest length; 46px touch targeting, tuned damping, duplicate/cancel protection, neon selection/status feedback, orphan pruning, and Snip/Eraser/Clear/tool-change cleanup keep spring-powered builds readable and reliable on desktop and mobile."
     },
     {
       "date": "2026-08-27",
       "ideas": [
         "New tool: Pin two tapped build-part points together with a rotating Hinge"
       ],
-      "summary": "Implemented Hinge tool (🔩) — the final button in the existing object toolbar now selects two dynamic or anchored build parts and joins their exact tapped points with a visible zero-length Matter.js pin constraint, leaving both bodies free to rotate around the joint; 46px touch targeting, duplicate/cancel protection, neon pivot and first-selection feedback, Anchor/Grab/Snip interoperability, orphan pruning, and Eraser/Clear/tool-change cleanup keep articulated builds readable and reliable on desktop and mobile."
+      "summary": "Implemented Hinge tool (\ud83d\udd29) \u2014 the final button in the existing object toolbar now selects two dynamic or anchored build parts and joins their exact tapped points with a visible zero-length Matter.js pin constraint, leaving both bodies free to rotate around the joint; 46px touch targeting, duplicate/cancel protection, neon pivot and first-selection feedback, Anchor/Grab/Snip interoperability, orphan pruning, and Eraser/Clear/tool-change cleanup keep articulated builds readable and reliable on desktop and mobile."
     },
     {
       "date": "2026-08-26",
       "ideas": [
         "New tool: Fuse two standalone objects into one momentum-preserving core"
       ],
-      "summary": "Implemented Fusion tool (🧬) — the final button in the existing object toolbar now selects two standalone dynamic objects and replaces them with one larger pulsing fusion core that conserves their total mass and mass-weighted linear/angular motion; 46px touch targeting, canvas-safe placement, cancel/invalid-subject handling, neon selection and completion feedback, source-state cleanup, and Eraser/Clear/tool-change cleanup keep the two-to-one transform readable and reliable on desktop and mobile."
+      "summary": "Implemented Fusion tool (\ud83e\uddec) \u2014 the final button in the existing object toolbar now selects two standalone dynamic objects and replaces them with one larger pulsing fusion core that conserves their total mass and mass-weighted linear/angular motion; 46px touch targeting, canvas-safe placement, cancel/invalid-subject handling, neon selection and completion feedback, source-state cleanup, and Eraser/Clear/tool-change cleanup keep the two-to-one transform readable and reliable on desktop and mobile."
     },
     {
       "date": "2026-08-25",
       "ideas": [
         "New tool: Rotate standalone objects through precise quarter-turns"
       ],
-      "summary": "Implemented Rotate tool (↻) — the final button in the existing object toolbar now turns a tapped standalone dynamic or anchored build part exactly 90 degrees, stops residual spin, clamps the rotated body inside the canvas, and toggles clockwise/counter-clockwise mode when reselected; 46px touch targeting, protected assemblies, neon direction feedback, and Eraser/Clear/tool-change cleanup keep precise reorientation reliable on desktop and mobile."
+      "summary": "Implemented Rotate tool (\u21bb) \u2014 the final button in the existing object toolbar now turns a tapped standalone dynamic or anchored build part exactly 90 degrees, stops residual spin, clamps the rotated body inside the canvas, and toggles clockwise/counter-clockwise mode when reselected; 46px touch targeting, protected assemblies, neon direction feedback, and Eraser/Clear/tool-change cleanup keep precise reorientation reliable on desktop and mobile."
     },
     {
       "date": "2026-08-24",
       "ideas": [
         "New tool: Brace two objects with a stiff structural Strut"
       ],
-      "summary": "Implemented Strut tool (📐) — the final button in the existing object toolbar now selects two dynamic or anchored build parts and joins them with a stiff fixed-length Matter.js constraint; 46px touch targeting, duplicate/cancel protection, neon brace and first-selection rendering, status/audio/haptic feedback, orphan pruning, Snip compatibility, and Eraser/Clear/tool-change cleanup keep structural building readable and reliable on desktop and mobile."
+      "summary": "Implemented Strut tool (\ud83d\udcd0) \u2014 the final button in the existing object toolbar now selects two dynamic or anchored build parts and joins them with a stiff fixed-length Matter.js constraint; 46px touch targeting, duplicate/cancel protection, neon brace and first-selection rendering, status/audio/haptic feedback, orphan pruning, Snip compatibility, and Eraser/Clear/tool-change cleanup keep structural building readable and reliable on desktop and mobile."
     },
     {
       "date": "2026-08-23",
       "ideas": [
         "New tool: Alchemy cycles an object's physics material"
       ],
-      "summary": "Implemented Alchemy tool (🧪) — the final button in the existing object toolbar now cycles a tapped standalone dynamic body through Bouncy, Heavy, Slippery, and restored Normal physics by changing density, restitution, and friction; persistent B/H/S neon badges, 46px touch targeting, protected assemblies, clone/fission state preservation, status/particle/audio/haptic feedback, and Clear cleanup keep the reversible transform readable on desktop and mobile."
+      "summary": "Implemented Alchemy tool (\ud83e\uddea) \u2014 the final button in the existing object toolbar now cycles a tapped standalone dynamic body through Bouncy, Heavy, Slippery, and restored Normal physics by changing density, restitution, and friction; persistent B/H/S neon badges, 46px touch targeting, protected assemblies, clone/fission state preservation, status/particle/audio/haptic feedback, and Clear cleanup keep the reversible transform readable on desktop and mobile."
     },
     {
       "date": "2026-08-22",
       "ideas": [
         "New tool: Fission a standalone object into two smaller twins"
       ],
-      "summary": "Implemented Fission tool (⚛️) — the final button in the existing object toolbar now replaces a tapped standalone dynamic body with two half-mass, smaller twins that burst apart while preserving geometry, appearance, material, motion, and special object behavior; 46px touch targeting, canvas-safe placement, depth and size limits, protected assemblies, neon status/particle/audio/haptic feedback, and Clear cleanup keep repeated splitting playful and controlled on desktop and mobile."
+      "summary": "Implemented Fission tool (\u269b\ufe0f) \u2014 the final button in the existing object toolbar now replaces a tapped standalone dynamic body with two half-mass, smaller twins that burst apart while preserving geometry, appearance, material, motion, and special object behavior; 46px touch targeting, canvas-safe placement, depth and size limits, protected assemblies, neon status/particle/audio/haptic feedback, and Clear cleanup keep repeated splitting playful and controlled on desktop and mobile."
     },
     {
       "date": "2026-08-21",
       "ideas": [
         "New tool: Snip one visible physical connection"
       ],
-      "summary": "Implemented Snip tool (✂️) — the final button in the existing object toolbar now cuts a tapped visible rope, chain, joint, axle, or wrecking connection while leaving both connected bodies on the canvas; 28px segment targeting supports touch, tracked connection state stays clean, neon particles plus status/audio/haptic feedback make each cut readable, and Clear resets transient feedback."
+      "summary": "Implemented Snip tool (\u2702\ufe0f) \u2014 the final button in the existing object toolbar now cuts a tapped visible rope, chain, joint, axle, or wrecking connection while leaving both connected bodies on the canvas; 28px segment targeting supports touch, tracked connection state stays clean, neon particles plus status/audio/haptic feedback make each cut readable, and Clear resets transient feedback."
     },
     {
       "date": "2026-08-20",
       "ideas": [
         "New tool: Swap two standalone canvas objects"
       ],
-      "summary": "Implemented Swap tool (🔀) — the final button in the existing object toolbar now selects two standalone dynamic bodies and exchanges their canvas-safe positions while each keeps its own motion; a pulsing first-selection marker, cyan/magenta teleport bursts, status/audio/haptic feedback, 46px touch targeting, protected connected/static bodies, and Eraser/Clear/tool-change cleanup keep the two-step interaction readable on desktop and mobile."
+      "summary": "Implemented Swap tool (\ud83d\udd00) \u2014 the final button in the existing object toolbar now selects two standalone dynamic bodies and exchanges their canvas-safe positions while each keeps its own motion; a pulsing first-selection marker, cyan/magenta teleport bursts, status/audio/haptic feedback, 46px touch targeting, protected connected/static bodies, and Eraser/Clear/tool-change cleanup keep the two-step interaction readable on desktop and mobile."
     },
     {
       "date": "2026-08-16",
       "ideas": [
         "New tool: Player-fired pinball flippers"
       ],
-      "summary": "Implemented Flipper tool (🏓) — the final button in the existing object toolbar now places alternating left and right pinned paddles on empty canvas and fires a tapped paddle through a timed active angle before it springs back to rest; mirrored neon rendering, a 46px touch fallback, status/sound/haptic feedback, canvas-safe placement, and Eraser/Clear cleanup make it practical on desktop and mobile."
+      "summary": "Implemented Flipper tool (\ud83c\udfd3) \u2014 the final button in the existing object toolbar now places alternating left and right pinned paddles on empty canvas and fires a tapped paddle through a timed active angle before it springs back to rest; mirrored neon rendering, a 46px touch fallback, status/sound/haptic feedback, canvas-safe placement, and Eraser/Clear cleanup make it practical on desktop and mobile."
     },
     {
       "date": "2026-08-15",
       "ideas": [
         "New tool: Motorize individual canvas objects"
       ],
-      "summary": "Implemented Motor tool (⚙️) — the final button in the existing object toolbar now cycles a tapped dynamic top-level body clockwise, counter-clockwise, then off; persistent target speed turns ordinary and constrained parts into powered mechanisms, a neon gear marker plus status callout makes state visible, 46px fallback targeting supports touch, and Eraser or Clear removes all motor state."
+      "summary": "Implemented Motor tool (\u2699\ufe0f) \u2014 the final button in the existing object toolbar now cycles a tapped dynamic top-level body clockwise, counter-clockwise, then off; persistent target speed turns ordinary and constrained parts into powered mechanisms, a neon gear marker plus status callout makes state visible, 46px fallback targeting supports touch, and Eraser or Clear removes all motor state."
     },
     {
       "date": "2026-08-14",
       "ideas": [
         "New tool: Clone standalone canvas objects"
       ],
-      "summary": "Implemented Clone tool (👯) — the final button in the existing object toolbar now duplicates a tapped standalone dynamic body's current geometry, rotation, scale, material behavior, and custom appearance into a nearby canvas-safe position, preserves special bomb, balloon, duck, and rocket behavior, rejects static or connected assemblies, adds a 46px touch fallback plus neon clone feedback, clears transient status on reset, and keeps both ends of the overflowing toolbar reachable on desktop and mobile."
+      "summary": "Implemented Clone tool (\ud83d\udc6f) \u2014 the final button in the existing object toolbar now duplicates a tapped standalone dynamic body's current geometry, rotation, scale, material behavior, and custom appearance into a nearby canvas-safe position, preserves special bomb, balloon, duck, and rocket behavior, rejects static or connected assemblies, adds a 46px touch fallback plus neon clone feedback, clears transient status on reset, and keeps both ends of the overflowing toolbar reachable on desktop and mobile."
     },
     {
       "date": "2026-08-11",
       "ideas": [
         "New tool: Resize standalone canvas objects"
       ],
-      "summary": "Implemented Resize tool (↕️) — the final button in the existing object toolbar now grows a tapped standalone dynamic body by 1.35×, toggles to shrink mode when the selected button is tapped again, keeps physics and custom rendering in sync within safe 0.4×–3.4× limits, protects static and connected assemblies, adds forgiving touch targeting plus neon percentage feedback, and resets its mode and feedback on Clear."
+      "summary": "Implemented Resize tool (\u2195\ufe0f) \u2014 the final button in the existing object toolbar now grows a tapped standalone dynamic body by 1.35\u00d7, toggles to shrink mode when the selected button is tapped again, keeps physics and custom rendering in sync within safe 0.4\u00d7\u20133.4\u00d7 limits, protects static and connected assemblies, adds forgiving touch targeting plus neon percentage feedback, and resets its mode and feedback on Clear."
     },
     {
       "date": "2026-08-10",
       "ideas": [
         "New tool: Anchor individual canvas objects"
       ],
-      "summary": "Implemented Anchor tool (⚓) — the final button in the existing object toolbar now selects a persistent per-object transform: tap a dynamic body to lock it in place with a pulsing cyan anchor marker, then tap it again to release it with restored motion, particle, sound, and haptic feedback; Clear and Eraser clean up Anchor state."
+      "summary": "Implemented Anchor tool (\u2693) \u2014 the final button in the existing object toolbar now selects a persistent per-object transform: tap a dynamic body to lock it in place with a pulsing cyan anchor marker, then tap it again to release it with restored motion, particle, sound, and haptic feedback; Clear and Eraser clean up Anchor state."
     },
     {
       "date": "2026-06-28",
       "ideas": [
         "Feedback: Impact combo rewards"
       ],
-      "summary": "Implemented impact combo rewards — hard impacts above relative velocity 5 now chain into a short combo window, show a temporary combo and session-best HUD, add rising notes and extra confetti from 3x onward, and fire stronger milestone feedback at 5x, 10x, 20x, and 50x while Clear resets only the active streak."
+      "summary": "Implemented impact combo rewards \u2014 hard impacts above relative velocity 5 now chain into a short combo window, show a temporary combo and session-best HUD, add rising notes and extra confetti from 3x onward, and fire stronger milestone feedback at 5x, 10x, 20x, and 50x while Clear resets only the active streak."
     },
     {
       "date": "2026-06-27",
       "ideas": [
         "Interaction: Balloon popping on hard impact"
       ],
-      "summary": "Implemented balloon popping — balloons now burst on hard non-static impacts above relative velocity 5 and when caught in bomb blasts, producing color-matched confetti, curling string remnants, pop sounds, haptic pulse, screen shake, destruction-meter credit, and cleanup of connected constraints/state."
+      "summary": "Implemented balloon popping \u2014 balloons now burst on hard non-static impacts above relative velocity 5 and when caught in bomb blasts, producing color-matched confetti, curling string remnants, pop sounds, haptic pulse, screen shake, destruction-meter credit, and cleanup of connected constraints/state."
     },
     {
       "date": "2026-06-26",
       "ideas": [
         "UX: Desktop keyboard shortcuts"
       ],
-      "summary": "Implemented desktop keyboard shortcuts — number keys and mnemonic letters now select common tools, Shift+Space toggles slo-mo, Space pauses, Backspace clears, and single-letter keys trigger common chaos actions through the existing buttons with a short neon flash."
+      "summary": "Implemented desktop keyboard shortcuts \u2014 number keys and mnemonic letters now select common tools, Shift+Space toggles slo-mo, Space pauses, Backspace clears, and single-letter keys trigger common chaos actions through the existing buttons with a short neon flash."
     },
     {
       "date": "2026-06-25",
       "ideas": [
         "Visual: Slingshot trajectory preview"
       ],
-      "summary": "Implemented slingshot trajectory preview — drag launches now show 12 fading neon dots based on the same launch vector used on release plus current Matter.js gravity, making aimed shots easier to line up without changing physics or adding controls."
+      "summary": "Implemented slingshot trajectory preview \u2014 drag launches now show 12 fading neon dots based on the same launch vector used on release plus current Matter.js gravity, making aimed shots easier to line up without changing physics or adding controls."
     },
     {
       "date": "2026-06-24",
       "ideas": [
         "Visual: Collision heatmap overlay"
       ],
-      "summary": "Implemented collision heatmap overlay — energetic impacts now write into a coarse fading canvas grid that renders under objects as cyan, violet, and hot orange glow, making repeated chaos zones visibly accumulate while Clear resets the heat history."
+      "summary": "Implemented collision heatmap overlay \u2014 energetic impacts now write into a coarse fading canvas grid that renders under objects as cyan, violet, and hot orange glow, making repeated chaos zones visibly accumulate while Clear resets the heat history."
     },
     {
       "date": "2026-06-23",
       "ideas": [
         "UX: Eraser poof tool for selective cleanup"
       ],
-      "summary": "Implemented Eraser tool (🧹) — a new object toolbar tool that removes a tapped non-wall object with a poof particle burst, soft pop sounds, haptic pulse, and tiny screen nudge, while cleaning up connected constraints and feature tracking state so scenes can be refined without using Clear All."
+      "summary": "Implemented Eraser tool (\ud83e\uddf9) \u2014 a new object toolbar tool that removes a tapped non-wall object with a poof particle burst, soft pop sounds, haptic pulse, and tiny screen nudge, while cleaning up connected constraints and feature tracking state so scenes can be refined without using Clear All."
     },
     {
       "date": "2026-06-22",
       "ideas": [
         "Visual: Animated clear vortex drain"
       ],
-      "summary": "Implemented animated clear vortex drain — pressing Clear with scene objects now starts a 600ms cyan cleanup vortex that shrinks bodies, pulls dynamic objects toward center with a spiral force, plays a descending sweep, locks canvas input during cleanup, and then runs the existing reset. Empty clears and lesson loading still use the instant cleanup path."
+      "summary": "Implemented animated clear vortex drain \u2014 pressing Clear with scene objects now starts a 600ms cyan cleanup vortex that shrinks bodies, pulls dynamic objects toward center with a spiral force, plays a descending sweep, locks canvas input during cleanup, and then runs the existing reset. Empty clears and lesson loading still use the instant cleanup path."
     },
     {
       "date": "2026-06-21",
       "ideas": [
         "Visual/audio: Destruction meter level-up celebration"
       ],
-      "summary": "Implemented destruction level-up celebration — when collision energy pushes the existing destruction meter into a higher rank, the app now fires color-matched confetti, a short center-screen level-up banner, screen shake, flash, and rising chimes, then resets the celebration state on Clear."
+      "summary": "Implemented destruction level-up celebration \u2014 when collision energy pushes the existing destruction meter into a higher rank, the app now fires color-matched confetti, a short center-screen level-up banner, screen shake, flash, and rising chimes, then resets the celebration state on Clear."
     },
     {
       "date": "2026-06-20",
       "ideas": [
         "Sound: Musical collisions with pentatonic impact notes"
       ],
-      "summary": "Implemented musical collision notes — impact, bounce, and duck squeak sounds now draw from a shared C-major pentatonic scale by material and hit intensity, so busy collision chains layer into consonant generative audio while preserving the existing material sound character."
+      "summary": "Implemented musical collision notes \u2014 impact, bounce, and duck squeak sounds now draw from a shared C-major pentatonic scale by material and hit intensity, so busy collision chains layer into consonant generative audio while preserving the existing material sound character."
     },
     {
       "date": "2026-06-20",
       "ideas": [
         "New object: Chain links that connect to nearby objects"
       ],
-      "summary": "Implemented Chain Link tool (🔗) — a new object button in the existing bottom toolbar that spawns small metal links, automatically connects each link to up to two nearby dynamic bodies with flexible Matter.js constraints, renders hollow cyan metal links and matching chain constraints, and clears all chain state on reset without changing the app layout."
+      "summary": "Implemented Chain Link tool (\ud83d\udd17) \u2014 a new object button in the existing bottom toolbar that spawns small metal links, automatically connects each link to up to two nearby dynamic bodies with flexible Matter.js constraints, renders hollow cyan metal links and matching chain constraints, and clears all chain state on reset without changing the app layout."
     },
     {
       "date": "2026-06-16",
       "ideas": [
         "Mobile: Haptic feedback for tactile actions"
       ],
-      "summary": "Implemented mobile haptic feedback — tactile vibration pulses now accompany bomb detonations, the explosion and quake buttons, black hole activation, gravity flips, mega bounce, scene clear, slingshot launches, and hard impacts, with collision pulses throttled and unsupported browsers silently ignoring the effect."
+      "summary": "Implemented mobile haptic feedback \u2014 tactile vibration pulses now accompany bomb detonations, the explosion and quake buttons, black hole activation, gravity flips, mega bounce, scene clear, slingshot launches, and hard impacts, with collision pulses throttled and unsupported browsers silently ignoring the effect."
     },
     {
       "date": "2026-06-14",
       "ideas": [
         "Visual: Spawn pop animation for newly placed objects"
       ],
-      "summary": "Implemented spawn pop animation — newly spawned bodies now get a 150ms visual scale-in from tiny to a slight overshoot before settling at full size, making placement feel punchier without changing physics or adding UI."
+      "summary": "Implemented spawn pop animation \u2014 newly spawned bodies now get a 150ms visual scale-in from tiny to a slight overshoot before settling at full size, making placement feel punchier without changing physics or adding UI."
     },
     {
       "date": "2026-06-13",
       "ideas": [
         "Visual: Tap ripple effect on every canvas press"
       ],
-      "summary": "Implemented tap ripples — every canvas click or touch now emits a color-matched expanding neon ring before the object spawns, making taps feel more responsive without changing physics or adding UI."
+      "summary": "Implemented tap ripples \u2014 every canvas click or touch now emits a color-matched expanding neon ring before the object spawns, making taps feel more responsive without changing physics or adding UI."
     },
     {
       "date": "2026-02-08",
       "ideas": [
         "New object: Bouncy star shape with high restitution",
-        "New chaos button: Black hole — sucks everything toward center",
+        "New chaos button: Black hole \u2014 sucks everything toward center",
         "Visual: Confetti burst when objects collide hard"
       ],
-      "summary": "Added bouncy star tool (⭐) with 0.95 restitution in random colors, Black Hole chaos button that sucks all objects to center for 5 seconds then flings them outward with a purple accretion disk visual, and confetti burst system that showers colorful tumbling confetti on hard impacts with screen shake."
+      "summary": "Added bouncy star tool (\u2b50) with 0.95 restitution in random colors, Black Hole chaos button that sucks all objects to center for 5 seconds then flings them outward with a purple accretion disk visual, and confetti burst system that showers colorful tumbling confetti on hard impacts with screen shake."
     },
     {
       "date": "2026-02-09",
       "ideas": [
         "New object: Balloon that floats upward with anti-gravity",
-        "New chaos button: Anti-gravity pulse — everything floats up briefly",
+        "New chaos button: Anti-gravity pulse \u2014 everything floats up briefly",
         "Visual: Object trails/afterimages that fade"
       ],
-      "summary": "Added Balloon tool (🎈) that floats upward with buoyancy physics and gentle drift, with colorful oval rendering and swaying string. Anti-Gravity Pulse (FLOAT) chaos button reverses gravity for 4 seconds with sparkle particles and a satisfying drop when it ends. Speed trails system that renders glowing afterimages behind fast-moving objects for a slick motion-blur feel."
+      "summary": "Added Balloon tool (\ud83c\udf88) that floats upward with buoyancy physics and gentle drift, with colorful oval rendering and swaying string. Anti-Gravity Pulse (FLOAT) chaos button reverses gravity for 4 seconds with sparkle particles and a satisfying drop when it ends. Speed trails system that renders glowing afterimages behind fast-moving objects for a slick motion-blur feel."
     },
     {
       "date": "2026-02-10",
       "ideas": [
-        "Interactive: Portals — two linked circles that teleport objects",
-        "New chaos button: Time warp — slow-motion toggle for 5 seconds",
-        "New chaos button: Rain — spawn 20 random small objects from the top"
+        "Interactive: Portals \u2014 two linked circles that teleport objects",
+        "New chaos button: Time warp \u2014 slow-motion toggle for 5 seconds",
+        "New chaos button: Rain \u2014 spawn 20 random small objects from the top"
       ],
-      "summary": "Added Portal tool (🌀) — tap twice to place a linked portal pair, objects entering one teleport out the other with exit particles and sound. Time Warp (SLO-MO) chaos button slows physics to 20% speed for 5 seconds with purple vortex overlay, vignette, and pulsing label. Rain chaos button (🌧️) drops 20 random objects from the sky in a staggered cascade for instant chaos."
+      "summary": "Added Portal tool (\ud83c\udf00) \u2014 tap twice to place a linked portal pair, objects entering one teleport out the other with exit particles and sound. Time Warp (SLO-MO) chaos button slows physics to 20% speed for 5 seconds with purple vortex overlay, vignette, and pulsing label. Rain chaos button (\ud83c\udf27\ufe0f) drops 20 random objects from the sky in a staggered cascade for instant chaos."
     },
     {
       "date": "2026-02-10",
       "ideas": [
         "Interactive: Pinball bumpers that light up on hit",
-        "New object: Beach ball — huge, light, super bouncy",
-        "New chaos button: Gravity flip — gravity rotates 90° each press"
+        "New object: Beach ball \u2014 huge, light, super bouncy",
+        "New chaos button: Gravity flip \u2014 gravity rotates 90\u00b0 each press"
       ],
-      "summary": "Added Pinball Bumpers (🔴) — place static bumpers that flash white and blast objects away on contact with particle bursts and satisfying pings. Beach Ball (🏖️) tool spawns huge, lightweight, super-bouncy balls with colorful striped panels and a glossy shine. Gravity Flip (G-FLIP) chaos button rotates gravity 90° each press (down→right→up→left) with a directional label flash and screen shake."
+      "summary": "Added Pinball Bumpers (\ud83d\udd34) \u2014 place static bumpers that flash white and blast objects away on contact with particle bursts and satisfying pings. Beach Ball (\ud83c\udfd6\ufe0f) tool spawns huge, lightweight, super-bouncy balls with colorful striped panels and a glossy shine. Gravity Flip (G-FLIP) chaos button rotates gravity 90\u00b0 each press (down\u2192right\u2192up\u2192left) with a directional label flash and screen shake."
     },
     {
       "date": "2026-02-11",
       "ideas": [
         "New object: Rubber duck that squeaks on impact",
-        "New chaos button: Mega bounce — temporarily max out all restitution",
+        "New chaos button: Mega bounce \u2014 temporarily max out all restitution",
         "Easter egg: Konami code activates ultra-chaos mode"
       ],
-      "summary": "Added Rubber Duck tool (🦆) — yellow duck that squeaks on every impact with cute particles and custom sound. Mega Bounce (🏀) chaos button maxes all restitution to 1.2 for 5 seconds — everything becomes a super ball with green particle burst and timer bar. Konami Code easter egg (↑↑↓↓←→←→BA) triggers 10 seconds of ULTRA CHAOS — random explosions, object spawns, gravity nudges, screen-shaking rainbow tint, and a massive particle burst."
+      "summary": "Added Rubber Duck tool (\ud83e\udd86) \u2014 yellow duck that squeaks on every impact with cute particles and custom sound. Mega Bounce (\ud83c\udfc0) chaos button maxes all restitution to 1.2 for 5 seconds \u2014 everything becomes a super ball with green particle burst and timer bar. Konami Code easter egg (\u2191\u2191\u2193\u2193\u2190\u2192\u2190\u2192BA) triggers 10 seconds of ULTRA CHAOS \u2014 random explosions, object spawns, gravity nudges, screen-shaking rainbow tint, and a massive particle burst."
     },
     {
       "date": "2026-02-12",
       "ideas": [
         "New object: Domino tile for chain reactions",
-        "New chaos button: Vortex — spins all objects around a center point",
+        "New chaos button: Vortex \u2014 spins all objects around a center point",
         "Visual: Lightning bolt between close fast-moving objects"
       ],
-      "summary": "Added Domino tile (🀄) — tall, thin tiles perfect for chain reactions with retro dot markings. Vortex (🌀) chaos button spins all objects around center with tangential force + inward pull for 5 seconds, purple swirl rings and particles. Lightning bolts — jagged electric arcs spark between nearby fast-moving objects with cyan glow, adding dramatic visual energy to high-speed chaos."
+      "summary": "Added Domino tile (\ud83c\udc04) \u2014 tall, thin tiles perfect for chain reactions with retro dot markings. Vortex (\ud83c\udf00) chaos button spins all objects around center with tangential force + inward pull for 5 seconds, purple swirl rings and particles. Lightning bolts \u2014 jagged electric arcs spark between nearby fast-moving objects with cyan glow, adding dramatic visual energy to high-speed chaos."
     },
     {
       "date": "2026-02-13",
       "ideas": [
-        "New chaos button: Tornado — funnel that moves across screen",
-        "New object: Anvil — extra heavy, smashes through everything",
+        "New chaos button: Tornado \u2014 funnel that moves across screen",
+        "New object: Anvil \u2014 extra heavy, smashes through everything",
         "Visual: Fire trail on objects moving faster than threshold"
       ],
-      "summary": "Added Tornado (🌪️) chaos button — a funnel sweeps across the screen for 6 seconds, sucking objects upward and spinning them with debris particles. Anvil tool (🔨) spawns ultra-heavy anvils that smash through everything with satisfying weight. Fire trails blaze behind any object moving fast enough — yellow-to-red gradient flames that scale with speed."
+      "summary": "Added Tornado (\ud83c\udf2a\ufe0f) chaos button \u2014 a funnel sweeps across the screen for 6 seconds, sucking objects upward and spinning them with debris particles. Anvil tool (\ud83d\udd28) spawns ultra-heavy anvils that smash through everything with satisfying weight. Fire trails blaze behind any object moving fast enough \u2014 yellow-to-red gradient flames that scale with speed."
     },
     {
       "date": "2026-02-14",
       "ideas": [
         "Interactive: Trampoline platform with extra bounce",
-        "New chaos button: Freeze — all objects stop instantly then resume",
+        "New chaos button: Freeze \u2014 all objects stop instantly then resume",
         "Visual: Pixel dust cloud when objects land hard"
       ],
-      "summary": "Added Trampoline tool (🟩) — place static bounce pads that launch objects skyward with spring particles and a satisfying boing sound. Freeze (🧊) chaos button instantly freezes all objects in place for 3 seconds with ice crystal particles and blue frost overlay, then everything resumes with a dramatic thaw burst. Pixel dust clouds poof up when objects slam into walls/floor — brown/tan expanding puffs that add weight and impact to every hard landing."
+      "summary": "Added Trampoline tool (\ud83d\udfe9) \u2014 place static bounce pads that launch objects skyward with spring particles and a satisfying boing sound. Freeze (\ud83e\uddca) chaos button instantly freezes all objects in place for 3 seconds with ice crystal particles and blue frost overlay, then everything resumes with a dramatic thaw burst. Pixel dust clouds poof up when objects slam into walls/floor \u2014 brown/tan expanding puffs that add weight and impact to every hard landing."
     },
     {
       "date": "2026-02-15",
       "ideas": [
         "Interactive: Conveyor belt surface that moves objects along it",
-        "Game mode: Popcorn — objects randomly pop upward every few seconds",
+        "Game mode: Popcorn \u2014 objects randomly pop upward every few seconds",
         "Visual: Screen flash and chromatic aberration on big impacts"
       ],
-      "summary": "Added Conveyor Belt tool (⏩) — place static belts with animated chevrons that push objects left or right via surface friction. Popcorn (🍿) chaos button makes random objects pop upward for 8 seconds with butter-yellow particles and bounce sounds. Chromatic aberration — hard impacts and explosions now trigger RGB channel splitting and white screen flash for dramatic visual punch."
+      "summary": "Added Conveyor Belt tool (\u23e9) \u2014 place static belts with animated chevrons that push objects left or right via surface friction. Popcorn (\ud83c\udf7f) chaos button makes random objects pop upward for 8 seconds with butter-yellow particles and bounce sounds. Chromatic aberration \u2014 hard impacts and explosions now trigger RGB channel splitting and white screen flash for dramatic visual punch."
     },
     {
       "date": "2026-02-16",
       "ideas": [
         "New object: Wrecking ball on a chain constraint",
-        "New chaos button: Shuffle — randomize all object positions",
-        "Game mode: Destruction meter — counts total energy released"
+        "New chaos button: Shuffle \u2014 randomize all object positions",
+        "Game mode: Destruction meter \u2014 counts total energy released"
       ],
-      "summary": "Added Wrecking Ball tool (⚫) — heavy iron ball swinging on a chain from a static anchor point with metallic rendering and chain-link visuals. Shuffle (🔀) chaos button teleports every dynamic object to a random other object's position with orange burst particles, instant chaos. Destruction Meter HUD (bottom-left) tracks cumulative collision energy with 7 escalating ranks from CALM to GODLIKE, log-scale progress bar, and color-coded labels."
+      "summary": "Added Wrecking Ball tool (\u26ab) \u2014 heavy iron ball swinging on a chain from a static anchor point with metallic rendering and chain-link visuals. Shuffle (\ud83d\udd00) chaos button teleports every dynamic object to a random other object's position with orange burst particles, instant chaos. Destruction Meter HUD (bottom-left) tracks cumulative collision energy with 7 escalating ranks from CALM to GODLIKE, log-scale progress bar, and color-coded labels."
     },
     {
       "date": "2026-02-17",
@@ -722,16 +722,16 @@
         "New object: Ice cube that's super slippery (low friction)",
         "Easter egg: Triple-tap title for disco mode (flashing background colors)"
       ],
-      "summary": "Added Fan tool (💨) — place static blowers that push objects upward with visible wind particles and spinning blade animation. Ice Cube tool (🧊) — super slippery low-friction blocks with translucent icy rendering, internal cracks, and shine highlight. Disco Mode easter egg — triple-tap the title to toggle a disco ball with rotating spotlight beams, mirror tile sparkles, and rainbow particle rain."
+      "summary": "Added Fan tool (\ud83d\udca8) \u2014 place static blowers that push objects upward with visible wind particles and spinning blade animation. Ice Cube tool (\ud83e\uddca) \u2014 super slippery low-friction blocks with translucent icy rendering, internal cracks, and shine highlight. Disco Mode easter egg \u2014 triple-tap the title to toggle a disco ball with rotating spotlight beams, mirror tile sparkles, and rainbow particle rain."
     },
     {
       "date": "2026-02-18",
       "ideas": [
-        "Game mode: Target practice — spawn bullseyes worth points",
+        "Game mode: Target practice \u2014 spawn bullseyes worth points",
         "New object: Magnet that attracts/repels nearby metal objects",
         "Visual: Glow effect on fast-moving objects"
       ],
-      "summary": "Added Target Practice (🎯) chaos button — spawns 5 bullseye targets with concentric red/white circles, +10 points per hit with ding sound and particle explosions, CLEARED! bonus at 5/5, 15-second timer with score HUD. Magnet tool (🧲) — place static magnets that attract nearby objects within 150px, tap again to toggle repel mode, rendered with red/blue poles and curved magnetic field arcs. Speed Glow — objects moving fast get a pulsing radial gradient aura that shifts yellow→orange→red→white with increasing speed."
+      "summary": "Added Target Practice (\ud83c\udfaf) chaos button \u2014 spawns 5 bullseye targets with concentric red/white circles, +10 points per hit with ding sound and particle explosions, CLEARED! bonus at 5/5, 15-second timer with score HUD. Magnet tool (\ud83e\uddf2) \u2014 place static magnets that attract nearby objects within 150px, tap again to toggle repel mode, rendered with red/blue poles and curved magnetic field arcs. Speed Glow \u2014 objects moving fast get a pulsing radial gradient aura that shifts yellow\u2192orange\u2192red\u2192white with increasing speed."
     },
     {
       "date": "2026-02-19",
@@ -740,63 +740,63 @@
         "Interactive: Seesaw/teeter-totter you can place",
         "Gravity: Underwater mode with buoyancy and drag"
       ],
-      "summary": "Added Bowling Pin tool (🎳) — tall narrow cream-white pins with red neck stripes that tip over satisfyingly with low density physics. Seesaw tool (⚖️) — place a wooden plank balanced on a triangle pivot via revolute constraint, perfect for launching objects by dropping heavy things on one end. Ocean Mode (🌊) toggle chaos button — reduces gravity to 30%, applies water drag to all bodies, spawns rising bubble particles with wobble, and adds a blue tint overlay for floaty underwater physics."
+      "summary": "Added Bowling Pin tool (\ud83c\udfb3) \u2014 tall narrow cream-white pins with red neck stripes that tip over satisfyingly with low density physics. Seesaw tool (\u2696\ufe0f) \u2014 place a wooden plank balanced on a triangle pivot via revolute constraint, perfect for launching objects by dropping heavy things on one end. Ocean Mode (\ud83c\udf0a) toggle chaos button \u2014 reduces gravity to 30%, applies water drag to all bodies, spawns rising bubble particles with wobble, and adds a blue tint overlay for floaty underwater physics."
     },
     {
       "date": "2026-02-20",
       "ideas": [
-        "Game mode: Jenga tower — pre-built tower to knock down",
+        "Game mode: Jenga tower \u2014 pre-built tower to knock down",
         "Interactive: Rope/chain that connects two tap points",
         "Visual: Object glow pulse on spawn (birth flash)"
       ],
-      "summary": "Added Jenga Tower (🏗️) chaos button — spawns 12 rows of alternating wooden blocks with ascending build sound, perfect for demolition. Rope tool (🪢) — select two objects to connect them with a sagging brown rope constraint, with knot dots and dashed selection indicator. Spawn Birth Flash — every new object appears with an expanding white ring and sparkle particles for a satisfying pop-in effect."
+      "summary": "Added Jenga Tower (\ud83c\udfd7\ufe0f) chaos button \u2014 spawns 12 rows of alternating wooden blocks with ascending build sound, perfect for demolition. Rope tool (\ud83e\udea2) \u2014 select two objects to connect them with a sagging brown rope constraint, with knot dots and dashed selection indicator. Spawn Birth Flash \u2014 every new object appears with an expanding white ring and sparkle particles for a satisfying pop-in effect."
     },
     {
       "date": "2026-02-27",
       "ideas": [
         "UX: Screenshot button that saves the canvas"
       ],
-      "summary": "Added Screenshot button (📸 SNAP) to chaos bar — captures the canvas as PNG with timestamped filename, includes white camera flash effect overlay, shutter sound effect, and on-screen 'Screenshot saved!' notification that fades out. Perfect for sharing chaotic masterpieces!"
+      "summary": "Added Screenshot button (\ud83d\udcf8 SNAP) to chaos bar \u2014 captures the canvas as PNG with timestamped filename, includes white camera flash effect overlay, shutter sound effect, and on-screen 'Screenshot saved!' notification that fades out. Perfect for sharing chaotic masterpieces!"
     },
     {
       "date": "2026-02-27",
       "ideas": [
         "Sound: Material-based impact sounds (metal clang, rubber boing, wood thud)"
       ],
-      "summary": "Implemented material-based collision audio system — every object now has a material property (metal, rubber, wood, plastic, glass/ice) that determines its impact sound. Metal objects clang with high-pitched rings, rubber boings with bouncy tones, wood thunks with hollow percussive hits, glass/ice tings with crystalline chimes, and plastic taps with light clicks. Sounds scale with impact intensity for highly satisfying physics feedback!"
+      "summary": "Implemented material-based collision audio system \u2014 every object now has a material property (metal, rubber, wood, plastic, glass/ice) that determines its impact sound. Metal objects clang with high-pitched rings, rubber boings with bouncy tones, wood thunks with hollow percussive hits, glass/ice tings with crystalline chimes, and plastic taps with light clicks. Sounds scale with impact intensity for highly satisfying physics feedback!"
     },
     {
       "date": "2026-02-28",
       "ideas": [
         "Sound: Whoosh sound on slingshot launch scaled to power"
       ],
-      "summary": "Added power-scaled whoosh sound on slingshot launches — uses sawtooth wave with frequency sweep from 80-600Hz, duration 0.15-0.3s, and volume 0.08-0.16, all scaled to launch power (0-25). Weak launches get subtle low whooshes, max-power launches get satisfying high-pitched swooshes. Adds crucial audio feedback to the core slingshot mechanic!"
+      "summary": "Added power-scaled whoosh sound on slingshot launches \u2014 uses sawtooth wave with frequency sweep from 80-600Hz, duration 0.15-0.3s, and volume 0.08-0.16, all scaled to launch power (0-25). Weak launches get subtle low whooshes, max-power launches get satisfying high-pitched swooshes. Adds crucial audio feedback to the core slingshot mechanic!"
     },
     {
       "date": "2026-03-01",
       "ideas": [
         "Sound: Background ambient hum that reacts to chaos level"
       ],
-      "summary": "Implemented dynamic background ambient hum that responds to destruction meter in real-time. Dual-oscillator system (sine + triangle) creates a rich, evolving soundscape. Frequency ranges from 40Hz (CALM) to 120Hz (GODLIKE), volume scales from 0.015 to 0.08 based on chaos level. Toggle button in chaos bar (🔊 AMBIENT) controls playback. Audio automatically adjusts pitch and intensity as physics mayhem escalates — adds atmospheric depth and subconscious feedback to the chaos!"
+      "summary": "Implemented dynamic background ambient hum that responds to destruction meter in real-time. Dual-oscillator system (sine + triangle) creates a rich, evolving soundscape. Frequency ranges from 40Hz (CALM) to 120Hz (GODLIKE), volume scales from 0.015 to 0.08 based on chaos level. Toggle button in chaos bar (\ud83d\udd0a AMBIENT) controls playback. Audio automatically adjusts pitch and intensity as physics mayhem escalates \u2014 adds atmospheric depth and subconscious feedback to the chaos!"
     }
   ],
   "ideaPool": [
     "Visual: Matrix-style falling characters in background",
     "Sound: Victory fanfare when destruction threshold reached",
     "Gravity: Sideways gravity option",
-    "Game mode: Stacking challenge — build tallest tower",
-    "Game mode: Bowling — pins at one end, ball at other",
+    "Game mode: Stacking challenge \u2014 build tallest tower",
+    "Game mode: Bowling \u2014 pins at one end, ball at other",
     "Interactive: Pendulum wrecking ball you can release",
     "UX: Object size slider for current tool",
     "UX: Color picker for spawned objects",
     "UX: Replay/undo last spawn",
     "Easter egg: Spawn 100 tiny balls at once (confetti cannon)",
     "Easter egg: Shake device to trigger earthquake (mobile)",
-    "Interactive: Springboard launcher — place it and objects bounce off",
+    "Interactive: Springboard launcher \u2014 place it and objects bounce off",
     "New object: Spinning saw blade that cuts through objects",
     "Game mode: Pinball score counter with multiplier",
     "Interactive: Catapult you can load and launch",
     "Visual: Northern lights aurora background effect",
-    "Interactive: Zipline — wire objects can slide along"
+    "Interactive: Zipline \u2014 wire objects can slide along"
   ]
 }

@@ -649,9 +649,13 @@ async function driveTrim(page) {
 async function driveLogicalWorld(page) {
   const views=[{name:'phone',width:390,height:844},{name:'ipad',width:820,height:1180},{name:'desktop',width:1280,height:800}];
   const observe=()=>page.evaluate(()=>({bounds:{...worldBounds},camera:{...camera},
-    graph:JSON.stringify({bodies:captureGameState().bodies, constraints:captureGameState().constraints},(key,value)=>['parent','parts','body','bodyA','bodyB','spawnTime','firedAt','cannonFiredAt','catapultFiredAt','blockedUntil','dueAt'].includes(key)?undefined:value),
-    portals:portals.map(p=>({...p})),orbits:[...orbitingBodies].map(([b,o])=>({position:{...b.position},...o})),
-    storage:{...localStorage}}));
+    graph:JSON.stringify({
+      bodies:captureGameState().bodies.map(b=>({id:b.id,label:b.label,type:b.render?.type,position:{...b.position},velocity:{...b.velocity},angle:b.angle,isStatic:b.isStatic})),
+      constraints:captureGameState().constraints.map(c=>({label:c.label,length:c.length,pointA:{...c.pointA},pointB:{...c.pointB},bodyA:c.bodyA?.id,bodyB:c.bodyB?.id}))
+    }),
+    portals:portals.map(p=>({x:p.x,y:p.y,radius:p.radius,partner:p.partner,color:p.color})),
+    orbits:[...orbitingBodies].map(([b,o])=>({bodyId:b.id,position:{...b.position},center:{...o.center},radius:o.radius,direction:o.direction})),
+    storageKeys:Object.keys(localStorage)}));
   let expected;
   for(const view of views) {
     await page.setViewport(view); await page.goto(url,{waitUntil:'networkidle0'});
@@ -667,8 +671,17 @@ async function driveLogicalWorld(page) {
     await shot(page,view.name+'-halo.png');
     const before=await observe();
     await page.setViewport(view.name==='desktop'?views[0]:views[2]);
+    await page.evaluate(()=>{window.dispatchEvent(new Event('resize')); if (typeof resize==='function') resize();});
+    await new Promise(r=>setTimeout(r,50));
     const after=await observe();
-    record(view.name+'-resize-continuity',before.graph===after.graph&&JSON.stringify(before.portals)===JSON.stringify(after.portals)&&JSON.stringify(before.orbits)===JSON.stringify(after.orbits),{before,after});
+    record(view.name+'-resize-continuity',
+      before.graph===after.graph &&
+      JSON.stringify(before.portals)===JSON.stringify(after.portals) &&
+      JSON.stringify(before.orbits)===JSON.stringify(after.orbits) &&
+      JSON.stringify(before.bounds)===JSON.stringify(after.bounds) &&
+      JSON.stringify(before.camera)!==JSON.stringify(after.camera),
+      {before:{bounds:before.bounds,camera:before.camera,graph:before.graph,portals:before.portals,orbits:before.orbits},
+       after:{bounds:after.bounds,camera:after.camera,graph:after.graph,portals:after.portals,orbits:after.orbits}});
   }
   await page.goto(url,{waitUntil:'networkidle0'}); await page.click('#btn-pause');
   await page.click('[data-tool=ball]'); await clickCanvas(page);

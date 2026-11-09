@@ -20052,8 +20052,6 @@ function loop(timestamp) {
     }
   }
 
-  updateClearVortex(timestamp);
-
   // Tornado
   if (tornadoActive && tornadoTimer > 0) {
     tornadoTimer--;
@@ -20338,6 +20336,9 @@ function loop(timestamp) {
   }
 
   } // paused worlds keep force, velocity, portal and chaos state intact.
+
+  // CLEAR must finish even while paused; otherwise the button hangs.
+  updateClearVortex(timestamp);
 
   // Gravity flip label timer
   if (window._gravFlipTimer > 0) window._gravFlipTimer--;

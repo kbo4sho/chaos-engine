@@ -2449,6 +2449,16 @@ describe('Authored logical world and uniform camera', () => {
     next.click('btn-save'); next.click('save-accept'); expect(writes).toHaveBeenCalled();
     expect(next.run(`readGameSave(localStorage.getItem('${key}')).worldBounds.width`)).toBeGreaterThan(1280);
   });
+  it('finishes CLEAR while paused so the button cannot hang',()=>{
+    const api=gameHarness();
+    api.run('spawnObject(640,240,3,4); paused=true; clearAnimating=false');
+    api.click('btn-clear');
+    expect(api.run('clearAnimating')).toBe(true);
+    for (let i=0;i<90;i++) api.run(`loop(performance.now()+${(i+1)*20})`);
+    expect(api.run('clearAnimating')).toBe(false);
+    expect(api.run('Composite.allBodies(world).filter(b=>b.label!=="wall").length')).toBe(0);
+  });
+
   it('does not teleport or change velocity while paused',()=>{
     const api=gameHarness(); api.run('placePortal(200,200); placePortal(1000,200); spawnObject(200,200,3,4); paused=true; window.before=JSON.stringify(captureGameState().bodies.map(b=>({p:b.position,v:b.velocity,a:b.angle,spin:b.angularVelocity}))); loop(performance.now()+16)');
     expect(api.run('JSON.stringify(captureGameState().bodies.map(b=>({p:b.position,v:b.velocity,a:b.angle,spin:b.angularVelocity})))===before')).toBe(true);

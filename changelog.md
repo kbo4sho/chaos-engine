@@ -1,8 +1,8 @@
 ## 2026-11-08 — Authored logical world and uniform camera (local implementation)
 **Why:** Viewport-sized physics changed example geometry and user-world limits across devices, and the desktop CSS canvas stretched a mismatched backing store.
 **Implementation:** Freeze new worlds and examples at the approved 1280×549 Matter world authored at 1280×800 desktop (CSS canvas 1280×530.8125; topbar 50, toolbar 74, chaos bar 145.1875). Center a uniform letterbox camera over all canvas rendering; inverse-map mouse/touch/drag/aim. Resize and layout observation update only display mapping. Logical bounds drive walls, tools and effects. Version-1 codec graphs add worldBounds; legacy saves infer a padded envelope from geometry, anchors, portals, orbit extents and registries without coordinate mutation or storage writes. Explicit SAVE writes bounds. Pause gates confirmed force/velocity/portal/chaos updates. Halo builder numbers remain unchanged; orbital portal entry remains ambiguous and is not fixed.
-**Verified:** 941/941 automated tests, build and inline JavaScript syntax pass. New logical-world journey and mirrored feature map added. Live launch fails before readiness; ownership helper reports loopback listen EPERM. Doctor has no owned state. All browser journeys (ui-layout, example-scenes, example-scenes-mobile, save-load, deflect, trim, logical-world) remain unrun. Cleanup found no owned run. Evidence logs: artifacts/verify-chaos-engine/responsive-blocked-20261108/. Requested external evidence destination rejected writes (Operation not permitted).
-**Status:** local implementation; mandatory live verification blocked, not shipped or deployed.
+**Verified:** 942/942 automated tests, build, ownership helpers, doctor, and all browser journeys (ui-layout, example-scenes, example-scenes-mobile, save-load, deflect, trim, logical-world) pass. CLEAR completes while paused. Halo builder geometry unchanged; orbital portal-entry intent remains unresolved. Private evidence: agent-data evidence responsive-ship-20261108 journeys.
+**Status:** feature branch ready for independent review; no main publish/deploy.
 
 # Changelog — Make It Better
 
