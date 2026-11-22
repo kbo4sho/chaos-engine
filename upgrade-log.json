@@ -3,6 +3,13 @@
   "description": "Nightly fun upgrade tracker",
   "upgrades": [
     {
+      "date": "2026-11-10",
+      "ideas": [
+        "New tool: Align a moving part’s heading to its travel in one tap while preserving velocity and spin"
+      ],
+      "summary": "Uncommitted implementation pending supervisor verification: Align appended after Bank matches a movable solid part’s local heading to travel. Includes accessible transient feedback, Clear/tool-change cleanup, real-Matter tests, selected-tool save/load coverage and mapped align mobile-touch/desktop-input journey. All 942 automated tests, build and inline script syntax pass. Isolated launch failed before readiness; doctor has no state and test:verify reports loopback listen EPERM. Browser journeys, ownership checks and production cutover require native supervisor verification. No commit, push, deployment or live verification performed."
+    },
+    {
       "date": "2026-11-09",
       "ideas": [
         "New tool: Bank travel across a moving part’s local axis while preserving speed and spin"

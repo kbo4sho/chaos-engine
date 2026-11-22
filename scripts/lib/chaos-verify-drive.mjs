@@ -675,8 +675,8 @@ async function driveBank(page) {
       await page.focus('[data-tool=bank]');
       await page.keyboard.press('Enter');
     }
-    const placement=await page.$eval('#toolbar',el=>({last:el.lastElementChild.dataset.tool,previous:el.lastElementChild.previousElementSibling.dataset.tool,drawMode,active:el.querySelector('[data-tool=bank]').classList.contains('active'),visible:(()=>{const r=el.querySelector('[data-tool=bank]').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth;})()}));
-    record(viewport.name+'-final-selected-button',placement.last==='bank'&&placement.previous==='trim'&&!placement.drawMode&&placement.active&&placement.visible,placement);
+    const placement=await page.$eval('#toolbar',el=>({last:el.querySelector('[data-tool=bank]').dataset.tool,previous:el.querySelector('[data-tool=bank]').previousElementSibling.dataset.tool,drawMode,active:el.querySelector('[data-tool=bank]').classList.contains('active'),visible:(()=>{const r=el.querySelector('[data-tool=bank]').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth;})()}));
+    record(viewport.name+'-selected-after-trim',placement.last==='bank'&&placement.previous==='trim'&&!placement.drawMode&&placement.active&&placement.visible,placement);
     await shot(page,viewport.name+'-01-selected.png');
     await point(x,y);
     const after=await observe();
@@ -700,7 +700,62 @@ async function driveBank(page) {
   result.passed=result.failures.length===0;
 }
 
+async function driveAlign(page) {
+  for (const viewport of [{name:'mobile',width:390,height:664,isMobile:true,hasTouch:true}, {name:'desktop',width:1280,height:800}]) {
+    await page.setViewport(viewport);
+    await page.goto(url, {waitUntil:'networkidle0'});
+    const tap = async selector => {
+      await page.$eval(selector, element => element.scrollIntoView({block:'nearest',inline:'center'}));
+      if (viewport.hasTouch) await page.tap(selector); else await page.click(selector);
+    };
+    const point = async (x,y) => viewport.hasTouch ? page.touchscreen.tap(x,y) : page.mouse.click(x,y);
+    await tap('#btn-pause');
+    await tap('[data-tool="block"]');
+    const rect=await page.$eval('#game',el=>{const r=el.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height};});
+    const x=rect.x+rect.w*0.45,y=rect.y+rect.h*0.4;
+    await point(x,y);
+    const observe=()=>page.evaluate(()=>{
+      const body=Composite.allBodies(world).find(b=>b.label!=='wall'&&!b.isStatic);
+      return body ? {id:body.id,x:body.position.x,y:body.position.y,vx:body.velocity.x,vy:body.velocity.y,spin:body.angularVelocity,angle:body.angle} : null;
+    });
+    record(viewport.name+'-existing-block',Boolean(await observe()),await observe());
+    await tap('[data-tool="launch"]'); await point(x,y); await point(x+60,y+45);
+    const before=await observe();
+    await tap('[data-tool="draw"]');
+    if (viewport.hasTouch) {
+      await tap('[data-tool="align"]');
+    } else {
+      await page.$eval('[data-tool=align]',el=>el.scrollIntoView({block:'nearest',inline:'center'}));
+      await page.focus('[data-tool=align]');
+      await page.keyboard.press('Enter');
+    }
+    const placement=await page.$eval('#toolbar',el=>({last:el.lastElementChild.dataset.tool,previous:el.lastElementChild.previousElementSibling.dataset.tool,drawMode,active:el.querySelector('[data-tool=align]').classList.contains('active'),visible:(()=>{const r=el.querySelector('[data-tool=align]').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth;})()}));
+    record(viewport.name+'-final-selected-button',placement.last==='align'&&placement.previous==='bank'&&!placement.drawMode&&placement.active&&placement.visible,placement);
+    await shot(page,viewport.name+'-01-selected.png');
+    await point(x,y);
+    const after=await observe();
+    const feedback=await page.$eval('#align-feedback',el=>el.textContent);
+    record(viewport.name+'-travel-alignment',Math.abs(after.angle-Math.atan2(before.vy,before.vx))<1e-8 && after.vx===before.vx && after.vy===before.vy && Math.abs(before.spin)>0.0001 && Math.abs(after.spin-before.spin)<1e-9 && /PART ALIGNED/.test(feedback),{before,after,feedback});
+    await shot(page,viewport.name+'-02-aligned.png');
+    await tap('#btn-pause');
+    await new Promise(resolve=>setTimeout(resolve,180));
+    await tap('#btn-pause');
+    const moved=await observe();
+    record(viewport.name+'-canvas-motion',Math.hypot(moved.x-after.x,moved.y-after.y)>2,{after,moved});
+    await shot(page,viewport.name+'-03-motion.png');
+    await tap('#btn-clear');
+    await page.waitForFunction(()=>!clearAnimating);
+    const cleanup=await page.evaluate(()=>({count:document.querySelector('#obj-count').textContent,feedback:document.querySelector('#align-feedback').textContent,bodies:Composite.allBodies(world).filter(b=>b.label!=='wall').length,storage:{...localStorage}}));
+    record(viewport.name+'-clear-cleanup',cleanup.bodies===0&&cleanup.feedback==='',cleanup);
+    await shot(page,viewport.name+'-04-clear.png');
+    fs.writeFileSync(path.join(outDir,viewport.name+'-state.json'),JSON.stringify({before,after,moved,cleanup},null,2));
+    record(viewport.name+'-no-runtime-errors',!consoleLines.some(line=>/^\[(error|pageerror)\]/.test(line)),consoleLines);
+  }
+  result.passed=result.failures.length===0;
+}
+
 const journeys = {
+  'align': driveAlign,
   'bank': driveBank,
   'trim': driveTrim,
   'deflect': driveDeflect,

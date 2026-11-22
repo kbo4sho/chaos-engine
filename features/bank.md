@@ -16,7 +16,7 @@ Scroll the bottom object toolbar to the end, select `[data-tool="bank"]`, then t
 
 Preconditions: isolated launch and doctor pass; fresh browser profile.
 
-- **mobile-selection / desktop-selection:** `./scripts/verify-chaos-engine drive bank` uses 390×664 real touchscreen taps and 1280×800 mouse/keyboard input, checks Bank is final after Trim and exits Draw.
+- **mobile-selection / desktop-selection:** `./scripts/verify-chaos-engine drive bank` uses 390×664 real touchscreen taps and 1280×800 mouse/keyboard input, checks Bank remains immediately after Trim and exits Draw.
 - **mobile-reflection / desktop-reflection:** The journey creates a Ball and aims it diagonally with Launch, taps Bank on the paused part, and observes reflected velocity, preserved spin/orientation and visible feedback.
 - **mobile-motion / desktop-motion:** Resume the canvas, observe real travel, pause and capture resulting position.
 - **mobile-cleanup / desktop-cleanup:** CLEAR leaves zero player bodies and no Bank feedback; capture storage and state. All console errors and runtime errors fail the journey.

@@ -56,4 +56,6 @@ Keep implementation details out of the map. Name only user paths, stable handles
 
 - [Trim](./trim.md) covers one-shot spin removal with travel preserved, toolbar selection after Deflect, touch/desktop input and Clear cleanup.
 
-- [Bank](./bank.md) covers local-axis travel reflection, final toolbar selection after Trim, real touch/desktop input, motion and Clear cleanup.
+- [Bank](./bank.md) covers local-axis travel reflection, toolbar selection immediately after Trim, real touch/desktop input, motion and Clear cleanup.
+
+- [Align](./align.md) covers one-shot heading alignment, final placement after Bank, touch/desktop input, motion and cleanup.

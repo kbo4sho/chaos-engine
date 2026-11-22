@@ -6,6 +6,11 @@ Future cycles still add or improve one feature without redesigning the shell. Th
 
 ---
 
+## 2026-11-10 — Implementation pending supervisor verification: Align tool
+**Behavior:** Appended Align after Bank. Tap a moving solid part to point its local horizontal axis along its velocity in one action, preserving travel, spin, mass and material. Shared touch targeting, accessible transient guidance, tool-change/Clear cleanup and selected-tool save/load follow existing conventions. No dependency or shell changes.
+**Verification:** All 942 automated tests pass. Focused real-Matter tests and mapped `align` mobile-touch/desktop-input journey added. Bank now checks its relative placement as tools append. Build and inline script syntax pass. Isolated launch exited before readiness; doctor found no state; `test:verify` failed with loopback `listen EPERM`. Full browser journeys, UI layouts and ownership checks require native supervisor verification; no live verification is claimed. Evidence remains private.
+**Status:** uncommitted implementation; not shipped
+
 ## 2026-11-09 — Implementation pending supervisor verification: Bank tool
 **Behavior:** Appended Bank after Trim. Tap a moving solid part to reflect its travel across its own local horizontal axis, preserving speed, spin, orientation, geometry and material. Repeating the tap restores travel. Shared touch targeting, accessible transient feedback, tool-change/Clear cleanup and selected-tool save/load follow existing conventions. No dependency or shell changes.
 **Verification:** All 938 automated tests pass. Focused real-Matter tests and mapped `bank` mobile-touch/desktop-input journey added; Trim now checks relative placement so appended tools preserve its proof. Build and inline script syntax pass. Isolated launch exited before ready; doctor found no state; `test:verify` failed with loopback `listen EPERM`. Browser journeys, UI layouts and production cutover require native supervisor verification. Evidence stays in the private environment-provided directory. No live verification is claimed.
