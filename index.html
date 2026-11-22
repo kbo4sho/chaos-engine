@@ -2164,7 +2164,7 @@ function recordCollisionHeat(x, y, intensity) {
 }
 
 function drawCollisionHeatmap(dt) {
-  if (!heatCtx || !heatGrid.length) return;
+  if (!heatCtx || !heatCanvas || !heatGrid.length || heatCols <= 0 || heatRows <= 0) return;
   const decay = Math.pow(HEAT_DECAY_PER_FRAME, dt * 60);
   const img = heatCtx.createImageData(heatCols, heatRows);
   let hasHeat = false;
@@ -2204,6 +2204,8 @@ function drawCollisionHeatmap(dt) {
     heatCtx.clearRect(0, 0, heatCols, heatRows);
     return;
   }
+
+  if (heatCanvas.width <= 0 || heatCanvas.height <= 0 || canvas.width <= 0 || canvas.height <= 0) return;
 
   heatCtx.putImageData(img, 0, 0);
   ctx.save();
@@ -21037,7 +21039,7 @@ function loop(timestamp) {
   }
 
   // Chromatic aberration (RGB split) on big impacts
-  if (chromaticAberration > 0.5) {
+  if (chromaticAberration > 0.5 && canvas.width > 0 && canvas.height > 0) {
     const offset = chromaticAberration;
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = 0.12;
