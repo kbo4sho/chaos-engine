@@ -5319,3 +5319,67 @@ describe('Lesson Mode API', () => {
     expect(scriptContent).toContain('config.hideControls');
   });
 });
+
+// ============================================
+// ZERO-SIZE CANVAS DRAWIMAGE GUARD TESTS
+// ============================================
+
+describe('Zero-size canvas drawImage guards', () => {
+  function createRenderHarness(size = { width: 1024, height: 600 }) {
+    const codec = fs.readFileSync(path.join(process.cwd(), 'save-codec.js'), 'utf8');
+    const examples = fs.readFileSync(path.join(process.cwd(), 'examples/chaos-examples.js'), 'utf8');
+    const matter = fs.readFileSync(require.resolve('matter-js'), 'utf8');
+    const dom = new JSDOM(html, { url: 'http://localhost', runScripts: 'outside-only' });
+    const { window } = dom;
+    const drawImageCalls = [];
+    const gradient = { addColorStop() {} };
+    const context = new Proxy({}, {
+      get: (_, key) => {
+        if (key === 'drawImage') {
+          return (img, ...args) => {
+            if (!img || img.width === 0 || img.height === 0) {
+              throw new window.DOMException(
+                "Failed to execute 'drawImage' on 'CanvasRenderingContext2D': The image argument is a canvas element with a width or height of 0.",
+                'InvalidStateError'
+              );
+            }
+            drawImageCalls.push({ width: img.width, height: img.height, args });
+          };
+        }
+        if (key === 'createImageData') {
+          return (w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) });
+        }
+        if (key.startsWith('create')) return () => gradient;
+        return () => {};
+      }
+    });
+    window.HTMLCanvasElement.prototype.getContext = () => context;
+    Object.defineProperty(window.HTMLElement.prototype, 'clientWidth', { get: () => size.width });
+    Object.defineProperty(window.HTMLElement.prototype, 'clientHeight', { get: () => size.height });
+    window.requestAnimationFrame = () => 1;
+    window.eval(matter);
+    window.eval(examples);
+    window.eval(codec);
+    window.eval(scriptContent + '\nwindow.__runRenderTest = code => eval(code);');
+    return { window, drawImageCalls, run: code => window.__runRenderTest(code) };
+  }
+
+  it('skips drawImage in drawCollisionHeatmap and chromatic aberration when canvas or heatCanvas is 0x0', () => {
+    const size = { width: 0, height: 0 };
+    const harness = createRenderHarness(size);
+    try {
+      harness.run('recordCollisionHeat(0, 0, 10); chromaticAberration = 6; loop(16);');
+      expect(harness.drawImageCalls).toHaveLength(0);
+
+      size.width = 1024;
+      size.height = 600;
+      harness.run('resize(); recordCollisionHeat(24, 24, 10); heatCanvas.width = 0; drawCollisionHeatmap(0.016);');
+      expect(harness.drawImageCalls).toHaveLength(0);
+
+      harness.run('resize(); recordCollisionHeat(24, 24, 10); chromaticAberration = 6; loop(32);');
+      expect(harness.drawImageCalls.length).toBeGreaterThanOrEqual(3);
+    } finally {
+      harness.window.close();
+    }
+  });
+});
