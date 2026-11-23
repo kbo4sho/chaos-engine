@@ -1,3 +1,4 @@
+import { setupDispatchLog } from './dispatch-log.js';
 import {mountLayout} from './mount-layout.js';
 import {setupFittingLedger} from './fitting-ledger.js';
 import { setupCoach } from './coach-desk.js';
@@ -40,10 +41,14 @@ const $ = (id) => document.getElementById(id);
 const c = $('diagram').getContext('2d');
 const films = setupFilms($),
   focusBench = setupFocus($);
-const fittingLedger = setupFittingLedger($, () => fittings(machine,move), tick => {
-  const frame = tape.findIndex(sample=>sample.tick >= tick);
-  if(frame >= 0){$('scrubber').value=frame;$('scrubber').dispatchEvent(new Event('input'));}
-});
+function inspectTick(tick) {
+  const frame = tape.findIndex(sample => sample.tick >= tick);
+  if (frame < 0) return;
+  $('scrubber').value = frame;
+  $('scrubber').dispatchEvent(new Event('input'));
+}
+const fittingLedger = setupFittingLedger($, () => fittings(machine, move), inspectTick);
+const dispatchLog = setupDispatchLog($, inspectTick, drawBench);
 const coach = setupCoach(M, $, (choice) => {
   if (choice.operation === 'remove') {
     const b = document.querySelector('#pair-pieces [data-remove="' + choice.socket + '"]');
@@ -202,10 +207,10 @@ function drawBench() {
   }
   const cargoIndex = run.cargo ? run.items.findIndex((item) => item.body === run.cargo) : -1;
   const cursor = inspection === null ? tape.length - 1 : inspection;
-  if(machine.capacity===3)fittingLedger.draw(run, inspection===null?run.tick:tape[inspection].tick, phase==='won'||phase==='miss');
+  if(machine.capacity===3 || machine.grand)fittingLedger.draw(run, inspection===null?run.tick:tape[inspection].tick, phase==='won'||phase==='miss');
   const fieldReadout=$('field-display');
-  fieldReadout.hidden=!machine.fieldwork;
-  if(machine.fieldwork){
+  fieldReadout.hidden=!(machine.fieldwork || machine.fieldReadout);
+  if(!fieldReadout.hidden){
     const state=(body,idx)=>{
       const sign=inspection===null?body.render.fieldCharge:tape[inspection].poses[idx][4],phase=inspection===null?body.render.phaseFrames:tape[inspection].poses[idx][5];
       const charge=sign===1?'Positive (+)':sign===-1?'Negative (−)':'Neutral';
@@ -237,9 +242,10 @@ function drawBench() {
   if (inspection !== null) {
     const sample = tape[inspection],
       upto = Math.floor(sample.tick / 3);
-    draw(c, atFrame(run, sample), { trail: trail.slice(Math.max(0, upto - 28), upto), cargoTrail });
+    draw(c, atFrame(run, sample), { trail: trail.slice(Math.max(0, upto - 28), upto), cargoTrail, routes:dispatchLog.paths() });
   } else
     draw(c, run, {
+      routes:dispatchLog.paths(),
       trail: trail.slice(-28),
       ghost,
       cargoTrail,
@@ -330,13 +336,16 @@ function updateShelf() {
   $('rig-entry').textContent =
     nextRig && nextRig !== rigStart ? 'Resume cable rigs →' : 'Play the cable rigs →';
   const pairStart = machines.find((m) => m.capacity === 2),
-    nextPair = unfinished.find((m) => m.capacity === 2);
+    nextPair = unfinished.find((m) => m.capacity === 2 && !m.grand);
   $('pair-entry').href = '#' + (nextPair || pairStart).id;
   $('pair-entry').textContent =
     nextPair && nextPair !== pairStart ? 'Resume two-part repairs →' : 'Play two-part repairs →';
+  const relayStart = machines.find(m => m.grand), nextRelay = unfinished.find(m => m.grand);
+  $('grand-entry').href = '#' + (nextRelay || relayStart).id;
+  $('grand-entry').textContent = nextRelay && nextRelay !== relayStart ? 'Resume grand relays →' : 'Play grand relays →';
   const firstField=machines.find(m=>m.fieldwork),nextField=unfinished.find(m=>m.fieldwork);
   $('field-entry').href='#'+(nextField||firstField).id;$('field-entry').textContent=nextField&&nextField!==firstField?'Resume field stations →':'Play field stations →';
-  const firstAssembly=machines.find(m=>m.capacity===3),nextAssembly=unfinished.find(m=>m.capacity===3);
+  const firstAssembly=machines.find(m=>m.capacity===3 && !m.grand),nextAssembly=unfinished.find(m=>m.capacity===3 && !m.grand);
   if(firstAssembly){$('assembly-entry').href='#'+(nextAssembly||firstAssembly).id;$('assembly-entry').textContent=nextAssembly&&nextAssembly!==firstAssembly?'Resume three-part repairs →':'Play three-part repairs →';}
   const driveStart = machines.find((m) => m.transmission),
     nextDrive = unfinished.find((m) => m.transmission);
@@ -403,7 +412,7 @@ function controls() {
   desk.controls(machine, move, busy);
   const placed = fittings(machine, move),
     paired = machine.capacity > 1;
-  $('fitting-ledger').hidden=machine.capacity!==3;
+  $('fitting-ledger').hidden=machine.capacity!==3 && !machine.grand;
   $('share-assembly').disabled=busy||!validMove(machine,move);
   $('fitted-pair').hidden = !paired;
   if (paired) {
@@ -544,6 +553,7 @@ function resetRun(keepGhost = false) {
   tape = [];
   inspection = null;
   $('cues').hidden = true;
+  dispatchLog.clear();
   $('cues').replaceChildren();
   $('film').hidden = true;
   run = createRun(M, machine, move);
@@ -779,7 +789,8 @@ function finish() {
       return cue;
     });
   $('cues').replaceChildren(...cues);
-  $('cues').hidden = !cues.length;
+  $('cues').hidden = !cues.length || !!machine.grand;
+  if (machine.grand) dispatchLog.show(run,tape);
   controls();
   updateShelf();
   drawBench();

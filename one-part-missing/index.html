@@ -87,6 +87,13 @@
           <button type="button" id="compare-attempts" class="quiet" aria-haspopup="dialog" hidden>
             Compare last two setups
           </button>
+          <details id="dispatch-log" hidden>
+            <summary>Dispatch log <span id="dispatch-count"></span></summary>
+            <p id="dispatch-interval"></p>
+            <label>Follow <select id="dispatch-lane"><option value="all">Both loads and machinery</option><option value="gold">Gold marble</option><option value="blue">Blue parcel</option><option value="machine">Machinery</option></select></label>
+            <label><input type="checkbox" id="dispatch-paths" />Plot recorded paths</label>
+            <ol id="dispatch-events"></ol>
+          </details>
           <div id="cues" aria-label="Tool contacts in this run" role="group" hidden></div>
         </section>
         <aside class="drawer" aria-labelledby="drawer-title">
@@ -181,6 +188,7 @@
             <a id="rig-entry" href="#rig-first-tether">Play the cable rigs →</a>
             <a id="pair-entry" href="#pair-carry-then-catch">Play two-part repairs →</a>
             <a id="drive-entry" href="#drive-spin-into-slide">Play the drive table →</a>
+            <a id="grand-entry" href="#grand-first-handoff">Play grand relays →</a>
             <a id="field-entry" href="#field-out-from-the-center">Play field stations →</a>
             <a id="assembly-entry" href="#assembly-three-at-the-bench">Play three-part repairs →</a>
             <a id="batch-entry" href="test-bay/">Commission a production line →</a>

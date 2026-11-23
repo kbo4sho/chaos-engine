@@ -1570,3 +1570,13 @@ summary {
 #fitting-events button:disabled{opacity:1;}
 #share-assembly{min-height:34px;font:12px var(--mono);padding:4px 8px;}
 body[data-portable] #share-assembly{display:none!important;}
+
+#dispatch-log { margin-top: .6rem; border-top: 1px solid #35515a; padding-top: .5rem; }
+#dispatch-log summary { cursor: pointer; color: #bdebf1; padding: .45rem 0; }
+#dispatch-count { font-variant-numeric: tabular-nums; color: #97bbc3; margin-left: .5rem; }
+#dispatch-log label { display: flex; gap: .6rem; align-items: center; }
+#dispatch-interval { margin: 0 0 .65rem; }
+#dispatch-events { list-style: none; padding: 0; margin: .6rem 0 0; display: grid; gap: .15rem; }
+#dispatch-events button { display: grid; align-items: center; grid-template-columns: 4rem minmax(0, 1fr) auto; gap: .35rem; text-align:left; width:100%; min-height:42px; padding:.4rem .55rem; background: #12232a; border:1px solid #30464d; font-size:.875rem; color:#e1eef0; }
+#dispatch-events time { font-variant-numeric:tabular-nums; white-space:nowrap; color:#c5d8dc; }
+.dispatch-tag.gold { color:#ffd373; } .dispatch-tag.blue { color:#9fdbff; } .dispatch-tag.machine { color:#b5c4c8; }

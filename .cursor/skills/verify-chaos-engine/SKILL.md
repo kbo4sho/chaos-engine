@@ -156,10 +156,11 @@ All helpers are executable. Invoke them from the repo root.
 | `./scripts/verify-chaos-engine drive save-load` | Browser journey for [features/save-load.md](../../features/save-load.md) |
 | `./scripts/verify-chaos-engine drive example-scenes` | Browser journey for [features/example-scenes.md](../../features/example-scenes.md) |
 | `./scripts/verify-chaos-engine drive example-scenes-mobile` | iPhone 13 + Pixel 5 tap journey for [features/example-scenes-mobile.md](../../features/example-scenes-mobile.md) |
-| `./scripts/verify-chaos-engine drive puzzle-campaign` | [Full campaign](features/puzzle-campaign.md), all 480 repairs, chapter progress, rail orientation and portable replay |
+| `./scripts/verify-chaos-engine drive puzzle-campaign` | [Full campaign](features/puzzle-campaign.md), all 500 repairs, chapter progress, rail orientation and portable replay |
 | `./scripts/verify-chaos-engine drive tool-press` | [Tool-aware press](features/tool-press.md), selected tool pairs, accurate shared geometry and standalone cargo replays |
 | `./scripts/verify-chaos-engine drive tool-lessons` | [Guided lessons](features/tool-lessons.md), 95 mixed lessons, shared repairs, all-tool practice and frame stepping |
 | `./scripts/verify-chaos-engine drive attempt-film` | [Expanded bench and comparison film](features/attempt-film.md), zoom, aligned trials, one-frame stepping and independent parcel motion |
+| `./scripts/verify-chaos-engine drive grand-relays` | [Grand relays](features/grand-relays.md), twenty coupled cargo routes, load-specific logs, timestamp inspection, saved setups and offline handoffs |
 | `./scripts/verify-chaos-engine drive test-bay` | [Commission a production line](features/test-bay.md), twenty-four shared calibrations, seventy-two test loads, film and offline approvals |
 | `./scripts/verify-chaos-engine drive field-course` | [Field stations](features/field-course.md), polarity pairs, impulses, gyro and lift, saved collision intervals, ordered dispatch and offline replay |
 | `./scripts/verify-chaos-engine drive assembly-course` | [Three-part repairs](features/assembly-course.md), working and idle fittings, two-bin crossover, progressive hints, sharing, sandbox and offline |

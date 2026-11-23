@@ -18,6 +18,7 @@ const sequence = [
   ['Equip a moving load', [361, 362, 363, 364, 365, 366, 367, 374, 381, 388, 395, 400]],
   ['Fit three working stations', [401, 405, 411, 415, 421, 430, 435, 440]],
   ['Operate the field bench', [441,442,443,444,445,446,447,448,461,462,470,480]],
+  ['Dispatch two loads', [481,483,485,488,490,493,497,500]],
 ];
 export const lessons = sequence.flatMap(([chapter, numbers]) =>
   numbers.map((n) => ({ chapter, machine: campaign[n - 1] })),

@@ -99,3 +99,5 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Field stations](./field-course.md) covers motion impulses, lift and gyro gear, charge pairs, collision filtering, recorded traces and field-tool practice.
 
 - [Commission a production line](./test-bay.md) covers mixed test loads, calibrated stations, measured output, shared settings and offline replay.
+
+- [Grand relays](./grand-relays.md) covers two-load dispatch, filtered contact logs, measured handoff time and recorded path overlays.

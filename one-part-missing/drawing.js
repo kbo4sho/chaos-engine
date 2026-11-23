@@ -509,7 +509,7 @@ function body(c, item, run) {
 export function draw(
   c,
   run,
-  { trail = [], ghost = [], cargoTrail = [], small = false, mount = null, showActors = true } = {},
+  { trail = [], ghost = [], cargoTrail = [], routes = [], small = false, mount = null, showActors = true } = {},
 ) {
   c.save();
   c.setTransform(c.canvas.width / WIDTH, 0, 0, c.canvas.height / HEIGHT, 0, 0);
@@ -531,6 +531,21 @@ export function draw(
         Math.max(16, start.y - (start.flywheel ? start.r + 12 : 24)),
         'center',
       );
+    for (const route of routes) {
+      c.save();
+      c.strokeStyle=route.lane==='blue'?'#96ddff':'#ffd279';
+      c.lineWidth=2;
+      c.setLineDash(route.lane==='blue'?[6,4]:[2,4]);
+      c.beginPath();
+      for(const piece of route.pieces){
+        for(const [i,p] of piece.entries()){
+          if(p.tick>run.tick)break;
+          if(i===0)c.moveTo(p.x,p.y);else c.lineTo(p.x,p.y);
+        }
+      }
+      c.stroke();
+      c.restore();
+    }
     if (ghost.length > 1) {
       c.setLineDash([3, 7]);
       tracePath(c, ghost, '#80948b');
