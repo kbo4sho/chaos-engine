@@ -149,6 +149,8 @@ The control room places the physical bench beside its cue sheet and stacks them 
 
 Three-part machines show the first actual contact of each installed spare beside its socket letter. The strip uses the run’s recorded time. Waiting and acted states follow the film cursor, and each completed contact can be opened directly.
 
+Field controls use octagonal service plates. A moving signed badge identifies charge; a round stationary pole carries a fixed sign. Directional arrows show the reaction on each moving body. The dotted phase halo and countdown follow the selected physics frame.
+
 ## Do's and Don'ts
 
 - **Do:** Extend the existing tool-button, status, particle, audio, haptic, cleanup, and custom-rendering conventions end to end.

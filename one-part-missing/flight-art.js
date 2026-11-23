@@ -53,7 +53,9 @@ export function drawGear(c, r, mask, angle = 0) {
     c.lineTo(-3, 3);
     c.stroke();
   }
+  if(mask&gearBit.gyro){c.strokeStyle='#b7efca';c.beginPath();c.moveTo(0,0);c.lineTo(r+9,0);c.moveTo(r+6,-3);c.lineTo(r+9,0);c.lineTo(r+6,3);c.stroke();}
   c.rotate(-angle);
+  if(mask&gearBit.lift){c.strokeStyle='#b1c4ff';c.beginPath();c.moveTo(-r-3,1);c.lineTo(-r-3,-7);c.lineTo(-r-6,-4);c.moveTo(r+3,1);c.lineTo(r+3,-7);c.lineTo(r+6,-4);c.stroke();}
   if (mask & gearBit.parachute) {
     c.strokeStyle = '#9fd6f3';
     c.fillStyle = '#284d65';

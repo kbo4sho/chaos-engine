@@ -18,7 +18,7 @@ Open PUZZLES and Level map. Expand Jump to a tool course and choose Play two-par
 
 After launch and doctor, run `./scripts/verify-chaos-engine drive paired-repairs`. On a phone the driver runs the opening job empty, with one part, with the tools swapped, and with the correct pair installed in reverse order. It removes a fitting, checks the actual local repair record, and replays it after reload. On desktop it restores the seven-tool finale, checks the full-rack response, opens its editable assembly, and watches the parcel reach the receiver. It downloads the repaired machine and checks the same cue sequence offline.
 
-Drive `puzzle-campaign` for all 440 repairs, `tool-lessons` for the mixed learning path, `save-load` for the sandbox save controls and `ui-layout` for the supported viewports.
+Drive `puzzle-campaign` for all 480 repairs, `tool-lessons` for the mixed learning path, `save-load` for the sandbox save controls and `ui-layout` for the supported viewports.
 
 ## Gotchas
 

@@ -1,3 +1,4 @@
+import {fieldParts,fieldExperiment,fieldInput,fieldQuestions} from './fields.js';
 import { flightParts, flightInput, flightExperiment } from './flight.js';
 import { createRun, advance, HEIGHT, WIDTH, parts } from './machines.js';
 import { instruments, outlet } from './devices.js';
@@ -112,6 +113,7 @@ const flightQuestions = {
   unload: 'What happens to a floating load after it sheds the collar?',
 };
 const experiments = {
+  ...Object.fromEntries(Object.entries(fieldQuestions).map(([k,question])=>[k,{question}])),
   ...Object.fromEntries(Object.entries(flightQuestions).map(([k, question]) => [k, { question }])),
   ...Object.fromEntries(Object.entries(sortQuestions).map(([k, question]) => [k, { question }])),
   ...Object.fromEntries(Object.entries(driveQuestions).map(([k, question]) => [k, { question }])),
@@ -250,7 +252,7 @@ export function experiment(M, kind, offset = 0) {
             })),
           ]
         : [];
-  const machine = flightParts[kind]
+  const machine = fieldParts[kind] ? fieldExperiment(kind,offset) : flightParts[kind]
     ? flightExperiment(kind, offset)
     : handling
       ? handlingExperiment(kind, offset)
@@ -381,7 +383,7 @@ export function setupLab(M, { onOpen, onClose } = {}) {
     stop();
     const driven = Object.hasOwn(transmissions, menu.value);
     const handling = Object.hasOwn(sortQuestions, menu.value);
-    const flight = flightParts[menu.value] ? flightInput(menu.value) : null;
+    const flight = fieldParts[menu.value] ? fieldInput : flightParts[menu.value] ? flightInput(menu.value) : null;
     el('lab-release-label').textContent = flight
       ? flight.name[0].toUpperCase() + flight.name.slice(1)
       : handling

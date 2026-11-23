@@ -1,5 +1,5 @@
 import M from 'matter-js';
-import {parts,createRun} from '../../one-part-missing/machines.js';
+import { parts, createRun } from '../../one-part-missing/machines.js';
 export const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 export const inside = (p) => p.x > 39 && p.x < 681 && p.y > 34 && p.y < 352;
 export const of = (kind, p) => ({ ...parts[kind].shape, ...p });

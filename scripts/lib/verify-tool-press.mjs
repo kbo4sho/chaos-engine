@@ -157,6 +157,10 @@ export async function verifyToolPress(home, { url, record, shot, outDir }) {
     ['Hopper foot hopped', 'Thruster attached'].every((s) => flightEvents.some((e) => e.includes(s))),
     flightEvents,
   );
+  const field = await print('field','ground','phase');
+  await solve(p,field);
+  const fieldEvents=await p.$$eval('#cues button',bs=>bs.map(b=>b.textContent));
+  record('printed-ground-and-phase',['Grounding brush grounded','Phase gate phased'].every(k=>fieldEvents.some(e=>e.includes(k))),fieldEvents);
   const parcel = await print('parcel', 'switch', 'hatch');
   const move = await solve(p, parcel);
   record(

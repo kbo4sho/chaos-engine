@@ -17,6 +17,7 @@ const sequence = [
   ['Sort two loads', [321, 322, 323, 324, 325, 326, 337, 350, 360]],
   ['Equip a moving load', [361, 362, 363, 364, 365, 366, 367, 374, 381, 388, 395, 400]],
   ['Fit three working stations', [401, 405, 411, 415, 421, 430, 435, 440]],
+  ['Operate the field bench', [441,442,443,444,445,446,447,448,461,462,470,480]],
 ];
 export const lessons = sequence.flatMap(([chapter, numbers]) =>
   numbers.map((n) => ({ chapter, machine: campaign[n - 1] })),
@@ -25,6 +26,8 @@ export const lessonById = new Map(lessons.map((lesson, i) => [lesson.machine.id,
 export const lessonLink = (id) => '#learn/' + id;
 
 export const practice = {
+  pulse:[441,451,469],swirl:[442,454,475],lift:[443,460,476],gyro:[444,455,477],phase:[445,456,480],
+  positive:[446,461,478],negative:[447,462,479],ground:[448,463,480],
   float: [361, 371, 399],
   parachute: [362, 374, 400],
   thruster: [363, 372, 400],
@@ -82,6 +85,7 @@ export function setupLearning({ el, lab }) {
       'Powered tools',
       ['conveyor', 'trampoline', 'fan', 'magnet', 'deflector', 'syrup', 'portal', 'repulsor'],
     ],
+    ['Field stations',['pulse','swirl','lift','gyro','phase','positive','negative','ground']],
     ['Flight fittings', ['float', 'parachute', 'thruster', 'keel', 'hopper', 'bank', 'unload']],
     ['Sorting tools', ['sieve', 'funnel', 'basket', 'ice', 'oneway', 'zipline']],
     ['Transmissions', ['motor', 'gearbox', 'clutch', 'torsion', 'rack', 'ratchet']],

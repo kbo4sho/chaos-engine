@@ -1,3 +1,4 @@
+import {fieldCourse,fieldChapters} from './field-course.js';
 import {assemblyCourse,assemblyChapters} from './assembly-course.js';
 import { machines } from './machines.js';
 import { originals, layout, addScore } from './campaign-layout.js';
@@ -20,6 +21,7 @@ export const chapters = [
   ...sortChapters,
   ...flightChapters,
   ...assemblyChapters,
+  ...fieldChapters,
 ];
 const classicCampaign = scores.map((entry, index) => {
   const number = index + 1;
@@ -40,5 +42,6 @@ export const campaign = [
   ...sortCourse,
   ...flightCourse,
   ...assemblyCourse,
+  ...fieldCourse,
 ];
 export const campaignById = new Map(campaign.map((machine) => [machine.id, machine]));

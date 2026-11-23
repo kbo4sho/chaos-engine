@@ -203,8 +203,19 @@ function drawBench() {
   const cargoIndex = run.cargo ? run.items.findIndex((item) => item.body === run.cargo) : -1;
   const cursor = inspection === null ? tape.length - 1 : inspection;
   if(machine.capacity===3)fittingLedger.draw(run, inspection===null?run.tick:tape[inspection].tick, phase==='won'||phase==='miss');
+  const fieldReadout=$('field-display');
+  fieldReadout.hidden=!machine.fieldwork;
+  if(machine.fieldwork){
+    const state=(body,idx)=>{
+      const sign=inspection===null?body.render.fieldCharge:tape[inspection].poses[idx][4],phase=inspection===null?body.render.phaseFrames:tape[inspection].poses[idx][5];
+      const charge=sign===1?'Positive (+)':sign===-1?'Negative (−)':'Neutral';
+      return charge+(phase?' · Phased '+(phase/60).toFixed(2)+' s':'');
+    };
+    const line='Gold · '+state(run.ball,run.items.findIndex(it=>it.body===run.ball))+(run.cargo?' / Blue · '+state(run.cargo,cargoIndex):'');
+    if(fieldReadout.textContent!==line)fieldReadout.textContent=line;
+  }
   const gearPanel = $('flight-gear');
-  gearPanel.hidden = !(machine.flight || machine.flightEquipment);
+  gearPanel.hidden = !(machine.flight || machine.flightEquipment || machine.fieldwork && run.items.some(it=>it.body.render.gearMask || ['gyro','thruster','lift','unload'].includes(it.shape.kind)));
   if (!gearPanel.hidden) {
     const idx = run.items.findIndex((it) => it.body === run.ball);
     const equipment = (actor, i) =>
@@ -323,6 +334,8 @@ function updateShelf() {
   $('pair-entry').href = '#' + (nextPair || pairStart).id;
   $('pair-entry').textContent =
     nextPair && nextPair !== pairStart ? 'Resume two-part repairs →' : 'Play two-part repairs →';
+  const firstField=machines.find(m=>m.fieldwork),nextField=unfinished.find(m=>m.fieldwork);
+  $('field-entry').href='#'+(nextField||firstField).id;$('field-entry').textContent=nextField&&nextField!==firstField?'Resume field stations →':'Play field stations →';
   const firstAssembly=machines.find(m=>m.capacity===3),nextAssembly=unfinished.find(m=>m.capacity===3);
   if(firstAssembly){$('assembly-entry').href='#'+(nextAssembly||firstAssembly).id;$('assembly-entry').textContent=nextAssembly&&nextAssembly!==firstAssembly?'Resume three-part repairs →':'Play three-part repairs →';}
   const driveStart = machines.find((m) => m.transmission),
@@ -1125,7 +1138,7 @@ function navigate(resolved, id, announce = false, sharedFit = null) {
       machine.capacity > 1 ||
       machine.transmission ||
       machine.sorting ||
-      machine.flight),
+      machine.flight || machine.fieldwork),
   );
   $('lesson-text').textContent = machine.lesson || '';
   document.title = machine.title + ' · One Part Missing';

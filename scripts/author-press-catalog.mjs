@@ -12,7 +12,7 @@ const rows = campaign
       run = createRun(M, m, move);
     while (run.state === 'running') advance(M, run);
     const used = [...new Set([move.part, ...run.uses.map((u) => u.kind)])];
-    const form = m.flight
+    const form = m.fieldwork ? 'field' : m.flight
       ? 'flight'
       : m.sorting
         ? 'sort'

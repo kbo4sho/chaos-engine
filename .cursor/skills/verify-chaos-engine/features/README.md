@@ -66,7 +66,7 @@ Keep implementation details out of the map. Name only user paths, stable handles
 
 - [Clockwork and cargo](./clockwork-course.md) covers moving machinery, the two-marble signal and delivery, and saved mechanical assemblies.
 
-- [Guided lessons](./tool-lessons.md) covers the forty-six-tool path, practice index, classic experiments, slow motion and single-frame stepping.
+- [Guided lessons](./tool-lessons.md) covers the fifty-four-tool path, practice index, classic experiments, slow motion and single-frame stepping.
 
 - [Tool-aware machine press](./tool-press.md) covers themed prints, compatible tool pairs, precise shared layouts and standalone parcel replays.
 
@@ -84,7 +84,7 @@ Keep implementation details out of the map. Name only user paths, stable handles
 
 - [Sorting room](./sorting-course.md) covers six material-handling parts, size clearance, hold times, two independent receipts and native sandbox transfer.
 
-- [Predict a run](./prediction-lab.md) covers 92 physical predictions, direction-aware timing gates, retries, saved mastery and offline experiments.
+- [Predict a run](./prediction-lab.md) covers 108 physical predictions, direction-aware timing gates, retries, saved mastery and offline experiments.
 
 - [Build a machine](./design-bench.md) covers editing real hardware, choosing the missing station, recording a receiver and sharing the tested design.
 
@@ -95,3 +95,5 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Operate a machine](./operator-room.md) covers live signals, cue sheets, shift records, recorded motion and portable replay.
 
 - [Three-part repairs](./assembly-course.md) covers forty multi-station machines, partial fitting activity, shared setups and portable triple replays.
+
+- [Field stations](./field-course.md) covers motion impulses, lift and gyro gear, charge pairs, collision filtering, recorded traces and field-tool practice.

@@ -1,6 +1,6 @@
 # Predict a run
 
-Players make two predictions for each of the 46 tools. Each comparison runs two Matter.js machines. Position and arrival readings come from the simulated bodies.
+Players make two predictions for each of the 54 tools. Each comparison runs two Matter.js machines. Position and arrival readings come from the simulated bodies.
 
 ## Sub-features
 
@@ -14,7 +14,7 @@ Open Tool lab from a machine and choose Predict a run. Alternatively expand Prac
 
 ## Driving it with verify-chaos-engine
 
-Run `./scripts/verify-chaos-engine drive prediction-lab`. Enter from the sandbox launcher. Inspect the reference on a phone, choose an incorrect outcome and retry. Complete all 92 predictions, reload the notebook, inspect a paused live attempt, then open a downloaded replay offline and predict a ratchet run. Evidence includes the phone before and after the answer, a desktop timing gate, measured outcomes and the observed storage keys.
+Run `./scripts/verify-chaos-engine drive prediction-lab`. Enter from the sandbox launcher. Inspect the reference on a phone, choose an incorrect outcome and retry. Complete all 108 predictions, reload the notebook, inspect a paused live attempt, then open a downloaded replay offline and predict a ratchet run. Evidence includes the phone before and after the answer, a desktop timing gate, measured outcomes and the observed storage keys.
 
 ## Gotchas
 

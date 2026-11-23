@@ -34,19 +34,19 @@ export async function verifyPredictions(home, { url, record, shot, outDir }) {
     intact &&
       !(await read(p, 'predict-result')) &&
       (await read(p, 'predict-live')).startsWith(fan.labels[1]) &&
-      (await read(p, 'predict-progress')) === '0 of 92 correct · 0 tried',
+      (await read(p, 'predict-progress')) === '0 of 108 correct · 0 tried',
   );
   await shot(p, 'prediction-before-phone.png');
   const wrong = (fan.correct + 1) % fan.answers.length;
   await p.click('[data-answer="' + wrong + '"]');
   record(
     'first-miss-is-a-try',
-    (await read(p, 'predict-progress')) === '0 of 92 correct · 1 tried' &&
+    (await read(p, 'predict-progress')) === '0 of 108 correct · 1 tried' &&
       (await read(p, 'predict-result')).includes(fan.result),
   );
   await p.click('#predict-again');
   await p.click('[data-answer="' + fan.correct + '"]');
-  record('retry-earned-mastery', (await read(p, 'predict-progress')) === '1 of 92 correct · 1 tried');
+  record('retry-earned-mastery', (await read(p, 'predict-progress')) === '1 of 108 correct · 1 tried');
   await shot(p, 'prediction-after-phone.png');
   await p.click('#predict-next');
   record(
@@ -89,13 +89,13 @@ export async function verifyPredictions(home, { url, record, shot, outDir }) {
     });
     if (kind === 'sieve' && mode === 'input') await shot(p, 'input-line-desktop.png');
   }
-  record('full-notebook', (await read(p, 'predict-progress')) === '92 of 92 correct · 92 tried');
+  record('full-notebook', (await read(p, 'predict-progress')) === '108 of 108 correct · 108 tried');
   await p.click('#predict-close');
   await p.click('#lab-close');
   await p.reload();
   await p.click('#open-lab');
   await p.click('#lab-predict');
-  record('notebook-restored', (await read(p, 'predict-progress')) === '92 of 92 correct · 92 tried');
+  record('notebook-restored', (await read(p, 'predict-progress')) === '108 of 108 correct · 108 tried');
   await p.click('#predict-close');
   await p.click('#lab-close');
   const machine = lessons[0].machine,

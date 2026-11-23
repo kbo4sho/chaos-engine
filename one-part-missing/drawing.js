@@ -1,3 +1,5 @@
+import {fieldParts} from './fields.js';
+import {fieldIcons,drawField,drawFieldState,drawChargePairs} from './field-art.js';
 import { flightParts } from './flight.js';
 import { flightIcons, drawFlightRing, drawGear } from './flight-art.js';
 import { sortIcons, drawSortTool, drawBin } from './sort-art.js';
@@ -457,6 +459,7 @@ function body(c, item, run) {
   } else if (s.flywheel) flywheel(c, s);
   else if (s.kind === 'eyelet') eyelet(c);
   else if (s.kind === 'cargo') parcel(c, s.r);
+  else if(fieldParts[s.kind] || s.kind==='electrode')drawField(c,s,run.uses.some(u=>u.item===run.items.indexOf(item)&&run.tick-u.tick<18));
   else if (flightParts[s.kind])
     drawFlightRing(
       c,
@@ -498,6 +501,7 @@ function body(c, item, run) {
       bolt(c, 0, -4, 4);
     }
   } else beam(c, s);
+  if(b.render?.fieldCharge||b.render?.phaseFrames)drawFieldState(c,s.r||10,b.render.fieldCharge,b.render.phaseFrames,b.angle);
   if (b.render?.gearMask) drawGear(c, s.r || 10, b.render.gearMask, b.angle);
   c.restore();
 }
@@ -514,6 +518,7 @@ export function draw(
     grid(c);
     for (const item of run.items) stand(c, item.shape);
     drawMachineGuides(c, run.items, run.uses);
+    if(run.items.some(it=>it.shape.sign||it.body.render?.fieldCharge))drawChargePairs(c,run.items);
     const cargo = run.items.find((i) => i.shape.kind === 'cargo');
     if (cargo && !run.binTicks)
       caption(c, 'PARCEL', cargo.shape.x, Math.max(16, cargo.shape.y - 18), 'center');
@@ -571,7 +576,7 @@ export function partIcon(id) {
       rigIcons[id] ||
       driveIcons[id] ||
       sortIcons[id] ||
-      flightIcons[id]) +
+      flightIcons[id] || fieldIcons[id]) +
     '</svg>'
   );
 }
@@ -594,6 +599,7 @@ export function drawSandboxPart(c, render, timestamp) {
   } else if (s.flywheel) flywheel(c, s);
   else if (s.kind === 'eyelet') eyelet(c);
   else if (s.kind === 'cargo') parcel(c, s.r);
+  else if(fieldParts[s.kind]||s.kind==='electrode')drawField(c,s,timestamp-render.poweredAt<250);
   else if (flightParts[s.kind]) drawFlightRing(c, s, timestamp - render.poweredAt < 250);
   else if (sortingParts[s.kind]) drawSortTool(c, s, timestamp - render.poweredAt < 220);
   else if (mechanisms[s.kind]) {
@@ -605,6 +611,7 @@ export function drawSandboxPart(c, render, timestamp) {
   } else if (s.kind === 'tile' || s.kind === 'weight') {
     body(c, { shape: s, body: { position: { x: 0, y: 0 }, angle: 0 } }, null);
   } else beam(c, s);
+  if(render.fieldCharge||render.phaseFrames)drawFieldState(c,s.r||10,render.fieldCharge,render.phaseFrames,render.flightAngle||0);
   if (render.gearMask) drawGear(c, s.r || 10, render.gearMask, render.flightAngle || 0);
   c.restore();
 }
@@ -624,6 +631,8 @@ export function snapshot(run) {
             body.render.cableLength,
             Boolean(body.render.cableBroken),
           ]
+        : body.render.fieldCharge || body.render.phaseFrames
+          ? [body.position.x,body.position.y,body.angle,body.render.gearMask||0,body.render.fieldCharge||0,body.render.phaseFrames||0]
         : body.render.gearMask
           ? [body.position.x, body.position.y, body.angle, body.render.gearMask]
           : [body.position.x, body.position.y, body.angle],
@@ -644,8 +653,8 @@ export function atFrame(run, sample) {
           ? { binHold: sample.binHolds?.[item.shape.bin === 'blue' ? 1 : 0] }
           : item.shape.wire
             ? { cableLength, cableBroken }
-            : (item.shape.kind === 'cargo' || item.shape.kind === 'marble') && cableLength
-              ? { gearMask: cableLength }
+            : (item.shape.kind === 'cargo' || item.shape.kind === 'marble') && (cableLength || sample.poses[i].length > 4)
+              ? { gearMask: cableLength, fieldCharge:sample.poses[i][4] || 0, phaseFrames:sample.poses[i][5] || 0 }
               : undefined,
       },
     };
