@@ -40,6 +40,7 @@ export async function verifyCampaign(home, { url, record, shot, outDir }) {
       {},
       machine.title,
     );
+    if (n > 2) await page.select('#playback-rate', '4');
     const solutions = certify(Matter, machine);
     if (!solutions?.length) throw new Error('No certified repair for ' + machine.id);
     const move = solutions[0],

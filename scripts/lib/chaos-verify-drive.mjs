@@ -701,6 +701,11 @@ async function driveBank(page) {
 }
 
 const journeys = {
+  'tool-lessons': async page => {
+    const {verifyLessons} = await import('./verify-tool-lessons.mjs');
+    await verifyLessons(page,{url,record,shot,outDir});
+    result.passed = result.failures.length === 0;
+  },
   'clockwork-course': async page => {
     const {verifyClockwork} = await import('./verify-clockwork-course.mjs');
     await verifyClockwork(page,{url,record,shot,outDir});
@@ -767,4 +772,6 @@ if (!result.passed) {
   console.error(`drive ${journey} failed on origin=${origin}; see ${outDir}/result.json`);
   process.exit(1);
 }
-console.log(`drive ${journey} passed on origin=${origin}; evidence ${outDir}`);
+// Some Chrome sessions leave protocol timers on Node's event loop after the browser closes.
+await new Promise(resolve => process.stdout.write(`drive ${journey} passed on origin=${origin}; evidence ${outDir}\n`, resolve));
+process.exit(0);

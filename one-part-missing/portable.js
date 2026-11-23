@@ -18,6 +18,7 @@ const modules = [
   'drawing',
   'mechanical-art',
   'portable',
+  'learning',
   'play',
 ];
 const sourceCache = new Map();
@@ -96,7 +97,7 @@ export async function portableFile(machine, replay = null) {
   brand.removeAttribute('href');
   const hiddenStyle = doc.createElement('style');
   hiddenStyle.textContent =
-    '.map-link,.library,.workshop,.maker,.bench-links,#next,#save-replay{display:none!important}main{padding-bottom:2rem}';
+    '.bench-nav,.map-link,.library,.workshop,.maker,.bench-links,#next,#save-replay{display:none!important}main{padding-bottom:2rem}';
   doc.head.append(hiddenStyle);
   return new Blob(['<!doctype html>\n', doc.documentElement.outerHTML], {
     type: 'text/html;charset=utf-8',

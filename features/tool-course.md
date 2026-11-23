@@ -12,7 +12,7 @@ Sixty machines teach eight powered tools in six chapters. Players can start at F
 
 ## How to get to it (user POV)
 
-Open PUZZLES in the sandbox. Choose Level map, then Play the tool course. Choose a part and a socket, then Test repair. Open Bench note for a hint or Try a tool in the lab for an independent comparison. After a run, choose a tool timestamp beneath Inspect run. Open in sandbox transfers the fitted machine. Save replay file downloads a playable copy.
+Open PUZZLES in the sandbox. Choose Level map, then Play the tool course. Choose a part and a socket, then Test repair. Open Bench note for a hint or Tool lab for an independent comparison. After a run, choose a tool timestamp beneath Inspect run. Open in sandbox transfers the fitted machine. Save replay file downloads a playable copy.
 
 ## Driving it with verify-chaos-engine
 

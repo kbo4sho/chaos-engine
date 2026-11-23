@@ -26,13 +26,24 @@
             <h2 id="machine-title">The last bell</h2>
             <p id="goal">Ring the brass bell.</p>
           </div>
-          <button class="map-link" id="map-link" type="button" aria-controls="chapter">
-            Level map ↓
-          </button>
+          <div class="bench-nav">
+            <a id="learn-start" href="#learn/last-bell">Learn the tools →</a>
+            <button class="map-link" id="map-link" type="button" aria-controls="chapter">
+              Level map ↓
+            </button>
+          </div>
         </div>
         <section class="cabinet" aria-labelledby="machine-title">
           <div class="glass">
-            <div class="glass-strip"><span id="pilot">Ready</span><span id="counter">0.00 s</span></div>
+            <div class="glass-strip">
+              <span id="pilot">Ready</span
+              ><select id="playback-rate" aria-label="Playback speed">
+                <option value="0.5">½×</option>
+                <option value="1" selected>1×</option>
+                <option value="2">2×</option>
+                <option value="4">4×</option></select
+              ><span id="counter">0.00 s</span>
+            </div>
             <div id="stage">
               <canvas
                 width="720"
@@ -48,6 +59,7 @@
             <button id="run" class="primary">
               <span aria-hidden="true">▶</span> <span id="run-label">Run machine</span>
             </button>
+            <button id="frame-step" class="quiet" hidden type="button">Step 1 frame</button>
             <button id="reset" class="quiet" disabled>Reset</button>
             <span id="signal" aria-hidden="true"></span>
           </div>
@@ -64,13 +76,13 @@
         <aside class="drawer" aria-labelledby="drawer-title">
           <div class="drawer-top">
             <h2 id="drawer-title">Parts drawer</h2>
+            <button id="open-lab" class="quiet" type="button" hidden>Tool lab ↗</button>
             <p>Choose a part, then tap a socket.</p>
           </div>
           <details id="lesson" hidden>
             <summary>Bench note</summary>
             <p id="lesson-text"></p>
           </details>
-          <button id="open-lab" class="quiet" type="button" hidden>Try a tool in the lab ↗</button>
           <div id="parts" role="group" aria-label="Spare parts"></div>
           <button id="flip" class="quiet" type="button" aria-pressed="false" hidden>Flip rail</button>
           <p id="status" role="status" aria-live="polite">Watch a run, or pick a part to fit.</p>
@@ -104,6 +116,25 @@
         </div>
         <p id="chapter-hint"></p>
         <div id="shelf"></div>
+        <details class="study" id="lesson-map">
+          <summary>Tool lessons <span id="learning-progress"></span></summary>
+          <label
+            >Lesson group
+            <select id="lesson-chapter"></select
+          ></label>
+          <div id="lesson-list"></div>
+        </details>
+        <details class="study" id="practice">
+          <summary>Practice by tool</summary>
+          <div class="practice-head">
+            <label
+              >Tool
+              <select id="practice-tool"></select></label
+            ><button type="button" id="practice-demo" class="quiet">Try in lab ↗</button>
+          </div>
+          <p id="practice-note"></p>
+          <div id="practice-links"></div>
+        </details>
       </section>
       <section class="workshop" aria-labelledby="workshop-title">
         <div>

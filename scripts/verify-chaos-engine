@@ -16,6 +16,7 @@ Usage: ./scripts/verify-chaos-engine <command> [options]
   drive example-scenes            Drive the built-in example scenes
   drive example-scenes-mobile     Drive examples + slots with iPhone/Android tap
   drive puzzle-campaign           Solve every numbered campaign machine
+  drive tool-lessons               Play the guided path, practice index and playback controls
   drive clockwork-course          Play moving machinery and a two-marble delivery
   drive tool-course               Play the powered course, tool lab and sandbox handoff
   drive one-part-missing          Repair, replay, print, share and open machines
@@ -55,7 +56,7 @@ cmd_launch() {
   fi
 
   local port serve_root revision run_id log_path chrome_dir snapshot
-  run_id="$(date -u +%Y%m%dT%H%M%SZ)-$origin"
+  run_id="$(date -u +%Y%m%dT%H%M%SZ)-$origin-$$"
   chrome_dir="/tmp/chaos-verify-chrome-$run_id"
   log_path="$RUN_DIR/server-$origin.log"
   mkdir -p "$chrome_dir"
@@ -236,16 +237,17 @@ cmd_doctor() {
 cmd_drive() {
   local journey="${1:-}"
   if [[ -z "$journey" ]]; then
-    echo "usage: ./scripts/verify-chaos-engine drive save-load|example-scenes|example-scenes-mobile|ui-layout|one-part-missing|puzzle-campaign|tool-course|clockwork-course" >&2
+    echo "usage: ./scripts/verify-chaos-engine drive save-load|example-scenes|example-scenes-mobile|ui-layout|one-part-missing|puzzle-campaign|tool-course|clockwork-course|tool-lessons" >&2
     exit 2
   fi
   cmd_doctor
-  local url chrome_dir run_id origin
+  local url chrome_dir drive_profile run_id origin
   url="$(chaos_json_get url)"
   chrome_dir="$(chaos_json_get chromeDir)"
   run_id="$(chaos_json_get runId)"
   origin="$(chaos_json_get origin)"
   mkdir -p "$chrome_dir" "$ARTIFACT_ROOT/$run_id"
+  drive_profile="$(mktemp -d "$chrome_dir/drive.XXXXXX")"
   node "$SCRIPT_DIR/lib/chaos-verify-drive.mjs" \
     --journey "$journey" \
     --url "$url" \
@@ -253,7 +255,7 @@ cmd_drive() {
     --run-id "$run_id" \
     --repo-root "$REPO_ROOT" \
     --chrome-bin "$CHROME_BIN" \
-    --user-data-dir "$chrome_dir" \
+    --user-data-dir "$drive_profile" \
     --out-dir "$ARTIFACT_ROOT/$run_id"
 }
 

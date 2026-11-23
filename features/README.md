@@ -65,3 +65,5 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Powered tool course](./tool-course.md) covers the eight-tool lab, contact inspection, advanced machines and powered sandbox saves.
 
 - [Clockwork and cargo](./clockwork-course.md) covers moving machinery, the two-marble signal and delivery, and saved mechanical assemblies.
+
+- [Guided lessons](./tool-lessons.md) covers the twenty-tool path, practice index, classic experiments, slow motion and single-frame stepping.

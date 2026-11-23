@@ -787,3 +787,118 @@ summary {
 .parcel-experiment .lab-legend span:first-child::before {
   border-color: #87c9ee;
 }
+
+.bench-nav {
+  display: grid;
+  justify-items: end;
+  flex: none;
+}
+#learn-start {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  font: 12px var(--mono);
+  color: var(--green);
+}
+.bench-nav .map-link {
+  min-height: 36px;
+}
+.study {
+  border-top: 1px solid var(--line);
+  padding-block: 5px;
+  margin-top: 9px;
+}
+.study summary {
+  cursor: pointer;
+  color: var(--text);
+  font: 20px var(--display);
+  padding: 7px 0;
+}
+.study summary span,
+.study label,
+#practice-note {
+  font: 12px var(--mono);
+  color: var(--muted);
+}
+#learning-progress {
+  margin-left: 8px;
+}
+.study label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.study select {
+  min-height: 40px;
+  max-width: 100%;
+  padding: 4px;
+  font: 14px var(--mono);
+}
+#lesson-list,
+#practice-links {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(144px, 100%), 1fr));
+  gap: 5px;
+  margin-top: 8px;
+}
+.practice-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+#practice-note {
+  margin: 6px 0;
+}
+#practice-links a {
+  display: grid;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+}
+#practice-links small {
+  font: 12px var(--mono);
+  color: var(--muted);
+}
+#practice-links strong {
+  color: var(--text);
+  font-weight: 600;
+}
+#practice-links .complete strong::after {
+  content: ' ✓';
+  color: var(--green);
+}
+
+#playback-rate {
+  margin-left: auto;
+  color: var(--cyan);
+  background: var(--panel);
+  font: 12px var(--mono);
+  border: 1px solid var(--line);
+  min-height: 25px;
+}
+.glass-strip {
+  gap: 10px;
+}
+.transport {
+  flex-wrap: wrap;
+}
+
+.drawer-top {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0 8px;
+}
+.drawer-top h2,
+.drawer-top p {
+  grid-column: 1;
+}
+.drawer-top #open-lab {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  margin: 0;
+}
+#playback-rate {
+  min-width: 49px;
+  min-height: 30px;
+}

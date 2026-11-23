@@ -1,3 +1,4 @@
+import { lessons, lessonById, lessonLink, setupLearning } from './learning.js';
 import { WIDTH, HEIGHT, STEP, canFlip, parts, validMove, createRun, advance } from './machines.js';
 import { instruments as deviceParts } from './devices.js';
 import { campaign as machines, chapters, campaignById } from './campaign.js';
@@ -13,12 +14,24 @@ const M = window.Matter;
 const $ = (id) => document.getElementById(id);
 const c = $('diagram').getContext('2d');
 const setEditorMachine = makeEditor(M);
-const lab = setupLab(M);
+let resumeAfterLab = false;
+const lab = setupLab(M, {
+  onOpen() {
+    resumeAfterLab = playing() && !runPaused;
+    if (resumeAfterLab) setPaused(true);
+  },
+  onClose() {
+    if (resumeAfterLab && playing() && runPaused) setPaused(false);
+    resumeAfterLab = false;
+  },
+});
+const learning = setupLearning({ el: $, lab });
+let learningActive = false;
 $('open-lab').addEventListener('click', () => {
   const kind =
-    selected && Object.hasOwn(deviceParts, selected)
+    selected && Object.hasOwn(parts, selected)
       ? selected
-      : machine.tray.find((id) => Object.hasOwn(deviceParts, id));
+      : machine.tray.find((id) => Object.hasOwn(deviceParts, id)) || machine.tray[0];
   lab.open(kind, $('open-lab'));
 });
 const book = repairBook(() => localStorage);
@@ -38,7 +51,9 @@ let machine,
   phase = 'ready',
   raf = 0,
   previous = 0,
-  elapsed = 0;
+  elapsed = 0,
+  runPaused = false,
+  speed = 1;
 let tape = [],
   inspection = null;
 let trail = [],
@@ -137,6 +152,7 @@ for (const [i, [title]] of chapters.entries()) {
 }
 function updateShelf() {
   const all = book.read();
+  learning.update(all, learningActive, machine);
   const unfinished = machines.filter((m) => !validMove(m, all[m.id]));
   $('progress').textContent =
     machines.length - unfinished.length + ' of ' + machines.length + ' repaired';
@@ -207,9 +223,12 @@ function controls() {
   $('flip').disabled = busy || !canFlip(machine, selected);
   $('flip').setAttribute('aria-pressed', String(flipped));
   $('flip').textContent = flipped ? 'Flip rail · reversed' : 'Flip rail';
-  $('run').disabled = busy;
+  $('frame-step').hidden = !(busy && runPaused);
+  $('run').firstElementChild.textContent = busy && !runPaused ? 'Ⅱ' : '▶';
   $('run-label').textContent = busy
-    ? 'Running…'
+    ? runPaused
+      ? 'Resume'
+      : 'Pause'
     : phase === 'won'
       ? 'Run again'
       : move
@@ -223,6 +242,9 @@ function controls() {
     machines.indexOf(machine) === machines.length - 1 || !machines.includes(machine)
       ? 'Machine press ↓'
       : 'Next machine →';
+  if (learningActive)
+    $('next').textContent =
+      lessonById.get(machine.id) === lessons.length - 1 ? 'Lesson map ↓' : 'Next lesson →';
   $('pilot').textContent = {
     ready: 'Ready',
     running: replaying ? 'Replay' : 'Running',
@@ -230,7 +252,8 @@ function controls() {
     won: 'Repaired',
     miss: 'Missed',
   }[phase];
-  $('pilot').dataset.state = phase;
+  if (busy && runPaused) $('pilot').textContent = 'Paused';
+  $('pilot').dataset.state = busy && runPaused ? 'paused' : phase;
   $('signal').textContent =
     machine.goals.length > 1
       ? run.hits.length +
@@ -291,6 +314,7 @@ function controls() {
 function resetRun(keepGhost = false) {
   cancelAnimationFrame(raf);
   phase = 'ready';
+  runPaused = false;
   previous = 0;
   elapsed = 0;
   trail = [];
@@ -442,6 +466,7 @@ function bookComplete() {
 function finish() {
   const win = run.state === 'won';
   phase = win ? 'won' : 'miss';
+  runPaused = false;
   ghost = trail.slice();
   addFrame();
   $('scrubber').max = tape.length - 1;
@@ -508,42 +533,45 @@ function finish() {
     );
   if (!win) tone(128, 0.14, 0.025, 'triangle');
 }
+function tickMachine() {
+  if (phase === 'finishing') {
+    // Continue the actual mechanism while the bell swings or the flag rises.
+    M.Engine.update(run.engine, STEP);
+    run.tick++;
+    if (run.tick % 3 === 0) addFrame();
+    if (run.tick >= finishTick) finish();
+    return;
+  }
+  const before = run.hits.length,
+    uses = run.uses.length;
+  advance(M, run);
+  if (run.uses.length > uses) {
+    addFrame();
+    if (machine.fixtures.some((s) => s.kind === 'cargo')) controls();
+  }
+  if (run.tick % 3 === 0) {
+    addFrame();
+    const jumped = run.uses.some((u) => u.kind === 'portal' && u.tick > run.tick - 3);
+    trail.push([run.ball.position.x, run.ball.position.y, jumped]);
+  }
+  if (run.hits.length !== before) {
+    tone([523.25, 659.25, 783.99, 1046.5][Math.min(before, 3)], 0.55, 0.1);
+    controls();
+  }
+  if (run.state === 'won') {
+    if (!replaying) book.save(machine.id, move, run.tick);
+    phase = 'finishing';
+    finishTick = run.tick + 30;
+    controls();
+  } else if (run.state === 'miss') finish();
+}
 function frame(now) {
-  if (!playing()) return;
-  if (previous) elapsed += Math.min(now - previous, 100);
+  if (!playing() || runPaused) return;
+  if (previous) elapsed += Math.min(now - previous, 100) * speed;
   previous = now;
   while (elapsed >= STEP && playing()) {
     elapsed -= STEP;
-    if (phase === 'finishing') {
-      // Continue the actual mechanism while the bell swings or the flag rises.
-      M.Engine.update(run.engine, STEP);
-      run.tick++;
-      if (run.tick % 3 === 0) addFrame();
-      if (run.tick >= finishTick) finish();
-      continue;
-    }
-    const before = run.hits.length,
-      uses = run.uses.length;
-    advance(M, run);
-    if (run.uses.length > uses) {
-      addFrame();
-      if (machine.fixtures.some((s) => s.kind === 'cargo')) controls();
-    }
-    if (run.tick % 3 === 0) {
-      addFrame();
-      const jumped = run.uses.some((u) => u.kind === 'portal' && u.tick > run.tick - 3);
-      trail.push([run.ball.position.x, run.ball.position.y, jumped]);
-    }
-    if (run.hits.length !== before) {
-      tone([523.25, 659.25, 783.99, 1046.5][Math.min(before, 3)], 0.55, 0.1);
-      controls();
-    }
-    if (run.state === 'won') {
-      if (!replaying) book.save(machine.id, move, run.tick);
-      phase = 'finishing';
-      finishTick = run.tick + 30;
-      controls();
-    } else if (run.state === 'miss') finish();
+    tickMachine();
   }
   $('counter').textContent = (run.tick / 60).toFixed(2) + ' s';
   drawBench();
@@ -572,7 +600,29 @@ function launch(replay = false) {
   );
   raf = requestAnimationFrame(frame);
 }
-$('run').addEventListener('click', () => launch());
+function setPaused(paused) {
+  runPaused = paused;
+  cancelAnimationFrame(raf);
+  previous = 0;
+  elapsed = 0;
+  controls();
+  if (!runPaused) raf = requestAnimationFrame(frame);
+}
+$('run').addEventListener('click', () => {
+  if (playing()) setPaused(!runPaused);
+  else launch();
+});
+$('frame-step').addEventListener('click', () => {
+  if (!runPaused || !playing()) return;
+  tickMachine();
+  $('counter').textContent = (run.tick / 60).toFixed(2) + ' s';
+  drawBench();
+});
+$('playback-rate').addEventListener('change', () => {
+  speed = Number($('playback-rate').value);
+  previous = 0;
+  elapsed = 0;
+});
 $('replay').addEventListener('click', () => launch(true));
 $('reset').addEventListener('click', () => {
   move = null;
@@ -591,6 +641,12 @@ $('sound').addEventListener('click', () => {
   } else audio?.suspend().catch(() => {});
 });
 $('next').addEventListener('click', () => {
+  if (learningActive) {
+    const next = lessons[lessonById.get(machine.id) + 1];
+    if (next) location.hash = lessonLink(next.machine.id);
+    else learning.showMap();
+    return;
+  }
   const i = machines.indexOf(machine);
   if (i < 0 || i === machines.length - 1) {
     $('generate').focus();
@@ -601,7 +657,7 @@ $('next').addEventListener('click', () => {
 $('share').addEventListener('click', async () => {
   const sharedMachine = machine;
   const url = new URL(location.href);
-  url.hash = machine.id;
+  url.hash = learningActive ? lessonLink(machine.id) : machine.id;
   try {
     await navigator.clipboard.writeText(url.href);
     if (machine === sharedMachine) message('Puzzle link copied. It opens the starting machine.');
@@ -690,10 +746,15 @@ function navigate(resolved, id, announce = false) {
     index < 0
       ? 'Machine press · verified'
       : 'Level ' + seq + ' / ' + machines.length + ' · ' + chapters[activeChapter][0];
+  if (learningActive) {
+    const n = lessonById.get(machine.id);
+    $('machine-no').textContent =
+      'Lesson ' + number(n + 1) + ' / ' + lessons.length + ' · ' + lessons[n].chapter;
+  }
   $('machine-title').tabIndex = -1;
   $('machine-title').textContent = machine.title;
   $('goal').textContent = machine.goal;
-  $('open-lab').hidden = !machine.lesson;
+  $('open-lab').hidden = false;
   $('lesson').hidden = !machine.lesson;
   $('lesson').open = Boolean(
     machine.lesson && index >= 0 && index % 10 < 2 && (index < 140 || machine.clockwork),
@@ -740,7 +801,10 @@ async function route(announce) {
   routing?.abort();
   const controller = new AbortController();
   routing = controller;
-  const id = document.body.dataset.portable || location.hash.slice(1) || machines[0].id;
+  const requested = document.body.dataset.portable || location.hash.slice(1) || machines[0].id;
+  const guidedId = requested.startsWith('learn/') ? requested.slice(6) : null;
+  learningActive = lessonById.has(guidedId);
+  const id = learningActive ? guidedId : requested;
   const bench = document.querySelector('.bench');
   try {
     let resolved = campaignById.get(id);
