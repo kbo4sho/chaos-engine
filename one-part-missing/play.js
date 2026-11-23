@@ -12,6 +12,7 @@ import { chooseStart, rememberRoute, setupFinder } from './library.js';
 import { orders, readOrderLink, fitCode, orderPrefix } from './work-orders.js';
 import { setupOrders } from './order-desk.js';
 import { receiverOpen } from './transmissions.js';
+import { draftDesk } from './draft-desk.js';
 import { editHistory } from './bench-edits.js';
 import { setupRace, readRace } from './friend-race.js';
 import { setupFilms } from './attempt-film.js';
@@ -71,6 +72,13 @@ const films = setupFilms($),
 const raceDesk = setupRace($, films);
 const matches = setupMatches($, M, films);
 const edits = editHistory();
+const drafts = draftDesk($, { campaign:machines, orders, decodePrint, restore(saved) {
+  edits.restore(saved.history);
+  move=saved.move;selected=null;flipped=false;waitingSocket=null;
+  resetRun();
+  message('Unfinished repair restored. Test the fittings or keep building.');
+  $('run').focus({preventScroll:true});
+} });
 let waitingSocket = null;
 function inspectTick(tick) {
   const frame = tape.findIndex(sample => sample.tick >= tick);
@@ -448,6 +456,7 @@ function controls() {
   $('sockets').hidden = inspection !== null;
   const busy = playing(),
     won = !matches.active && !raceDesk.blind && (savedMove() || enclosedReplay);
+  drafts.busy(busy);
   films.duringRun(busy);
   desk.controls(machine, move, busy);
   $('order-card').hidden = !machine.contract || matches.active || raceDesk.blind;
@@ -609,9 +618,10 @@ function resetRun(keepGhost = false) {
   controls();
   drawBench();
 }
-function changeFittings(next) {
+function changeFittings(next, persist = true) {
   edits.remember(move, next);
   move = next;
+  if (persist) drafts.edited(move, edits.snapshot());
   waitingSocket = null;
 }
 function selectPart(id) {
@@ -960,6 +970,7 @@ function tickMachine() {
   if (run.state === 'won') {
     if (!replaying && !matches.viewing && validMove(machine, move)) {
       book.save(machine.id, move, run.tick);
+      drafts.delivered();
       if (machine.contract) desk.save(machine, move, run.tick);
     }
     phase = 'finishing';
@@ -985,7 +996,7 @@ function launch(replay = false) {
   if (replay) {
     const last = enclosedReplay || savedMove();
     if (!last) return;
-    changeFittings(last);
+    changeFittings(last, false);
     selected = last.part;
     flipped = Boolean(last.flipped);
   }
@@ -1034,6 +1045,7 @@ $('replay').addEventListener('click', () => launch(true));
 $('undo-fitting').addEventListener('click', () => {
   if (playing() || !edits.available) return;
   move = edits.undo();
+  drafts.edited(move, edits.snapshot());
   waitingSocket = null;
   selected = null;
   flipped = false;
@@ -1144,7 +1156,7 @@ $('save-replay').addEventListener('click', (event) => {
   const replay = desk.isRecord(machine, move) ? move : savedMove();
   if (replay) downloadMachine(event.currentTarget, replay);
 });
-function navigate(resolved, id, announce = false, sharedFit = null, race = null, match = null) {
+function navigate(resolved, id, announce = false, sharedFit = null, race = null, match = null, resume = false) {
   spareStudy.close();
   forecasts.close();
   lab.close();
@@ -1163,11 +1175,14 @@ function navigate(resolved, id, announce = false, sharedFit = null, race = null,
   desk.navigate(machine);
   matches.navigate(match);
   raceDesk.navigate(match ? null : machine, race, desk.fastest);
-  if (resolved && !match && !document.body.dataset.portable) rememberRoute(machine, learningActive);
+  const personal=resolved && id===machine.id && !race && !match && !sharedFit && !document.body.dataset.portable;
+  if (personal) rememberRoute(machine, learningActive);
   edits.clear();
   waitingSocket = null;
-  move = match?.returned?.[match.round]?.move || sharedFit;
-  selected = move?.part || null;
+  const draft=drafts.enter(personal ? machine : null, learningActive, resume);
+  if (draft) edits.restore(draft.history);
+  move = match?.returned?.[match.round]?.move || sharedFit || draft?.move || null;
+  selected = draft ? null : move?.part || null;
   flipped = false;
   endDrag();
   $('copy-fallback').hidden = true;
@@ -1258,6 +1273,7 @@ function navigate(resolved, id, announce = false, sharedFit = null, race = null,
         ? 'Shared setup fitted. Run it to measure the delivery.'
         : enclosedReplay
           ? 'A repair came with this file. Watch the replay or try your own.'
+          : draft ? 'Unfinished repair restored. Test the fittings or keep building.'
           : savedMove()
             ? 'You repaired this machine. Play your replay or try another part.'
             : 'Watch a run, or pick a part to fit.',
@@ -1360,9 +1376,11 @@ async function route(announce) {
   const explicit = packed?.startsWith('match/1/') ? matchFileRoute(packed,hash) : packed || hash;
   const requested = explicit || chooseStart(book.read());
   if (!explicit) history.replaceState(null, '', '#' + requested);
-  const guidedId = requested.startsWith('learn/') ? requested.slice(6) : null;
+  const resume = !packed && requested.startsWith('resume/');
+  const target = resume ? requested.slice(7) : requested;
+  const guidedId = target.startsWith('learn/') ? target.slice(6) : null;
   learningActive = lessonById.has(guidedId);
-  const id = learningActive ? guidedId : requested;
+  const id = learningActive ? guidedId : target;
   const bench = document.querySelector('.bench');
   try {
     const match = id.startsWith('match/') ? readMatch(M,id) : null;
@@ -1377,7 +1395,7 @@ async function route(announce) {
       resolved = await usePress(M, { id }, controller.signal);
     }
     if (!controller.signal.aborted) {
-      navigate(resolved, id, announce, order?.move, race, match);
+      navigate(resolved, id, announce, order?.move, race, match, resume || !explicit);
       if (id.startsWith('match/') && !match) message('This card could not be replayed. Open a fresh card from the level map.');
       if (race?.reply) raceDesk.watchReturn();
       if (id.startsWith('race/') && !race) message('This challenge link could not be replayed. Ask for a new link.');

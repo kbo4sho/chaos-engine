@@ -3,8 +3,8 @@ import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { pathToFileURL } from 'node:url';
 
-export async function saveBrowserFile(page, selector, directory) {
-  const name = await page.$eval(selector, (a) => a.download);
+export async function saveBrowserFile(page, selector, directory, expectedName) {
+  const name = expectedName || await page.$eval(selector, (a) => a.download);
   if (!name || name !== path.basename(name)) throw Error('Invalid download filename');
   const target = path.join(directory, name),
     cdp = await page.createCDPSession(),

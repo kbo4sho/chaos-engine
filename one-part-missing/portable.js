@@ -60,6 +60,8 @@ const modules = [
   'friend-race',
   'race-book',
   'bench-edits',
+  'bench-drafts',
+  'draft-desk',
   'certify',
   'press-catalog',
   'press-reserves',

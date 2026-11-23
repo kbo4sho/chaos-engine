@@ -15,6 +15,12 @@ export function editHistory(limit = 32) {
     undo() {
       return entries.pop();
     },
+    snapshot() {
+      return entries.slice();
+    },
+    restore(history) {
+      entries.splice(0, entries.length, ...history.slice(-limit));
+    },
     clear() {
       entries.length = 0;
     },

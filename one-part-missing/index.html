@@ -74,6 +74,7 @@
             </button>
             <button id="frame-step" class="quiet" hidden type="button">Step 1 frame</button>
             <button id="undo-fitting" class="quiet" type="button" hidden>Undo fit</button>
+            <button id="resume-draft" class="quiet" type="button" hidden>Resume fittings</button>
             <button id="reset" class="quiet" disabled>Reset</button>
             <span id="signal" aria-hidden="true"></span><output id="receiver-clock" hidden></output>
           </div>
@@ -266,6 +267,11 @@
             <summary>Recent challenges on this browser</summary>
             <nav id="race-list" aria-label="Recent challenges"></nav>
           </details>
+        </details>
+        <details class="study" id="unfinished-repairs" hidden>
+          <summary>Unfinished repairs <span id="draft-count"></span></summary>
+          <nav id="draft-list" aria-label="Resume an unfinished repair"></nav>
+          <button id="draft-more" type="button" class="quiet" hidden>Show more repairs</button>
         </details>
         <details class="study" id="practice">
           <summary>Practice by tool</summary>

@@ -1690,3 +1690,8 @@ body[data-portable] #share-assembly{display:none!important;}
 canvas.reading-path {cursor:crosshair}
 #stage:has(.reading-path) #miss-pin {visibility:hidden}
 @media(max-width:640px){.path-reader summary,.path-tools select,.path-tools button {min-height:44px}}
+
+#draft-list { display:grid; gap:4px; margin:8px 0; }
+#draft-list a { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:44px; padding:4px 8px; text-decoration:none; border-bottom:1px solid var(--line); }
+#draft-list small { flex-shrink:0; color:var(--muted); }
+#draft-list strong { font-weight:normal; }
