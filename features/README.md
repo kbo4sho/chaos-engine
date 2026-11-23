@@ -129,3 +129,4 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Move repairs to another device](./repair-transfer.md) covers a verified personal notebook, unfinished fitting history and safe merges.
 - [Practice two tools together](./pair-training.md) covers verified three-machine practice courses for every tool, exact contact predictions and offline files.
 - [Read machine diagram](./machine-diagram.md) covers a keyboard and touch release diagram, actual receiver rules and a frame-accurate opening clock.
+- [Keep the workshop offline](./offline-workshop.md) covers a complete optional offline edition, verified replacements and cold offline play.

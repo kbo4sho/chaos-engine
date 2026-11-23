@@ -8,7 +8,7 @@
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="bench.css" />
     <script src="../vendor/matter-0.20.0.min.js"></script>
-    <script type="module" src="bench-release.js?v=266781af2c49"></script>
+    <script type="module" src="bench-release.js?v=9f0ad37b8811"></script>
   </head>
   <body>
     <header class="mast">
@@ -324,6 +324,15 @@
           <div class="notebook-actions"><button type="button" id="notebook-merge" hidden>Merge into this bench</button>
             <button type="button" class="quiet" id="notebook-cancel" hidden>Cancel import</button></div>
           <p id="notebook-file-status" role="status"></p>
+        </details>
+        <details class="study" id="offline-workshop">
+          <summary>Keep the workshop offline</summary>
+          <p>Save the 520-level game, discovery machines, production stations and Chaos Engine sandbox on this device. Open your usual game link to play offline.</p>
+          <div class="notebook-actions"><button type="button" id="offline-save">Save for offline play</button>
+            <button type="button" class="quiet" id="offline-cancel" hidden>Cancel download</button>
+            <button type="button" class="quiet" id="offline-remove" hidden>Remove offline copy</button></div>
+          <progress id="offline-progress" aria-label="Offline workshop download" hidden></progress>
+          <span id="offline-progress-text" aria-hidden="true" hidden></span><p id="offline-status" role="status"></p>
         </details>
       </section>
       <section class="workshop" aria-labelledby="workshop-title">

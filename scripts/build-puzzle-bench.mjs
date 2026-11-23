@@ -1,5 +1,6 @@
 // The static website and the local preview use the same entry point and compiler options.
 import { build, context } from 'esbuild';
+import { offlineLibrary } from './build-offline-library.mjs';
 import { createHash } from 'node:crypto';
 import { readFile, writeFile, rename } from 'node:fs/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -52,6 +53,20 @@ async function publishFiles() {
   );
   await replaceIfChanged(output, js);
   await replaceIfChanged(html, next);
+  const library = await offlineLibrary(root, version);
+  await replaceIfChanged(
+    new URL('one-part-missing/offline-library.json', root),
+    JSON.stringify(library, null, 2) + '\n',
+  );
+  console.log(
+    'Offline workshop ' +
+      library.version +
+      ' · ' +
+      library.assets.length +
+      ' files · ' +
+      library.bytes +
+      ' bytes',
+  );
   console.log('Puzzle bench ' + version + ' · ' + Buffer.byteLength(js) + ' bytes');
 }
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) await publishFiles();

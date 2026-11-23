@@ -701,6 +701,11 @@ async function driveBank(page) {
 }
 
 const journeys = {
+  'offline-workshop': async page => {
+    const {verifyOfflineWorkshop} = await import('./verify-offline-workshop.mjs');
+    await verifyOfflineWorkshop(page,{url,record,shot,outDir});
+    result.passed = result.failures.length === 0;
+  },
   'machine-diagram': async page => {
     const {verifyMachineDiagram} = await import('./verify-machine-diagram.mjs');
     await verifyMachineDiagram(page,{url,record,shot,outDir});

@@ -93,6 +93,7 @@ const modules = [
   'practice-targets',
   'tool-evidence',
   'tool-notebook',
+  'offline-workshop',
   'machine-diagram',
   'diagram-desk',
   'pair-training-index',

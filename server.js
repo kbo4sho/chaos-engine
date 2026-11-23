@@ -78,7 +78,7 @@ const server = http.createServer((req, res) => {
     return;
   }
   const { pathname, search } = requestUrl;
-  if (pathname === '/one-part-missing/bench-release.js') {
+  if (pathname === '/one-part-missing/bench-release.js' && !/^[a-f0-9]{16}$/.test(requestUrl.searchParams.get('offline-hash')||'')) {
     void previewBench(req, res);
     return;
   }

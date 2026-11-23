@@ -1,3 +1,4 @@
+import { setupOfflineWorkshop } from './offline-workshop.js';
 import { setupDiagram } from './diagram-desk.js';
 import { readTraining, trainingFileRoute, pairTrainingPrefix } from './pair-training.js';
 import { setupPairTraining } from './pair-training-desk.js';
@@ -72,6 +73,7 @@ phoneWidth.addEventListener('change', arrangeNotes);
 
 const M = window.Matter;
 const $ = (id) => document.getElementById(id);
+setupOfflineWorkshop($);
 const c = $('diagram').getContext('2d');
 const films = setupFilms($),
   focusBench = setupFocus($);
