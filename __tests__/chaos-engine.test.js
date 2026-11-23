@@ -5219,8 +5219,13 @@ describe('CSS Styles', () => {
 // ============================================
 
 describe('Matter.js Integration', () => {
-  it('should load Matter.js from CDN', () => {
-    expect(html).toContain('cdnjs.cloudflare.com/ajax/libs/matter-js');
+  it('loads the same pinned physics engine for both the sandbox and the puzzle bench', () => {
+    const src = document.querySelector('script[src*="matter-"]').getAttribute('src');
+    const bench = fs.readFileSync(path.resolve('one-part-missing.html'), 'utf8');
+    expect(bench).toContain(`src="${src}"`);
+    expect(fs.readFileSync(path.resolve(src)).equals(
+      fs.readFileSync(require.resolve('matter-js/build/matter.min.js'))
+    )).toBe(true);
   });
 
   it('should destructure Matter components', () => {

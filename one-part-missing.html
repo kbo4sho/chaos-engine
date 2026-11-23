@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#112326" />
+    <title>One Part Missing · Chaos Engine</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="one-part-missing/bench.css" />
+    <script src="vendor/matter-0.20.0.min.js"></script>
+    <script type="module" src="one-part-missing/play.js"></script>
+  </head>
+  <body>
+    <header class="mast">
+      <div class="mast-inner">
+        <a href="index.html" class="brand"
+          ><span class="brand-mark" aria-hidden="true">ϟ</span> Chaos Engine</a
+        >
+        <button id="sound" type="button" aria-pressed="true">Sound on</button>
+      </div>
+    </header>
+    <main>
+      <div class="nameplate">
+        <span class="machine-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <h1>One Part Missing</h1>
+      </div>
+      <div class="bench">
+        <section class="cabinet" aria-labelledby="machine-title">
+          <div class="instrument-head">
+            <div>
+              <p class="eyeline" id="machine-no">Machine 01 / 06</p>
+              <h2 id="machine-title">The last bell</h2>
+              <p id="goal">Ring the brass bell.</p>
+            </div>
+            <span class="plate" aria-hidden="true" id="plate">01</span>
+          </div>
+          <div class="glass">
+            <div class="glass-strip"><span id="pilot">Ready</span><span id="counter">0.00 s</span></div>
+            <div id="stage">
+              <canvas
+                width="720"
+                height="400"
+                id="diagram"
+                role="img"
+                aria-label="Machine diagram"
+              ></canvas>
+              <div id="sockets" role="group" aria-label="Mounting sockets"></div>
+            </div>
+          </div>
+          <div class="transport">
+            <button id="run" class="primary">
+              <span aria-hidden="true">▶</span> <span id="run-label">Run machine</span>
+            </button>
+            <button id="reset" class="quiet" disabled>Reset</button>
+            <span id="signal" aria-hidden="true"></span>
+          </div>
+          <div class="film" id="film" hidden>
+            <label for="scrubber">Inspect run</label
+            ><input type="range" id="scrubber" min="0" max="0" value="0" step="1" /><output
+              id="film-time"
+              for="scrubber"
+              >0.00 s</output
+            >
+          </div>
+        </section>
+        <aside class="drawer" aria-labelledby="drawer-title">
+          <div class="drawer-top">
+            <span class="handle" aria-hidden="true"></span>
+            <h2 id="drawer-title">Parts drawer</h2>
+            <p>Fit one part. Run the machine.</p>
+          </div>
+          <div id="parts" role="group" aria-label="Spare parts"></div>
+          <p id="status" role="status" aria-live="polite">Watch a run, or pick a part to fit.</p>
+          <div id="after-win" hidden>
+            <button id="replay" class="quiet">Watch replay</button
+            ><button id="save-replay" class="quiet">Save replay file</button
+            ><button id="next" class="quiet">Next machine →</button>
+          </div>
+          <details id="proof" hidden>
+            <summary>Workshop trial record</summary>
+            <p id="proof-text"></p>
+          </details>
+          <div class="bench-links">
+            <a id="open-sandbox" href="index.html" target="_blank" rel="noopener">Open in sandbox ↗</a
+            ><button id="share">Copy puzzle link</button><button id="download">Download puzzle</button>
+          </div>
+          <label id="copy-fallback" hidden>Puzzle link <input readonly id="share-url" /></label>
+        </aside>
+      </div>
+      <section class="library" aria-labelledby="library-title">
+        <div class="library-head">
+          <h2 id="library-title">Machine shelf</h2>
+          <span id="progress">0 of 6 repaired</span>
+        </div>
+        <div id="shelf"></div>
+      </section>
+      <section class="workshop" aria-labelledby="workshop-title">
+        <div>
+          <h2 id="workshop-title">Machine press</h2>
+          <p>Print a new puzzle with a physics-tested repair.</p>
+        </div>
+        <div class="press-actions">
+          <a id="last-print" hidden>Last print ↗</a
+          ><button id="generate">Generate a machine <span aria-hidden="true">↗</span></button>
+        </div>
+      </section>
+      <details class="maker" id="maker">
+        <summary>Move the target &amp; make a puzzle</summary>
+        <div class="maker-body">
+          <canvas
+            id="maker-preview"
+            width="540"
+            height="300"
+            role="img"
+            aria-label="Preview of the machine with the new target position"
+          ></canvas>
+          <div class="maker-tools">
+            <h2>Target position</h2>
+            <p>Move the final target. The press checks whether one part can still reach it.</p>
+            <label for="target-x">Left / right <output id="offset-x">0</output></label
+            ><input id="target-x" type="range" min="-8" max="8" value="0" />
+            <label for="target-y">Up / down <output id="offset-y">0</output></label
+            ><input id="target-y" type="range" min="-8" max="8" value="0" />
+            <button id="prove" class="primary" disabled>Test &amp; play this puzzle</button>
+            <p id="maker-result" role="status" aria-live="polite"></p>
+          </div>
+        </div>
+      </details>
+      <noscript>Enable JavaScript to play the physics machines.</noscript>
+    </main>
+  </body>
+</html>

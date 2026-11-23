@@ -701,6 +701,11 @@ async function driveBank(page) {
 }
 
 const journeys = {
+  'one-part-missing': async page => {
+    const {verifyPuzzles} = await import('./verify-one-part-missing.mjs');
+    await verifyPuzzles(page,{url,record,shot,outDir});
+    result.passed = result.failures.length === 0;
+  },
   'bank': driveBank,
   'trim': driveTrim,
   'deflect': driveDeflect,

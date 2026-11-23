@@ -6,6 +6,10 @@ Future cycles still add or improve one feature without redesigning the shell. Th
 
 ---
 
+## 2026-11-22 — One Part Missing
+
+A new puzzle mode offers six machines, one-part repairs, frame inspection and saved replays. The machine press generates new layouts and checks repairs with Matter.js at three release positions. Players can move the target, share a verified remix, or download a standalone playable puzzle or replay. Opening a machine in the sandbox preserves its physics dimensions on phones and desktops.
+
 ## 2026-11-09 — Implementation pending supervisor verification: Bank tool
 **Behavior:** Appended Bank after Trim. Tap a moving solid part to reflect its travel across its own local horizontal axis, preserving speed, spin, orientation, geometry and material. Repeating the tap restores travel. Shared touch targeting, accessible transient feedback, tool-change/Clear cleanup and selected-tool save/load follow existing conventions. No dependency or shell changes.
 **Verification:** All 938 automated tests pass. Focused real-Matter tests and mapped `bank` mobile-touch/desktop-input journey added; Trim now checks relative placement so appended tools preserve its proof. Build and inline script syntax pass. Isolated launch exited before ready; doctor found no state; `test:verify` failed with loopback `listen EPERM`. Browser journeys, UI layouts and production cutover require native supervisor verification. Evidence stays in the private environment-provided directory. No live verification is claimed.

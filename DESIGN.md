@@ -121,6 +121,10 @@ Motion should reveal a physical state change: placement, impact, opening, transp
 
 Write terse machine-like feedback with a concrete result or next action: `HATCH READY • TAP TO DROP`, not promotional copy. Use counts, arrows, and status words only when they explain current physics state.
 
+### One Part Missing workbench
+
+The puzzle route opens from the gravity bar in its own tab. Its instrument cabinet groups the mechanism, transport and inspection slider. The removable part and goal use the sandbox’s amber accent. Mint identifies fixed track and mounting hardware against the dark gridded board. Shape and text distinguish parts and states alongside color. The A and B sockets accept both dragging and separate taps or keyboard activation. The machine shelf and workshop sit below the bench on all screen sizes.
+
 ## Do's and Don'ts
 
 - **Do:** Extend the existing tool-button, status, particle, audio, haptic, cleanup, and custom-rendering conventions end to end.

@@ -8,7 +8,7 @@
     "test:verify": "node scripts/test-verify-ownership.mjs",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "build": "node --check server.js && node --check save-codec.js && node --check vitest.config.js && node --check scripts/lib/chaos-verify-drive.mjs"
+    "build": "node --check server.js && node --check save-codec.js && node --check vitest.config.js && node --check scripts/lib/chaos-verify-drive.mjs && node --check one-part-missing/play.js && node --check one-part-missing/press-worker.js && node --check scripts/lib/verify-one-part-missing.mjs"
   },
   "devDependencies": {
     "jsdom": "^24.0.0",
