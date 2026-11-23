@@ -160,6 +160,7 @@ All helpers are executable. Invoke them from the repo root.
 | `./scripts/verify-chaos-engine drive tool-press` | [Tool-aware press](features/tool-press.md), selected tool pairs, accurate shared geometry and standalone cargo replays |
 | `./scripts/verify-chaos-engine drive tool-lessons` | [Guided lessons](features/tool-lessons.md), 75 mixed lessons, shared repairs, all-tool practice and frame stepping |
 | `./scripts/verify-chaos-engine drive attempt-film` | [Expanded bench and comparison film](features/attempt-film.md), zoom, aligned trials, one-frame stepping and independent parcel motion |
+| `./scripts/verify-chaos-engine drive repair-coach` | [Inspect a missed repair](features/repair-coach.md), measured misses, working-path overlays, selective hints and offline support |
 | `./scripts/verify-chaos-engine drive flight-course` | [Flight school](features/flight-course.md), seven carried or contact tools, timed delivery, sandbox mid-flight save and offline replay |
 | `./scripts/verify-chaos-engine drive design-bench` | [Build a machine](features/design-bench.md), six editable kits, captured targets, shared hardware, restored sandbox and offline replay |
 | `./scripts/verify-chaos-engine drive prediction-lab` | [Predict a run](features/prediction-lab.md), physical comparisons, mastery persistence and offline forecasts |

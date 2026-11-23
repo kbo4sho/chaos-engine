@@ -239,6 +239,7 @@ export function setupFilms(el) {
     add(machine, run, move, tape) {
       history = keepAttempts(history, recordAttempt(machine, run, move, tape));
       open.hidden = !history.previous;
+      return history.latest;
     },
     clear() {
       if (modal.open) modal.close();

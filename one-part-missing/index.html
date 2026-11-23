@@ -107,6 +107,9 @@
           <button id="flip" class="quiet" type="button" aria-pressed="false" hidden>Flip rail</button>
           <p class="gear-readout" id="flight-gear" hidden></p>
           <p id="status" role="status" aria-live="polite">Watch a run, or pick a part to fit.</p>
+          <button class="quiet" id="inspect-miss" type="button" aria-haspopup="dialog" hidden>
+            Inspect this miss
+          </button>
           <div id="after-win" hidden>
             <button id="replay" class="quiet">Watch replay</button
             ><button id="save-replay" class="quiet">Save replay file</button
@@ -414,6 +417,40 @@
             >0.00 s</output
           >
         </div>
+      </dialog>
+      <dialog id="repair-coach" aria-labelledby="coach-title">
+        <div class="lab-head">
+          <h2 id="coach-title">Inspect this miss</h2>
+          <button type="button" class="quiet" id="coach-close">Close</button>
+        </div>
+        <p id="coach-observation"></p>
+        <canvas
+          id="coach-scene"
+          width="720"
+          height="400"
+          role="img"
+          aria-label="The missed delivery"
+        ></canvas>
+        <div id="coach-legend" class="lab-legend" hidden>
+          <span>Your run</span><span>Working path</span>
+        </div>
+        <div class="film">
+          <label for="coach-frame">Inspect</label
+          ><input type="range" id="coach-frame" min="0" max="1" value="0" step="1" /><output
+            id="coach-time"
+            for="coach-frame"
+            >0.00 s</output
+          >
+        </div>
+        <div class="coach-tools">
+          <button type="button" class="quiet" id="coach-return">Closest approach</button
+          ><button type="button" class="quiet" id="coach-compare">See the working motion</button
+          ><button type="button" class="quiet" id="coach-change" hidden>First separation</button>
+        </div>
+        <p id="coach-rule" role="status"></p>
+        <output id="coach-gap"></output>
+        <button type="button" class="quiet" id="coach-reveal" hidden>Show one fitting</button>
+        <ol id="coach-steps" hidden></ol>
       </dialog>
       <dialog id="prediction-lab" aria-labelledby="predict-title">
         <header class="lab-head">

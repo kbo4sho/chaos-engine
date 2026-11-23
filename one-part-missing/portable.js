@@ -52,6 +52,8 @@ const modules = [
   'repairs',
   'drawing',
   'attempt-film',
+  'repair-coach',
+  'coach-desk',
   'focus',
   'mechanical-art',
   'portable',

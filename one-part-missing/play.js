@@ -1,3 +1,4 @@
+import { setupCoach } from './coach-desk.js';
 import { flightNames } from './flight.js';
 import { setupDesignBench } from './design-bench.js';
 import { chooseStart, rememberRoute, setupFinder } from './library.js';
@@ -37,6 +38,19 @@ const $ = (id) => document.getElementById(id);
 const c = $('diagram').getContext('2d');
 const films = setupFilms($),
   focusBench = setupFocus($);
+const coach = setupCoach(M, $, (choice) => {
+  if (choice.operation === 'remove') {
+    const b = document.querySelector('#pair-pieces [data-remove="' + choice.socket + '"]');
+    b?.focus();
+    return;
+  }
+  selectPart(choice.part);
+  flipped = Boolean(choice.flipped);
+  controls();
+  message(parts[choice.part].name + ' selected. Fit it at socket ' + socketName(choice.socket) + '.');
+  const socket = document.querySelector('[data-socket="' + choice.socket + '"]');
+  socket.focus();
+});
 const setEditorMachine = makeEditor(M);
 const setDesignMachine = setupDesignBench(M, (machine) => {
   if (location.hash === '#' + machine.id) navigate(machine, machine.id, true);
@@ -369,6 +383,7 @@ function controls() {
           const b = document.createElement('button');
           b.type = 'button';
           b.className = 'quiet';
+          b.dataset.remove = String(f.socket);
           b.textContent = socketName(f.socket) + ' · ' + parts[f.part].name + ' ×';
           b.setAttribute(
             'aria-label',
@@ -505,6 +520,7 @@ function controls() {
   $('open-sandbox').href = '../#' + hash;
 }
 function resetRun(keepGhost = false) {
+  coach.clear();
   cancelAnimationFrame(raf);
   phase = 'ready';
   runPaused = false;
@@ -709,7 +725,8 @@ function finish() {
   runPaused = false;
   ghost = trail.slice();
   addFrame();
-  films.add(machine, run, move, tape);
+  const attempt = films.add(machine, run, move, tape);
+  if (!win) coach.capture(machine, move, attempt, run.passes);
   $('scrubber').max = tape.length - 1;
   $('scrubber').value = tape.length - 1;
   const seconds = (run.tick / 60).toFixed(2) + ' s';

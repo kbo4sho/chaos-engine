@@ -141,6 +141,8 @@ The design bench uses numbered stations and a dashed gold ring to identify the p
 
 Flight service rings use distinct line drawings. Carried gear appears on the moving body and in a short gold/blue text readout at the selected frame. The release hoop clears both marks in sync with the recorded event.
 
+After a miss, the optional inspection dialog opens on one measured moment of the player’s own run. A dashed reference path and the exact fitting appear only when requested. Selecting a suggested spare returns focus to its real socket.
+
 ## Do's and Don'ts
 
 - **Do:** Extend the existing tool-button, status, particle, audio, haptic, cleanup, and custom-rendering conventions end to end.

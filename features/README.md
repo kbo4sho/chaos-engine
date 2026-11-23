@@ -89,3 +89,5 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Build a machine](./design-bench.md) covers editing real hardware, choosing the missing station, recording a receiver and sharing the tested design.
 
 - [Flight school](./flight-course.md) covers gear carried by moving loads, pickup and release, timed parcel flights and saved in-flight equipment.
+
+- [Inspect a missed repair](./repair-coach.md) covers measured approach, hold and timing evidence, working-path comparisons and progressive hints.

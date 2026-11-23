@@ -1516,3 +1516,63 @@ summary {
   color: #a4dfe1;
   margin: 5px 0;
 }
+
+#repair-coach {
+  width: min(620px, calc(100vw - 20px));
+  max-height: calc(100dvh - 20px);
+  padding: clamp(12px, 2vw, 20px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+#repair-coach::backdrop {
+  background: #03080cda;
+}
+#coach-scene {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+}
+#coach-observation,
+#coach-rule {
+  margin: 8px 0;
+  line-height: 1.4;
+}
+.coach-tools {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 8px 0;
+}
+#coach-gap {
+  display: block;
+  font: 12px var(--mono);
+  color: var(--muted);
+  margin: 6px 0;
+}
+#coach-rule:empty,
+#coach-gap:empty {
+  display: none;
+}
+#coach-steps {
+  padding-left: 23px;
+  margin: 8px 0;
+}
+#coach-steps li {
+  margin: 6px 0;
+}
+#coach-steps button {
+  margin-inline-start: 8px;
+}
+#inspect-miss {
+  margin: 4px 0;
+}
+@media (max-height: 450px) and (min-width: 560px) {
+  #coach-scene {
+    max-height: 150px;
+    object-fit: contain;
+  }
+}

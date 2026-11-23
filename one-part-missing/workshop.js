@@ -1,3 +1,4 @@
+import { guideRepair } from './repair-coach.js';
 import { readDesign, proveDesign } from './blueprints.js';
 import { openTicket, readTicket, printTools } from './tool-press.js';
 // Generate a complete delivery line, remove a working part, then test the
@@ -188,6 +189,10 @@ export function resolveMachine(M, id) {
 }
 
 export function pressRequest(M, request) {
+  if (request.guide) {
+    const { machine, move, which } = request.guide;
+    return guideRepair(M, machine, move, which);
+  }
   if (request.design) {
     const d = readDesign(request.design);
     return d ? proveDesign(M, d) : { reason: 'Invalid design drawing.' };

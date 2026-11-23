@@ -4,6 +4,8 @@ Players can enlarge a working machine, zoom in on a mount and compare two differ
 
 ## Sub-features
 
+- [Inspect a missed repair](./repair-coach.md) also offers a reference comparison after a single missed run.
+
 - Expand moves the live drawing, socket controls and parts drawer into a full-viewport dialog. Zoom ranges from 100% to 250%. The scrollable drawing supports panning and focusing a socket brings it into view. Fit returns the whole machine to view.
 - Compare last two setups appears after two distinct fittings have finished. The empty machine is a valid setup. Replaying the same repair preserves the earlier contrasting run.
 - Solid tracks show the latest marble and parcel. Dashed tracks and outlines show the earlier release. The hardware selector switches the displayed assembly independently of the paths.
