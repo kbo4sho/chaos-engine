@@ -24,6 +24,10 @@ export async function verifyLessons(home, { url, record, shot }) {
       {},
       String(i + 1).padStart(2, '0'),
     );
+  await heading(0);
+  await p.tap('#map-link');
+  await p.tap('#continue');
+  await p.waitForFunction(() => location.hash === '#last-bell');
   await p.tap('#learn-start');
   await heading(0);
   for (const [i, { machine }] of lessons.entries()) {

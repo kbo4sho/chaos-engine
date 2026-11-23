@@ -131,6 +131,8 @@ The drive table marks the gold input with a bright rim notch and the blue parcel
 
 Work orders show two comparable records in the parts drawer. Each row names the goal, reports the delivery time and part count, and lets the player refit that exact arrangement.
 
+The level map keeps the chapter selector and numbered continuation visible. Course shortcuts and the searchable machine list expand on demand. Search rows show the title, route reference and tools observed in a successful run.
+
 ## Do's and Don'ts
 
 - **Do:** Extend the existing tool-button, status, particle, audio, haptic, cleanup, and custom-rendering conventions end to end.

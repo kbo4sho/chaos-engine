@@ -22,6 +22,8 @@ const modules = [
   'campaign-layout',
   'campaign-score',
   'campaign',
+  'library-index',
+  'library',
   'order-board',
   'order-plans',
   'work-orders',

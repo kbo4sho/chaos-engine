@@ -28,6 +28,7 @@ export async function verifyToolCourse(home, { url, record, shot, outDir }) {
   const waitLevel = (m) =>
     p.waitForFunction((s) => document.querySelector('#machine-title')?.textContent === s, {}, m.title);
   await p.tap('#map-link');
+  await p.tap('#course-index summary');
   await p.tap('#tool-entry');
   const levels = campaign.filter((m) => m.toolCourse),
     first = levels[0],

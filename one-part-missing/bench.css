@@ -1227,3 +1227,103 @@ summary {
   margin: 8px 0;
   color: var(--soft, #a4bdc8);
 }
+
+.course-index {
+  margin: 2px 0 6px;
+}
+.course-index summary {
+  color: var(--cyan);
+  font: 13px var(--mono);
+  cursor: pointer;
+  width: fit-content;
+  padding-block: 10px;
+}
+.course-index nav {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(165px, 100%), 1fr));
+  gap: 2px 12px;
+}
+.course-index nav a {
+  border-bottom: 1px solid var(--line);
+}
+#finder {
+  margin: 0 0 10px;
+  padding: 0;
+  border-top: 0;
+  border-bottom: 1px solid var(--line);
+}
+#finder summary {
+  font: 15px var(--mono);
+  padding: 12px 0;
+}
+.find-controls {
+  display: grid;
+  grid-template-columns: minmax(140px, 2fr) minmax(110px, 1fr);
+  gap: 4px 12px;
+  margin-block: 5px;
+}
+.find-controls label[for='find-query'] {
+  grid-area: 1 / 1;
+}
+.find-controls #find-query {
+  grid-area: 2 / 1;
+  width: 100%;
+}
+.find-controls label[for='find-scope'] {
+  grid-area: 1 / 2;
+}
+.find-controls #find-scope {
+  grid-area: 2 / 2;
+  min-width: 0;
+}
+.find-controls input[type='search'] {
+  border: 1px solid var(--line);
+  background: #0d151c;
+  color: var(--text);
+  font: 14px var(--mono);
+  padding: 6px 9px;
+  border-radius: 3px;
+}
+.find-controls .find-check {
+  min-height: 38px;
+  grid-column: 1/-1;
+  width: fit-content;
+  cursor: pointer;
+}
+.find-check input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--cyan);
+}
+#find-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(225px, 100%), 1fr));
+  gap: 5px;
+}
+.find-result {
+  display: grid;
+  gap: 4px;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  min-width: 0;
+}
+.find-result strong {
+  color: var(--text);
+}
+.find-result small,
+#find-count,
+.find-result span {
+  font: 12px var(--mono);
+  color: var(--muted);
+}
+#find-count {
+  display: block;
+  margin-block: 4px 8px;
+}
+#find-more {
+  margin-block: 8px;
+}
+#finder[open] {
+  padding-bottom: 9px;
+}

@@ -51,6 +51,7 @@ export async function verifyClockwork(home, { url, record, shot, outDir }) {
     gatehouse = clockCourse[20],
     last = clockCourse.at(-1);
   await p.tap('#map-link');
+  await p.tap('#course-index summary');
   await p.tap('#clock-entry');
   await waitLevel(first);
   await p.tap('#open-lab');

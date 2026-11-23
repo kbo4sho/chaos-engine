@@ -13,7 +13,7 @@ Three hundred twenty permanent machines form thirty-two chapters. Each chapter c
 
 ## How to get to it (user POV)
 
-Choose PUZZLES in the sandbox to open the first machine. Choose Level map and select a chapter to jump ahead. Pick a part and tap a lettered socket, then choose Test repair. After a repair, Next machine advances across chapter boundaries. Reopen a level to watch its saved replay.
+Choose PUZZLES in the sandbox, then Level map and Continue to enter the numbered progression. Choose Level map and select a chapter to jump ahead. Pick a part and tap a lettered socket, then choose Test repair. After a repair, Next machine advances across chapter boundaries. Reopen a level to watch its saved replay.
 
 ## Driving it with verify-chaos-engine
 

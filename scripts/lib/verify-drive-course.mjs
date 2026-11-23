@@ -52,6 +52,7 @@ export async function verifyDrives(home, { url, record, shot, outDir }) {
     return cues(p);
   };
   await p.tap('#map-link');
+  await p.tap('#course-index summary');
   await p.tap('#drive-entry');
   await p.waitForFunction(() => document.querySelector('#machine-no').textContent.includes('281 /'));
   await p.tap('#open-lab');

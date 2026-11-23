@@ -12,7 +12,7 @@ Learn the tools is a 54-level path through all thirty-three puzzle parts. It sta
 
 ## How to get to it (user POV)
 
-Choose Learn the tools above the bench. After a repair, press Next lesson. Choose Lesson map to jump to a group. Open Practice by tool in the level map to choose a tool, open its lab or pick a numbered practice machine. Change the speed above the canvas, or pause a run and use Step 1 frame.
+A new player starts in guided lessons. From a numbered machine, choose Learn the tools above the bench. After a repair, press Next lesson. Choose Lesson map to jump to a group. Open Practice by tool in the level map to choose a tool, open its lab or pick a numbered practice machine. Change the speed above the canvas, or pause a run and use Step 1 frame.
 
 ## Driving it with verify-chaos-engine
 

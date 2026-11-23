@@ -136,16 +136,41 @@
           <h2 id="library-title">Level map</h2>
           <span id="progress">0 of 320 repaired</span>
         </div>
+        <details id="finder" class="study">
+          <summary>Find a machine</summary>
+          <div class="find-controls">
+            <label for="find-query">Name, number or working tool</label>
+            <input id="find-query" type="search" placeholder="e.g. pulley or 303" autocomplete="off" />
+            <label for="find-scope">Search in</label>
+            <select id="find-scope">
+              <option value="all">All machines</option>
+              <option value="campaign">Numbered campaign</option>
+              <option value="lessons">Tool lessons</option>
+              <option value="orders">Work orders</option>
+            </select>
+            <label class="find-check"
+              ><input type="checkbox" id="find-unfinished" />Unfinished only</label
+            >
+          </div>
+          <output id="find-count" aria-live="polite"></output>
+          <div id="find-list"></div>
+          <button type="button" class="quiet" id="find-more" hidden>Show 12 more</button>
+        </details>
         <div class="chapter-bar">
           <label for="chapter">Chapter</label
           ><select id="chapter"></select>
-          <a id="tool-entry" href="#tools-first-belt">Play the tool course →</a>
-          <a id="clock-entry" href="#works-from-below">Play the clockwork course →</a>
-          <a id="rig-entry" href="#rig-first-tether">Play the cable rigs →</a>
-          <a id="pair-entry" href="#pair-carry-then-catch">Play two-part repairs →</a>
-          <a id="drive-entry" href="#drive-spin-into-slide">Play the drive table →</a>
           <a id="continue">Continue campaign →</a>
         </div>
+        <details id="course-index" class="course-index">
+          <summary>Jump to a tool course</summary>
+          <nav aria-label="Numbered tool courses">
+            <a id="tool-entry" href="#tools-first-belt">Play the tool course →</a>
+            <a id="clock-entry" href="#works-from-below">Play the clockwork course →</a>
+            <a id="rig-entry" href="#rig-first-tether">Play the cable rigs →</a>
+            <a id="pair-entry" href="#pair-carry-then-catch">Play two-part repairs →</a>
+            <a id="drive-entry" href="#drive-spin-into-slide">Play the drive table →</a>
+          </nav>
+        </details>
         <p id="chapter-hint"></p>
         <div id="shelf"></div>
         <details class="study" id="lesson-map">

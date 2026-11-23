@@ -40,6 +40,7 @@ export async function verifyPairs(home, { url, record, shot, outDir }) {
     last = pairCourse.at(-1),
     [a, b] = fittings(first, certify(M, first)[0]);
   await p.tap('#map-link');
+  await p.tap('#course-index summary');
   await p.tap('#pair-entry');
   await p.waitForSelector('#fitted-pair:not([hidden])');
   await p.select('#playback-rate', '4');

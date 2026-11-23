@@ -94,6 +94,16 @@ export async function verifyPuzzles(home, { url, record, shot, outDir }) {
     };
     const status = () => page.$eval('#status', (el) => el.textContent);
     record(
+      device + '-legacy-visit-resumes-at-last-machine',
+      new URL(page.url()).hash === '#station-100',
+      page.url(),
+    );
+    await press('#map-link');
+    await openLevel('last-bell');
+    await page.waitForFunction(
+      () => document.querySelector('#machine-title').textContent === 'The last bell',
+    );
+    record(
       device + '-real-entry',
       (await page.title()) === 'The last bell · One Part Missing',
       await page.title(),

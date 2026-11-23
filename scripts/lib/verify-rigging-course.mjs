@@ -50,6 +50,7 @@ export async function verifyRigging(home, { url, record, shot, outDir }) {
     return p.$$eval('#cues button', (bs) => bs.map((b) => b.textContent));
   };
   await p.tap('#map-link');
+  await p.tap('#course-index summary');
   await p.tap('#rig-entry');
   await p.waitForFunction(() => document.querySelector('#machine-no').textContent.includes('201 /'));
   await p.select('#playback-rate', '4');

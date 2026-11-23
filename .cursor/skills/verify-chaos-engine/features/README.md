@@ -79,3 +79,5 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Expanded bench and comparison film](./attempt-film.md) covers zoom, panning, old and new paths synchronized by physics frame, and the measured first separation.
 
 - [Work orders](./work-orders.md) covers open-ended deliveries, two personal records, shared fittings and offline record replays.
+
+- [Puzzle library](./puzzle-library.md) covers first-time lessons, route-aware return visits, machine search, working parts and compact course navigation.

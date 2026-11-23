@@ -1,3 +1,4 @@
+import { chooseStart, rememberRoute, setupFinder } from './library.js';
 import { orders, readOrderLink, fitCode, orderPrefix } from './work-orders.js';
 import { setupOrders } from './order-desk.js';
 import { receiverOpen } from './transmissions.js';
@@ -45,6 +46,7 @@ const lab = setupLab(M, {
     resumeAfterLab = false;
   },
 });
+const finder = setupFinder($);
 const desk = setupOrders($, (fit) => {
   if (playing()) return;
   move = fit;
@@ -209,6 +211,7 @@ for (const [i, [title]] of chapters.entries()) {
 }
 function updateShelf() {
   const all = book.read();
+  finder.update(all);
   desk.updateMap(machine, all);
   learning.update(all, learningActive, machine);
   const unfinished = machines.filter((m) => !validMove(m, all[m.id]));
@@ -968,6 +971,7 @@ function navigate(resolved, id, announce = false, sharedFit = null) {
   }
   setEditorMachine(machine);
   desk.navigate(machine);
+  if (resolved && !document.body.dataset.portable) rememberRoute(machine, learningActive);
   move = sharedFit;
   selected = sharedFit?.part || null;
   flipped = false;
@@ -1145,7 +1149,9 @@ async function route(announce) {
   routing?.abort();
   const controller = new AbortController();
   routing = controller;
-  const requested = document.body.dataset.portable || location.hash.slice(1) || machines[0].id;
+  const explicit = document.body.dataset.portable || location.hash.slice(1);
+  const requested = explicit || chooseStart(book.read());
+  if (!explicit) history.replaceState(null, '', '#' + requested);
   const guidedId = requested.startsWith('learn/') ? requested.slice(6) : null;
   learningActive = lessonById.has(guidedId);
   const id = learningActive ? guidedId : requested;

@@ -13,6 +13,9 @@ export async function verifyCampaign(home, { url, record, shot, outDir }) {
   await home.click('#puzzle-launcher');
   const page = await opening;
   await page.bringToFront();
+  await page.click('#map-link');
+  await page.click('#continue');
+  await page.waitForFunction(() => location.hash === '#last-bell');
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   const mobile = { width: 390, height: 664, isMobile: true, hasTouch: true };
