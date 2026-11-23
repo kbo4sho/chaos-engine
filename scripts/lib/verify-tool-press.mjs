@@ -19,10 +19,14 @@ export async function verifyToolPress(home, { url, record, shot, outDir }) {
   p.on('pageerror', (e) => errors.push(e.message));
   const solve = async (page, m) => {
     const fit = certify(M, m)[0];
+    await page.waitForFunction((name) => document.querySelector('#machine-title').textContent === name, {}, m.title);
     await page.select('#playback-rate', '4');
     await page.click('[data-part="' + fit.part + '"]');
     if (fit.flipped) await page.click('#flip');
     await page.click('[data-socket="' + fit.socket + '"]');
+    const actual = await page.$eval('#open-sandbox', a => a.hash);
+    const fitted = new URLSearchParams(actual.slice(1));
+    record('fitted-'+m.id,fitted.get('part')===fit.part && Number(fitted.get('socket'))===fit.socket,{actual,fit});
     await page.click('#run');
     await page.waitForFunction(() => document.querySelector('#pilot').dataset.state === 'won', {
       timeout: 18000,
