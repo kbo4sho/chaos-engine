@@ -1,3 +1,4 @@
+import { portableFile } from './portable.js';
 import { fitCode, decodeFitting, orderById } from './work-orders.js';
 import { recordSimulation } from './attempt-film.js';
 import { raceBook, racePrefix } from './race-book.js';
@@ -68,6 +69,46 @@ export function setupRace(el, films) {
     feedback = el('race-feedback'),
     manual = el('race-url');
   let machine, host, reply, earned;
+  const portable = document.body.dataset.portable,
+    offlineRace = portable?.startsWith('race/1/');
+  let fileUrl = null,
+    fileVersion = 0;
+  function clearFile() {
+    fileVersion++;
+    if (fileUrl) URL.revokeObjectURL(fileUrl);
+    fileUrl = null;
+    el('race-file').hidden = true;
+    el('race-file').removeAttribute('href');
+    el('race-file-status').textContent = '';
+    el('race-pack').disabled = false;
+  }
+  el('race-pack').addEventListener('click', async () => {
+    const first = host?.move || earned?.move;
+    if (!first) return;
+    clearFile();
+    const version = fileVersion,
+      route = raceRoute(machine, first, reply?.move);
+    el('race-pack').disabled = true;
+    el('race-file-status').textContent = 'Packing the playable machine…';
+    try {
+      const blob = await portableFile(machine, null, route);
+      if (version !== fileVersion) return;
+      const a = el('race-file');
+      fileUrl = URL.createObjectURL(blob);
+      a.href = fileUrl;
+      a.download = (reply ? 'race-reply-' : 'race-invite-') + machine.id + '.html';
+      a.textContent = reply ? 'Save reply file' : 'Save challenge file';
+      a.hidden = false;
+      el('race-file-status').textContent = reply
+        ? 'Both runs are in the file.'
+        : 'Ready to play without a connection.';
+      a.focus({ preventScroll: true });
+    } catch {
+      if (version !== fileVersion) return;
+      el('race-pack').disabled = false;
+      el('race-file-status').textContent = 'The file could not be prepared. Try again.';
+    }
+  });
   const book = raceBook(() => localStorage);
   function renderBook() {
     const list = el('race-list'),
@@ -87,6 +128,7 @@ export function setupRace(el, films) {
     );
   }
   function keep(route, source) {
+    if (portable) return;
     book.keep(route, source);
     renderBook();
   }
@@ -100,7 +142,7 @@ export function setupRace(el, films) {
     location.hash = invite;
   });
   function render() {
-    const active = Boolean(machine?.contract) && !document.body.dataset.portable;
+    const active = Boolean(machine?.contract) && (!portable || offlineRace);
     panel.hidden = !active;
     el('race-target').hidden = !host;
     if (!active) return;
@@ -119,6 +161,10 @@ export function setupRace(el, films) {
         ? 'Your delivery ' + score(earned)
         : 'Make a delivery to set the time to beat.';
     compare.hidden = !reply;
+    copy.hidden = !!portable;
+    el('race-files').hidden = !(host || earned);
+    el('race-pack').textContent = reply ? 'Prepare reply file' : 'Prepare challenge file';
+    if (offlineRace && reply) el('race-files').open = true;
     el('race-pass').hidden = !!host || !earned;
     copy.disabled = !(host ? reply : earned);
     copy.textContent = host ? 'Copy reply link' : 'Copy challenge link';
@@ -165,12 +211,15 @@ export function setupRace(el, films) {
     },
     useRecord(row) {
       if (!host && row) {
+        clearFile();
         earned = row;
         resetFeedback();
         render();
       }
     },
     navigate(next, race, record) {
+      clearFile();
+      el('race-files').open = false;
       machine = next;
       host = race?.host;
       reply = race?.reply;
@@ -180,13 +229,14 @@ export function setupRace(el, films) {
       render();
     },
     delivered(move, tick, film) {
-      if (!machine?.contract || document.body.dataset.portable) return;
+      if (!machine?.contract || (portable && !offlineRace)) return;
+      clearFile();
       // The live bench keeps animating after receipt. A race ends at delivery.
       earned = { move, tick, film: { ...film, frames: film.frames.slice(0, tick + 1) } };
       if (host) {
         reply = earned;
         const route = raceRoute(machine, host.move, reply.move);
-        history.replaceState(null, '', '#' + route);
+        if (!portable) history.replaceState(null, '', '#' + route);
         keep(route, 'returned');
       }
       resetFeedback();

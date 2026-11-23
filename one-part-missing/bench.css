@@ -1652,3 +1652,7 @@ body[data-portable] #share-assembly{display:none!important;}
 .clip-actions { display:flex; flex-wrap:wrap; align-items:center; gap:5px 9px; margin-block:6px; }
 .clip-actions a { display:inline-flex; align-items:center; min-height:44px; color:var(--green); font:13px var(--mono); }
 .clip-actions output { font:12px var(--mono); color:var(--muted); }
+#race-files {padding-block:5px}
+#race-files summary {cursor:pointer;color:var(--muted);font-size:14px;padding:5px 0}
+#race-file {display:inline-flex;align-items:center;min-height:44px;color:var(--green);margin-inline-start:4px}
+#race-file-status {display:block;font:12px var(--mono);color:var(--muted)}

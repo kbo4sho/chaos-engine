@@ -2,7 +2,11 @@ import { readAsset, base64 } from './asset-source.js';
 
 // Resolve static imports inside the game. A file contains the same physics
 // and renderer as the live bench, plus only the explicitly shared sheet.
-export async function stationFile(attribute, hash) {
+export async function stationFile(
+  attribute,
+  hash,
+  { page = 'index.html', script = 'desk.js', extraStyles = [] } = {},
+) {
   const root = new URL('../', document.baseURI);
   const id = (url) => 'control/' + url.pathname.slice(root.pathname.length);
   const seen = new Set(),
@@ -12,7 +16,7 @@ export async function stationFile(attribute, hash) {
     seen.add(url.href);
     const deps = [];
     const source = (await readAsset(url.href)).replace(
-      /(\bfrom\s*['"])(\.\.?\/[\w./-]+\.js)(['"])/g,
+      /(\b(?:from\s*|import\(\s*)['"])(\.\.?\/[\w./-]+\.js)(['"])/g,
       (_, start, spec, end) => {
         const child = new URL(spec, url);
         if (child.origin !== root.origin || !child.pathname.startsWith(root.pathname))
@@ -25,9 +29,11 @@ export async function stationFile(attribute, hash) {
     await Promise.all(deps.map(collect));
   }
   const [shell, bench, desk, engine, license, fontLicense, font] = await Promise.all([
-    readAsset('index.html'),
+    readAsset(page),
     readAsset('../bench.css'),
-    readAsset('desk.css'),
+    Promise.all(['desk.css', ...extraStyles].map((path) => readAsset(path))).then((styles) =>
+      styles.join('\n'),
+    ),
     readAsset('../../vendor/matter-0.20.0.min.js'),
     readAsset('../../vendor/MATTER-LICENSE'),
     readAsset('../../vendor/VT323-OFL.txt'),
@@ -35,7 +41,7 @@ export async function stationFile(attribute, hash) {
       if (!response.ok) throw Error('Font unavailable');
       return response.arrayBuffer();
     }),
-    collect(new URL('desk.js', document.baseURI)),
+    collect(new URL(script, document.baseURI)),
   ]);
   const doc = new DOMParser().parseFromString(shell, 'text/html');
   const css = doc.createElement('style');
@@ -60,7 +66,7 @@ export async function stationFile(attribute, hash) {
   map.textContent = JSON.stringify({ imports });
   entry.before(map);
   entry.removeAttribute('src');
-  entry.textContent = 'import ' + JSON.stringify(id(new URL('desk.js', document.baseURI))) + ';';
+  entry.textContent = 'import ' + JSON.stringify(id(new URL(script, document.baseURI))) + ';';
   doc.body.dataset[attribute] = hash;
   const brand = doc.querySelector('.brand');
   brand.removeAttribute('href');

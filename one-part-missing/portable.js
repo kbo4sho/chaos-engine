@@ -1,4 +1,4 @@
-import {readAsset,base64} from './asset-source.js';
+import { readAsset, base64 } from './asset-source.js';
 import { packFittings, packedParts } from './machines.js';
 // Package only the published application assets. Start from the empty HTML
 // shell, so player records, clipboard values and in-progress runs stay local.
@@ -82,7 +82,19 @@ const modules = [
   'learning',
   'play',
 ];
-export async function portableFile(machine, replay = null) {
+// This snapshot is taken before the offline bench renders any local records.
+let raceShell;
+export function keepRaceShell() {
+  if (document.body.dataset.portable?.startsWith('race/1/'))
+    raceShell = document.documentElement.cloneNode(true);
+}
+export async function portableFile(machine, replay = null, race = null) {
+  if (race && raceShell) {
+    const shell = raceShell.cloneNode(true);
+    shell.querySelector('body').dataset.portable = race;
+    shell.querySelector('title').textContent = machine.title + ' · Friend challenge';
+    return new Blob(['<!doctype html>\n', shell.outerHTML], { type: 'text/html;charset=utf-8' });
+  }
   const [shell, css, engine, license, fontLicense, font, ...sources] = await Promise.all([
     readAsset('index.html'),
     readAsset('bench.css'),
@@ -111,7 +123,10 @@ export async function portableFile(machine, replay = null) {
   modules.forEach((name, i) => {
     // Data modules have no directory for relative imports. Give our own
     // module specifiers stable names in a standard HTML import map.
-    const source = sources[i].replace(/(\b(?:from\s+|import\(\s*)['"])\.\/([\w-]+)\.js(['"])/g, '$1missing/$2$3');
+    const source = sources[i].replace(
+      /(\b(?:from\s+|import\(\s*)['"])\.\/([\w-]+)\.js(['"])/g,
+      '$1missing/$2$3',
+    );
     imports['missing/' + name] =
       'data:text/javascript;base64,' + base64(new TextEncoder().encode(source));
   });
@@ -121,9 +136,8 @@ export async function portableFile(machine, replay = null) {
   entry.before(importMap);
   entry.removeAttribute('src');
   entry.textContent = "import 'missing/play';";
-  doc.body.dataset.portable = machine.id;
-  if (replay)
-    doc.body.dataset.repair = JSON.stringify(packFittings(packedParts(replay)));
+  doc.body.dataset.portable = race || machine.id;
+  if (replay) doc.body.dataset.repair = JSON.stringify(packFittings(packedParts(replay)));
   doc.title = machine.title + ' · One Part Missing';
   // The portable file is a single challenge that can be forwarded intact.
   const brand = doc.querySelector('.brand');

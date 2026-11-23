@@ -100,12 +100,12 @@ function updateControls() {
   next.hidden = transfer ? !stamped(lesson, 'solved') : seen < 2 && !stamped(lesson, 'solved');
   next.textContent = transfer
     ? i === lessons.length - 1
-      ? 'Back to One Part Missing →'
+      ? 'Try double exposures →'
       : 'Next experiment →'
     : 'Try the new machine →';
   next.href = transfer
     ? i === lessons.length - 1
-      ? '../'
+      ? 'double.html'
       : '#' + lessons[i + 1].id
     : '#' + lesson.id + '/test';
   el('back').hidden = !transfer;

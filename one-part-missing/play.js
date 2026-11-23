@@ -31,13 +31,15 @@ import {
 import { instruments as deviceParts } from './devices.js';
 import { campaign as machines, chapters, campaignById } from './campaign.js';
 import { repairBook, repairPrefix } from './repairs.js';
-import { portableFile } from './portable.js';
+import { portableFile, keepRaceShell } from './portable.js';
 import { usePress } from './press-client.js';
 import { makeEditor } from './maker.js';
 import { decodePrint } from './workshop.js';
 import { setupPredictions } from './prediction-desk.js';
 import { setupLab } from './tool-lab.js';
 import { draw, partIcon, snapshot, atFrame } from './drawing.js';
+
+keepRaceShell();
 
 // Keep the run and parts together. The same film and lesson controls move below
 // the repair on a phone so their state, listeners and accessible labels survive.

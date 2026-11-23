@@ -701,6 +701,21 @@ async function driveBank(page) {
 }
 
 const journeys = {
+  'offline-races': async page => {
+    const {verifyOfflineRaces} = await import('./verify-offline-races.mjs');
+    await verifyOfflineRaces(page,{url,record,shot,outDir});
+    result.passed = result.failures.length === 0;
+  },
+  'shutter-sheets': async page => {
+    const {verifyShutterSheets} = await import('./verify-shutter-sheets.mjs');
+    await verifyShutterSheets(page,{url,record,shot,outDir});
+    result.passed = result.failures.length === 0;
+  },
+  'double-exposures': async page => {
+    const {verifyDoubleExposures} = await import('./verify-double-exposures.mjs');
+    await verifyDoubleExposures(page,{url,record,shot,outDir});
+    result.passed = result.failures.length === 0;
+  },
   'replay-clips': async page => {
     const {verifyReplayClips} = await import('./verify-replay-clips.mjs');
     await verifyReplayClips(page,{url,record,shot,outDir});

@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#080c10" />
+    <title>Double exposures · One Part Missing</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="../bench.css" />
+    <link rel="stylesheet" href="desk.css" />
+    <link rel="stylesheet" href="double.css" />
+    <script src="../../vendor/matter-0.20.0.min.js"></script>
+    <script type="module" src="double-desk.js"></script>
+  </head>
+  <body>
+    <header class="mast">
+      <div class="mast-inner">
+        <a class="brand" href="./">← Change one thing</a>
+        <h1>Double exposures</h1>
+      </div>
+    </header>
+    <main>
+      <div class="bench">
+        <header class="instrument-head">
+          <div>
+            <p class="eyeline" id="double-number"></p>
+            <h2 id="double-title" tabindex="-1"></h2>
+            <p id="double-brief"></p>
+          </div>
+        </header>
+        <section class="cabinet" aria-label="Two-shutter machine">
+          <div class="glass">
+            <div class="exposure-strip">
+              <strong id="double-phase">Ready</strong
+              ><output id="double-clock" aria-live="off">0.00 s</output>
+            </div>
+            <canvas
+              id="double-scene"
+              width="720"
+              height="400"
+              role="img"
+              aria-label="Machine at release"
+            ></canvas>
+          </div>
+          <div class="transport">
+            <button id="double-run" type="button" class="primary">Run both shutters</button>
+            <label
+              >Speed
+              <select id="double-rate">
+                <option value="0.5">½×</option>
+                <option value="1" selected>1×</option>
+                <option value="2">2×</option>
+              </select></label
+            >
+          </div>
+        </section>
+        <aside class="drawer" aria-label="Machine settings">
+          <div id="double-controls"></div>
+          <p id="double-result" role="status"></p>
+          <div id="double-return-panel" hidden>
+            <a class="action-link" id="double-try-sheet" hidden>Try this puzzle yourself →</a>
+            <button class="quiet" id="double-return-copy" type="button">Copy return replay</button>
+            <output id="double-return-status" aria-live="polite"></output
+            ><input id="double-return-url" aria-label="Shutter return link" readonly hidden />
+          </div>
+          <div id="double-shots" aria-label="Exposure readings"></div>
+          <div class="double-film" id="double-film" hidden>
+            <label for="double-frame">Inspect</label
+            ><input type="range" id="double-frame" min="0" value="0" step="1" />
+          </div>
+          <label id="double-reference" hidden
+            ><input type="checkbox" id="double-overlay" checked /> Compare with previous run</label
+          >
+          <details id="double-help">
+            <summary>Review the two controls</summary>
+            <p id="double-hint"></p>
+            <div id="double-practice"></div>
+          </details>
+          <div class="double-footer">
+            <button type="button" class="quiet" id="double-refit" hidden>Refit best setup</button
+            ><a class="action-link" id="double-next" hidden></a>
+          </div>
+          <details id="double-maker" hidden>
+            <summary>Make a shutter puzzle</summary>
+            <p>
+              Choose two frames of this run. The next player gets the targets and a fresh set of
+              controls.
+            </p>
+            <div class="mark">
+              <label for="double-mark-1" id="double-mark-label-1">Shutter 1</label
+              ><output id="double-mark-value-1" for="double-mark-1"></output
+              ><input type="range" id="double-mark-1" min="0" step="1" />
+            </div>
+            <div class="mark">
+              <label for="double-mark-2" id="double-mark-label-2">Shutter 2</label
+              ><output id="double-mark-value-2" for="double-mark-2"></output
+              ><input type="range" id="double-mark-2" min="0" step="1" />
+            </div>
+            <div class="double-footer">
+              <button class="quiet" type="button" id="double-test-sheet">Test shutter puzzle</button
+              ><a id="double-play-sheet" class="action-link" hidden>Play this puzzle →</a>
+              <button class="quiet" type="button" id="double-copy-sheet" hidden>Copy puzzle link</button>
+            </div>
+            <output id="double-maker-result" aria-live="polite"></output
+            ><input id="double-sheet-url" aria-label="Shutter puzzle link" readonly hidden />
+          </details>
+          <div id="double-clip" class="clip-actions" hidden>
+            <button type="button" class="quiet" data-clip-make>Make replay GIF</button
+            ><a data-clip-save hidden>Save GIF</a>
+            <button type="button" class="quiet" data-clip-share hidden>Share GIF</button
+            ><output data-clip-status aria-live="polite"></output>
+          </div>
+        </aside>
+      </div>
+      <div id="double-pack" class="double-footer">
+        <button class="quiet" type="button" id="double-make-file">Make offline puzzle file</button
+        ><a class="action-link" id="double-file" hidden>Save puzzle file</a
+        ><output id="double-file-status" aria-live="polite"></output>
+      </div>
+      <nav class="discovery-library" aria-label="Two-shutter machines">
+        <label for="double-select">Double exposures</label
+        ><select id="double-select"></select
+        ><output id="double-progress"></output>
+      </nav>
+    </main>
+  </body>
+</html>

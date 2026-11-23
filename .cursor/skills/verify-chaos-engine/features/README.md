@@ -111,3 +111,9 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Change one thing](./discovery.md) covers twelve pairs of exploratory and transfer rigs.
 
 - [Replay GIFs](./replay-clips.md) covers local, animated exports of comparison films.
+
+- [Double exposures](./double-exposures.md). Play six machines with two adjustable tools and two timed shutter marks.
+
+- [Player shutter puzzles](./shutter-sheets.md). Use a recorded run to set two marks for someone else to match.
+
+- [Offline friend races](./offline-races.md). Play and return a work-order race between disconnected devices.
