@@ -123,7 +123,7 @@ Write terse machine-like feedback with a concrete result or next action: `HATCH 
 
 ### One Part Missing workbench
 
-The puzzle route opens from the gravity bar in its own tab. Its instrument cabinet groups the mechanism, transport and inspection slider. The removable part and goal use the sandbox’s amber accent. Mint identifies fixed track and mounting hardware against the dark gridded board. Shape and text distinguish parts and states alongside color. The A and B sockets accept both dragging and separate taps or keyboard activation. The machine shelf and workshop sit below the bench on all screen sizes.
+The puzzle route uses the sandbox’s black glass, cyan track, green run control and VT323 display type. Amber marks the moving marble, fitted hardware and goals. The playfield occupies the wide column, with a compact parts drawer beside it on desktop and directly below it on a phone. Lettered sockets have 44px hit areas and accept dragging, tapping or keyboard activation. The ten-chapter level map displays ten rows or cells at a time. Numbers, checkmarks and text identify contact order, completed repairs and the current level alongside color.
 
 ## Do's and Don'ts
 

@@ -1,9 +1,9 @@
 import { WIDTH, HEIGHT } from './machines.js';
 
-const mint = '#9edac9',
-  brass = '#ffce76',
-  iron = '#3e696a',
-  shadow = '#0d2023';
+const mint = '#56d9df',
+  brass = '#ffc857',
+  iron = '#375563',
+  shadow = '#0a1219';
 const tau = 2 * Math.PI;
 function path(c, points, stroke, width = 1, fill) {
   c.beginPath();
@@ -49,7 +49,7 @@ function bolt(c, x, y, r = 3) {
   line(c, x - r * 0.55, y + r * 0.4, x + r * 0.55, y - r * 0.4, '#8b9f91', 0.8);
 }
 function caption(c, text, x, y, align = 'left') {
-  c.fillStyle = '#aac2b7';
+  c.fillStyle = '#aac4d0';
   c.font = 'bold 11px ui-monospace, monospace';
   c.textAlign = align;
   c.fillText(text, x, y);
@@ -57,12 +57,12 @@ function caption(c, text, x, y, align = 'left') {
 }
 
 function grid(c) {
-  c.fillStyle = '#142c30';
+  c.fillStyle = '#0c141c';
   c.fillRect(0, 0, WIDTH, HEIGHT);
   for (let x = 0; x <= WIDTH; x += 20)
-    line(c, x, 0, x, HEIGHT, x % 100 === 0 ? '#2a4547' : '#203a3e', 0.75);
+    line(c, x, 0, x, HEIGHT, x % 100 === 0 ? '#243a48' : '#182935', 0.75);
   for (let y = 0; y <= HEIGHT; y += 20)
-    line(c, 0, y, WIDTH, y, y % 100 === 0 ? '#2a4547' : '#203a3e', 0.75);
+    line(c, 0, y, WIDTH, y, y % 100 === 0 ? '#243a48' : '#182935', 0.75);
   for (const x of [20, WIDTH - 20])
     for (const y of [20, HEIGHT - 20]) {
       line(c, x - 4, y, x + 4, y, '#54716d');
@@ -94,7 +94,7 @@ function stand(c, s) {
         ],
         '#5c7875',
         2,
-        '#294344',
+        '#1c3541',
       );
       path(
         c,
@@ -105,23 +105,23 @@ function stand(c, s) {
         ],
         '#5d7770',
         1,
-        '#183234',
+        '#122633',
       );
     } else {
-      c.fillStyle = '#2c4a4b';
+      c.fillStyle = '#203744';
       c.fillRect(x - 5, top, 10, base - top);
-      line(c, x - 4, top, x - 4, base, '#627b73', 1);
-      for (let h = top + 20; h < base - 5; h += 21) disc(c, x, h, 1.7, '#142c30');
+      line(c, x - 4, top, x - 4, base, '#3b5a66', 1);
+      for (let h = top + 20; h < base - 5; h += 21) disc(c, x, h, 1.7, '#0c141c');
     }
-    c.fillStyle = '#4a6761';
+    c.fillStyle = '#304a56';
     c.fillRect(x - (s.pivot ? 34 : 14), base, s.pivot ? 68 : 28, 4);
     c.fillStyle = '#152629';
     c.fillRect(x - 15, base + 4, 30, 3);
   });
   if (legs.length === 2 && s.w > 110) {
     const [a, b] = legs;
-    line(c, a + 4, base - 8, b - 4, y + 23, '#355452', 4);
-    line(c, a + 4, base - 10, b - 4, y + 21, '#536d64', 1);
+    line(c, a + 4, base - 8, b - 4, y + 23, '#213b47', 4);
+    line(c, a + 4, base - 10, b - 4, y + 21, '#36525e', 1);
   }
 }
 
@@ -130,7 +130,7 @@ function beam(c, s) {
     h = s.h,
     fitted = s.fitted;
   const rim = fitted ? brass : s.pivot ? '#e8c279' : mint,
-    mid = fitted ? '#92703f' : s.pivot ? '#7c6c46' : '#4f8380';
+    mid = fitted ? '#92703f' : s.pivot ? '#7c6c46' : '#24747b';
   c.fillStyle = '#091e20';
   c.fillRect(-w / 2 + 2, -h / 2 + 4, w, h + 2);
   c.fillStyle = mid;
@@ -234,7 +234,14 @@ function target(c, s, lit, age, index, total) {
       line(c, x, -h * 0.31, x + d, h * (0.37 - 0.1 * k), ring, 5);
       line(c, x - 1, -h * 0.29, x + d - 1, h * (0.32 - 0.1 * k), '#f9dda0', 1);
     }
-    if (total > 1) caption(c, String(index + 1), 0, -h * 0.6 - 7, 'center');
+  }
+  if (total > 1) {
+    const y = -h * 0.65 - 13;
+    disc(c, 0, y, 10, '#0a1219', lit ? brass : mint, 1);
+    c.font = 'bold 14px ui-monospace,monospace';
+    c.textAlign = 'center';
+    c.fillStyle = lit ? brass : '#e0fcff';
+    c.fillText(String(index + 1), 0, y + 5);
   }
   if (lit && age < 32) {
     c.globalAlpha = (1 - age / 32) * 0.8;
@@ -298,19 +305,19 @@ export function draw(c, run, { trail = [], ghost = [], small = false } = {}) {
 
 const icons = {
   bridge:
-    '<path d="m4 18 52 6-1 6-52-6z" fill="#8a724a"/><path d="m8 23 3-4m5 5 3-4m5 5 3-4m5 5 3-4m5 5 3-4"/>',
+    '<path d="m4 18 52 6-1 6-52-6z" fill="#355665"/><path d="m8 23 3-4m5 5 3-4m5 5 3-4m5 5 3-4m5 5 3-4"/>',
   chute:
-    '<path d="m4 26 48-19 3 6L7 32z" fill="#7f7954"/><path d="m12 27 1-6m8 3 1-6m8 2 1-6m8 3 1-6"/>',
+    '<path d="m4 26 48-19 3 6L7 32z" fill="#30555e"/><path d="m12 27 1-6m8 3 1-6m8 2 1-6m8 3 1-6"/>',
   bumper:
-    '<circle cx="30" cy="20" r="15" fill="#586456"/><circle cx="30" cy="20" r="11" stroke-dasharray="3 3"/><circle cx="30" cy="20" r="6"/>',
+    '<circle cx="30" cy="20" r="15" fill="#25454f"/><circle cx="30" cy="20" r="11" stroke-dasharray="3 3"/><circle cx="30" cy="20" r="6"/>',
   weight:
-    '<path d="M17 10h26l3 23H14z" fill="#796346"/><path d="M24 10V6h12v4m-20 16h28"/><circle cx="30" cy="18" r="3"/>',
+    '<path d="M17 10h26l3 23H14z" fill="#38535a"/><path d="M24 10V6h12v4m-20 16h28"/><circle cx="30" cy="18" r="3"/>',
   domino:
-    '<g transform="rotate(13 30 20)"><rect x="24" y="3" width="13" height="34" rx="1" fill="#846e48"/><path d="M24 20h13"/><circle cx="29" cy="10" r="1"/><circle cx="32" cy="15" r="1"/><circle cx="30" cy="27" r="1"/></g>',
+    '<g transform="rotate(13 30 20)"><rect x="24" y="3" width="13" height="34" rx="1" fill="#365667"/><path d="M24 20h13"/><circle cx="29" cy="10" r="1"/><circle cx="32" cy="15" r="1"/><circle cx="30" cy="27" r="1"/></g>',
 };
 export function partIcon(id) {
   return (
-    '<svg viewBox="0 0 60 40" fill="none" stroke="#ffd686" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">' +
+    '<svg viewBox="0 0 60 40" fill="none" stroke="#73e2e3" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">' +
     icons[id] +
     '</svg>'
   );

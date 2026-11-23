@@ -130,19 +130,29 @@ export const machines = [
   },
 ];
 
+export function canFlip(machine, part) {
+  return Boolean(machine.reversible && ['bridge', 'chute'].includes(part));
+}
+
 export function validMove(machine, move) {
   return Boolean(
     move &&
     machine.tray.includes(move.part) &&
     Number.isInteger(move.socket) &&
-    machine.sockets[move.socket],
+    machine.sockets[move.socket] &&
+    (move.flipped === undefined ||
+      move.flipped === false ||
+      (move.flipped === true && canFlip(machine, move.part))),
   );
 }
 
 export function assembly(machine, move) {
   const shapes = [...machine.fixtures];
-  if (validMove(machine, move))
-    shapes.push({ ...parts[move.part].shape, ...machine.sockets[move.socket], fitted: true });
+  if (validMove(machine, move)) {
+    const shape = { ...parts[move.part].shape, ...machine.sockets[move.socket], fitted: true };
+    if (move.flipped) shape.a = -shape.a;
+    shapes.push(shape);
+  }
   return [...shapes, machine.ball, ...machine.goals];
 }
 
@@ -195,9 +205,10 @@ export function createRun(M, machine, move = null, offset = 0) {
   };
   M.Events.on(engine, 'collisionStart', ({ pairs }) => {
     for (const { bodyA, bodyB } of pairs) {
-      const target = goals[run.hits.length]?.body;
+      const goal = goals[run.hits.length];
+      const target = goal?.body;
       const striker = bodyA === target ? bodyB : bodyB === target ? bodyA : null;
-      if (striker?.label === run.striker) run.hits.push(run.tick);
+      if (striker?.label === (goal?.shape.striker || run.striker)) run.hits.push(run.tick);
     }
   });
   return run;
@@ -212,7 +223,11 @@ export function advance(M, run) {
     const { x, y } = run.ball.position;
     const outside = y > HEIGHT + 70 || x > WIDTH + 65 || x < -65;
     // A tile can still trip the flag after the marble leaves the board.
-    if (run.tick >= LIMIT || (outside && run.striker === 'marble')) run.state = 'miss';
+    if (
+      run.tick >= LIMIT ||
+      (outside && (run.goals[run.hits.length]?.shape.striker || run.striker) === 'marble')
+    )
+      run.state = 'miss';
   }
 }
 

@@ -14,9 +14,10 @@ export function installBench(api) {
           : null;
       if (!target) continue;
       const other = target === bodyA ? bodyB : bodyA;
-      if (other.isSensor || other.isStatic) continue;
+      const required = target.render.machineShape.striker;
+      if (other.isSensor || other.isStatic || (required && other.label !== required)) continue;
       target.render.struckAt = engine.timing.timestamp;
-      api.chime([523.25, 659.25, 783.99][target.render.noteIndex || 0]);
+      api.chime([523.25, 659.25, 783.99, 1046.5][target.render.noteIndex || 0]);
     }
   });
   const args = new URLSearchParams(location.hash.slice(1));
@@ -27,7 +28,11 @@ export function installBench(api) {
     return;
   }
   const index = args.get('socket');
-  const requested = { part: args.get('part'), socket: /^[01]$/.test(index || '') ? Number(index) : -1 };
+  const requested = {
+    part: args.get('part'),
+    socket: /^\d$/.test(index || '') ? Number(index) : -1,
+    flipped: args.get('flip') === '1',
+  };
   const move = validMove(machine, requested) ? requested : null;
   // Keep the solver's physical units across devices. Shrinking a domino's
   // actual body changes its inertia and its ability to topple its neighbor.
@@ -39,6 +44,7 @@ export function installBench(api) {
     body.render.machineShape = { ...s };
     body.render.machineUnits = true;
     if (s.sensor) {
+      if (machine.striker && !s.striker) body.render.machineShape.striker = machine.striker;
       body.render.noteIndex = machine.goals.indexOf(s);
       body.render.noteCount = machine.goals.length;
     }

@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#112326" />
+    <meta name="theme-color" content="#080c10" />
     <title>One Part Missing · Chaos Engine</title>
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="one-part-missing/bench.css" />
@@ -16,24 +16,21 @@
         <a href="index.html" class="brand"
           ><span class="brand-mark" aria-hidden="true">ϟ</span> Chaos Engine</a
         >
+        <h1>One Part Missing</h1>
         <button id="sound" type="button" aria-pressed="true">Sound on</button>
       </div>
     </header>
     <main>
-      <div class="nameplate">
-        <span class="machine-mark" aria-hidden="true"><i></i><i></i><i></i></span>
-        <h1>One Part Missing</h1>
-      </div>
       <div class="bench">
-        <section class="cabinet" aria-labelledby="machine-title">
-          <div class="instrument-head">
-            <div>
-              <p class="eyeline" id="machine-no">Machine 01 / 06</p>
-              <h2 id="machine-title">The last bell</h2>
-              <p id="goal">Ring the brass bell.</p>
-            </div>
-            <span class="plate" aria-hidden="true" id="plate">01</span>
+        <div class="instrument-head">
+          <div>
+            <p class="eyeline" id="machine-no">Level 001 / 100 · First shift</p>
+            <h2 id="machine-title">The last bell</h2>
+            <p id="goal">Ring the brass bell.</p>
           </div>
+          <button class="map-link" id="map-link" type="button" aria-controls="chapter">Level map ↓</button>
+        </div>
+        <section class="cabinet" aria-labelledby="machine-title">
           <div class="glass">
             <div class="glass-strip"><span id="pilot">Ready</span><span id="counter">0.00 s</span></div>
             <div id="stage">
@@ -65,11 +62,11 @@
         </section>
         <aside class="drawer" aria-labelledby="drawer-title">
           <div class="drawer-top">
-            <span class="handle" aria-hidden="true"></span>
             <h2 id="drawer-title">Parts drawer</h2>
-            <p>Fit one part. Run the machine.</p>
+            <p>Choose a part, then tap a socket.</p>
           </div>
           <div id="parts" role="group" aria-label="Spare parts"></div>
+          <button id="flip" class="quiet" type="button" aria-pressed="false" hidden>Flip rail</button>
           <p id="status" role="status" aria-live="polite">Watch a run, or pick a part to fit.</p>
           <div id="after-win" hidden>
             <button id="replay" class="quiet">Watch replay</button
@@ -89,9 +86,15 @@
       </div>
       <section class="library" aria-labelledby="library-title">
         <div class="library-head">
-          <h2 id="library-title">Machine shelf</h2>
-          <span id="progress">0 of 6 repaired</span>
+          <h2 id="library-title">Level map</h2>
+          <span id="progress">0 of 100 repaired</span>
         </div>
+        <div class="chapter-bar">
+          <label for="chapter">Chapter</label
+          ><select id="chapter"></select>
+          <a id="continue">Continue campaign →</a>
+        </div>
+        <p id="chapter-hint"></p>
         <div id="shelf"></div>
       </section>
       <section class="workshop" aria-labelledby="workshop-title">

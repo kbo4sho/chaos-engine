@@ -15,6 +15,7 @@ Usage: ./scripts/verify-chaos-engine <command> [options]
   drive save-load                 Drive the save/load journey in Chrome
   drive example-scenes            Drive the built-in example scenes
   drive example-scenes-mobile     Drive examples + slots with iPhone/Android tap
+  drive puzzle-campaign            Solve all 100 numbered campaign machines
   drive one-part-missing          Repair, replay, print, share and open machines
   drive ui-layout                 Measure save-cluster layout at 390 and 1280
   cleanup                         Kill only the PID this run started
@@ -68,6 +69,12 @@ cmd_launch() {
     if git -C "$REPO_ROOT" cat-file -e main:examples/chaos-examples.js 2>/dev/null; then
       git -C "$REPO_ROOT" show main:examples/chaos-examples.js > "$snapshot/examples/chaos-examples.js"
     fi
+    local asset
+    for asset in vendor one-part-missing one-part-missing.html; do
+      if git -C "$REPO_ROOT" cat-file -e "main:$asset" 2>/dev/null; then
+        git -C "$REPO_ROOT" archive main "$asset" | tar -x -C "$snapshot"
+      fi
+    done
     cp "$REPO_ROOT/server.js" "$snapshot/server.js"
     serve_root="$snapshot"
     revision="$(git -C "$REPO_ROOT" rev-parse main)"
@@ -227,7 +234,7 @@ cmd_doctor() {
 cmd_drive() {
   local journey="${1:-}"
   if [[ -z "$journey" ]]; then
-    echo "usage: ./scripts/verify-chaos-engine drive save-load|example-scenes|example-scenes-mobile|ui-layout|one-part-missing" >&2
+    echo "usage: ./scripts/verify-chaos-engine drive save-load|example-scenes|example-scenes-mobile|ui-layout|one-part-missing|puzzle-campaign" >&2
     exit 2
   fi
   cmd_doctor

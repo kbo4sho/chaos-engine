@@ -59,3 +59,5 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Bank](./bank.md) covers local-axis travel reflection, final toolbar selection after Trim, real touch/desktop input, motion and Clear cleanup.
 
 - [One Part Missing](./one-part-missing.md) covers the puzzle shelf, physical repairs, inspection, replays, generated machines, sharing and sandbox editing.
+
+- [Puzzle campaign](./puzzle-campaign.md) covers 100 progressively harder machines, chapter navigation, reversible rails, multi-body contacts and permanent progress.

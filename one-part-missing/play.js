@@ -1,4 +1,5 @@
-import { WIDTH, HEIGHT, STEP, machines, parts, validMove, createRun, advance } from './machines.js';
+import { WIDTH, HEIGHT, STEP, canFlip, parts, validMove, createRun, advance } from './machines.js';
+import { campaign as machines, chapters, campaignById } from './campaign.js';
 import { repairBook, repairPrefix } from './repairs.js';
 import { portableFile } from './portable.js';
 import { usePress } from './press-client.js';
@@ -13,7 +14,9 @@ const setEditorMachine = makeEditor(M);
 const book = repairBook(() => localStorage);
 function savedMove() {
   const saved = book.read()[machine.id];
-  return validMove(machine, saved) ? { part: saved.part, socket: saved.socket } : null;
+  return validMove(machine, saved)
+    ? { part: saved.part, socket: saved.socket, ...(saved.flipped ? { flipped: true } : {}) }
+    : null;
 }
 
 let enclosedReplay = null;
@@ -21,6 +24,7 @@ let machine,
   run,
   move = null,
   selected = null,
+  flipped = false,
   phase = 'ready',
   raf = 0,
   previous = 0,
@@ -94,42 +98,73 @@ new ResizeObserver(() => {
   }
 }).observe($('stage'));
 
-const shelf = machines.map((m, i) => {
-  const a = document.createElement('a');
-  a.className = 'shelf-item';
-  a.href = '#' + m.id;
-  const meta = document.createElement('span');
-  meta.className = 'shelf-meta';
-  meta.innerHTML = '<span>NO. ' + number(i + 1) + '</span><b></b>';
-  const thumb = document.createElement('canvas');
-  thumb.width = 240;
-  thumb.height = 108;
-  thumb.setAttribute('aria-hidden', 'true');
-  draw(thumb.getContext('2d'), createRun(M, m), { small: true });
-  const title = document.createElement('strong');
-  title.textContent = m.title;
-  a.append(meta, thumb, title);
-  $('shelf').append(a);
-  return a;
-});
-function updateShelf() {
-  let solved = 0;
-  const all = book.read();
-  machines.forEach((m, i) => {
-    const done = validMove(m, all[m.id]),
-      link = shelf[i];
-    if (done) solved++;
-    if (m.id === machine.id) link.setAttribute('aria-current', 'page');
-    else link.removeAttribute('aria-current');
-    link.querySelector('b').textContent = done ? '✓' : '';
-    link.setAttribute('aria-label', m.title + (done ? ', repaired' : ''));
-  });
-  $('progress').textContent = solved + ' of ' + machines.length + ' repaired';
+let activeChapter = 0;
+for (const [i, [title]] of chapters.entries()) {
+  const option = document.createElement('option');
+  option.value = i;
+  option.textContent = number(i + 1) + ' · ' + title;
+  $('chapter').append(option);
 }
+function updateShelf() {
+  const all = book.read();
+  const unfinished = machines.filter((m) => !validMove(m, all[m.id]));
+  $('progress').textContent =
+    machines.length - unfinished.length + ' of ' + machines.length + ' repaired';
+  const resume = $('continue');
+  resume.hidden = !unfinished.length;
+  if (unfinished.length) {
+    resume.href = '#' + unfinished[0].id;
+    resume.textContent = 'Continue at ' + number(machines.indexOf(unfinished[0]) + 1) + ' →';
+  }
+  $('chapter').value = activeChapter;
+  $('chapter-hint').textContent = chapters[activeChapter][1];
+  const links = machines.slice(activeChapter * 10, activeChapter * 10 + 10).map((m, i) => {
+    const link = document.createElement('a');
+    const done = validMove(m, all[m.id]);
+    const seq = number(activeChapter * 10 + i + 1);
+    link.className = 'shelf-item';
+    link.href = '#' + m.id;
+    if (m.id === machine.id) link.setAttribute('aria-current', 'page');
+    link.setAttribute('aria-label', 'Level ' + seq + ', ' + m.title + (done ? ', repaired' : ''));
+    const index = document.createElement('span'),
+      title = document.createElement('strong'),
+      check = document.createElement('span');
+    index.className = 'shelf-num';
+    index.textContent = seq;
+    title.textContent = m.title;
+    check.className = 'check';
+    check.textContent = done ? '✓' : '';
+    link.append(index, title, check);
+    return link;
+  });
+  $('shelf').replaceChildren(...links);
+}
+$('chapter').addEventListener('change', () => {
+  activeChapter = Number($('chapter').value);
+  updateShelf();
+});
+$('map-link').addEventListener('click', (event) => {
+  event.preventDefault();
+  $('chapter').focus();
+  $('library-title').scrollIntoView({ block: 'start' });
+});
+function focusCurrent(event) {
+  if (event.target.closest('a')?.hash === location.hash) {
+    event.preventDefault();
+    $('machine-title').focus({ preventScroll: true });
+    $('machine-title').scrollIntoView({ block: 'start' });
+  }
+}
+$('shelf').addEventListener('click', focusCurrent);
+$('continue').addEventListener('click', focusCurrent);
 
 function controls() {
   const busy = playing(),
     won = savedMove() || enclosedReplay;
+  $('flip').hidden = !machine.reversible;
+  $('flip').disabled = busy || !canFlip(machine, selected);
+  $('flip').setAttribute('aria-pressed', String(flipped));
+  $('flip').textContent = flipped ? 'Flip rail · reversed' : 'Flip rail';
   $('run').disabled = busy;
   $('run-label').textContent = busy
     ? 'Running…'
@@ -155,10 +190,21 @@ function controls() {
   }[phase];
   $('pilot').dataset.state = phase;
   $('signal').textContent =
-    machine.goals.length > 1 ? run.hits.length + ' / ' + machine.goals.length + ' notes' : '';
+    machine.goals.length > 1
+      ? run.hits.length +
+        ' / ' +
+        machine.goals.length +
+        (machine.goals.every((g) => g.kind === 'chime') ? ' notes' : ' contacts')
+      : '';
   for (const b of $('parts').children) {
     b.disabled = busy;
     b.setAttribute('aria-pressed', String(selected === b.dataset.part));
+    const reversed = selected === b.dataset.part && flipped;
+    const part = parts[b.dataset.part];
+    const hint = b.dataset.part === 'chute' && reversed ? 'Roll to the right' : part.description;
+    b.classList.toggle('reversed', reversed);
+    b.querySelector('small').textContent = hint;
+    b.setAttribute('aria-label', part.name + (reversed ? ', reversed' : '') + ' — ' + hint);
   }
   for (const [i, b] of [...$('sockets').children].entries()) {
     b.disabled = busy;
@@ -169,6 +215,7 @@ function controls() {
   if (move) {
     hash.set('part', move.part);
     hash.set('socket', String(move.socket));
+    if (move.flipped) hash.set('flip', '1');
   }
   $('open-sandbox').href = 'index.html#' + hash;
 }
@@ -191,10 +238,11 @@ function resetRun(keepGhost = false) {
 }
 function selectPart(id) {
   if (playing()) return;
+  if (selected !== id) flipped = false;
   selected = id;
   if (phase !== 'ready') resetRun(true);
   controls();
-  message(parts[id].name + ' selected. Tap socket A or B.');
+  message(parts[id].name + ' selected. Tap a socket.');
 }
 function fit(i) {
   if (playing()) return;
@@ -202,11 +250,28 @@ function fit(i) {
     message('Pick a part from the drawer, then tap socket ' + socketName(i) + '.');
     return;
   }
-  move = { part: selected, socket: i };
+  move = { part: selected, socket: i, ...(flipped ? { flipped: true } : {}) };
   resetRun(true);
   tone(250, 0.1, 0.03, 'triangle');
-  message(parts[selected].name + ' fitted to ' + socketName(i) + '. Test your repair.');
+  message(
+    parts[selected].name +
+      ' fitted to ' +
+      socketName(i) +
+      (flipped ? ', reversed.' : '.') +
+      ' Test your repair.',
+  );
 }
+$('flip').addEventListener('click', () => {
+  if (playing() || !canFlip(machine, selected)) return;
+  flipped = !flipped;
+  if (move?.part === selected) fit(move.socket);
+  else {
+    controls();
+    message(
+      parts[selected].name + (flipped ? ' reversed.' : ' in its original direction.') + ' Tap a socket.',
+    );
+  }
+});
 function buildDrawer() {
   $('parts').replaceChildren();
   $('sockets').replaceChildren();
@@ -222,7 +287,6 @@ function buildDrawer() {
       '</strong><small>' +
       parts[id].description +
       '</small></span>';
-    b.setAttribute('aria-label', parts[id].name + ' — ' + parts[id].description);
     b.addEventListener('click', () => {
       if (!suppressClick) selectPart(id);
     });
@@ -235,6 +299,11 @@ function buildDrawer() {
   machine.sockets.forEach((s, i) => {
     const b = document.createElement('button');
     b.className = 'socket';
+    // Leave the target and its sequence number visible when a mount is adjacent.
+    b.classList.toggle(
+      'beside-target',
+      machine.goals.some((g) => Math.hypot(g.x - s.x, g.y - s.y) < 42),
+    );
     b.type = 'button';
     b.dataset.socket = i;
     b.style.left = (s.x / WIDTH) * 100 + '%';
@@ -286,7 +355,7 @@ window.addEventListener('pointerup', (event) => {
     }, 0);
     const target = document.elementFromPoint(event.clientX, event.clientY)?.closest('.socket');
     if (target) fit(Number(target.dataset.socket));
-    else message('Drop the part on A or B, or tap a socket.');
+    else message('Drop the part on a marked socket, or tap one.');
   }
   endDrag();
 });
@@ -294,6 +363,11 @@ window.addEventListener('pointercancel', endDrag);
 window.addEventListener('blur', endDrag);
 
 let finishTick = 0;
+function bookComplete() {
+  if (!campaignById.has(machine.id)) return false;
+  const all = book.read();
+  return machines.every((m) => validMove(m, all[m.id]));
+}
 function finish() {
   const win = run.state === 'won';
   phase = win ? 'won' : 'miss';
@@ -310,10 +384,15 @@ function finish() {
   drawBench();
   message(
     win
-      ? machine.success + (replaying ? ' Replay complete.' : ' Repair recorded.')
+      ? machine.success +
+          (replaying
+            ? ' Replay complete.'
+            : bookComplete()
+              ? ' All 100 machines repaired.'
+              : ' Repair recorded.')
       : move
         ? 'That repair missed. Try another part or socket.'
-        : 'The machine missed. Pick a part, then tap A or B.',
+        : 'The machine missed. Pick a part, then tap a socket.',
   );
   if (!win) tone(128, 0.14, 0.025, 'triangle');
 }
@@ -338,7 +417,7 @@ function frame(now) {
       trail.push([run.ball.position.x, run.ball.position.y]);
     }
     if (run.hits.length !== before) {
-      tone([523.25, 659.25, 783.99][Math.min(before, 2)], 0.55, 0.1);
+      tone([523.25, 659.25, 783.99, 1046.5][Math.min(before, 3)], 0.55, 0.1);
       controls();
     }
     if (run.state === 'won') {
@@ -359,6 +438,7 @@ function launch(replay = false) {
     if (!last) return;
     move = last;
     selected = last.part;
+    flipped = Boolean(last.flipped);
   }
   startAudio();
   resetRun();
@@ -379,6 +459,7 @@ $('replay').addEventListener('click', () => launch(true));
 $('reset').addEventListener('click', () => {
   move = null;
   selected = null;
+  flipped = false;
   resetRun();
   message('Machine reset. Watch a run, or fit a part.');
 });
@@ -459,6 +540,7 @@ function navigate(resolved, id, announce = false) {
   setEditorMachine(machine);
   move = null;
   selected = null;
+  flipped = false;
   endDrag();
   $('copy-fallback').hidden = true;
   let lastPrint;
@@ -481,11 +563,13 @@ function navigate(resolved, id, announce = false) {
       'The empty machine missed at all three release points. ' +
       machine.verifiedRepairs +
       (machine.verifiedRepairs === 1 ? ' fitting worked' : ' fittings worked') +
-      ' at all three. Both sockets and all three parts were tested.';
+      ' at all three. Every available fitting was tested.';
   const index = machines.indexOf(machine),
     seq = index < 0 ? 'W' : number(index + 1);
-  $('machine-no').textContent = index < 0 ? 'Machine press · verified' : 'Machine ' + seq + ' / 06';
-  $('plate').textContent = seq;
+  if (index >= 0) activeChapter = Math.floor(index / 10);
+  $('machine-no').textContent =
+    index < 0 ? 'Machine press · verified' : 'Level ' + seq + ' / 100 · ' + chapters[activeChapter][0];
+  $('machine-title').tabIndex = -1;
   $('machine-title').textContent = machine.title;
   $('goal').textContent = machine.goal;
   document.title = machine.title + ' · One Part Missing';
@@ -532,7 +616,7 @@ async function route(announce) {
   const id = document.body.dataset.portable || location.hash.slice(1) || machines[0].id;
   const bench = document.querySelector('.bench');
   try {
-    let resolved = machines.find((m) => m.id === id);
+    let resolved = campaignById.get(id);
     if (!resolved && decodePrint(id)) {
       bench.inert = true;
       bench.setAttribute('aria-busy', 'true');

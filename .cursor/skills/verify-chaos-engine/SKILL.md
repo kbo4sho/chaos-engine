@@ -156,6 +156,7 @@ All helpers are executable. Invoke them from the repo root.
 | `./scripts/verify-chaos-engine drive save-load` | Browser journey for [features/save-load.md](../../features/save-load.md) |
 | `./scripts/verify-chaos-engine drive example-scenes` | Browser journey for [features/example-scenes.md](../../features/example-scenes.md) |
 | `./scripts/verify-chaos-engine drive example-scenes-mobile` | iPhone 13 + Pixel 5 tap journey for [features/example-scenes-mobile.md](../../features/example-scenes-mobile.md) |
+| `./scripts/verify-chaos-engine drive puzzle-campaign` | [Full campaign](features/puzzle-campaign.md), all 100 repairs, chapter progress, rail orientation and portable replay |
 | `./scripts/verify-chaos-engine drive one-part-missing` | [Puzzle shelf](features/one-part-missing.md), real repairs, replay, workshop links and sandbox save/load |
 | `./scripts/verify-chaos-engine drive ui-layout` | Standard 390 / 1280 layout proof for [features/ui-layout.md](../../features/ui-layout.md) |
 | `./scripts/verify-chaos-engine drive deflect` | Touch and desktop quarter-turn travel proof for [features/deflect.md](features/deflect.md) |

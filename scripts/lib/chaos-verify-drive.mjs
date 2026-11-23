@@ -701,6 +701,11 @@ async function driveBank(page) {
 }
 
 const journeys = {
+  'puzzle-campaign': async page => {
+    const {verifyCampaign} = await import('./verify-puzzle-campaign.mjs');
+    await verifyCampaign(page,{url,record,shot,outDir});
+    result.passed = result.failures.length === 0;
+  },
   'one-part-missing': async page => {
     const {verifyPuzzles} = await import('./verify-one-part-missing.mjs');
     await verifyPuzzles(page,{url,record,shot,outDir});

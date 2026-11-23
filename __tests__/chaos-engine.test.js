@@ -5194,9 +5194,13 @@ describe('Easter Eggs', () => {
 // ============================================
 
 describe('CSS Styles', () => {
-  it('should include VT323 font', () => {
-    expect(html).toContain('fonts.googleapis.com');
-    expect(html).toContain('VT323');
+  it('loads the same bundled VT323 face in the sandbox and puzzle bench', () => {
+    const face = 'vendor/VT323-Regular.ttf';
+    expect(html).toMatch(/@font-face\s*\{\s*font-family:\s*'VT323'/);
+    expect(html).toContain("url('" + face + "')");
+    const bench = fs.readFileSync(path.resolve('one-part-missing/bench.css'), 'utf8');
+    expect(bench).toContain("url('../" + face + "')");
+    expect(fs.readFileSync(path.resolve(face)).readUInt32BE(0)).toBe(0x00010000);
   });
 
   it('should have CRT aesthetic (scanline overlay)', () => {

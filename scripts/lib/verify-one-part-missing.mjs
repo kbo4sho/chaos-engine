@@ -3,6 +3,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import Matter from 'matter-js';
+import { campaign } from '../../one-part-missing/campaign.js';
 import { machines } from '../../one-part-missing/machines.js';
 import { resolveMachine, certify } from '../../one-part-missing/workshop.js';
 
@@ -37,6 +38,11 @@ export async function verifyPuzzles(home, { url, record, shot, outDir }) {
       await page.$eval(selector, (e) => e.scrollIntoView({ block: 'nearest', inline: 'center' }));
       if (mobile) await page.tap(selector);
       else await page.click(selector);
+    };
+    const openLevel = async (id) => {
+      const chapter = Math.floor(campaign.findIndex((m) => m.id === id) / 10);
+      await page.select('#chapter', String(chapter));
+      await press('#shelf a[href="#' + id + '"]');
     };
     const wait = (phase) =>
       page.waitForFunction(
@@ -152,7 +158,7 @@ export async function verifyPuzzles(home, { url, record, shot, outDir }) {
     );
     await workbench.close();
     await page.bringToFront();
-    await press('#shelf a[href="#domino-post"]');
+    await openLevel('domino-post');
     await page.waitForFunction(
       () => document.querySelector('#machine-title').textContent === 'Special delivery',
     );
@@ -191,7 +197,7 @@ export async function verifyPuzzles(home, { url, record, shot, outDir }) {
       ];
       for (const [i, [part, socket]] of repairs.entries()) {
         const m = machines[i + 1];
-        await press('#shelf a[href="#' + m.id + '"]');
+        await openLevel(m.id);
         await page.waitForFunction(
           (title) => document.querySelector('#machine-title').textContent === title,
           {},
@@ -209,7 +215,7 @@ export async function verifyPuzzles(home, { url, record, shot, outDir }) {
       }
       record(
         'desktop-six-repaired',
-        (await page.$eval('#progress', (el) => el.textContent)) === '6 of 6 repaired',
+        (await page.$eval('#progress', (el) => el.textContent)) === '6 of 100 repaired',
         await page.$eval('#progress', (el) => el.textContent),
       );
       await shot(page, 'desktop-04-six-repaired.png');
@@ -258,7 +264,7 @@ export async function verifyPuzzles(home, { url, record, shot, outDir }) {
       ),
     );
     record(device + '-shared-machine-repaired', saved[id]?.part === certified[0].part, saved[id]);
-    await press('#shelf a[href="#last-bell"]');
+    await openLevel('last-bell');
     await page.waitForFunction(
       () => document.querySelector('#machine-title').textContent === 'The last bell',
     );
@@ -295,7 +301,7 @@ export async function verifyPuzzles(home, { url, record, shot, outDir }) {
     );
     if (!mobile) {
       // Use the actual browser download, then prove the file with HTTP disabled.
-      await press('#shelf a[href="#last-bell"]');
+      await openLevel('last-bell');
       await page.waitForFunction(
         () => document.querySelector('#machine-title').textContent === 'The last bell',
       );
@@ -328,7 +334,7 @@ export async function verifyPuzzles(home, { url, record, shot, outDir }) {
         feedback: await offline.$eval('#status', (el) => el.textContent),
       });
       await offline.close();
-      await press('#shelf a[href="#switchback"]');
+      await openLevel('switchback');
       await page.waitForFunction(
         () => document.querySelector('#machine-title').textContent === 'Wrong-way freight',
       );

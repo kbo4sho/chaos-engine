@@ -1,6 +1,8 @@
 // Generate a complete delivery line, remove a working part, then test the
 // incomplete machine and candidate repairs in the very same engine as play.
-import { machines, createRun, advance, trial } from './machines.js';
+import { machines, canFlip, createRun, advance, trial } from './machines.js';
+
+import { campaignById } from './campaign.js';
 
 const offsets = [-2, 0, 2];
 export function certify(M, machine) {
@@ -8,8 +10,14 @@ export function certify(M, machine) {
   const repairs = [];
   for (const part of machine.tray) {
     for (let socket = 0; socket < machine.sockets.length; socket++) {
-      const move = { part, socket };
-      if (offsets.every((n) => trial(M, machine, move, n).state === 'won')) repairs.push(move);
+      for (const move of canFlip(machine, part)
+        ? [
+            { part, socket },
+            { part, socket, flipped: true },
+          ]
+        : [{ part, socket }]) {
+        if (offsets.every((n) => trial(M, machine, move, n).state === 'won')) repairs.push(move);
+      }
     }
   }
   return repairs.length ? repairs : null;
@@ -117,14 +125,13 @@ export function generate(M, seed) {
 }
 
 function resolveBase(M, id) {
-  const authored = machines.find((m) => m.id === id);
+  const authored = campaignById.get(id);
   if (authored) return authored;
   const match = /^press-1-(0|[1-9]\d{0,9})$/.exec(id);
   return match && Number(match[1]) <= 0xffffffff ? generate(M, Number(match[1])) : null;
 }
 
-const ID_PATTERN =
-  /^(last-bell|switchback|high-note|counterweight|domino-post|three-chimes|press-1-(?:0|[1-9]\d{0,9}))(?:~(-?[0-8])\.(-?[0-8]))?$/;
+const ID_PATTERN = /^([a-z][a-z0-9-]*)(?:~(-?[0-8])\.(-?[0-8]))?$/;
 
 // Offsets are encoded as eight-pixel notches relative to the original print.
 // A second edit always revises those same offsets, so links never accumulate edits.
@@ -132,6 +139,7 @@ export function decodePrint(id) {
   const match = ID_PATTERN.exec(id);
   if (
     !match ||
+    (!campaignById.has(match[1]) && !/^press-1-(?:0|[1-9]\d{0,9})$/.test(match[1])) ||
     (match[1].startsWith('press-') && Number(match[1].slice('press-1-'.length)) > 0xffffffff)
   )
     return null;
