@@ -1,3 +1,4 @@
+import { pathReader, filmPaths } from './path-reader.js';
 import { clipControls } from './clip-controls.js';
 import { atFrame, draw, drawActors, snapshot } from './drawing.js';
 import { parts, WIDTH, HEIGHT, fittings, createRun, advance } from './machines.js';
@@ -153,6 +154,7 @@ export function setupFilms(el) {
     t = 0,
     raf = 0,
     origin = null;
+  const path=pathReader(el('compare-path'),canvas,{frame:()=>t,seek:go,redraw:paint});
   const stop = () => {
     cancelAnimationFrame(raf);
     raf = 0;
@@ -192,6 +194,7 @@ export function setupFilms(el) {
     const { latest, previous } = viewing,
       hardware = el('compare-hardware').value === 'previous' ? previous : latest;
     scene(c,t,hardware);
+    path.draw(c,t);
     el('compare-time').value = clock(t);
     range.value = t;
     range.setAttribute('aria-valuetext', clock(t) + ', frame ' + t);
@@ -226,6 +229,7 @@ export function setupFilms(el) {
     const names = card?.names || (race ? ['Reply','Challenger'] : ['Latest','Previous']);
     const [latestName,previousName] = names;
     viewing = { latest, previous, race, names, card };
+    path.ready(()=>[...filmPaths(latest,names[0]),...filmPaths(previous,names[1],true)].map(trace=>({...trace,points:trace.points.slice(0,study.end+1)})));
     el('compare-title').textContent = card ? card.title : race ? 'Challenge replay' : 'Compare setups';
     el('compare-finishes').hidden = !race;
     const options = el('compare-hardware').options;
@@ -284,6 +288,7 @@ export function setupFilms(el) {
   });
   el('compare-close').addEventListener('click', () => modal.close());
   modal.addEventListener('close', () => {
+    path.clear();
     clips.clear();
     stop();
     study = null;

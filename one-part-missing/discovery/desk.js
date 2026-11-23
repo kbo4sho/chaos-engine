@@ -1,3 +1,4 @@
+import { pathReader, recordedPath } from '../path-reader.js';
 import { instrumentReading, instrumentEvents } from './instruments.js';
 import {
   lessons,
@@ -20,7 +21,7 @@ image.height = 800;
 const ctx = image.getContext('2d');
 let closeUp = true;
 const narrow = matchMedia('(max-width:640px)');
-const filmNotes = ['film', 'events'].map((id) => {
+const filmNotes = ['film', 'path', 'events'].map((id) => {
   const node = el(id),
     anchor = document.createComment(id);
   node.before(anchor);
@@ -67,6 +68,16 @@ let frame = 0,
   raf = 0,
   clockStart,
   anchorFrame;
+const camera=()=>{
+  if(!closeUp)return [0,0,720,400];
+  const [left,top,width]=framing[lesson.id][Number(transfer)];
+  return [left,top,width,width/1.8];
+};
+const path=pathReader(el('path'),surface,{frame:()=>frame,seek:inspect,redraw:()=>{if(tape)paint();},view:camera});
+function pathsFor(tape,name,dashed=false){
+  const film={frames:tape.frames,items:tape.run.items,uses:tape.run.uses};
+  return tape.actors.map(({kind,index})=>recordedPath(film,index,kind,name+' · '+nameOf(kind),dashed));
+}
 function stop() {
   cancelAnimationFrame(raf);
   raf = 0;
@@ -181,7 +192,8 @@ function paint() {
       }
     }
   ctx.restore();
-  const [left, top, width] = closeUp ? framing[lesson.id][Number(transfer)] : [0, 0, 720];
+  path.draw(ctx,frame);
+  const [left, top, width] = camera();
   display.drawImage(
     image,
     left * 2,
@@ -232,6 +244,7 @@ function result(text, won = false) {
 function finish() {
   stop();
   lastExposure = { setting, tape };
+  path.ready(()=>[...pathsFor(tape,lesson.labels[setting]),...(reference?pathsFor(reference,lesson.labels[priorSetting],true):[])]);
   if (!transfer) {
     earn('seen-' + setting);
     const seen = lesson.values.filter((_, i) => stamped(lesson, 'seen-' + i)).length;
@@ -274,6 +287,7 @@ function animate(now) {
   else raf = requestAnimationFrame(animate);
 }
 function prepare(i, navigating = false) {
+  path.clear();
   stop();
   if (!navigating && lastExposure && lastExposure.setting !== i) {
     reference = lastExposure.tape;

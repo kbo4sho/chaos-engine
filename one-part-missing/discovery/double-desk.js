@@ -1,3 +1,4 @@
+import { pathReader, recordedPath } from '../path-reader.js';
 import { stationFile } from '../station-file.js';
 import { sheetMaker, copySheetLink } from './sheet-maker.js';
 import { certifySheet, readSheet, takeRoute, readTake } from './shutter-sheet.js';
@@ -64,6 +65,11 @@ el('make-file').addEventListener('click', async () => {
     el('file-status').textContent = 'The file could not be prepared. Try again.';
   }
 });
+const path=pathReader(el('path'),canvas,{frame:()=>t,seek:inspect,redraw:()=>{if(tape)paint();}});
+function pathsFor(recording,label,dashed=false){
+  const film={frames:recording.frames,items:recording.run.items,uses:recording.run.uses};
+  return Object.entries(recording.indices).map(([kind,index])=>recordedPath(film,index,kind,label+' · '+actorNames[kind],dashed));
+}
 const maker = sheetMaker(el, inspect, paint);
 const clips = clipControls(el('clip'), () => {
   if (!completed) return null;
@@ -180,6 +186,7 @@ function paint() {
     t,
     el('overlay').checked ? previous?.tape : null,
   );
+  path.draw(ctx,t);
   el('clock').value = seconds(t);
   el('frame').value = t;
   el('frame').setAttribute('aria-valuetext', seconds(t));
@@ -213,6 +220,7 @@ function finish() {
   exposed = 2;
   completed = true;
   lastRun = { settings: [...settings], tape };
+  path.ready(()=>[...pathsFor(tape,'This run'),...(previous?pathsFor(previous.tape,'Previous',true):[])]);
   if (!viewOnly) {
     book.save(rig, settings, tape);
     maker.use(rig, tape);
@@ -281,6 +289,7 @@ function inspect(tick) {
   paint();
 }
 function prepare(values) {
+  path.clear();
   stop();
   clips.clear();
   maker.reset();

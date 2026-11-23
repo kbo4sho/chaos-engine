@@ -119,3 +119,5 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Offline friend races](./offline-races.md). Play and return a work-order race between disconnected devices.
 
 - [Three-round match cards](./match-cards.md) covers house recordings, three scoring rules, returned scorecards and disconnected play.
+
+- [Inspect a point on a recorded path](./path-reader.md) covers touch and keyboard spatial seeking, repeated visits and offline films.

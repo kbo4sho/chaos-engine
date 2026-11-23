@@ -1,3 +1,4 @@
+import { pathReader, filmPaths } from './path-reader.js';
 import { readMatch, matchFileRoute } from './match-cards.js';
 import { setupMatches } from './match-desk.js';
 import {setupSpareStudy} from './spare-study-desk.js';
@@ -47,7 +48,7 @@ keepChallengeShell();
 // the repair on a phone so their state, listeners and accessible labels survive.
 const phoneWidth = matchMedia('(max-width: 640px)');
 const phoneNotes = document.getElementById('phone-notes');
-const benchNotes = ['lesson', 'film', 'compare-attempts', 'dispatch-log', 'cues'].map(id => {
+const benchNotes = ['lesson', 'film', 'bench-path', 'compare-attempts', 'dispatch-log', 'cues'].map(id => {
   const node = document.getElementById(id);
   const anchor = document.createComment(id);
   node.before(anchor);
@@ -162,6 +163,10 @@ let trail = [],
   audio,
   routing = null,
   dragging = null;
+const path = pathReader($('bench-path'),$('diagram'),{
+  frame:()=>inspection??tape.length-1,redraw:drawBench,
+  seek:frame=>{$('scrubber').value=frame;$('scrubber').dispatchEvent(new Event('input'));}
+});
 const number = (n) => String(n).padStart(2, '0');
 const socketName = (i) => String.fromCharCode(65 + i);
 const playing = () => phase === 'running' || phase === 'finishing';
@@ -284,6 +289,7 @@ function drawBench() {
       cargoTrail,
       mount: phase === 'ready' && previewSocket !== null ? machine.sockets[previewSocket] : null,
     });
+  path.draw(c,cursor);
 }
 function signalAt(sample) {
   if (sample.binTicks) return sample.binTicks.filter((t) => t !== null).length + ' / 2 sorted';
@@ -581,6 +587,7 @@ function controls() {
   $('open-sandbox').href = '../#' + hash;
 }
 function resetRun(keepGhost = false) {
+  path.clear();
   coach.clear();
   cancelAnimationFrame(raf);
   phase = 'ready';
@@ -793,6 +800,7 @@ function finish() {
   ghost = trail.slice();
   addFrame();
   const attempt = films.add(machine, run, move, tape);
+  path.ready(()=>filmPaths(attempt));
   if (win && !replaying) {
     if (matches.active) matches.deliver(move);
     else raceDesk.delivered(move, run.hits.at(-1), attempt);

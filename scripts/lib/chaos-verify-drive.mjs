@@ -701,6 +701,11 @@ async function driveBank(page) {
 }
 
 const journeys = {
+  'path-reader': async page => {
+    const {verifyPathReader} = await import('./verify-path-reader.mjs');
+    await verifyPathReader(page,{url,record,shot,outDir});
+    result.passed = result.failures.length === 0;
+  },
   'match-cards': async page => {
     const {verifyMatchCards} = await import('./verify-match-cards.mjs');
     await verifyMatchCards(page,{url,record,shot,outDir});

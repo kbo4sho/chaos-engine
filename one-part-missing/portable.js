@@ -72,6 +72,7 @@ const modules = [
   'press-client',
   'repairs',
   'drawing',
+  'path-reader',
   'attempt-film',
   'clip-controls',
   'replay-clip',

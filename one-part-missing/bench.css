@@ -1680,3 +1680,13 @@ body[data-portable] #share-assembly{display:none!important;}
   .in-match .instrument-head {grid-template-columns:minmax(0,1fr) auto}
   .in-match #match-target {font-size:13px}
 }
+.path-reader {margin-block:5px;font-size:14px}
+.path-reader summary {color:var(--cyan);cursor:pointer;min-height:40px;align-content:center}
+.path-tools {display:flex;flex-wrap:wrap;gap:5px 10px;align-items:center}
+.path-tools label {font:13px var(--mono);color:var(--muted)}
+.path-tools select {max-width:100%;min-height:40px}
+.path-reader p,.path-reader [data-path-feedback] {font-size:13px;color:var(--muted);margin:4px 0}
+.path-reader output {display:block;font:13px var(--mono);color:var(--text);font-variant-numeric:tabular-nums}
+canvas.reading-path {cursor:crosshair}
+#stage:has(.reading-path) #miss-pin {visibility:hidden}
+@media(max-width:640px){.path-reader summary,.path-tools select,.path-tools button {min-height:44px}}
