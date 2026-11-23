@@ -89,24 +89,43 @@ function stop() {
 function visible(tape, t) {
   return tape.frames[Math.min(t, tape.frames.length - 1)];
 }
-let badges=[];
-function positionBadges(){
-  const size=Math.max(18,14*WIDTH/Math.max(290,canvas.clientWidth));
-  const placed=[];
-  for(const station of points){
-    const s=recording.run.items[station.item].shape;
-    const ax=s.x,ay=s.y-(s.r||s.h/2||12)-size/2;
-    const choices=[[0,0],[size,0],[-size,0],[0,-size],[size,-size],[-size,-size],[2*size,0],[-2*size,0],[0,-2*size],[0,size]];
-    let best=null,clearance=-1;
-    for(const [dx,dy] of choices){
-      const x=Math.max(size/2+2,Math.min(WIDTH-size/2-2,ax+dx)),y=Math.max(size/2+2,Math.min(HEIGHT-size/2-2,ay+dy));
-      const distance=Math.min(...placed.map(b=>Math.max(Math.abs(b.x-x),Math.abs(b.y-y))));
-      if(distance>clearance){best={...station,x,y,ax,ay,size};clearance=distance;}
-      if(distance>=size+2)break;
+let badges = [];
+function positionBadges() {
+  const size = Math.max(18, (14 * WIDTH) / Math.max(290, canvas.clientWidth));
+  const placed = [];
+  for (const station of points) {
+    const s = recording.run.items[station.item].shape;
+    const ax = s.x,
+      ay = s.y - (s.r || s.h / 2 || 12) - size / 2;
+    const choices = [
+      [0, 0],
+      [size, 0],
+      [-size, 0],
+      [0, -size],
+      [size, -size],
+      [-size, -size],
+      [2 * size, 0],
+      [-2 * size, 0],
+      [0, -2 * size],
+      [0, size],
+    ];
+    let best = null,
+      clearance = -1;
+    for (const [dx, dy] of choices) {
+      const x = Math.max(size / 2 + 2, Math.min(WIDTH - size / 2 - 2, ax + dx)),
+        y = Math.max(size / 2 + 2, Math.min(HEIGHT - size / 2 - 2, ay + dy));
+      const distance = Math.min(
+        ...placed.map((b) => Math.max(Math.abs(b.x - x), Math.abs(b.y - y))),
+      );
+      if (distance > clearance) {
+        best = { ...station, x, y, ax, ay, size };
+        clearance = distance;
+      }
+      if (distance >= size + 2) break;
     }
     placed.push(best);
   }
-  badges=placed;
+  badges = placed;
 }
 function render() {
   if (!recording) return;
@@ -163,15 +182,23 @@ function render() {
     c.stroke();
   }
   c.setLineDash([]);
-  c.textAlign='center';c.textBaseline='middle';
-  for(const station of badges){
-    const {x,y,ax,ay,size}=station;
-    c.font='bold '+Math.round(size*.68)+'px monospace';
-    if(Math.hypot(ax-x,ay-y)>size/2){c.strokeStyle='#648e9b';c.lineWidth=1.4;c.beginPath();c.moveTo(ax,ay);c.lineTo(x,y);c.stroke();}
+  c.textAlign = 'center';
+  c.textBaseline = 'middle';
+  for (const station of badges) {
+    const { x, y, ax, ay, size } = station;
+    c.font = 'bold ' + Math.round(size * 0.68) + 'px monospace';
+    if (Math.hypot(ax - x, ay - y) > size / 2) {
+      c.strokeStyle = '#648e9b';
+      c.lineWidth = 1.4;
+      c.beginPath();
+      c.moveTo(ax, ay);
+      c.lineTo(x, y);
+      c.stroke();
+    }
     c.fillStyle = selected === station.item ? '#a2f3ef' : '#122028';
     c.strokeStyle = '#77ccd0';
-    c.fillRect(x - size/2,y - size/2,size,size);
-    c.strokeRect(x - size/2,y - size/2,size,size);
+    c.fillRect(x - size / 2, y - size / 2, size, size);
+    c.strokeRect(x - size / 2, y - size / 2, size, size);
     c.fillStyle = selected === station.item ? '#0a1519' : '#cdebf1';
     c.fillText(station.letter, x, y);
   }
@@ -342,7 +369,7 @@ function open() {
       b.type = 'button';
       tag.textContent = st.letter;
       b.dataset.station = st.item;
-      b.setAttribute('aria-label','Station '+st.letter+', '+st.name);
+      b.setAttribute('aria-label', 'Station ' + st.letter + ', ' + st.name);
       b.append(tag, document.createTextNode(st.name));
       b.addEventListener('click', () => {
         selected = st.item;
@@ -356,11 +383,18 @@ function open() {
   controls();
   refreshShelf();
 }
-canvas.addEventListener('click',e=>{
- if(service!==null)return;
- const rect=canvas.getBoundingClientRect(),x=(e.clientX-rect.left)*WIDTH/rect.width,y=(e.clientY-rect.top)*HEIGHT/rect.height;
- const nearest=badges.map(b=>({item:b.item,d:Math.hypot(x-b.x,y-b.y)})).sort((a,b)=>a.d-b.d)[0];
- if(nearest && nearest.d<=22*WIDTH/rect.width)el('case-list').querySelector('[data-station="'+nearest.item+'"]').click();
+canvas.addEventListener('click', (e) => {
+  if (service !== null) return;
+  const rect = canvas.getBoundingClientRect(),
+    x = ((e.clientX - rect.left) * WIDTH) / rect.width,
+    y = ((e.clientY - rect.top) * HEIGHT) / rect.height;
+  const nearest = badges
+    .map((b) => ({ item: b.item, d: Math.hypot(x - b.x, y - b.y) }))
+    .sort((a, b) => a.d - b.d)[0];
+  if (nearest && nearest.d <= (22 * WIDTH) / rect.width)
+    el('case-list')
+      .querySelector('[data-station="' + nearest.item + '"]')
+      .click();
 });
 el('case-play').addEventListener('click', play);
 el('case-frame').addEventListener('input', () => {
@@ -450,6 +484,7 @@ new ResizeObserver(() => {
   if (w > 0 && (canvas.width !== w || canvas.height !== h)) {
     canvas.width = w;
     canvas.height = h;
+    if (recording) positionBadges();
     render();
   }
 }).observe(canvas.parentElement);
