@@ -6,7 +6,7 @@ Jobs 361–400 use service rings to change the motion of a passing load. The fir
 
 - A float collar cancels gravity, a parachute resists descent, and a thruster continues pushing along the load’s facing direction. A keel resists slip across that direction.
 - The hopper foot jumps only against a supporting surface. A bank reflects travel across the body axis. A release hoop removes the carried equipment.
-- The gear readout and on-body markings follow the inspection frame. Separate events record attachment, release, banking and grounded jumps.
+- The gear readout, ordered contact count, hatch state and on-body markings follow the inspection frame. Separate events record attachment, release, banking and grounded jumps.
 - All seven fittings have practice levels, two prediction experiments and working stock in the Machine press.
 
 ## How to get to it (user POV)

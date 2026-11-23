@@ -113,6 +113,18 @@ export async function verifyFlight(home, { url, record, shot, outDir }) {
     ].every((s) => final.some((e) => e.includes(s))),
     final,
   );
+  record(
+    'both-ordered-contacts-recorded',
+    (await read(p, 'signal')) === '2 / 2 · Parcel delivered',
+    await read(p, 'signal'),
+  );
+  await p.focus('#scrubber');
+  await p.keyboard.press('Home');
+  record(
+    'ordered-contacts-follow-film',
+    (await read(p, 'signal')) === '0 / 2 · Hatch closed',
+    await read(p, 'signal'),
+  );
   await cue(p, 'Thruster attached');
   record(
     'only-blue-carries-two-fittings',

@@ -228,6 +228,27 @@ function drawBench() {
       mount: phase === 'ready' && previewSocket !== null ? machine.sockets[previewSocket] : null,
     });
 }
+function signalAt(sample) {
+  if (sample.binTicks) return sample.binTicks.filter((t) => t !== null).length + ' / 2 sorted';
+  const count = sample.hits.length,
+    total = machine.goals.length,
+    prefix = count + ' / ' + total;
+  if (!run.cargo)
+    return total > 1
+      ? prefix + (machine.goals.every((g) => g.kind === 'chime') ? ' notes' : ' contacts')
+      : '';
+  const status =
+    count === total
+      ? 'Parcel delivered'
+      : run.gated
+        ? run.uses.some((u) => u.kind === 'hatch' && u.tick <= sample.tick)
+          ? 'Hatch open'
+          : 'Hatch closed'
+        : sample.tick === 0
+          ? 'Parcel ready'
+          : 'Parcel in transit';
+  return total > 1 ? prefix + ' · ' + status : status;
+}
 function addFrame() {
   if (tape.at(-1)?.tick !== run.tick) tape.push(snapshot(run));
 }
@@ -239,19 +260,7 @@ $('scrubber').addEventListener('input', () => {
   $('counter').textContent = seconds;
   $('pilot').textContent = 'Inspecting';
   $('sockets').hidden = true;
-  if (run.binTicks)
-    $('signal').textContent = tape[inspection].binTicks.filter((t) => t != null).length + ' / 2 sorted';
-  else if (run.cargo) {
-    const tick = tape[inspection].tick;
-    $('signal').textContent =
-      run.hits.at(-1) <= tick
-        ? 'Parcel delivered'
-        : !run.gated
-          ? 'Parcel in transit'
-          : run.uses.some((u) => u.kind === 'hatch' && u.tick <= tick)
-            ? 'Hatch open'
-            : 'Hatch closed';
-  }
+  $('signal').textContent = signalAt(tape[inspection]);
   drawBench();
 });
 new ResizeObserver(() => {
@@ -441,25 +450,7 @@ function controls() {
   }[phase];
   if (busy && runPaused) $('pilot').textContent = 'Paused';
   $('pilot').dataset.state = busy && runPaused ? 'paused' : phase;
-  $('signal').textContent =
-    machine.goals.length > 1
-      ? run.hits.length +
-        ' / ' +
-        machine.goals.length +
-        (machine.goals.every((g) => g.kind === 'chime') ? ' notes' : ' contacts')
-      : '';
-  if (run.binTicks) $('signal').textContent = run.hits.length + ' / 2 sorted';
-  else if (run.cargo)
-    $('signal').textContent =
-      phase === 'won'
-        ? 'Parcel delivered'
-        : !run.gated
-          ? phase === 'ready'
-            ? 'Parcel ready'
-            : 'Parcel in transit'
-          : run.uses.some((u) => u.kind === 'hatch')
-            ? 'Hatch open'
-            : 'Hatch closed';
+  $('signal').textContent = signalAt(run);
   for (const b of $('parts').children) {
     b.disabled = busy;
     b.setAttribute('aria-pressed', String(selected === b.dataset.part));
