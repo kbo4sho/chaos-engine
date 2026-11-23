@@ -663,7 +663,8 @@ summary {
 
 #tool-entry,
 #clock-entry,
-#rig-entry {
+#rig-entry,
+#pair-entry {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
@@ -934,4 +935,29 @@ summary {
 }
 #print-practice {
   margin: 4px 0;
+}
+
+#fitted-pair {
+  margin: 0.65rem 0;
+  font: 13px var(--mono);
+  color: var(--muted);
+}
+#pair-pieces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 4px;
+}
+#pair-pieces button {
+  min-height: 36px;
+  padding: 3px 8px;
+  color: var(--cyan);
+}
+#parts .installed {
+  border-bottom-color: var(--green);
+}
+@media (pointer: coarse) {
+  #pair-pieces button {
+    min-height: 44px;
+  }
 }

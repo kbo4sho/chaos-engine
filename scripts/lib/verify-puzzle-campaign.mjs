@@ -62,7 +62,12 @@ export async function verifyCampaign(home, { url, record, shot, outDir }) {
       if (move.flipped) await press('#flip');
       await press(socket);
     }
-    if ([1, 61, 81, 100, 101, 112, 133, campaign.length].includes(n)) {
+    if (move.second) {
+      await press('[data-part="' + move.second.part + '"]');
+      if (move.second.flipped) await press('#flip');
+      await press('[data-socket="' + move.second.socket + '"]');
+    }
+    if ([1, 241, 61, 81, 100, 101, 112, 133, campaign.length].includes(n)) {
       await page.evaluate(() => scrollTo(0, 0));
       await shot(page, 'level-' + n + '-fitted.png');
     }
@@ -87,6 +92,7 @@ export async function verifyCampaign(home, { url, record, shot, outDir }) {
         state.repair?.tick === Math.round(state.elapsed * 60) - 30 &&
         state.repair?.part === move.part &&
         state.repair.socket === move.socket &&
+        JSON.stringify(state.repair.second) === JSON.stringify(move.second) &&
         Boolean(state.repair.flipped) === Boolean(move.flipped) &&
         (machine.goals.length === 1 ||
           state.signal.startsWith(machine.goals.length + ' / ' + machine.goals.length)),

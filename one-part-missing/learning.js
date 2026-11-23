@@ -12,6 +12,7 @@ const sequence = [
   ['Move a surface', [161, 162, 171, 172, 173, 178]],
   ['Deliver a parcel', [181, 182, 191, 195, 200]],
   ['Connect moving bodies', [201, 202, 203, 205, 206, 207, 211, 240]],
+  ['Restore two handoffs', [241, 244, 254, 264, 270, 280]],
 ];
 export const lessons = sequence.flatMap(([chapter, numbers]) =>
   numbers.map((n) => ({ chapter, machine: campaign[n - 1] })),

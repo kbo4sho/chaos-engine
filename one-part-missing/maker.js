@@ -58,6 +58,10 @@ export function makeEditor(M) {
   return (machine) => {
     pending?.abort();
     current = machine;
+    el('maker-instruction').textContent =
+      machine.capacity === 2
+        ? 'Move the final target. The press tests every pair and rejects a one-part shortcut.'
+        : 'Move the final target. The press checks whether one part can still reach it.';
     const code = decodePrint(machine.id);
     base = code.x || code.y ? null : machine;
     draft = null;

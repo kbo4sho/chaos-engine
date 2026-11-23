@@ -1,6 +1,6 @@
 import { makeLinks, installRigging } from './rigging.js';
 import { instruments, installDevices } from './devices.js';
-import { WIDTH, HEIGHT, assembly, validMove, makeBody } from './machines.js';
+import { WIDTH, HEIGHT, assembly, makeBody } from './machines.js';
 import { resolveMachine } from './workshop.js';
 import { drawSandboxRig } from './rig-art.js';
 import { drawSandboxPart } from './drawing.js';
@@ -61,13 +61,16 @@ export function installBench(api) {
     api.status('UNKNOWN MACHINE · CHOOSE PUZZLES TO OPEN THE SHELF');
     return;
   }
-  const index = args.get('socket');
-  const requested = {
-    part: args.get('part'),
-    socket: /^\d$/.test(index || '') ? Number(index) : -1,
-    flipped: args.get('flip') === '1',
+  const readPlacement = (suffix) => {
+    const index = args.get('socket' + suffix);
+    return {
+      part: args.get('part' + suffix),
+      socket: /^\d$/.test(index || '') ? Number(index) : -1,
+      flipped: args.get('flip' + suffix) === '1',
+    };
   };
-  const move = validMove(machine, requested) ? requested : null;
+  const move = readPlacement('');
+  if (args.has('part2')) move.second = readPlacement('2');
   // Keep the solver's physical units across devices. Shrinking a domino's
   // actual body changes its inertia and its ability to topple its neighbor.
   api.setMachineViewport({ width: WIDTH, height: HEIGHT });

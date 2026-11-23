@@ -148,7 +148,10 @@ export function tuneTarget(machine, x, y) {
     id: machine.id + '~' + x + '.' + y,
     title: machine.title + ' · remix',
     goals,
-    description: 'The final target has been moved. Fit a part to reach its new position.',
+    description:
+      'The final target has been moved. ' +
+      (machine.capacity === 2 ? 'Fit two parts' : 'Fit a part') +
+      ' to reach its new position.',
   };
 }
 

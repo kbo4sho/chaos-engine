@@ -71,3 +71,5 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Tool-aware machine press](./tool-press.md) covers themed prints, compatible tool pairs, precise shared layouts and standalone parcel replays.
 
 - [Cable rigs](./rigging-course.md) covers seven connector experiments, pulley delivery, break inspection and restored cable geometry.
+
+- [Two-part repairs](./paired-repairs.md) covers installing, replacing and removing two spares, partial trials and two-part recordings.

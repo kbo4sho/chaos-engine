@@ -123,7 +123,7 @@ Write terse machine-like feedback with a concrete result or next action: `HATCH 
 
 ### One Part Missing workbench
 
-The puzzle route uses the sandbox’s black glass, cyan track, green run control and VT323 display type. Amber marks the moving marble, fitted hardware and goals. The playfield occupies the wide column, with a compact parts drawer beside it on desktop and directly below it on a phone. Lettered sockets have 44px hit areas and accept dragging, tapping or keyboard activation. The ten-chapter level map displays ten rows or cells at a time. Numbers, checkmarks and text identify contact order, completed repairs and the current level alongside color.
+The puzzle route uses the sandbox’s black glass, cyan track, green run control and VT323 display type. Amber marks the moving marble, fitted hardware and goals. The playfield occupies the wide column, with a compact parts drawer beside it on desktop and directly below it on a phone. Lettered sockets have 44px hit areas and accept dragging, tapping or keyboard activation. The level map displays one chapter of ten machines at a time. In two-part repairs, the drawer lists the installed fittings by socket and offers an individual remove control for each. Numbers, checkmarks and text identify contact order, completed repairs and the current level alongside color.
 
 ## Do's and Don'ts
 

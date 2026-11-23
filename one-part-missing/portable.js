@@ -1,3 +1,4 @@
+import { packFittings } from './machines.js';
 // Package only the published application assets. Start from the empty HTML
 // shell, so player records, clipboard values and in-progress runs stay local.
 const modules = [
@@ -7,6 +8,8 @@ const modules = [
   'rig-art',
   'rig-course',
   'rig-boards',
+  'pair-course',
+  'pair-boards',
   'machines',
   'tool-course',
   'tool-lab',
@@ -94,11 +97,7 @@ export async function portableFile(machine, replay = null) {
   entry.textContent = "import 'missing/play';";
   doc.body.dataset.portable = machine.id;
   if (replay)
-    doc.body.dataset.repair = JSON.stringify({
-      part: replay.part,
-      socket: replay.socket,
-      ...(replay.flipped ? { flipped: true } : {}),
-    });
+    doc.body.dataset.repair = JSON.stringify(packFittings([replay, replay.second].filter(Boolean)));
   doc.title = machine.title + ' · One Part Missing';
   // The portable file is a single challenge that can be forwarded intact.
   const brand = doc.querySelector('.brand');

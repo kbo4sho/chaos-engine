@@ -4,7 +4,7 @@ Players fit one spare part to a broken machine, test the repair, inspect the run
 
 ## Sub-features
 
-- `shelf` contains the [240-level campaign](./puzzle-campaign.md) and local repair progress.
+- `shelf` contains the [280-level campaign](./puzzle-campaign.md) and local repair progress.
 - `repair` accepts drawer-to-socket dragging or separate part and socket selections. Any physical solution counts.
 - `replay` plays a recorded fitting after reload. The inspection slider reviews individual moments of the latest run.
 - `press` generates a machine, tests its repairs and copies a link to its original setup.
@@ -21,7 +21,7 @@ Preconditions: isolated launch and doctor pass, fresh browser profile, system Ch
 
 - **Repair and retry.** Run `./scripts/verify-chaos-engine drive one-part-missing`. Enter through the sandbox. Watch the unmodified machine miss, inspect the start frame, fit a wrong part, then use the bridge. Prove drag on desktop and two taps on a phone.
 - **Replay and edit.** Reload the bench and watch the stored repair. Open the assembly in the sandbox, add a block, SAVE, return to the ordinary sandbox, then LOAD and confirm. Observe the actual bodies in the restored machine. Start the repaired domino chain in the sandbox and observe contact at the signal flag on both viewport sizes.
-- **Shelf.** Solve the other five original machines on desktop with keyboard part and socket selection. Use the alternate drum solution on Wrong-way freight. Observe six completed repairs in the 240-level map.
+- **Shelf.** Solve the other five original machines on desktop with keyboard part and socket selection. Use the alternate drum solution on Wrong-way freight. Observe six completed repairs in the 280-level map.
 - **Print and share.** On desktop and mobile, generate a new machine, expand its trial record, read the link through the share action and open it. Fit a certified repair through the player controls. Observe the saved repair, screenshot and restored setup.
 - **Remix.** Move the last bell eight notches to the right and observe the failed proof. Move it one notch left of center, print the verified puzzle, reload its link, fit the bridge and ring the bell.
 - **Portable file.** Download the bell puzzle from the parts drawer. Open the saved HTML with network access disabled, solve it and verify it requests zero HTTP resources. Save the alternate freight repair as a replay file and play it offline.

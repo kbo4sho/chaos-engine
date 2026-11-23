@@ -22,7 +22,7 @@
       <div class="bench">
         <div class="instrument-head">
           <div>
-            <p class="eyeline" id="machine-no">Level 001 / 240 · First shift</p>
+            <p class="eyeline" id="machine-no">Level 001 / 280 · First shift</p>
             <h2 id="machine-title">The last bell</h2>
             <p id="goal">Ring the brass bell.</p>
           </div>
@@ -77,13 +77,17 @@
           <div class="drawer-top">
             <h2 id="drawer-title">Parts drawer</h2>
             <button id="open-lab" class="quiet" type="button" hidden>Tool lab ↗</button>
-            <p>Choose a part, then tap a socket.</p>
+            <p id="fit-instruction">Choose a part, then tap a socket.</p>
           </div>
           <details id="lesson" hidden>
             <summary>Bench note</summary>
             <p id="lesson-text"></p>
           </details>
           <div id="parts" role="group" aria-label="Spare parts"></div>
+          <div id="fitted-pair" hidden>
+            <span id="pair-count"></span>
+            <div id="pair-pieces" aria-label="Installed fittings"></div>
+          </div>
           <button id="flip" class="quiet" type="button" aria-pressed="false" hidden>Flip rail</button>
           <p id="status" role="status" aria-live="polite">Watch a run, or pick a part to fit.</p>
           <div id="after-win" hidden>
@@ -105,7 +109,7 @@
       <section class="library" aria-labelledby="library-title">
         <div class="library-head">
           <h2 id="library-title">Level map</h2>
-          <span id="progress">0 of 240 repaired</span>
+          <span id="progress">0 of 280 repaired</span>
         </div>
         <div class="chapter-bar">
           <label for="chapter">Chapter</label
@@ -113,6 +117,7 @@
           <a id="tool-entry" href="#tools-first-belt">Play the tool course →</a>
           <a id="clock-entry" href="#works-from-below">Play the clockwork course →</a>
           <a id="rig-entry" href="#rig-first-tether">Play the cable rigs →</a>
+          <a id="pair-entry" href="#pair-carry-then-catch">Play two-part repairs →</a>
           <a id="continue">Continue campaign →</a>
         </div>
         <p id="chapter-hint"></p>
@@ -177,7 +182,9 @@
           ></canvas>
           <div class="maker-tools">
             <h2>Target position</h2>
-            <p>Move the final target. The press checks whether one part can still reach it.</p>
+            <p id="maker-instruction">
+              Move the final target. The press checks whether one part can still reach it.
+            </p>
             <label for="target-x">Left / right <output id="offset-x">0</output></label
             ><input id="target-x" type="range" min="-8" max="8" value="0" />
             <label for="target-y">Up / down <output id="offset-y">0</output></label

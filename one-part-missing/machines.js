@@ -140,24 +140,56 @@ export function canFlip(machine, part) {
   return Boolean(machine.reversible && ['bridge', 'chute'].includes(part));
 }
 
-export function validMove(machine, move) {
+function validPlacement(machine, fit) {
   return Boolean(
-    move &&
-    machine.tray.includes(move.part) &&
-    Number.isInteger(move.socket) &&
-    machine.sockets[move.socket] &&
-    (move.flipped === undefined ||
-      move.flipped === false ||
-      (move.flipped === true && canFlip(machine, move.part))),
+    fit &&
+    machine.tray.includes(fit.part) &&
+    Number.isInteger(fit.socket) &&
+    machine.sockets[fit.socket] &&
+    (fit.flipped === undefined ||
+      fit.flipped === false ||
+      (fit.flipped === true && canFlip(machine, fit.part))),
   );
 }
-
+function cleanFit(fit) {
+  return { part: fit.part, socket: fit.socket, ...(fit.flipped ? { flipped: true } : {}) };
+}
+export function fittings(machine, move) {
+  if (!validPlacement(machine, move)) return [];
+  if (!move.second) return [cleanFit(move)];
+  const second = move.second;
+  if (
+    machine.capacity !== 2 ||
+    !validPlacement(machine, second) ||
+    second.second ||
+    second.part === move.part ||
+    second.socket === move.socket
+  )
+    return [];
+  return [cleanFit(move), cleanFit(second)].sort((a, b) => a.socket - b.socket);
+}
+export function packFittings(placed) {
+  const sorted = placed.map(cleanFit).sort((a, b) => a.socket - b.socket);
+  return sorted[1] ? { ...sorted[0], second: sorted[1] } : sorted[0] || null;
+}
+export function validMove(machine, move) {
+  return fittings(machine, move).length === (machine.capacity || 1);
+}
+export function placePart(machine, move, placement) {
+  if (!validPlacement(machine, placement)) return move;
+  if (machine.capacity !== 2) return cleanFit(placement);
+  const remaining = fittings(machine, move).filter(
+    (f) => f.socket !== placement.socket && f.part !== placement.part,
+  );
+  if (remaining.length === 2) return move;
+  return packFittings([...remaining, placement]);
+}
 export function assembly(machine, move) {
   const shapes = [...machine.fixtures];
-  if (validMove(machine, move)) {
-    const shape = { ...parts[move.part].shape, ...machine.sockets[move.socket], fitted: true };
+  for (const fit of fittings(machine, move)) {
+    const shape = { ...parts[fit.part].shape, ...machine.sockets[fit.socket], fitted: true };
     if (shape.mirror && shape.a) shape.a = -shape.a;
-    if (move.flipped) shape.a = -shape.a;
+    if (fit.flipped) shape.a = -shape.a;
     shapes.push(shape);
   }
   return [...shapes, machine.ball, ...machine.goals];

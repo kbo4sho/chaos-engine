@@ -1,3 +1,4 @@
+import { packFittings } from './machines.js';
 import { campaignById } from './campaign.js';
 import { decodePrint } from './workshop.js';
 
@@ -36,9 +37,7 @@ export function repairBook(getStorage) {
   }
   function save(id, move, tick) {
     const record = {
-      part: move.part,
-      socket: move.socket,
-      ...(move.flipped ? { flipped: true } : {}),
+      ...packFittings([move, move.second].filter(Boolean)),
       tick,
       savedAt: Date.now(),
     };

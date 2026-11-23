@@ -32,6 +32,11 @@ export async function verifyLessons(home, { url, record, shot }) {
     await p.tap('[data-part="' + move.part + '"]');
     if (move.flipped) await p.tap('#flip');
     await p.tap('[data-socket="' + move.socket + '"]');
+    if (move.second) {
+      await p.tap('[data-part="' + move.second.part + '"]');
+      if (move.second.flipped) await p.tap('#flip');
+      await p.tap('[data-socket="' + move.second.socket + '"]');
+    }
     await p.select('#playback-rate', i === 0 ? '0.5' : '4');
     await p.tap('#run');
     if (i === 0) {
@@ -65,7 +70,8 @@ export async function verifyLessons(home, { url, record, shot }) {
       'lesson-' + (i + 1),
       progress === i + 1 + ' of ' + lessons.length + ' lessons repaired' &&
         saved.part === move.part &&
-        saved.socket === move.socket,
+        saved.socket === move.socket &&
+        JSON.stringify(saved.second) === JSON.stringify(move.second),
       { progress, level: machine.id, move: saved },
     );
     if (i === 0) {

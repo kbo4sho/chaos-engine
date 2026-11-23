@@ -1,6 +1,18 @@
 import { styles as pressStyles, availableTools } from './tool-press.js';
 import { lessons, lessonById, lessonLink, setupLearning } from './learning.js';
-import { WIDTH, HEIGHT, STEP, canFlip, parts, validMove, createRun, advance } from './machines.js';
+import {
+  WIDTH,
+  HEIGHT,
+  STEP,
+  canFlip,
+  parts,
+  fittings,
+  packFittings,
+  placePart,
+  validMove,
+  createRun,
+  advance,
+} from './machines.js';
 import { instruments as deviceParts } from './devices.js';
 import { campaign as machines, chapters, campaignById } from './campaign.js';
 import { repairBook, repairPrefix } from './repairs.js';
@@ -38,9 +50,7 @@ $('open-lab').addEventListener('click', () => {
 const book = repairBook(() => localStorage);
 function savedMove() {
   const saved = book.read()[machine.id];
-  return validMove(machine, saved)
-    ? { part: saved.part, socket: saved.socket, ...(saved.flipped ? { flipped: true } : {}) }
-    : null;
+  return validMove(machine, saved) ? packFittings(fittings(machine, saved)) : null;
 }
 
 let enclosedReplay = null,
@@ -188,6 +198,11 @@ function updateShelf() {
   $('rig-entry').href = '#' + (nextRig || rigStart).id;
   $('rig-entry').textContent =
     nextRig && nextRig !== rigStart ? 'Resume cable rigs →' : 'Play the cable rigs →';
+  const pairStart = machines.find((m) => m.capacity === 2),
+    nextPair = unfinished.find((m) => m.capacity === 2);
+  $('pair-entry').href = '#' + (nextPair || pairStart).id;
+  $('pair-entry').textContent =
+    nextPair && nextPair !== pairStart ? 'Resume two-part repairs →' : 'Play two-part repairs →';
   $('chapter').value = activeChapter;
   $('chapter-hint').textContent = chapters[activeChapter][1];
   const links = machines.slice(activeChapter * 10, activeChapter * 10 + 10).map((m, i) => {
@@ -234,6 +249,40 @@ function controls() {
   $('sockets').hidden = inspection !== null;
   const busy = playing(),
     won = savedMove() || enclosedReplay;
+  const placed = fittings(machine, move),
+    paired = machine.capacity === 2;
+  $('fitted-pair').hidden = !paired;
+  if (paired) {
+    $('pair-count').textContent = placed.length + ' of 2 parts fitted';
+    // Preserve keyboard focus while the clock runs and after removing one part.
+    const key = JSON.stringify([placed, busy]);
+    if ($('pair-pieces').dataset.layout !== key) {
+      $('pair-pieces').dataset.layout = key;
+      $('pair-pieces').replaceChildren(
+        ...placed.map((f) => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'quiet';
+          b.textContent = socketName(f.socket) + ' · ' + parts[f.part].name + ' ×';
+          b.setAttribute(
+            'aria-label',
+            'Remove ' + parts[f.part].name + ' from socket ' + socketName(f.socket),
+          );
+          b.disabled = busy;
+          b.addEventListener('click', () => {
+            move = packFittings(fittings(machine, move).filter((p) => p.socket !== f.socket));
+            selected = f.part;
+            resetRun(true);
+            message(parts[f.part].name + ' returned to the drawer.');
+            $('parts')
+              .querySelector('[data-part="' + f.part + '"]')
+              .focus({ preventScroll: true });
+          });
+          return b;
+        }),
+      );
+    }
+  }
   $('flip').hidden = !machine.reversible;
   $('flip').disabled = busy || !canFlip(machine, selected);
   $('flip').setAttribute('aria-pressed', String(flipped));
@@ -290,6 +339,7 @@ function controls() {
   for (const b of $('parts').children) {
     b.disabled = busy;
     b.setAttribute('aria-pressed', String(selected === b.dataset.part));
+    b.classList.toggle('installed', paired && placed.some((f) => f.part === b.dataset.part));
     const reversed = selected === b.dataset.part && flipped;
     const part = parts[b.dataset.part];
     const mirrored = machine.sockets.every((mount) => mount.mirror);
@@ -306,7 +356,10 @@ function controls() {
   }
   for (const [i, b] of [...$('sockets').children].entries()) {
     b.disabled = busy;
-    b.classList.toggle('fitted', move?.socket === i);
+    b.classList.toggle(
+      'fitted',
+      placed.some((f) => f.socket === i),
+    );
     const dir = machine.sockets[i].dir || 1;
     const mark =
       selected === 'conveyor'
@@ -327,13 +380,18 @@ function controls() {
           : 'Turns ' + (dir === 1 ? 'counterclockwise' : 'clockwise')
         : '',
     );
-    b.setAttribute('aria-pressed', String(move?.socket === i));
+    b.setAttribute('aria-pressed', String(placed.some((f) => f.socket === i)));
   }
   const hash = new URLSearchParams({ machine: machine.id });
   if (move) {
     hash.set('part', move.part);
     hash.set('socket', String(move.socket));
     if (move.flipped) hash.set('flip', '1');
+    if (move.second) {
+      hash.set('part2', move.second.part);
+      hash.set('socket2', String(move.second.socket));
+      if (move.second.flipped) hash.set('flip2', '1');
+    }
   }
   $('open-sandbox').href = '../#' + hash;
 }
@@ -371,7 +429,16 @@ function fit(i) {
     message('Pick a part from the drawer, then tap socket ' + socketName(i) + '.');
     return;
   }
-  move = { part: selected, socket: i, ...(flipped ? { flipped: true } : {}) };
+  const next = placePart(machine, move, {
+    part: selected,
+    socket: i,
+    ...(flipped ? { flipped: true } : {}),
+  });
+  if (next === move) {
+    message('Both spares are fitted. Remove one or tap an occupied socket to replace it.');
+    return;
+  }
+  move = next;
   resetRun(true);
   tone(250, 0.1, 0.03, 'triangle');
   message(
@@ -379,13 +446,16 @@ function fit(i) {
       ' fitted to ' +
       socketName(i) +
       (flipped ? ', reversed.' : '.') +
-      ' Test your repair.',
+      (machine.capacity === 2 && !move.second
+        ? ' Fit another part or test this handoff.'
+        : ' Test your repair.'),
   );
 }
 $('flip').addEventListener('click', () => {
   if (playing() || !canFlip(machine, selected)) return;
   flipped = !flipped;
-  if (move?.part === selected) fit(move.socket);
+  const installed = fittings(machine, move).find((f) => f.part === selected);
+  if (installed) fit(installed.socket);
   else {
     controls();
     message(
@@ -591,6 +661,25 @@ function finish() {
         ? 'The hatch opened. Inspect the blue parcel’s path to the receiver.'
         : 'The parcel is waiting. Trace the gold marble to the trip switch.',
     );
+  if (!win && machine.capacity === 2) {
+    const installed = fittings(machine, move);
+    const used = run.items
+      .filter((item, i) => item.shape.fitted && run.uses.some((u) => u.item === i))
+      .map((it) => parts[it.shape.kind]?.name || it.shape.kind);
+    message(
+      !installed.length
+        ? 'Both fittings are missing. Follow the empty run to the first gap.'
+        : installed.length === 1
+          ? used.length
+            ? used[0] + ' worked. Inspect its exit, then fit the second part.'
+            : 'One part is fitted. Inspect the first gap before placing the second.'
+          : used.length === 2
+            ? 'Both fittings acted. Inspect where the last one sends the load.'
+            : used.length === 1
+              ? used[0] + ' acted. Inspect its exit toward the idle fitting.'
+              : 'Neither fitting took a load. Trace the first gap.',
+    );
+  }
   if (!win) tone(128, 0.14, 0.025, 'triangle');
 }
 function tickMachine() {
@@ -655,7 +744,9 @@ function launch(replay = false) {
     replay
       ? 'Replaying the recorded repair.'
       : move
-        ? 'Testing the fitted ' + parts[move.part].name.toLowerCase() + '.'
+        ? move.second
+          ? 'Testing both fitted parts.'
+          : 'Testing the fitted ' + parts[move.part].name.toLowerCase() + '.'
         : 'Watch where the marble goes.',
   );
   raf = requestAnimationFrame(frame);
@@ -815,13 +906,17 @@ function navigate(resolved, id, announce = false) {
   $('machine-title').tabIndex = -1;
   $('machine-title').textContent = machine.title;
   $('goal').textContent = machine.goal;
+  $('fit-instruction').textContent =
+    machine.capacity === 2
+      ? 'Choose two different parts. Fit each to its own socket.'
+      : 'Choose a part, then tap a socket.';
   $('open-lab').hidden = false;
   $('lesson').hidden = !machine.lesson;
   $('lesson').open = Boolean(
     machine.lesson &&
     index >= 0 &&
     index % 10 < 2 &&
-    (index < 140 || machine.clockwork || machine.rigging),
+    (index < 140 || machine.clockwork || machine.rigging || machine.capacity === 2),
   );
   $('lesson-text').textContent = machine.lesson || '';
   document.title = machine.title + ' · One Part Missing';
