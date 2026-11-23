@@ -1,11 +1,11 @@
 # Predict a run
 
-Players make two predictions for each of the 39 tools. Each comparison runs two Matter.js machines. Position and arrival readings come from the simulated bodies.
+Players make two predictions for each of the 46 tools. Each comparison runs two Matter.js machines. Position and arrival readings come from the simulated bodies.
 
 ## Sub-features
 
 - **Tool effect** compares the working machine with the disabled tool or empty socket at a specified frame. It tracks the gold marble, blue parcel or final domino.
-- **Change input** changes release position, load diameter or shaft speed. The arrow marks the crossing direction. Simultaneous and missing crossings count as possible answers.
+- **Change input** changes release position, load diameter, shaft speed, descent speed or body heading. The arrow marks the crossing direction. Simultaneous and missing crossings count as possible answers.
 - The player can watch and scrub the reference before answering. Afterward, both paths and measurements are visible. Correct and attempted experiments are remembered independently.
 
 ## How to get to it (user POV)
@@ -14,7 +14,7 @@ Open Tool lab from a machine and choose Predict a run. Alternatively expand Prac
 
 ## Driving it with verify-chaos-engine
 
-Run `./scripts/verify-chaos-engine drive prediction-lab`. Enter from the sandbox launcher. Inspect the reference on a phone, choose an incorrect outcome and retry. Complete all 78 predictions, reload the notebook, inspect a paused live attempt, then open a downloaded replay offline and predict a ratchet run. Evidence includes the phone before and after the answer, a desktop timing gate, measured outcomes and the observed storage keys.
+Run `./scripts/verify-chaos-engine drive prediction-lab`. Enter from the sandbox launcher. Inspect the reference on a phone, choose an incorrect outcome and retry. Complete all 92 predictions, reload the notebook, inspect a paused live attempt, then open a downloaded replay offline and predict a ratchet run. Evidence includes the phone before and after the answer, a desktop timing gate, measured outcomes and the observed storage keys.
 
 ## Gotchas
 

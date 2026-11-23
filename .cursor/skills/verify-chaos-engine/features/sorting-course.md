@@ -1,6 +1,6 @@
 # Sorting room and material handling
 
-The final forty jobs in the 360-level campaign route a small gold marble and a larger blue parcel to separate receivers. Either load can arrive first. Some receivers need a load to settle inside for several consecutive frames.
+Jobs 321 through 360 route a small gold marble and a larger blue parcel to separate receivers. Either load can arrive first. Some receivers need a load to settle inside for several consecutive frames.
 
 ## Sub-features
 

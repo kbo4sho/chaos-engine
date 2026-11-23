@@ -15,6 +15,7 @@ export const styles = {
   rig: 'Cable rig',
   drive: 'Drive train',
   sort: 'Sorting line',
+  flight: 'Flight school',
   any: 'Any machine',
 };
 const maxSeed = 0xffffffff,
@@ -85,6 +86,7 @@ function arrange({ plate, seed, pass }) {
     if (s.axle) moved.axle = [s.axle[0] + dx, s.axle[1] + dy];
     if (s.guide) moved.guide = s.guide.map((x) => x + dx);
     if (s.a) moved.a = orient(s.a);
+    if (source.flight && reflect && ['cargo', 'marble'].includes(s.kind)) moved.a = Math.PI - (s.a || 0);
     if (s.dir || instruments[s.kind]) moved.dir = orient(s.dir || 1);
     return moved;
   };
@@ -126,7 +128,7 @@ function arrange({ plate, seed, pass }) {
     id: 'pending',
     title: source.title + ' · ' + base36(seed).toUpperCase(),
     lesson:
-      source.rigging || source.transmission || source.sorting
+      source.rigging || source.transmission || source.sorting || source.flight
         ? source.lesson
         : source.fixtures.some((s) => s.kind === 'cargo')
           ? 'Follow the gold marble to the switch, then trace the parcel from the hatch.'

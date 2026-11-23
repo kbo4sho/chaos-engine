@@ -1,3 +1,5 @@
+import { flightParts } from './flight.js';
+import { flightIcons, drawFlightRing, drawGear } from './flight-art.js';
 import { sortIcons, drawSortTool, drawBin } from './sort-art.js';
 import { sortingParts } from './sorting.js';
 import { drawDriveBench, flywheel, driveIcons, receiverDial } from './drive-art.js';
@@ -455,6 +457,12 @@ function body(c, item, run) {
   } else if (s.flywheel) flywheel(c, s);
   else if (s.kind === 'eyelet') eyelet(c);
   else if (s.kind === 'cargo') parcel(c, s.r);
+  else if (flightParts[s.kind])
+    drawFlightRing(
+      c,
+      s,
+      run.uses.some((u) => u.item === run.items.indexOf(item) && run.tick - u.tick < 18),
+    );
   else if (sortingParts[s.kind])
     drawSortTool(
       c,
@@ -490,6 +498,7 @@ function body(c, item, run) {
       bolt(c, 0, -4, 4);
     }
   } else beam(c, s);
+  if (b.render?.gearMask) drawGear(c, s.r || 10, b.render.gearMask, b.angle);
   c.restore();
 }
 
@@ -561,7 +570,8 @@ export function partIcon(id) {
       mechanicalIcons[id] ||
       rigIcons[id] ||
       driveIcons[id] ||
-      sortIcons[id]) +
+      sortIcons[id] ||
+      flightIcons[id]) +
     '</svg>'
   );
 }
@@ -584,6 +594,7 @@ export function drawSandboxPart(c, render, timestamp) {
   } else if (s.flywheel) flywheel(c, s);
   else if (s.kind === 'eyelet') eyelet(c);
   else if (s.kind === 'cargo') parcel(c, s.r);
+  else if (flightParts[s.kind]) drawFlightRing(c, s, timestamp - render.poweredAt < 250);
   else if (sortingParts[s.kind]) drawSortTool(c, s, timestamp - render.poweredAt < 220);
   else if (mechanisms[s.kind]) {
     drawMechanism(c, s, timestamp - render.poweredAt < 360, Boolean(render.gateOpen || render.switchOn));
@@ -594,6 +605,7 @@ export function drawSandboxPart(c, render, timestamp) {
   } else if (s.kind === 'tile' || s.kind === 'weight') {
     body(c, { shape: s, body: { position: { x: 0, y: 0 }, angle: 0 } }, null);
   } else beam(c, s);
+  if (render.gearMask) drawGear(c, s.r || 10, render.gearMask, render.flightAngle || 0);
   c.restore();
 }
 
@@ -612,7 +624,9 @@ export function snapshot(run) {
             body.render.cableLength,
             Boolean(body.render.cableBroken),
           ]
-        : [body.position.x, body.position.y, body.angle],
+        : body.render.gearMask
+          ? [body.position.x, body.position.y, body.angle, body.render.gearMask]
+          : [body.position.x, body.position.y, body.angle],
     ),
   };
 }
@@ -630,7 +644,9 @@ export function atFrame(run, sample) {
           ? { binHold: sample.binHolds?.[item.shape.bin === 'blue' ? 1 : 0] }
           : item.shape.wire
             ? { cableLength, cableBroken }
-            : undefined,
+            : (item.shape.kind === 'cargo' || item.shape.kind === 'marble') && cableLength
+              ? { gearMask: cableLength }
+              : undefined,
       },
     };
   });

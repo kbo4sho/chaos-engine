@@ -4,6 +4,8 @@ Players can print a single-tool puzzle, a chain reaction, a parcel delivery, a c
 
 ## Sub-features
 
+- Flight school prints can pair a hopper with a thruster. Both tools must work during the delivery.
+
 - `print-style` selects a mechanism family. Original track press still produces first-generation workshop numbers.
 - `featured-tools` chooses one or two working tools. The second selector updates to show partners available for the first.
 - `fixed-ticket` identifies the exact layout and final target. Reopening a link reconstructs that layout and checks its repairs.

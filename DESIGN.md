@@ -139,6 +139,8 @@ A prediction shows the dashed reference before the player answers. The reveal ov
 
 The design bench uses numbered stations and a dashed gold ring to identify the part being edited. The preview can run with that station removed or with the whole machine assembled. Calibration controls use the physical property and a percentage of the original setting.
 
+Flight service rings use distinct line drawings. Carried gear appears on the moving body and in a short gold/blue text readout at the selected frame. The release hoop clears both marks in sync with the recorded event.
+
 ## Do's and Don'ts
 
 - **Do:** Extend the existing tool-button, status, particle, audio, haptic, cleanup, and custom-rendering conventions end to end.

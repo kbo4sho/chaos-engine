@@ -126,6 +126,14 @@ export async function verifyToolPress(home, { url, record, shot, outDir }) {
     ),
     sortingEvents,
   );
+  const airy = await print('flight', 'hopper', 'thruster');
+  await solve(p, airy);
+  const flightEvents = await p.$$eval('#cues button', (bs) => bs.map((b) => b.textContent));
+  record(
+    'printed-flight-rig',
+    ['Hopper foot hopped', 'Thruster attached'].every((s) => flightEvents.some((e) => e.includes(s))),
+    flightEvents,
+  );
   const parcel = await print('parcel', 'switch', 'hatch');
   const move = await solve(p, parcel);
   record(

@@ -1,3 +1,4 @@
+import { flightParts, flightInput, flightExperiment } from './flight.js';
 import { createRun, advance, HEIGHT, WIDTH, parts } from './machines.js';
 import { instruments, outlet } from './devices.js';
 import { transmissions } from './transmissions.js';
@@ -101,7 +102,17 @@ function handlingExperiment(kind, offset) {
     goals: [{ kind: 'flag', x: 1800, y: 1800, w: 20, h: 20, sensor: true }],
   };
 }
+const flightQuestions = {
+  float: 'After collecting the collar, does the falling load keep accelerating downward?',
+  parachute: 'How does the canopy change a descent after the load has left the service ring?',
+  thruster: 'Which way does the load accelerate when its nose points upward?',
+  keel: 'Which component of the incoming velocity does the fin remove?',
+  hopper: 'Does the foot jump at pickup, or when the load reaches the supporting rail?',
+  bank: 'How does a bank reflect the incoming path across the moving load’s own axis?',
+  unload: 'What happens to a floating load after it sheds the collar?',
+};
 const experiments = {
+  ...Object.fromEntries(Object.entries(flightQuestions).map(([k, question]) => [k, { question }])),
   ...Object.fromEntries(Object.entries(sortQuestions).map(([k, question]) => [k, { question }])),
   ...Object.fromEntries(Object.entries(driveQuestions).map(([k, question]) => [k, { question }])),
   ...Object.fromEntries(
@@ -239,65 +250,67 @@ export function experiment(M, kind, offset = 0) {
             })),
           ]
         : [];
-  const machine = handling
-    ? handlingExperiment(kind, offset)
-    : driven
-      ? driveExperiment(kind, offset)
-      : {
-          fixtures: [
-            ...apparatus,
-            ...(wired
-              ? [{ kind: 'eyelet', node: 'peg', r: 6, field: true, x: mount[0], y: mount[1] }]
-              : []),
-            ...(kind === 'pulley'
-              ? [{ kind: 'cargo', node: 'parcel', r: 11, x: 412, y: 145, density: 0.001 }]
-              : []),
-            {
-              ...parts[kind].shape,
-              x: mount[0],
-              y: mount[1],
-              labPiece: true,
+  const machine = flightParts[kind]
+    ? flightExperiment(kind, offset)
+    : handling
+      ? handlingExperiment(kind, offset)
+      : driven
+        ? driveExperiment(kind, offset)
+        : {
+            fixtures: [
+              ...apparatus,
               ...(wired
-                ? {
-                    from: kind === 'pulley' ? 'runner' : 'peg',
-                    to: kind === 'pulley' ? 'parcel' : 'runner',
-                    rest: rigExperiments[kind][1],
-                  }
-                : {}),
+                ? [{ kind: 'eyelet', node: 'peg', r: 6, field: true, x: mount[0], y: mount[1] }]
+                : []),
+              ...(kind === 'pulley'
+                ? [{ kind: 'cargo', node: 'parcel', r: 11, x: 412, y: 145, density: 0.001 }]
+                : []),
+              {
+                ...parts[kind].shape,
+                x: mount[0],
+                y: mount[1],
+                labPiece: true,
+                ...(wired
+                  ? {
+                      from: kind === 'pulley' ? 'runner' : 'peg',
+                      to: kind === 'pulley' ? 'parcel' : 'runner',
+                      rest: rigExperiments[kind][1],
+                    }
+                  : {}),
+              },
+              ...(gate
+                ? [
+                    kind === 'switch'
+                      ? { ...instruments.hatch.shape, x: 460, y: 135 }
+                      : { ...instruments.switch.shape, x: 205, y: 151 },
+                    { kind: 'cargo', x: 471, y: 113, r: 11 },
+                  ]
+                : []),
+              ...(kind === 'portal' ? [{ ...outlet, x: 423, y: 100 }] : []),
+            ],
+            ball: {
+              kind: 'marble',
+              node: 'runner',
+              ...(kind === 'pulley' ? { density: 0.006 } : {}),
+              r: 12,
+              x: release[0] + offset,
+              y: release[1],
+              vx: release[2],
             },
-            ...(gate
-              ? [
-                  kind === 'switch'
-                    ? { ...instruments.hatch.shape, x: 460, y: 135 }
-                    : { ...instruments.switch.shape, x: 205, y: 151 },
-                  { kind: 'cargo', x: 471, y: 113, r: 11 },
-                ]
-              : []),
-            ...(kind === 'portal' ? [{ ...outlet, x: 423, y: 100 }] : []),
-          ],
-          ball: {
-            kind: 'marble',
-            node: 'runner',
-            ...(kind === 'pulley' ? { density: 0.006 } : {}),
-            r: 12,
-            x: release[0] + offset,
-            y: release[1],
-            vx: release[2],
-          },
-          goals: [
-            {
-              kind: 'chime',
-              x: 2000,
-              y: 2000,
-              w: 22,
-              h: 28,
-              sensor: true,
-              striker: delivery ? 'cargo' : kind === 'domino' ? 'tile' : 'marble',
-            },
-          ],
-          sockets: [],
-          tray: [],
-        };
+            goals: [
+              {
+                kind: 'chime',
+                x: 2000,
+                y: 2000,
+                w: 22,
+                h: 28,
+                sensor: true,
+                striker: delivery ? 'cargo' : kind === 'domino' ? 'tile' : 'marble',
+              },
+            ],
+            sockets: [],
+            tray: [],
+          };
   const simulate = (disabled) => {
     const run = createRun(M, {
       ...machine,
@@ -368,18 +381,23 @@ export function setupLab(M, { onOpen, onClose } = {}) {
     stop();
     const driven = Object.hasOwn(transmissions, menu.value);
     const handling = Object.hasOwn(sortQuestions, menu.value);
-    el('lab-release-label').textContent = handling
-      ? 'Load diameter'
-      : driven
-        ? 'Input speed'
-        : 'Release';
+    const flight = flightParts[menu.value] ? flightInput(menu.value) : null;
+    el('lab-release-label').textContent = flight
+      ? flight.name[0].toUpperCase() + flight.name.slice(1)
+      : handling
+        ? 'Load diameter'
+        : driven
+          ? 'Input speed'
+          : 'Release';
     [...el('lab-offset').options].forEach((o, i) => {
       o.textContent = (
-        handling
-          ? ['14 units', '26 units', '42 units']
-          : driven
-            ? ['Slower', 'Nominal', 'Faster']
-            : ['24 units left', 'Center', '24 units right']
+        flight
+          ? flight.labels
+          : handling
+            ? ['14 units', '26 units', '42 units']
+            : driven
+              ? ['Slower', 'Nominal', 'Faster']
+              : ['24 units left', 'Center', '24 units right']
       )[i];
     });
     data = experiment(M, menu.value, Number(el('lab-offset').value));

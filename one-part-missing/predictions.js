@@ -1,3 +1,4 @@
+import { flightParts, flightInput } from './flight.js';
 import { firstCross } from './prediction-measures.js';
 import { parts } from './machines.js';
 import { transmissions } from './transmissions.js';
@@ -10,6 +11,7 @@ export const exercises = Object.keys(predictionPlans).flatMap((kind) =>
 export const clock = (t) => (t / 60).toFixed(2) + ' s';
 function inputName(kind, offset) {
   const i = offset / 24 + 1;
+  if (flightParts[kind]) return flightInput(kind).labels[i];
   return (
     sortingParts[kind]
       ? ['14-unit load', '26-unit load', '42-unit load']
@@ -114,7 +116,13 @@ export function prediction(M, kind, mode) {
       'Which ' +
       target +
       ' crosses the marked line first when you change the ' +
-      (sortingParts[kind] ? 'load diameter' : transmissions[kind] ? 'input speed' : 'release position') +
+      (flightParts[kind]
+        ? flightInput(kind).name
+        : sortingParts[kind]
+          ? 'load diameter'
+          : transmissions[kind]
+            ? 'input speed'
+            : 'release position') +
       '?',
     unit: 'First crossing',
     result:

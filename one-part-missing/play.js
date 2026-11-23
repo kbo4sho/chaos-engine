@@ -1,3 +1,4 @@
+import { flightNames } from './flight.js';
 import { setupDesignBench } from './design-bench.js';
 import { chooseStart, rememberRoute, setupFinder } from './library.js';
 import { orders, readOrderLink, fitCode, orderPrefix } from './work-orders.js';
@@ -181,6 +182,20 @@ function drawBench() {
   }
   const cargoIndex = run.cargo ? run.items.findIndex((item) => item.body === run.cargo) : -1;
   const cursor = inspection === null ? tape.length - 1 : inspection;
+  const gearPanel = $('flight-gear');
+  gearPanel.hidden = !machine.flight;
+  if (machine.flight) {
+    const idx = run.items.findIndex((it) => it.body === run.ball);
+    const equipment = (actor, i) =>
+      flightNames(inspection === null ? actor.render.gearMask : tape[inspection].poses[i][3] || 0).join(
+        ' + ',
+      ) || 'No gear';
+    const text =
+      'Gold · ' +
+      equipment(run.ball, idx) +
+      (run.cargo ? ' / Blue · ' + equipment(run.cargo, cargoIndex) : '');
+    if (gearPanel.textContent !== text) gearPanel.textContent = text;
+  }
   const cargoTrail =
     cargoIndex === -1
       ? []
@@ -282,6 +297,11 @@ function updateShelf() {
   $('drive-entry').href = '#' + (nextDrive || driveStart).id;
   $('drive-entry').textContent =
     nextDrive && nextDrive !== driveStart ? 'Resume the drive table →' : 'Play the drive table →';
+  const firstFlight = machines.find((m) => m.flight),
+    nextFlight = unfinished.find((m) => m.flight);
+  $('flight-entry').href = '#' + (nextFlight || firstFlight).id;
+  $('flight-entry').textContent =
+    nextFlight && nextFlight !== firstFlight ? 'Resume flight school →' : 'Play flight school →';
   const firstSort = machines.find((m) => m.sorting),
     nextSort = unfinished.find((m) => m.sorting);
   $('sort-entry').href = '#' + (nextSort || firstSort).id;
@@ -1084,7 +1104,8 @@ function navigate(resolved, id, announce = false, sharedFit = null) {
       machine.rigging ||
       machine.capacity === 2 ||
       machine.transmission ||
-      machine.sorting),
+      machine.sorting ||
+      machine.flight),
   );
   $('lesson-text').textContent = machine.lesson || '';
   document.title = machine.title + ' · One Part Missing';

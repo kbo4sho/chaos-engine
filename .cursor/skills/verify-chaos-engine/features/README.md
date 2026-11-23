@@ -60,13 +60,13 @@ Keep implementation details out of the map. Name only user paths, stable handles
 
 - [One Part Missing](./one-part-missing.md) covers the puzzle shelf, physical repairs, inspection, replays, generated machines, sharing and sandbox editing.
 
-- [Puzzle campaign](./puzzle-campaign.md) covers 360 progressively harder machines, chapter navigation, reversible rails, multi-body contacts and permanent progress.
+- [Puzzle campaign](./puzzle-campaign.md) covers 400 progressively harder machines, chapter navigation, reversible rails, multi-body contacts and permanent progress.
 
 - [Powered tool course](./tool-course.md) covers the eight-tool lab, contact inspection, advanced machines and powered sandbox saves.
 
 - [Clockwork and cargo](./clockwork-course.md) covers moving machinery, the two-marble signal and delivery, and saved mechanical assemblies.
 
-- [Guided lessons](./tool-lessons.md) covers the thirty-nine-tool path, practice index, classic experiments, slow motion and single-frame stepping.
+- [Guided lessons](./tool-lessons.md) covers the forty-six-tool path, practice index, classic experiments, slow motion and single-frame stepping.
 
 - [Tool-aware machine press](./tool-press.md) covers themed prints, compatible tool pairs, precise shared layouts and standalone parcel replays.
 
@@ -84,6 +84,8 @@ Keep implementation details out of the map. Name only user paths, stable handles
 
 - [Sorting room](./sorting-course.md) covers six material-handling parts, size clearance, hold times, two independent receipts and native sandbox transfer.
 
-- [Predict a run](./prediction-lab.md) covers 78 physical predictions, direction-aware timing gates, retries, saved mastery and offline experiments.
+- [Predict a run](./prediction-lab.md) covers 92 physical predictions, direction-aware timing gates, retries, saved mastery and offline experiments.
 
 - [Build a machine](./design-bench.md) covers editing real hardware, choosing the missing station, recording a receiver and sharing the tested design.
+
+- [Flight school](./flight-course.md) covers gear carried by moving loads, pickup and release, timed parcel flights and saved in-flight equipment.

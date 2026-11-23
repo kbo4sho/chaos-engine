@@ -1510,3 +1510,9 @@ summary {
     width: 100%;
   }
 }
+
+.gear-readout {
+  font: 13px/1.4 var(--mono);
+  color: #a4dfe1;
+  margin: 5px 0;
+}
