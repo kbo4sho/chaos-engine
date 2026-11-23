@@ -103,7 +103,7 @@ function author(i) {
       return copy;
     };
   const counters = Array(8).fill(0);
-  for (let attempt = 0; attempt < 900; attempt++) {
+  for (let attempt = 0; attempt < (i === 34 ? 7000 : 900); attempt++) {
     const n = starts[i][attempt % starts[i].length],
       { m, shapes } = stock(n);
     const dx = int(-26, 26),
@@ -201,7 +201,7 @@ function author(i) {
         'bank',
       ].filter((k) => parts[k] && !kinds.includes(k)),
     );
-    const tray = shuffle([...kinds, ...extra.slice(0, i < 6 ? 0 : i < 34 ? 1 : 2)]);
+    const tray = shuffle([...kinds, ...extra.slice(0, i < 6 ? 0 : i <= 34 ? 1 : 2)]);
     const board = { ball, fixtures, sockets: mounts, tray, goals: m.goals.map(translate) };
     const move = packFittings(kinds.map((part, k) => ({ part, socket: mounts.indexOf(correct[k]) })));
     const machine = { ...board, capacity: 3 };

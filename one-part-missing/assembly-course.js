@@ -105,15 +105,15 @@ const cards = [
   ],
   [
     'Catch the second load',
-    'Watch both exits from the ice. A basket can catch one size of load while the other continues over its rim.',
+    'The one-way plate admits one approach and catches the return. Watch whether gold can settle long enough in its bay.',
   ],
   [
-    'Wire above the sieve',
-    'Follow the load that takes the overhead line. Its release height decides whether the next grating is reachable.',
+    'The soft blue landing',
+    'Follow the load that drops through the funnel. Blue must slow down and stay in its bay for ten consecutive frames.',
   ],
   [
-    'Quiet landing',
-    'Gold must remain in its bay for consecutive frames. Check the hold counter before changing a successful blue approach.',
+    'Leave the cable',
+    'See which load catches the line. Its release speed and the pull of the magnet determine the two arrivals.',
   ],
   [
     'Second collection',
@@ -157,7 +157,7 @@ const cards = [
   ],
   [
     'Cold store crossover',
-    'A bank redirects the incoming load while the ice changes its contact with the surface. Both receiving bays must register.',
+    'The deflector makes a quarter-turn while the cable and lift fan set the approach. Both receiving bays must register.',
   ],
   [
     'Runway handoff',

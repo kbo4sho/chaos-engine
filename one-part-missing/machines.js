@@ -280,7 +280,7 @@ export function createRun(M, machine, move = null, offset = 0) {
     cargo: items.find((i) => i.shape.kind === 'cargo')?.body,
     striker: machine.striker || 'marble',
     hits: [],
-    binTicks: machine.sorting ? goals.map(() => null) : null,
+    binTicks: goals.length && goals.every(g=>g.shape.bin) ? goals.map(() => null) : null,
     passes: [],
     uses: [],
     tick: 0,

@@ -26,6 +26,7 @@ describe('Three-part repairs', () => {
         placed = fittings(m, fit);
       expect(placed).toHaveLength(3);
       const r = createRun(M, m, fit);
+      if (m.goals.every(g=>g.bin)) expect(r.binTicks).toEqual([null,null]);
       while (r.state === 'running') advance(M, r);
       for (const [n, it] of r.items.entries())
         if (it.shape.fitted) expect(r.uses.some((u) => u.item === n)).toBe(true);

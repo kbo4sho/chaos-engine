@@ -7,7 +7,7 @@ Jobs 401–440 have three missing working fittings. Players can run one or two i
 - The first six jobs give three different spares and three mounts. Later drawers grow to five spares and four sockets.
 - The fitting activity strip reports each installed body's first recorded action. Selecting an action after a test scrubs to the recorded frame. Rewinding before that contact restores Waiting.
 - Three-part repairs extend the ordinary shelf, guided route, optional repair coach, comparison film, receiver editor, shared setup, downloadable replay, repair book and paused sandbox import.
-- The Cold store crossover combines an ice bed and a bank with sorting tools. Chief mechanic uses seven causal devices and two ordered, parcel-only contacts.
+- The Cold store crossover combines an ice bed, a zipline, a lift fan and a deflector. Chief mechanic uses seven causal devices and two ordered, parcel-only contacts.
 
 ## How to get to it (user POV)
 

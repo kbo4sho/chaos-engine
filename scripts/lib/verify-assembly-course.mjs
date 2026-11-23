@@ -120,7 +120,9 @@ export async function verifyAssembly(home, { url, record, shot, outDir }) {
   record(
     'both-cold-store-loads-delivered',
     (await read(p, 'signal')) === '2 / 2 sorted' &&
-      (await p.$$eval('#fitting-events .acted', (ns) => ns.length === 3)),
+      (await p.$$eval('#fitting-events .acted', (ns) => ns.length === 3)) &&
+      await p.$$eval('#delivery-board [data-received=true]', nodes=>nodes.length===2),
+    {signal:await read(p,'signal'),fittings:await read(p,'fitting-events'),receivers:await read(p,'delivery-board')},
   );
   await p.setViewport({ width: 1280, height: 800 });
   await level(39);
