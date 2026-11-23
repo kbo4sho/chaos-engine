@@ -1,3 +1,4 @@
+import { setupDrawingExchange } from './drawing-exchange.js';
 import { compoundKits, compoundByMachine } from './compound-design.js';
 import { chapters } from './campaign.js';
 import { parts, WIDTH, HEIGHT } from './machines.js';
@@ -67,6 +68,14 @@ export function setupDesignBench(M, playMachine) {
   kit.value = draft.kit;
   let previous = [],
     following = [];
+  const exchange = setupDrawingExchange(M, () => draft, next => {
+    selected = 0;
+    change(next);
+    if (!layout) render();
+    panel.open = true;
+    panel.scrollIntoView({block:'start'});
+    kit.focus({preventScroll:true});
+  });
   const offset = (v, minus, plus) =>
     v === 0 ? 'Centered' : Math.abs(8 * v) + ' ' + (v < 0 ? minus : plus);
   const chosen = () => getDesignKit(draft.kit).stations[selected];
@@ -198,6 +207,7 @@ export function setupDesignBench(M, playMachine) {
     paint();
   }
   function save() {
+    exchange.refresh();
     try {
       localStorage.setItem(draftKey, encodeDesign(draft));
     } catch {}
@@ -345,6 +355,7 @@ export function setupDesignBench(M, playMachine) {
     }
   });
   const navigate = (m) => {
+    exchange.leave();
     current = m.designed ? m.id : null;
     el('design-import').hidden = !current;
     if (panel.open) {
@@ -355,6 +366,7 @@ export function setupDesignBench(M, playMachine) {
   };
   return {
     navigate,
+    reviewDrawing: exchange.reviewCode,
     available: (m) => compoundByMachine.has(m.id),
     openMachine(m) {
       const k = compoundByMachine.get(m.id);

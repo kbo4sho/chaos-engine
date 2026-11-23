@@ -72,6 +72,7 @@ const modules = [
   'workshop',
   'compound-templates',
   'compound-design',
+  'drawing-exchange',
   'blueprints',
   'design-bench',
   'maker',

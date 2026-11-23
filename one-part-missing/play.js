@@ -1437,9 +1437,10 @@ async function route(announce) {
   routing = controller;
   const packed = document.body.dataset.portable;
   const hash = location.hash.slice(1);
-  const explicit = packed?.startsWith('tool-pair/1/') ? trainingFileRoute(packed,hash) : packed?.startsWith('match/1/') ? matchFileRoute(packed,hash) : packed || hash;
+  const drawingLink = !packed && hash.startsWith('drawing/');
+  const explicit = packed?.startsWith('tool-pair/1/') ? trainingFileRoute(packed,hash) : packed?.startsWith('match/1/') ? matchFileRoute(packed,hash) : packed || (drawingLink ? '' : hash);
   const requested = explicit || chooseStart(book.read());
-  if (!explicit) history.replaceState(null, '', '#' + requested);
+  if (!explicit && !drawingLink) history.replaceState(null, '', '#' + requested);
   const resume = !packed && requested.startsWith('resume/');
   const target = resume ? requested.slice(7) : requested;
   const guidedId = target.startsWith('learn/') ? target.slice(6) : null;
@@ -1461,6 +1462,9 @@ async function route(announce) {
     }
     if (!controller.signal.aborted) {
       navigate(resolved, id, announce, order?.move, race, match, resume || !explicit, course);
+      if (drawingLink) designBench.reviewDrawing(hash.slice(8), () => {
+        if (location.hash === '#' + hash) history.replaceState(null, '', '#' + requested);
+      });
       if(id.startsWith('tool-pair/') && !course) message('This practice pair is unavailable. Choose two tools in the level map.');
       if (id.startsWith('match/') && !match) message('This card could not be replayed. Open a fresh card from the level map.');
       if (race?.reply) raceDesk.watchReturn();

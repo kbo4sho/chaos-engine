@@ -8,7 +8,7 @@
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="bench.css" />
     <script src="../vendor/matter-0.20.0.min.js"></script>
-    <script type="module" src="bench-release.js?v=25edd1f6cac6"></script>
+    <script type="module" src="bench-release.js?v=4c7acb6eb811"></script>
   </head>
   <body>
     <header class="mast">
@@ -425,6 +425,16 @@
             <p id="design-status" role="status"></p>
           </section>
         </div>
+        <details id="drawing-exchange">
+          <summary>Share a working drawing</summary>
+          <div class="drawing-actions">
+            <button type="button" class="quiet" id="drawing-copy">Copy editable link</button>
+            <a class="action-link" id="drawing-download" download>Save drawing file</a>
+            <label>Open drawing file<input type="file" id="drawing-file" accept=".json,application/json" /></label>
+          </div>
+          <input id="drawing-address" type="text" readonly hidden aria-label="Editable drawing link" />
+          <p id="drawing-feedback" role="status"></p>
+        </details>
       </details>
       <details class="maker" id="maker">
         <summary>Move the target &amp; make a puzzle</summary>
@@ -463,6 +473,17 @@
           <output id="reader-clock-time" for="reader-frame"></output><p id="reader-window"></p>
           <div class="reader-controls"><button id="reader-next-window" class="quiet" type="button">Next opening</button><button id="reader-last-open" class="quiet" type="button">Last open frame</button></div>
         </section>
+      </dialog>
+      <dialog id="drawing-review" aria-labelledby="drawing-name" aria-describedby="drawing-verdict">
+        <p id="drawing-verdict"></p><h2 id="drawing-name" tabindex="-1"></h2>
+        <div id="drawing-preview">
+          <ul id="drawing-stations"></ul><p id="drawing-receiver"></p>
+          <label>Preview<select id="drawing-view"><option value="intact">Complete machine</option><option value="missing">With stations removed</option></select></label>
+          <canvas id="drawing-diagram" width="720" height="400" role="img" aria-label="Shared machine preview"></canvas>
+          <label for="drawing-frame">Frame <output id="drawing-time" for="drawing-frame"></output></label>
+          <input id="drawing-frame" type="range" min="0" max="1" value="0" step="1" /><p id="drawing-outcome"></p>
+        </div>
+        <div class="drawing-actions"><button id="drawing-use" class="primary" type="button">Use this drawing</button><button id="drawing-keep" class="quiet" type="button">Keep my drawing</button></div>
       </dialog>
       <dialog id="focus-view" aria-labelledby="focus-title">
         <header class="focus-head">

@@ -131,3 +131,4 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Read machine diagram](./machine-diagram.md) covers a keyboard and touch release diagram, actual receiver rules and a frame-accurate opening clock.
 - [Keep the workshop offline](./offline-workshop.md) covers a complete optional offline edition, verified replacements and cold offline play.
 - [Design a multi-part machine](./compound-designer.md) covers 120 editable working machines, selectable missing stations and certified custom repairs across all 54 tools.
+- [Exchange working drawings](./drawing-exchange.md) covers portable unfinished designs, independent film review and reversible adoption across browsers.

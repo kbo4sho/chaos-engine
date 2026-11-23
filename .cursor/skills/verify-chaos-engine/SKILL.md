@@ -201,6 +201,7 @@ All helpers are executable. Invoke them from the repo root.
 | `./scripts/verify-chaos-engine drive machine-diagram` | [Read machine diagram](features/machine-diagram.md), a keyboard and touch release diagram, actual receiver rules and a frame-accurate opening clock |
 | `./scripts/verify-chaos-engine drive offline-workshop` | [Keep the workshop offline](features/offline-workshop.md), a complete optional offline edition, verified replacements and cold offline play |
 | `./scripts/verify-chaos-engine drive compound-designer` | [Design a multi-part machine](features/compound-designer.md), 120 editable working machines, selectable missing stations and certified custom repairs across all 54 tools |
+| `./scripts/verify-chaos-engine drive drawing-exchange` | [Exchange working drawings](features/drawing-exchange.md), portable unfinished designs, independent film review and reversible adoption across browsers |
 | `./scripts/verify-chaos-engine cleanup` | Tear down this run; keep evidence |
 
 Drive needs `puppeteer-core` (devDependency) and system Chrome. If the module is missing: `npm install`.
