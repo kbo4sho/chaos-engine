@@ -6,12 +6,14 @@ import { chapters as classicChapters } from './campaign-layout.js';
 import { toolChapters, toolCourse, clockChapters, clockCourse } from './tool-course.js';
 import { rigChapters, rigCourse } from './rig-course.js';
 import { pairCourse, pairChapters } from './pair-course.js';
+import { driveChapters, driveCourse } from './drive-course.js';
 export const chapters = [
   ...classicChapters,
   ...toolChapters,
   ...clockChapters,
   ...rigChapters,
   ...pairChapters,
+  ...driveChapters,
 ];
 const classicCampaign = scores.map((entry, index) => {
   const number = index + 1;
@@ -22,5 +24,12 @@ const classicCampaign = scores.map((entry, index) => {
   if (machine.id === 'station-092') machine.ball.vx = 1.7;
   return machine;
 });
-export const campaign = [...classicCampaign, ...toolCourse, ...clockCourse, ...rigCourse, ...pairCourse];
+export const campaign = [
+  ...classicCampaign,
+  ...toolCourse,
+  ...clockCourse,
+  ...rigCourse,
+  ...pairCourse,
+  ...driveCourse,
+];
 export const campaignById = new Map(campaign.map((machine) => [machine.id, machine]));

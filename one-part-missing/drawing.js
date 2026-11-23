@@ -1,3 +1,4 @@
+import { drawDriveBench, flywheel, driveIcons, receiverDial } from './drive-art.js';
 import { drawBenchRig, eyelet, rigIcons } from './rig-art.js';
 import { mechanisms } from './mechanisms.js';
 import { drawMechanism, drawMachineGuides, mechanicalIcons, parcel } from './mechanical-art.js';
@@ -439,7 +440,7 @@ function tracePath(c, points, color) {
 
 function body(c, item, run) {
   const { shape: s, body: b } = item;
-  if (s.wire) return;
+  if (s.wire || s.drive) return;
   c.save();
   c.translate(b.position.x, b.position.y);
   c.rotate(b.angle);
@@ -447,7 +448,9 @@ function body(c, item, run) {
     const idx = run.goals.indexOf(item),
       hit = run.hits[idx];
     target(c, s, hit !== undefined, hit === undefined ? 0 : run.tick - hit, idx, run.goals.length);
-  } else if (s.kind === 'eyelet') eyelet(c);
+    receiverDial(c, s, run.tick);
+  } else if (s.flywheel) flywheel(c, s);
+  else if (s.kind === 'eyelet') eyelet(c);
   else if (s.kind === 'cargo') parcel(c, s.r);
   else if (mechanisms[s.kind]) {
     const events = run.uses.filter((u) => u.item === run.items.indexOf(item));
@@ -496,7 +499,13 @@ export function draw(
     const cargo = run.items.find((i) => i.shape.kind === 'cargo');
     if (cargo) caption(c, 'PARCEL', cargo.shape.x, Math.max(16, cargo.shape.y - 18), 'center');
     const start = run.items.find((i) => i.shape.kind === 'marble').shape;
-    caption(c, 'RELEASE', Math.min(start.x, WIDTH - 70), Math.max(16, start.y - 24), 'center');
+    caption(
+      c,
+      start.flywheel ? 'INPUT' : 'RELEASE',
+      Math.min(start.x, WIDTH - 70),
+      Math.max(16, start.y - (start.flywheel ? start.r + 12 : 24)),
+      'center',
+    );
     if (ghost.length > 1) {
       c.setLineDash([3, 7]);
       tracePath(c, ghost, '#80948b');
@@ -506,6 +515,7 @@ export function draw(
     if (trail.length > 1) tracePath(c, trail, '#c7a569');
   }
   drawBenchRig(c, run.items, mount);
+  drawDriveBench(c, run.items, run.uses, run.tick);
   for (const item of run.items)
     if (item.body !== run.ball && item.shape.kind !== 'cargo') body(c, item, run);
   if (showActors) drawActors(c, run);
@@ -535,7 +545,7 @@ const icons = {
 export function partIcon(id) {
   return (
     '<svg viewBox="0 0 60 40" fill="none" stroke="#73e2e3" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">' +
-    (icons[id] || toolIcons[id] || mechanicalIcons[id] || rigIcons[id]) +
+    (icons[id] || toolIcons[id] || mechanicalIcons[id] || rigIcons[id] || driveIcons[id]) +
     '</svg>'
   );
 }
@@ -544,7 +554,7 @@ export function partIcon(id) {
 export function drawSandboxPart(c, render, timestamp) {
   const s = render.machineShape;
   const goodSize = (n) => Number.isFinite(n) && n > 0 && n <= 1000;
-  if (!s || s.wire || (s.r ? !goodSize(s.r) : !goodSize(s.w) || !goodSize(s.h))) return;
+  if (!s || s.wire || s.drive || (s.r ? !goodSize(s.r) : !goodSize(s.w) || !goodSize(s.h))) return;
   c.save();
   const scale = render.machineScale || 1;
   c.scale(scale, scale);
@@ -553,7 +563,9 @@ export function drawSandboxPart(c, render, timestamp) {
       ? Math.max(0, (timestamp - render.struckAt) / 16.67)
       : Infinity;
     target(c, s, age !== Infinity, age, render.noteIndex || 0, render.noteCount || 1);
-  } else if (s.kind === 'eyelet') eyelet(c);
+    receiverDial(c, s, render.windowTick || 0);
+  } else if (s.flywheel) flywheel(c, s);
+  else if (s.kind === 'eyelet') eyelet(c);
   else if (s.kind === 'cargo') parcel(c, s.r);
   else if (mechanisms[s.kind]) {
     drawMechanism(c, s, timestamp - render.poweredAt < 360, Boolean(render.gateOpen || render.switchOn));

@@ -1,3 +1,4 @@
+import { receiverOpen } from './transmissions.js';
 import { setupFilms } from './attempt-film.js';
 import { setupFocus } from './focus.js';
 import { styles as pressStyles, availableTools } from './tool-press.js';
@@ -113,6 +114,28 @@ function startAudio() {
 }
 function drawBench() {
   if (!run) return;
+  const gate = machine.goals.find((g) => g.window || g.turn || g.travel);
+  const tick = inspection === null ? run.tick : tape[inspection].tick;
+  $('receiver-clock').hidden = !gate;
+  if (gate) {
+    const w = gate.window,
+      phase = w ? (((tick - w.start) % w.period) + w.period) % w.period : 0;
+    const timing = w
+      ? receiverOpen(gate, tick)
+        ? 'Open · ' + ((w.duration - phase) / 60).toFixed(2) + ' s left'
+        : 'Opens in ' + ((w.period - phase) / 60).toFixed(2) + ' s'
+      : '';
+    const direction = gate.turn
+      ? gate.turn > 0
+        ? 'Clockwise entry'
+        : 'Counterclockwise entry'
+      : gate.travel
+        ? gate.travel > 0
+          ? 'Enter moving right'
+          : 'Enter moving left'
+        : '';
+    $('receiver-clock').textContent = [timing, direction].filter(Boolean).join(' · ');
+  }
   const cargoIndex = run.cargo ? run.items.findIndex((item) => item.body === run.cargo) : -1;
   const cursor = inspection === null ? tape.length - 1 : inspection;
   const cargoTrail =
@@ -207,6 +230,11 @@ function updateShelf() {
   $('pair-entry').href = '#' + (nextPair || pairStart).id;
   $('pair-entry').textContent =
     nextPair && nextPair !== pairStart ? 'Resume two-part repairs →' : 'Play two-part repairs →';
+  const driveStart = machines.find((m) => m.transmission),
+    nextDrive = unfinished.find((m) => m.transmission);
+  $('drive-entry').href = '#' + (nextDrive || driveStart).id;
+  $('drive-entry').textContent =
+    nextDrive && nextDrive !== driveStart ? 'Resume the drive table →' : 'Play the drive table →';
   $('chapter').value = activeChapter;
   $('chapter-hint').textContent = chapters[activeChapter][1];
   const links = machines.slice(activeChapter * 10, activeChapter * 10 + 10).map((m, i) => {
@@ -517,14 +545,22 @@ function buildDrawer() {
     );
     b.innerHTML = '<span>' + socketName(i) + '</span>';
     if (s.from) {
-      const name = (node) =>
-        node === 'runner'
-          ? 'gold marble'
-          : node === 'parcel'
-            ? 'blue parcel'
-            : 'fixed peg ' + (Number(node.slice(3)) + 1);
+      const names = {
+        runner: 'gold marble',
+        parcel: 'blue parcel',
+        drive: 'gold input shaft',
+        relay: 'intermediate shaft',
+        frame: 'fixed frame',
+      };
+      const name = (node) => names[node] || 'fixed peg ' + (Number(node.slice(3)) + 1);
       const span = Math.round((s.rest || 1) * 100);
-      const endpoints = name(s.from) + ' to ' + name(s.to) + ', ' + span + '% starting span';
+      const endpoints =
+        name(s.from) +
+        ' to ' +
+        name(s.to) +
+        (machine.transmission
+          ? ', drive ' + (s.dir === -1 ? 'counterclockwise' : 'clockwise') + ', gear ratio ' + s.ratio
+          : ', ' + span + '% starting span');
       b.title = endpoints;
       b.setAttribute('aria-label', b.getAttribute('aria-label') + ', ' + endpoints);
       const preview = () => {
@@ -604,28 +640,40 @@ function finish() {
   $('film-time').value = seconds;
   $('scrubber').setAttribute('aria-valuetext', seconds);
   $('film').hidden = false;
-  const seen = new Set();
-  const cues = [];
+  const seen = new Set(),
+    contacts = [];
   for (const use of run.uses) {
-    const contact = use.item + '/' + use.actor + '/' + (use.action || '');
-    if (seen.has(contact)) continue;
-    seen.add(contact);
-    const cue = document.createElement('button');
+    const key = use.item + '/' + use.actor + '/' + (use.action || '');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const shape = run.items[use.item].shape;
+    const duplicateDrive =
+      shape.drive && run.items.some((it, i) => i !== use.item && it.shape.kind === shape.kind);
+    const source = duplicateDrive ? (shape.from === 'drive' ? 'Input · ' : 'Relay · ') : '';
     const label =
-      (use.actor === 'cargo' ? 'Parcel · ' : '') +
+      (use.actor === 'cargo' ? 'Parcel · ' : source) +
       parts[use.kind].name +
-      (use.action ? ' ' + use.action : '') +
-      ' · ' +
-      (use.tick / 60).toFixed(2) +
-      ' s';
-    cue.textContent = label;
-    cue.setAttribute('aria-label', 'Inspect ' + label);
-    cue.addEventListener('click', () => {
-      $('scrubber').value = tape.findIndex((f) => f.tick >= use.tick);
-      $('scrubber').dispatchEvent(new Event('input'));
-    });
-    cues.push(cue);
+      (use.action ? ' ' + use.action : '');
+    contacts.push({ tick: use.tick, label });
   }
+  for (const pass of run.passes) {
+    if (seen.has(pass.reason)) continue;
+    seen.add(pass.reason);
+    contacts.push({ tick: pass.tick, label: pass.reason });
+  }
+  const cues = contacts
+    .sort((a, b) => a.tick - b.tick)
+    .map(({ tick, label }) => {
+      const cue = document.createElement('button');
+      const text = label + ' · ' + (tick / 60).toFixed(2) + ' s';
+      cue.textContent = text;
+      cue.setAttribute('aria-label', 'Inspect ' + text);
+      cue.addEventListener('click', () => {
+        $('scrubber').value = tape.findIndex((f) => f.tick >= tick);
+        $('scrubber').dispatchEvent(new Event('input'));
+      });
+      return cue;
+    });
   $('cues').replaceChildren(...cues);
   $('cues').hidden = !cues.length;
   controls();
@@ -646,6 +694,12 @@ function finish() {
   if (!win && machine.lesson && move) {
     const part = run.items.findIndex((item) => item.shape.fitted);
     const reached = run.uses.some((u) => u.item === part);
+    if (parts[move.part].shape.drive)
+      message(
+        reached
+          ? 'The transmission engaged. Follow the output and its entry direction.'
+          : 'The fitting stayed idle. Trace the input shaft and the load.',
+      );
     if (parts[move.part].shape.wire)
       message(
         reached
@@ -667,6 +721,14 @@ function finish() {
         ? 'The hatch opened. Inspect the blue parcel’s path to the receiver.'
         : 'The parcel is waiting. Trace the gold marble to the trip switch.',
     );
+  if (!win && run.passes.length) {
+    const pass = run.passes.at(-1);
+    message(
+      pass.reason === 'Receiver closed'
+        ? 'The parcel arrived while the receiver was closed. Inspect that pass and change its timing.'
+        : 'The parcel reached the receiver from the other direction. Inspect that pass before reversing the drive.',
+    );
+  }
   if (!win && machine.capacity === 2) {
     const installed = fittings(machine, move);
     const used = run.items
@@ -922,7 +984,11 @@ function navigate(resolved, id, announce = false) {
     machine.lesson &&
     index >= 0 &&
     index % 10 < 2 &&
-    (index < 140 || machine.clockwork || machine.rigging || machine.capacity === 2),
+    (index < 140 ||
+      machine.clockwork ||
+      machine.rigging ||
+      machine.capacity === 2 ||
+      machine.transmission),
   );
   $('lesson-text').textContent = machine.lesson || '';
   document.title = machine.title + ' · One Part Missing';

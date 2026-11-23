@@ -1,12 +1,35 @@
+import { addTransmissions, installTransmissions, acceptsReceiver } from './transmissions.js';
 import { makeLinks, installRigging } from './rigging.js';
 import { instruments, installDevices } from './devices.js';
 import { WIDTH, HEIGHT, assembly, makeBody } from './machines.js';
 import { resolveMachine } from './workshop.js';
+import { driveConnection } from './drive-art.js';
 import { drawSandboxRig } from './rig-art.js';
 import { drawSandboxPart } from './drawing.js';
 
 export function installBench(api) {
   const { M, engine, world } = api;
+  let priorBodies,
+    priorConnections,
+    driveScene = { connections: [], slides: [], arms: [], windows: [] };
+  const drives = () => {
+    const bodies = M.Composite.allBodies(world),
+      connections = M.Composite.allConstraints(world);
+    if (bodies !== priorBodies || connections !== priorConnections) {
+      priorBodies = bodies;
+      priorConnections = connections;
+      driveScene = {
+        slides: bodies.filter((b) => b.plugin.benchGuide),
+        arms: bodies.filter((b) => b.plugin.benchArm),
+        connections: connections.filter((c) => c.drive && c.driveMarker),
+        windows: bodies.filter((b) => b.render.machineShape?.window),
+      };
+    }
+    return driveScene;
+  };
+  M.Events.on(engine, 'beforeUpdate', () => {
+    for (const b of drives().windows) b.render.windowTick = (b.render.windowTick || 0) + 1;
+  });
   let previousBodies, scene;
   installDevices(
     M,
@@ -20,7 +43,11 @@ export function installBench(api) {
           const shape = body.render.machineShape;
           if (shape && (instruments[shape.kind] || shape.kind === 'outlet'))
             scene.tools.push({ body, shape });
-          if (!body.isStatic && !body.isSensor && (shape?.kind === 'marble' || body.circleRadius))
+          if (
+            !body.isStatic &&
+            !body.isSensor &&
+            (shape ? ['marble', 'cargo'].includes(shape.kind) : body.circleRadius)
+          )
             scene.marbles.push(body);
         }
       }
@@ -30,6 +57,8 @@ export function installBench(api) {
       tool.body.render.poweredAt = engine.timing.timestamp;
     },
   );
+  // Apply fields before transmitting the resulting load through the shafts, as on the puzzle bench.
+  installTransmissions(M, engine, drives);
   installRigging(
     M,
     engine,
@@ -38,7 +67,10 @@ export function installBench(api) {
       l.rigMarker.render.poweredAt = engine.timing.timestamp;
     },
   );
-  api.setRenderer(drawSandboxPart, drawSandboxRig);
+  api.setRenderer(drawSandboxPart, (c, l) => {
+    if (l.rig) drawSandboxRig(c, l);
+    else driveConnection(c, l);
+  });
   M.Events.on(engine, 'collisionStart', ({ pairs }) => {
     for (const { bodyA, bodyB } of pairs) {
       const target = bodyA.render.machineShape?.sensor
@@ -49,7 +81,13 @@ export function installBench(api) {
       if (!target) continue;
       const other = target === bodyA ? bodyB : bodyA;
       const required = target.render.machineShape.striker;
-      if (other.isSensor || other.isStatic || (required && other.label !== required)) continue;
+      if (
+        other.isSensor ||
+        other.isStatic ||
+        (required && other.label !== required) ||
+        !acceptsReceiver(target.render.machineShape, other, target.render.windowTick || 0)
+      )
+        continue;
       target.render.struckAt = engine.timing.timestamp;
       api.chime([523.25, 659.25, 783.99, 1046.5][target.render.noteIndex || 0]);
     }
@@ -90,6 +128,7 @@ export function installBench(api) {
     M.Composite.add(world, pivot ? [body, pivot] : body);
   }
   makeLinks(M, world, items);
+  addTransmissions(M, world, items);
   const launcher = document.getElementById('puzzle-launcher');
   launcher.href = 'one-part-missing/#' + machine.id;
   api.status(machine.title.toUpperCase() + ' · PAUSED · PRESS PLAY TO EXPERIMENT');

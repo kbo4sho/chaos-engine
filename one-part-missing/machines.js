@@ -1,3 +1,10 @@
+import {
+  transmissions,
+  addTransmissions,
+  installTransmissions,
+  acceptsReceiver,
+  receiverOpen,
+} from './transmissions.js';
 import { links, makeLinks, installRigging } from './rigging.js';
 import { rotorBody } from './mechanisms.js';
 import { instruments, installDevices } from './devices.js';
@@ -17,6 +24,7 @@ const socket = (x, y) => ({ x, y });
 
 export const parts = {
   ...instruments,
+  ...transmissions,
   ...links,
   bridge: {
     name: 'Bridge',
@@ -197,7 +205,7 @@ export function assembly(machine, move) {
 
 export function makeBody(M, shape) {
   const { kind } = shape;
-  const moving = ['marble', 'cargo', 'rocker', 'tile', 'weight'].includes(kind);
+  const moving = ['marble', 'cargo', 'rocker', 'tile', 'weight', 'flywheel'].includes(kind);
   const options = {
     label: kind,
     angle: shape.a || 0,
@@ -220,10 +228,35 @@ export function makeBody(M, shape) {
         : M.Bodies.rectangle(x, y, shape.w, shape.h, options);
   if (shape.bounce) body.restitution = shape.bounce;
   if (shape.r) body.circleRadius = shape.r;
+  if (shape.guide) {
+    body.plugin.benchGuide = { y: shape.y, min: shape.guide[0], max: shape.guide[1] };
+    M.Body.setInertia(body, Infinity);
+  }
+  if (shape.spin) M.Body.setAngularVelocity(body, shape.spin);
   if (shape.vx) M.Body.setVelocity(body, { x: shape.vx, y: 0 });
-  const pivot = shape.pivot
-    ? M.Constraint.create({ pointA: { x, y }, bodyB: body, length: 0, stiffness: 1 })
-    : null;
+  let pivot;
+  if (shape.axle) {
+    const [cx, cy] = shape.axle,
+      radius = Math.hypot(x - cx, y - cy);
+    pivot = M.Constraint.create({
+      pointA: { x: cx, y: cy },
+      bodyB: body,
+      length: radius,
+      stiffness: 1,
+      render: { type: 'machine-axle' },
+    });
+    if (radius > 5 && shape.kind === 'cargo') {
+      // An ideal eccentric shaft with the parcel's mass at its rim. Project the
+      // actual collision body onto the guide, avoiding an ill-conditioned long point offset.
+      pivot.stiffness = 0;
+      body.plugin.benchArm = { cx, cy, radius, phase: Math.atan2(y - cy, x - cx), lastSpeed: 0 };
+      M.Body.setInertia(body, body.inertia + body.mass * radius * radius);
+    }
+  } else if (shape.guide) {
+    pivot = M.Constraint.create({ pointA: { x, y }, bodyB: body, render: { type: 'machine-guide' } });
+    pivot.stiffness = 0;
+  } else if (shape.pivot)
+    pivot = M.Constraint.create({ pointA: { x, y }, bodyB: body, length: 0, stiffness: 1 });
   return { body, pivot, shape };
 }
 
@@ -244,6 +277,7 @@ export function createRun(M, machine, move = null, offset = 0) {
     cargo: items.find((i) => i.shape.kind === 'cargo')?.body,
     striker: machine.striker || 'marble',
     hits: [],
+    passes: [],
     uses: [],
     tick: 0,
     state: 'running',
@@ -266,6 +300,25 @@ export function createRun(M, machine, move = null, offset = 0) {
           actor: actor.label,
         });
       },
+    );
+  }
+  const connections = addTransmissions(M, engine.world, items),
+    slides = items.map((it) => it.body).filter((b) => b.plugin.benchGuide),
+    arms = items.map((it) => it.body).filter((b) => b.plugin.benchArm);
+  if (connections.length || slides.length || arms.length) {
+    const apparatus = { connections, slides, arms };
+    installTransmissions(
+      M,
+      engine,
+      () => apparatus,
+      (c, action) =>
+        run.uses.push({
+          kind: c.drive.kind,
+          item: items.findIndex((it) => it.body === c.driveMarker),
+          tick: run.tick,
+          actor: 'drive',
+          action,
+        }),
     );
   }
   const wires = makeLinks(M, engine.world, items);
@@ -313,7 +366,21 @@ export function createRun(M, machine, move = null, offset = 0) {
       const goal = goals[run.hits.length];
       const target = goal?.body;
       const striker = bodyA === target ? bodyB : bodyB === target ? bodyA : null;
-      if (striker?.label === (goal?.shape.striker || run.striker)) run.hits.push(run.tick);
+      if (striker?.label === (goal?.shape.striker || run.striker)) {
+        const shape = goal.shape,
+          accepted = acceptsReceiver(shape, striker, run.tick);
+        if (shape.window || shape.turn || shape.travel)
+          run.passes.push({
+            tick: run.tick,
+            accepted,
+            reason: accepted
+              ? 'Receiver accepted'
+              : !receiverOpen(shape, run.tick)
+                ? 'Receiver closed'
+                : 'Entry direction missed',
+          });
+        if (accepted) run.hits.push(run.tick);
+      }
     }
   });
   return run;

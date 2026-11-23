@@ -60,18 +60,20 @@ Keep implementation details out of the map. Name only user paths, stable handles
 
 - [One Part Missing](./one-part-missing.md) covers the puzzle shelf, physical repairs, inspection, replays, generated machines, sharing and sandbox editing.
 
-- [Puzzle campaign](./puzzle-campaign.md) covers 200 progressively harder machines, chapter navigation, reversible rails, multi-body contacts and permanent progress.
+- [Puzzle campaign](./puzzle-campaign.md) covers 320 progressively harder machines, chapter navigation, reversible rails, multi-body contacts and permanent progress.
 
 - [Powered tool course](./tool-course.md) covers the eight-tool lab, contact inspection, advanced machines and powered sandbox saves.
 
 - [Clockwork and cargo](./clockwork-course.md) covers moving machinery, the two-marble signal and delivery, and saved mechanical assemblies.
 
-- [Guided lessons](./tool-lessons.md) covers the twenty-seven-tool path, practice index, classic experiments, slow motion and single-frame stepping.
+- [Guided lessons](./tool-lessons.md) covers the thirty-three-tool path, practice index, classic experiments, slow motion and single-frame stepping.
 
 - [Tool-aware machine press](./tool-press.md) covers themed prints, compatible tool pairs, precise shared layouts and standalone parcel replays.
 
 - [Cable rigs](./rigging-course.md) covers seven connector experiments, pulley delivery, break inspection and restored cable geometry.
 
 - [Two-part repairs](./paired-repairs.md) covers installing, replacing and removing two spares, partial trials and two-part recordings.
+
+- [Power transmissions](./drive-course.md) covers six shaft experiments, timed delivery, saved drive connections and portable replays.
 
 - [Expanded bench and comparison film](./attempt-film.md) covers zoom, panning, old and new paths synchronized by physics frame, and the measured first separation.

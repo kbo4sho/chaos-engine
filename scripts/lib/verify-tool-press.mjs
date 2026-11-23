@@ -96,6 +96,14 @@ export async function verifyToolPress(home, { url, record, shot, outDir }) {
       rigEvents.some((t) => t.includes('Damper damping')),
     rigEvents,
   );
+  const drive = await print('drive', 'gearbox', 'rack');
+  await solve(p, drive);
+  const driveEvents = await p.$$eval('#cues button', (bs) => bs.map((b) => b.textContent));
+  record(
+    'printed-power-transmission',
+    ['Gearbox meshed', 'Rack and pinion engaged'].every((k) => driveEvents.some((t) => t.includes(k))),
+    driveEvents,
+  );
   const parcel = await print('parcel', 'switch', 'hatch');
   const move = await solve(p, parcel);
   record(

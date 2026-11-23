@@ -36,9 +36,23 @@ export function keepAttempts(history, next) {
   return { latest: next, previous: history.latest.key === next.key ? history.previous : history.latest };
 }
 function gapAt(a, b, kind, t) {
-  const ap = a.frames[t].poses[a.actors[kind]],
-    bp = b.frames[t].poses[b.actors[kind]];
-  return Math.hypot(ap[0] - bp[0], ap[1] - bp[1]);
+  const ia = a.actors[kind],
+    ib = b.actors[kind],
+    ap = a.frames[t].poses[ia],
+    bp = b.frames[t].poses[ib];
+  const distance = Math.hypot(ap[0] - bp[0], ap[1] - bp[1]);
+  if (a.items[ia].shape.flywheel) {
+    const rim = 2 * a.items[ia].shape.r * Math.abs(Math.sin((ap[2] - bp[2]) / 2));
+    return Math.max(distance, rim);
+  }
+  return distance;
+}
+function actorName(film, kind) {
+  return kind === 'cargo'
+    ? 'Parcel'
+    : film.items[film.actors[kind]].shape.flywheel
+      ? 'Input rim'
+      : 'Marble';
 }
 export function compareAttempts(a, b) {
   const end = Math.min(a.frames.length, b.frames.length) - 1;
@@ -100,7 +114,7 @@ function drawTrails(c, attempt, t, previous) {
     }
     c.stroke();
     if (previous) {
-      const [x, y] = attempt.frames[t].poses[index],
+      const [x, y, heading] = attempt.frames[t].poses[index],
         r = attempt.items[index].shape.r + 2;
       c.beginPath();
       if (kind === 'cargo') {
@@ -109,7 +123,13 @@ function drawTrails(c, attempt, t, previous) {
         c.lineTo(x, y + r);
         c.lineTo(x - r, y);
         c.closePath();
-      } else c.arc(x, y, r, 0, Math.PI * 2);
+      } else {
+        c.arc(x, y, r, 0, Math.PI * 2);
+        if (attempt.items[index].shape.flywheel) {
+          c.moveTo(x, y);
+          c.lineTo(x + r * Math.cos(heading), y + r * Math.sin(heading));
+        }
+      }
       c.stroke();
     }
     c.restore();
@@ -148,10 +168,7 @@ export function setupFilms(el) {
     range.setAttribute('aria-valuetext', clock(t) + ', frame ' + t);
     const gaps = Object.keys(latest.actors).map(
       (kind) =>
-        (kind === 'cargo' ? 'Parcel' : 'Marble') +
-        ' ' +
-        Math.round(gapAt(latest, previous, kind, t)) +
-        ' units apart',
+        actorName(latest, kind) + ' ' + Math.round(gapAt(latest, previous, kind, t)) + ' units apart',
     );
     el('compare-distance').textContent = gaps.join(' · ');
     el('compare-back').disabled = t === 0;
@@ -176,7 +193,8 @@ export function setupFilms(el) {
     range.max = end;
     el('compare-change').disabled = !first;
     el('compare-findings').textContent = first
-      ? (first.kind === 'cargo' ? 'The parcel' : 'The marble') +
+      ? 'The ' +
+        actorName(history.latest, first.kind).toLowerCase() +
         ' separates by one radius at ' +
         clock(first.tick) +
         '.'

@@ -4,6 +4,10 @@ import { packFittings } from './machines.js';
 const modules = [
   'mechanisms',
   'devices',
+  'transmissions',
+  'drive-art',
+  'drive-course',
+  'drive-boards',
   'rigging',
   'rig-art',
   'rig-course',

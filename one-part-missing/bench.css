@@ -664,7 +664,8 @@ summary {
 #tool-entry,
 #clock-entry,
 #rig-entry,
-#pair-entry {
+#pair-entry,
+#drive-entry {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
@@ -1183,4 +1184,9 @@ summary {
 #stage-port:focus-visible {
   outline: 2px solid var(--cyan);
   outline-offset: -2px;
+}
+
+#receiver-clock {
+  color: var(--cyan);
+  font: 13px var(--mono);
 }

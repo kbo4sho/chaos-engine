@@ -11,7 +11,7 @@ import {
 } from '../one-part-missing/workshop.js';
 import { reserves } from '../one-part-missing/press-reserves.js';
 describe('Tool-aware machine press', () => {
-  it('offers all twenty-seven tools and only partners with working stock', () => {
+  it('offers all thirty-three tools and only partners with working stock', () => {
     expect(availableTools('any').sort()).toEqual(Object.keys(parts).sort());
     expect(availableTools('parcel', 'portal')).toContain('hatch');
     expect(availableTools('direct', 'fan')).toEqual([]);
@@ -27,6 +27,7 @@ describe('Tool-aware machine press', () => {
     ['parcel', 'hatch', 'switch', 32],
     ['chain', 'domino', 'any', 1953],
     ['rig', 'pulley', 'damper', 233],
+    ['drive', 'gearbox', 'rack', 311],
   ])('%s prints and reopens the exact working %s/%s machine', (style, focus, partner, seed) => {
     const req = { style, focus, partner, seed },
       m = printTools(M, req);
@@ -52,6 +53,7 @@ describe('Tool-aware machine press', () => {
       'press-2-00-1-0-60-60',
       'press-2-1-1-g-60-60',
       'press-2-ff-1-0-60-60',
+      'press-2-6p-1-0-60-60', // A two-part campaign level has no single-repair print plate.
       'press-2-1-zzzzzzz-0-60-60',
       'press-2-1-1-0-0-0',
     ]) {

@@ -7,19 +7,21 @@ import { certify } from '../one-part-missing/certify.js';
 // The press uses plates with a single spare. Numbered two-part jobs have their own search.
 const rows = campaign
   .filter((m) => m.capacity !== 2)
-  .map((m, i) => {
+  .map((m) => {
     const move = certify(M, m)[0],
       run = createRun(M, m, move);
     while (run.state === 'running') advance(M, run);
     const used = [...new Set([move.part, ...run.uses.map((u) => u.kind)])];
-    const form = m.rigging
-      ? 'rig'
-      : run.cargo
-        ? 'parcel'
-        : used.length > 1 || m.goals.length > 1
-          ? 'chain'
-          : 'direct';
-    return [i + 1, form, ...used];
+    const form = m.transmission
+      ? 'drive'
+      : m.rigging
+        ? 'rig'
+        : run.cargo
+          ? 'parcel'
+          : used.length > 1 || m.goals.length > 1
+            ? 'chain'
+            : 'direct';
+    return [campaign.indexOf(m) + 1, form, ...used];
   });
 fs.writeFileSync(
   new URL('../one-part-missing/press-catalog.js', import.meta.url),

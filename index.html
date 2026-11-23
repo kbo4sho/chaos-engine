@@ -16889,8 +16889,9 @@ function drawConstraints() {
   // Check which constraints are wrecking ball chains
   const wreckingChains = new Set(wreckingBalls.map(wb => wb.chain));
   constraints.forEach(c => {
+    if (c.render?.type === 'machine-axle' || c.render?.type === 'machine-guide') { machineRigRenderer?.(ctx, c); return; }
     if (!c.bodyA || !c.bodyB) return;
-    if (c.render?.type === 'machine-rig') { machineRigRenderer?.(ctx, c); return; }
+    if (c.render?.type === 'machine-rig' || c.render?.type === 'machine-transmission') { machineRigRenderer?.(ctx, c); return; }
     if (c.render?.type === 'flipper-pin') return;
     if (c.render?.type === 'breaklink') return; // Draw strain and weak seam above the parts.
     if (c.render?.type === 'clutch') return; // Custom friction plates and connecting shaft.

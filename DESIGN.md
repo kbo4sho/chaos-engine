@@ -127,6 +127,8 @@ The puzzle route uses the sandbox’s black glass, cyan track, green run control
 
 The expanded workbench keeps the same drawing and controls in a modal with a scrollable playfield. Comparison films draw the latest path as a solid stroke and the earlier path as a dashed stroke with a hollow endpoint. Each setup label includes its parts, sockets and outcome.
 
+The drive table marks the gold input with a bright rim notch and the blue parcel with a carriage or eccentric arm. Timed receivers show OPEN or WAIT, an entry arrow, and a countdown that follows the selected film frame.
+
 ## Do's and Don'ts
 
 - **Do:** Extend the existing tool-button, status, particle, audio, haptic, cleanup, and custom-rendering conventions end to end.

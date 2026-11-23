@@ -701,6 +701,11 @@ async function driveBank(page) {
 }
 
 const journeys = {
+  'drive-course': async page => {
+    const {verifyDrives} = await import('./verify-drive-course.mjs');
+    await verifyDrives(page,{url,record,shot,outDir});
+    result.passed = result.failures.length === 0;
+  },
   'attempt-film': async page => {
     const {verifyFilm} = await import('./verify-attempt-film.mjs');
     await verifyFilm(page,{url,record,shot,outDir});

@@ -1,5 +1,7 @@
 import { createRun, advance, HEIGHT, WIDTH, parts } from './machines.js';
 import { instruments, outlet } from './devices.js';
+import { transmissions } from './transmissions.js';
+import { driveMachine } from './drive-course.js';
 import { links } from './rigging.js';
 import { draw, atFrame, snapshot } from './drawing.js';
 
@@ -14,7 +16,65 @@ const rigExperiments = {
   damper: ['Which part of the motion does the shock absorber slow?', 1],
   pulley: ['What happens to the blue parcel when the gold end of the cable drops?', 1],
 };
+const driveQuestions = {
+  motor: 'How quickly can a motor bring a resting input shaft up to speed?',
+  rack: 'How does the rotating input wheel move the blue carriage along its guide?',
+  gearbox: 'Which direction does the output turn when two gears mesh?',
+  clutch: 'How does the output accelerate while the clutch plates slip?',
+  torsion: 'When does the output catch up with a wound input?',
+  ratchet: 'What changes when the input shaft is held against reverse rotation?',
+};
+function driveExperiment(kind, offset) {
+  const speed = 1 + offset / 100,
+    slide = ['motor', 'rack', 'ratchet'].includes(kind),
+    input = {
+      x: 150,
+      y: 175,
+      r: 33,
+      spin: (kind === 'motor' ? 0 : kind === 'ratchet' ? -0.19 : 0.19) * speed,
+      density: 0.012,
+    };
+  const output = slide
+    ? {
+        mode: 'slide',
+        x: 346,
+        y: 204,
+        guide: [245, 668],
+        vx: kind === 'ratchet' ? 3 : 0,
+        density: 0.003,
+      }
+    : { mode: 'arm', x: 523, y: 203, axle: [450, 200], density: 0.002 };
+  const tools = [];
+  if (kind === 'motor' || kind === 'ratchet')
+    tools.push({ kind: 'rack', from: 'drive', to: 'parcel', x: 258, y: 205, pitch: 32 });
+  tools.push({
+    kind,
+    from: 'drive',
+    to: slide && kind !== 'rack' ? 'frame' : 'parcel',
+    x: slide && kind !== 'rack' ? 150 : 291,
+    y: 134,
+    dir: 1,
+    rate: 0.13 * speed,
+    wind: 1.4,
+    ratio: 1.4,
+    pitch: 28,
+    labPiece: true,
+  });
+  return driveMachine(
+    {
+      input,
+      output,
+      relay: null,
+      tools,
+      sockets: [],
+      tray: [],
+      goal: { kind: 'flag', x: 1600, y: 900, w: 22, h: 28 },
+    },
+    0,
+  );
+}
 const experiments = {
+  ...Object.fromEntries(Object.entries(driveQuestions).map(([k, question]) => [k, { question }])),
   ...Object.fromEntries(
     Object.entries(rigExperiments).map(([kind, [question]]) => [
       kind,
@@ -126,7 +186,8 @@ export function experiment(M, kind, offset = 0) {
   const { mount, release } = experiments[kind];
   const wired = Object.hasOwn(links, kind);
   const gate = kind === 'switch' || kind === 'hatch';
-  const delivery = gate || kind === 'pulley';
+  const driven = Object.hasOwn(transmissions, kind);
+  const delivery = driven || gate || kind === 'pulley';
   const unpowered = !Object.hasOwn(instruments, kind);
   const apparatus =
     kind === 'weight'
@@ -148,59 +209,63 @@ export function experiment(M, kind, offset = 0) {
             })),
           ]
         : [];
-  const machine = {
-    fixtures: [
-      ...apparatus,
-      ...(wired ? [{ kind: 'eyelet', node: 'peg', r: 6, field: true, x: mount[0], y: mount[1] }] : []),
-      ...(kind === 'pulley'
-        ? [{ kind: 'cargo', node: 'parcel', r: 11, x: 412, y: 145, density: 0.001 }]
-        : []),
-      {
-        ...parts[kind].shape,
-        x: mount[0],
-        y: mount[1],
-        labPiece: true,
-        ...(wired
-          ? {
-              from: kind === 'pulley' ? 'runner' : 'peg',
-              to: kind === 'pulley' ? 'parcel' : 'runner',
-              rest: rigExperiments[kind][1],
-            }
-          : {}),
-      },
-      ...(gate
-        ? [
-            kind === 'switch'
-              ? { ...instruments.hatch.shape, x: 460, y: 135 }
-              : { ...instruments.switch.shape, x: 205, y: 151 },
-            { kind: 'cargo', x: 471, y: 113, r: 11 },
-          ]
-        : []),
-      ...(kind === 'portal' ? [{ ...outlet, x: 423, y: 100 }] : []),
-    ],
-    ball: {
-      kind: 'marble',
-      node: 'runner',
-      ...(kind === 'pulley' ? { density: 0.006 } : {}),
-      r: 12,
-      x: release[0] + offset,
-      y: release[1],
-      vx: release[2],
-    },
-    goals: [
-      {
-        kind: 'chime',
-        x: 2000,
-        y: 2000,
-        w: 22,
-        h: 28,
-        sensor: true,
-        striker: delivery ? 'cargo' : kind === 'domino' ? 'tile' : 'marble',
-      },
-    ],
-    sockets: [],
-    tray: [],
-  };
+  const machine = driven
+    ? driveExperiment(kind, offset)
+    : {
+        fixtures: [
+          ...apparatus,
+          ...(wired
+            ? [{ kind: 'eyelet', node: 'peg', r: 6, field: true, x: mount[0], y: mount[1] }]
+            : []),
+          ...(kind === 'pulley'
+            ? [{ kind: 'cargo', node: 'parcel', r: 11, x: 412, y: 145, density: 0.001 }]
+            : []),
+          {
+            ...parts[kind].shape,
+            x: mount[0],
+            y: mount[1],
+            labPiece: true,
+            ...(wired
+              ? {
+                  from: kind === 'pulley' ? 'runner' : 'peg',
+                  to: kind === 'pulley' ? 'parcel' : 'runner',
+                  rest: rigExperiments[kind][1],
+                }
+              : {}),
+          },
+          ...(gate
+            ? [
+                kind === 'switch'
+                  ? { ...instruments.hatch.shape, x: 460, y: 135 }
+                  : { ...instruments.switch.shape, x: 205, y: 151 },
+                { kind: 'cargo', x: 471, y: 113, r: 11 },
+              ]
+            : []),
+          ...(kind === 'portal' ? [{ ...outlet, x: 423, y: 100 }] : []),
+        ],
+        ball: {
+          kind: 'marble',
+          node: 'runner',
+          ...(kind === 'pulley' ? { density: 0.006 } : {}),
+          r: 12,
+          x: release[0] + offset,
+          y: release[1],
+          vx: release[2],
+        },
+        goals: [
+          {
+            kind: 'chime',
+            x: 2000,
+            y: 2000,
+            w: 22,
+            h: 28,
+            sensor: true,
+            striker: delivery ? 'cargo' : kind === 'domino' ? 'tile' : 'marble',
+          },
+        ],
+        sockets: [],
+        tray: [],
+      };
   const simulate = (disabled) => {
     const run = createRun(M, {
       ...machine,
@@ -269,6 +334,13 @@ export function setupLab(M, { onOpen, onClose } = {}) {
   }
   function reset() {
     stop();
+    const driven = Object.hasOwn(transmissions, menu.value);
+    el('lab-release-label').textContent = driven ? 'Input speed' : 'Release';
+    [...el('lab-offset').options].forEach((o, i) => {
+      o.textContent = (
+        driven ? ['Slower', 'Nominal', 'Faster'] : ['24 units left', 'Center', '24 units right']
+      )[i];
+    });
     data = experiment(M, menu.value, Number(el('lab-offset').value));
     const max = Math.max(data.powered.tape.length, data.reference.tape.length) - 1;
     frame = max;

@@ -13,6 +13,7 @@ const sequence = [
   ['Deliver a parcel', [181, 182, 191, 195, 200]],
   ['Connect moving bodies', [201, 202, 203, 205, 206, 207, 211, 240]],
   ['Restore two handoffs', [241, 244, 254, 264, 270, 280]],
+  ['Transmit power', [281, 282, 283, 284, 285, 286, 301, 320]],
 ];
 export const lessons = sequence.flatMap(([chapter, numbers]) =>
   numbers.map((n) => ({ chapter, machine: campaign[n - 1] })),
@@ -48,6 +49,12 @@ export const practice = {
   winch: [206, 209, 227],
   breaklink: [207, 219, 226],
   pulley: [211, 212, 240],
+  rack: [281, 287, 320],
+  motor: [282, 288, 320],
+  gearbox: [283, 288, 320],
+  clutch: [284, 289, 318],
+  torsion: [285, 290, 319],
+  ratchet: [286, 304, 314],
 };
 
 export function setupLearning({ el, lab }) {
@@ -59,6 +66,7 @@ export function setupLearning({ el, lab }) {
       'Powered tools',
       ['conveyor', 'trampoline', 'fan', 'magnet', 'deflector', 'syrup', 'portal', 'repulsor'],
     ],
+    ['Transmissions', ['motor', 'gearbox', 'clutch', 'torsion', 'rack', 'ratchet']],
     ['Rigging', ['tether', 'strut', 'spring', 'damper', 'winch', 'breaklink', 'pulley']],
     ['Clockwork', ['elevator', 'cam', 'piston', 'pinwheel', 'tripwire', 'switch', 'hatch']],
   ]) {

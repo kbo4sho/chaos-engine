@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import M from 'matter-js';
 import { plates } from '../one-part-missing/press-catalog.js';
 import { printTools, readTicket } from '../one-part-missing/tool-press.js';
+const plateByNumber = new Map(plates.map((row) => [row[0], row]));
 const requests = new Map(),
   stock = [];
 for (const [, style, ...tools] of plates) {
@@ -21,7 +22,7 @@ for (const r of ordered) {
     base[1] === r.style &&
     base.slice(2).includes(r.focus) &&
     (r.partner === 'any' || base.slice(2).includes(r.partner));
-  if (stock.some((id) => covers(plates[readTicket(id).plate - 1]))) continue;
+  if (stock.some((id) => covers(plateByNumber.get(readTicket(id).plate)))) continue;
   let result;
   for (const seed of [43, 131, 71, 1901]) {
     result = printTools(M, { ...r, seed }, false);

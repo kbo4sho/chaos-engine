@@ -1,16 +1,19 @@
 import { reserves } from './press-reserves.js';
 import { campaign } from './campaign.js';
 import { parts, createRun, advance, trial, canFlip } from './machines.js';
+import { transmissions } from './transmissions.js';
 import { links } from './rigging.js';
 import { instruments } from './devices.js';
 import { certify } from './certify.js';
 import { plates } from './press-catalog.js';
 
+const plateByNumber = new Map(plates.map((row) => [row[0], row]));
 export const styles = {
   chain: 'Chain reaction',
   parcel: 'Parcel delivery',
   direct: 'Single tool',
   rig: 'Cable rig',
+  drive: 'Drive train',
   any: 'Any machine',
 };
 const maxSeed = 0xffffffff,
@@ -26,7 +29,7 @@ export function readTicket(id) {
   const [plate, seed, pass, x, y] = match.slice(1).map((s) => Number.parseInt(s, 36));
   const ticket = { plate, seed, pass, x, y };
   return plate >= 1 &&
-    plate <= plates.length &&
+    plateByNumber.has(plate) &&
     seed <= maxSeed &&
     pass <= maxPass &&
     x >= 25 &&
@@ -71,13 +74,15 @@ function arrange({ plate, seed, pass }) {
   const source = campaign[plate - 1],
     rng = randomStream(seed ^ Math.imul(pass + 1, 0x9e3779b9) ^ Math.imul(plate, 0x85ebca6b));
   const gentle = pass === maxPass;
-  const reflect = !gentle && rng.next() < 0.5;
+  const reflect = !gentle && rng.next() < 0.5 && !source.transmission;
   const dx = rng.integer(-9, 9),
     dy = rng.integer(-6, 6);
   const orient = (v) => (reflect ? -v : v);
   const shift = (s) => {
     const moved = { ...s, x: (reflect ? 720 - s.x : s.x) + dx, y: s.y + dy };
     if (s.kind === 'cargo' && s.vx) moved.vx = orient(s.vx);
+    if (s.axle) moved.axle = [s.axle[0] + dx, s.axle[1] + dy];
+    if (s.guide) moved.guide = s.guide.map((x) => x + dx);
     if (s.a) moved.a = orient(s.a);
     if (s.dir || instruments[s.kind]) moved.dir = orient(s.dir || 1);
     return moved;
@@ -110,18 +115,23 @@ function arrange({ plate, seed, pass }) {
     ball.y += rng.integer(-7, 7);
     if (ball.vx) ball.vx *= rng.integer(85, 118) / 100;
   }
+  if (source.ball.flywheel) {
+    ball.axle = [ball.x, ball.y];
+    if (!gentle && ball.spin) ball.spin *= rng.integer(94, 106) / 100;
+  }
   const goals = source.goals.map(shift);
   const machine = {
     ...source,
     id: 'pending',
     title: source.title + ' · ' + base36(seed).toUpperCase(),
-    lesson: source.rigging
-      ? source.lesson
-      : source.fixtures.some((s) => s.kind === 'cargo')
-        ? 'Follow the gold marble to the switch, then trace the parcel from the hatch.'
-        : 'Watch the empty run. Where would changing the path put the receiver within reach?',
+    lesson:
+      source.rigging || source.transmission
+        ? source.lesson
+        : source.fixtures.some((s) => s.kind === 'cargo')
+          ? 'Follow the gold marble to the switch, then trace the parcel from the hatch.'
+          : 'Watch the empty run. Where would changing the path put the receiver within reach?',
     pressPlate: source.title,
-    printStyle: plates[plate - 1][1],
+    printStyle: plateByNumber.get(plate)[1],
     toolCourse: false,
     clockwork: false,
     description:
@@ -183,7 +193,7 @@ function provesFit(M, machine, move, requested) {
   if (
     machine.fixtures.some(
       (s) =>
-        (Object.hasOwn(instruments, s.kind) || s.wire) &&
+        (Object.hasOwn(instruments, s.kind) || s.wire || s.drive) &&
         trial(
           M,
           {
@@ -209,7 +219,13 @@ function provesFit(M, machine, move, requested) {
   const r = createRun(M, machine, move);
   while (r.state === 'running') advance(M, r);
   const used = new Set(r.uses.map((u) => u.item));
-  if (r.items.some((it, i) => (instruments[it.shape.kind] || links[it.shape.kind]) && !used.has(i)))
+  if (
+    r.items.some(
+      (it, i) =>
+        (instruments[it.shape.kind] || links[it.shape.kind] || transmissions[it.shape.kind]) &&
+        !used.has(i),
+    )
+  )
     return false;
   if (
     r.items.some(
