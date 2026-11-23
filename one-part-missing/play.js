@@ -1,3 +1,4 @@
+import {setupSpareStudy} from './spare-study-desk.js';
 import { setupDispatchLog } from './dispatch-log.js';
 import {mountLayout} from './mount-layout.js';
 import {setupFittingLedger} from './fitting-ledger.js';
@@ -48,6 +49,7 @@ function inspectTick(tick) {
   $('scrubber').dispatchEvent(new Event('input'));
 }
 const fittingLedger = setupFittingLedger($, () => fittings(machine, move), inspectTick);
+const spareStudy = setupSpareStudy(M,$);
 const dispatchLog = setupDispatchLog($, inspectTick, drawBench);
 const coach = setupCoach(M, $, (choice) => {
   if (choice.operation === 'remove') {
@@ -466,6 +468,7 @@ function controls() {
           : 'Run machine';
   $('reset').disabled = phase === 'ready' && !move && !selected && !ghost.length;
   $('after-win').hidden = !won || busy;
+  $('study-open').hidden=!campaignById.has(machine.id);
   $('next').textContent =
     machines.indexOf(machine) === machines.length - 1 || !machines.includes(machine)
       ? 'Machine press ↓'
@@ -1061,11 +1064,16 @@ async function downloadMachine(button, replay) {
   }
 }
 $('download').addEventListener('click', (event) => downloadMachine(event.currentTarget, null));
+$('study-open').addEventListener('click',()=>{
+  const fit=enclosedReplay || savedMove();
+  if (fit) spareStudy.open(machine,fit);
+});
 $('save-replay').addEventListener('click', (event) => {
   const replay = desk.isRecord(machine, move) ? move : savedMove();
   if (replay) downloadMachine(event.currentTarget, replay);
 });
 function navigate(resolved, id, announce = false, sharedFit = null) {
+  spareStudy.close();
   forecasts.close();
   lab.close();
   films.clear();

@@ -103,3 +103,5 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Grand relays](./grand-relays.md) covers two-load dispatch, filtered contact logs, measured handoff time and recorded path overlays.
 
 - [Fault desk](./fault-desk.md) covers diagnosing a changed station from paired physical runs, testing repairs, best service records and portable cases.
+
+- [Remove a spare](./spare-study.md) covers predictions about earned repairs, matched physics runs, per-spare measurements and offline comparisons.

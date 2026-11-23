@@ -1,6 +1,7 @@
-import { assembly, parts, createRun, advance } from '../machines.js';
-import { snapshot } from '../drawing.js';
-import { recordAttempt, compareAttempts } from '../attempt-film.js';
+import { assembly, parts } from '../machines.js';
+
+import { compareAttempts } from '../attempt-film.js';
+export { recordSimulation as tapeFor } from '../attempt-film.js';
 
 export function inspectionLine(source, fit) {
   return assembly(source, fit)
@@ -12,15 +13,6 @@ export function fieldMachine(source, fit, station, change, service = null) {
     i === station && service !== i ? { ...shape, ...change } : shape,
   );
   return { ...source, fixtures, capacity: 1, sockets: [], tray: [] };
-}
-export function tapeFor(M, machine) {
-  const run = createRun(M, machine),
-    frames = [snapshot(run)];
-  while (run.state === 'running') {
-    advance(M, run);
-    frames.push(snapshot(run));
-  }
-  return { run, frames, film: recordAttempt(machine, run, null, frames) };
 }
 export function firstDifference(record, reference) {
   return compareAttempts(record.film, reference.film).first;

@@ -1,5 +1,5 @@
-import { atFrame, draw, drawActors } from './drawing.js';
-import { parts, WIDTH, HEIGHT, fittings } from './machines.js';
+import { atFrame, draw, drawActors, snapshot } from './drawing.js';
+import { parts, WIDTH, HEIGHT, fittings, createRun, advance } from './machines.js';
 
 const clock = (t) => (t / 60).toFixed(2) + ' s';
 export function recordAttempt(machine, run, move, frames) {
@@ -30,6 +30,11 @@ export function recordAttempt(machine, run, move, frames) {
     uses: run.uses.map((u) => ({ ...u })),
     actors,
   };
+}
+export function recordSimulation(M,machine,move=null) {
+  const run=createRun(M,machine,move),frames=[snapshot(run)];
+  while(run.state==='running'){advance(M,run);frames.push(snapshot(run));}
+  return {run,frames,film:recordAttempt(machine,run,move,frames)};
 }
 export function keepAttempts(history, next) {
   if (!history || next.machine !== history.latest.machine) return { latest: next, previous: null };
