@@ -1,3 +1,5 @@
+import { readTraining, trainingFileRoute, pairTrainingPrefix } from './pair-training.js';
+import { setupPairTraining } from './pair-training-desk.js';
 import { pathReader, filmPaths } from './path-reader.js';
 import { readMatch, matchFileRoute } from './match-cards.js';
 import { setupMatches } from './match-desk.js';
@@ -138,6 +140,9 @@ const desk = setupOrders($, (fit, record) => {
   message('Record setup fitted. Run it or change a spare.');
 });
 const learning = setupLearning({ el: $, lab });
+const training=setupPairTraining($,tick=>{
+  inspectTick(tick); $('film').scrollIntoView({block:'center'}); $('scrubber').focus({preventScroll:true});
+});
 let learningActive = false;
 $('open-lab').addEventListener('click', () => {
   const kind =
@@ -478,6 +483,7 @@ function controls() {
   const busy = playing(),
     won = !matches.active && !raceDesk.blind && (savedMove() || enclosedReplay);
   drafts.busy(busy);
+  training.setBusy(busy);
   films.duringRun(busy);
   desk.controls(machine, move, busy);
   $('order-card').hidden = !machine.contract || matches.active || raceDesk.blind;
@@ -549,6 +555,7 @@ function controls() {
   if (learningActive)
     $('next').textContent =
       lessonById.get(machine.id) === lessons.length - 1 ? 'Lesson map ↓' : 'Next lesson →';
+  if(training.active) $('next').textContent=training.nextLabel();
   $('pilot').textContent = {
     ready: 'Ready',
     running: replaying ? 'Replay' : 'Running',
@@ -617,6 +624,7 @@ function controls() {
   $('open-sandbox').href = '../#' + hash;
 }
 function resetRun(keepGhost = false) {
+  training.clearFilm();
   path.clear();
   coach.clear();
   cancelAnimationFrame(raf);
@@ -833,6 +841,7 @@ function finish() {
   const attempt = films.add(machine, run, move, tape);
   path.ready(()=>filmPaths(attempt));
   if (win && !replaying) {
+    training.delivered(move,run);
     if (matches.active) matches.deliver(move);
     else raceDesk.delivered(move, run.hits.at(-1), attempt);
   }
@@ -1105,6 +1114,7 @@ $('sound').addEventListener('click', () => {
 });
 $('next').addEventListener('click', () => {
   focusBench.close();
+  if(training.next())return;
   if (learningActive) {
     const next = lessons[lessonById.get(machine.id) + 1];
     if (next) location.hash = lessonLink(next.machine.id);
@@ -1189,7 +1199,7 @@ $('save-replay').addEventListener('click', (event) => {
   const replay = desk.isRecord(machine, move) ? move : savedMove();
   if (replay) downloadMachine(event.currentTarget, replay);
 });
-function navigate(resolved, id, announce = false, sharedFit = null, race = null, match = null, resume = false) {
+function navigate(resolved, id, announce = false, sharedFit = null, race = null, match = null, resume = false, course = null) {
   spareStudy.close();
   forecasts.close();
   lab.close();
@@ -1207,8 +1217,9 @@ function navigate(resolved, id, announce = false, sharedFit = null, race = null,
   setDesignMachine(machine);
   desk.navigate(machine);
   matches.navigate(match);
+  training.navigate(course);
   raceDesk.navigate(match ? null : machine, race, desk.fastest);
-  const personal=resolved && id===machine.id && !race && !match && !sharedFit && !document.body.dataset.portable;
+  const personal=resolved && (id===machine.id || course) && !race && !match && !sharedFit && !document.body.dataset.portable;
   personalRepair=Boolean(personal);
   notebook.enter(personalRepair);
   transfer.enter(personalRepair);
@@ -1274,6 +1285,7 @@ function navigate(resolved, id, announce = false, sharedFit = null, race = null,
       ? 'Choose two different parts. Fit each to its own socket.'
       : 'Choose a part, then tap a socket.';
   $('open-lab').hidden = false;
+  if(course) $('machine-no').textContent='Tool pair '+(course.stage+1)+' / 3 · Level '+course.step.n+' · '+(course.stage===2?'Combine':parts[course.step.targets[0]].name);
   $('lesson').hidden = !machine.lesson;
   $('lesson').open = Boolean(
     machine.lesson &&
@@ -1409,7 +1421,7 @@ async function route(announce) {
   routing = controller;
   const packed = document.body.dataset.portable;
   const hash = location.hash.slice(1);
-  const explicit = packed?.startsWith('match/1/') ? matchFileRoute(packed,hash) : packed || hash;
+  const explicit = packed?.startsWith('tool-pair/1/') ? trainingFileRoute(packed,hash) : packed?.startsWith('match/1/') ? matchFileRoute(packed,hash) : packed || hash;
   const requested = explicit || chooseStart(book.read());
   if (!explicit) history.replaceState(null, '', '#' + requested);
   const resume = !packed && requested.startsWith('resume/');
@@ -1419,10 +1431,11 @@ async function route(announce) {
   const id = learningActive ? guidedId : target;
   const bench = document.querySelector('.bench');
   try {
+    const course = id.startsWith('tool-pair/') ? readTraining(id) : null;
     const match = id.startsWith('match/') ? readMatch(M,id) : null;
     const race = id.startsWith('race/') ? readRace(M, id) : null;
     const order = readOrderLink(id);
-    let resolved = match?.card.rounds[match.round] || race?.machine || order?.machine || (freshPrint?.id === id ? freshPrint : campaignById.get(id));
+    let resolved = course?.step.machine || match?.card.rounds[match.round] || race?.machine || order?.machine || (freshPrint?.id === id ? freshPrint : campaignById.get(id));
     freshPrint = null;
     if (!resolved && decodePrint(id)) {
       bench.inert = true;
@@ -1431,7 +1444,8 @@ async function route(announce) {
       resolved = await usePress(M, { id }, controller.signal);
     }
     if (!controller.signal.aborted) {
-      navigate(resolved, id, announce, order?.move, race, match, resume || !explicit);
+      navigate(resolved, id, announce, order?.move, race, match, resume || !explicit, course);
+      if(id.startsWith('tool-pair/') && !course) message('This practice pair is unavailable. Choose two tools in the level map.');
       if (id.startsWith('match/') && !match) message('This card could not be replayed. Open a fresh card from the level map.');
       if (race?.reply) raceDesk.watchReturn();
       if (id.startsWith('race/') && !race) message('This challenge link could not be replayed. Ask for a new link.');
@@ -1450,6 +1464,7 @@ async function route(announce) {
   }
 }
 window.addEventListener('storage', (event) => {
+  if(event.key===null || event.key.startsWith(pairTrainingPrefix))training.sync();
   if (
     machine &&
     (event.key?.startsWith(repairPrefix) || event.key?.startsWith(orderPrefix) || event.key === null)

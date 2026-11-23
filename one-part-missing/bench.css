@@ -1711,3 +1711,16 @@ canvas.reading-path {cursor:crosshair}
 #notebook-file::file-selector-button { min-height: 44px; color: var(--text); background: var(--panel); border: 1px solid var(--line); font: inherit; }
 .notebook-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 #notebook-file-status:not(:empty) { color: var(--cyan); }
+
+#training-panel { margin: 8px 0; padding: 10px; border-left: 2px solid var(--cyan); background: var(--panel); }
+#training-panel h3 { margin: 3px 0; font: 24px/1 var(--display); }
+#training-panel p:not(.eyeline), #training-picker p { margin: 5px 0; font: 12px/1.4 var(--mono); }
+#training-panel p:empty, #training-picker p:empty { display: none; }
+#training-steps, #training-call, #training-contacts { display: flex; gap: 4px; flex-wrap: wrap; }
+#training-steps a, #training-next, #training-alternate { display: inline-flex; align-items: center; min-height: 44px; padding-inline: 5px; color:var(--text); font: 12px/1.25 var(--mono); }
+#training-steps [aria-current=step] { color: var(--cyan); text-decoration-thickness: 2px; }
+#training-call [aria-pressed=true] { color: var(--gold); border-color: var(--gold); }
+#training-contacts button, #training-call button { min-height: 44px; }
+#training-picker select { max-width: 100%; }
+#training-progress, #training-picker-progress { color:var(--muted); }
+#training-result { color:var(--cyan); }

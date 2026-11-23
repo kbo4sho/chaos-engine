@@ -197,6 +197,7 @@ All helpers are executable. Invoke them from the repo root.
 | `./scripts/verify-chaos-engine drive qualification-course` | [Cross training and qualification finals](features/qualification-course.md), 20 numbered repairs, all 54 compound fittings and the three-spare finals |
 | `./scripts/verify-chaos-engine drive phone-startup` | [First repair on a phone](features/phone-startup.md), cold touch startup, font loading, on-demand films and the machine press worker |
 | `./scripts/verify-chaos-engine drive repair-transfer` | [Move repairs to another device](features/repair-transfer.md), a verified personal notebook, unfinished fitting history and safe merges |
+| `./scripts/verify-chaos-engine drive pair-training` | [Practice two tools together](features/pair-training.md), verified three-machine practice courses for every tool, exact contact predictions and offline files |
 | `./scripts/verify-chaos-engine cleanup` | Tear down this run; keep evidence |
 
 Drive needs `puppeteer-core` (devDependency) and system Chrome. If the module is missing: `npm install`.

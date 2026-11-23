@@ -8,7 +8,7 @@
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="bench.css" />
     <script src="../vendor/matter-0.20.0.min.js"></script>
-    <script type="module" src="bench-release.js?v=d62acc54a1d0"></script>
+    <script type="module" src="bench-release.js?v=10cf294cab75"></script>
   </head>
   <body>
     <header class="mast">
@@ -136,6 +136,15 @@
             ><button id="save-replay" class="quiet">Save replay file</button
             >
           </div>
+          <section id="training-panel" aria-labelledby="training-title" hidden>
+            <p id="training-step-title" class="eyeline"></p><h3 id="training-title"></h3>
+            <p id="training-brief"></p>
+            <nav id="training-steps" aria-label="Tool pair practice machines"><a></a><a></a><a></a></nav>
+            <div id="training-call" role="group" aria-label="Which tool acts first?" hidden></div>
+            <p id="training-result" role="status"></p><div id="training-contacts"></div>
+            <p id="training-progress"></p><a id="training-next" class="action-link" hidden></a>
+            <a id="training-alternate" class="action-link" hidden></a>
+          </section>
           <section id="match-panel" aria-label="Three-round match" hidden>
             <details id="match-sheet"><summary>Three-round scorecard</summary>
               <p id="match-result" role="status"></p><nav id="match-rounds" aria-label="Card rounds"></nav>
@@ -288,6 +297,14 @@
           <p id="practice-note"></p>
           <button class="quiet" type="button" id="print-practice">Print a practice machine</button>
           <div id="practice-links"></div>
+          <details class="study" id="training-picker">
+            <summary>Practice two tools together</summary>
+            <label for="training-partner">Second tool<select id="training-partner"></select></label>
+            <p id="training-program"></p><p id="training-picker-progress"></p>
+            <a id="training-enter" class="action-link"></a>
+            <button type="button" class="quiet" id="training-pack">Prepare offline practice</button>
+            <a id="training-file" class="action-link" hidden></a><p id="training-file-status" role="status"></p>
+          </details>
           <section id="tool-notebook" aria-labelledby="tool-notebook-title" hidden>
             <h3 id="tool-notebook-title">Your tool notebook</h3>
             <p id="tool-progress"></p><p id="tool-event-note"></p>
