@@ -21,5 +21,3 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
-      - name: Check the published puzzle bundle
-        run: git diff --exit-code -- one-part-missing/index.html one-part-missing/bench-release.js

@@ -32,6 +32,8 @@ async function replaceIfChanged(url, text) {
     if (error.code !== 'ENOENT') throw error;
   }
   if (old === text) return;
+  if (process.argv.includes('--check') || process.env.GITHUB_ACTIONS === 'true')
+    throw Error('Published puzzle assets are stale. Run npm run build and commit the changes.');
   const temp = new URL(url.href + '.' + process.pid + '.tmp');
   await writeFile(temp, text);
   await rename(temp, url);
