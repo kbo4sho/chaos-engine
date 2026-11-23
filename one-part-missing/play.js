@@ -1,4 +1,5 @@
 import {mountLayout} from './mount-layout.js';
+import {setupFittingLedger} from './fitting-ledger.js';
 import { setupCoach } from './coach-desk.js';
 import { flightNames } from './flight.js';
 import { setupDesignBench } from './design-bench.js';
@@ -39,6 +40,10 @@ const $ = (id) => document.getElementById(id);
 const c = $('diagram').getContext('2d');
 const films = setupFilms($),
   focusBench = setupFocus($);
+const fittingLedger = setupFittingLedger($, tick => {
+  const frame = tape.findIndex(sample=>sample.tick >= tick);
+  if(frame >= 0){$('scrubber').value=frame;$('scrubber').dispatchEvent(new Event('input'));}
+});
 const coach = setupCoach(M, $, (choice) => {
   if (choice.operation === 'remove') {
     const b = document.querySelector('#pair-pieces [data-remove="' + choice.socket + '"]');
@@ -197,6 +202,7 @@ function drawBench() {
   }
   const cargoIndex = run.cargo ? run.items.findIndex((item) => item.body === run.cargo) : -1;
   const cursor = inspection === null ? tape.length - 1 : inspection;
+  if(machine.capacity===3)fittingLedger.draw(run, inspection===null?run.tick:tape[inspection].tick, phase==='won'||phase==='miss');
   const gearPanel = $('flight-gear');
   gearPanel.hidden = !machine.flight;
   if (machine.flight) {
@@ -317,6 +323,8 @@ function updateShelf() {
   $('pair-entry').href = '#' + (nextPair || pairStart).id;
   $('pair-entry').textContent =
     nextPair && nextPair !== pairStart ? 'Resume two-part repairs →' : 'Play two-part repairs →';
+  const firstAssembly=machines.find(m=>m.capacity===3),nextAssembly=unfinished.find(m=>m.capacity===3);
+  if(firstAssembly){$('assembly-entry').href='#'+(nextAssembly||firstAssembly).id;$('assembly-entry').textContent=nextAssembly&&nextAssembly!==firstAssembly?'Resume three-part repairs →':'Play three-part repairs →';}
   const driveStart = machines.find((m) => m.transmission),
     nextDrive = unfinished.find((m) => m.transmission);
   $('drive-entry').href = '#' + (nextDrive || driveStart).id;
@@ -381,10 +389,12 @@ function controls() {
   films.duringRun(busy);
   desk.controls(machine, move, busy);
   const placed = fittings(machine, move),
-    paired = machine.capacity === 2;
+    paired = machine.capacity > 1;
+  $('fitting-ledger').hidden=machine.capacity!==3;
+  $('share-assembly').disabled=busy||!validMove(machine,move);
   $('fitted-pair').hidden = !paired;
   if (paired) {
-    $('pair-count').textContent = placed.length + ' of 2 parts fitted';
+    $('pair-count').textContent = placed.length + ' of '+machine.capacity+' parts fitted';
     // Preserve keyboard focus while the clock runs and after removing one part.
     const key = JSON.stringify([placed, busy]);
     if ($('pair-pieces').dataset.layout !== key) {
@@ -501,16 +511,11 @@ function controls() {
   }
   mountLayout($('sockets'),machine,placed.map(f=>f.socket));
   const hash = new URLSearchParams({ machine: machine.id });
-  if (move) {
-    hash.set('part', move.part);
-    hash.set('socket', String(move.socket));
-    if (move.flipped) hash.set('flip', '1');
-    if (move.second) {
-      hash.set('part2', move.second.part);
-      hash.set('socket2', String(move.second.socket));
-      if (move.second.flipped) hash.set('flip2', '1');
-    }
-  }
+  placed.forEach((fit,i)=>{
+    const suffix=i?String(i+1):'';
+    hash.set('part'+suffix,fit.part);hash.set('socket'+suffix,String(fit.socket));
+    if(fit.flipped)hash.set('flip'+suffix,'1');
+  });
   $('open-sandbox').href = '../#' + hash;
 }
 function resetRun(keepGhost = false) {
@@ -554,7 +559,7 @@ function fit(i) {
     ...(flipped ? { flipped: true } : {}),
   });
   if (next === move) {
-    message('Both spares are fitted. Remove one or tap an occupied socket to replace it.');
+    message((machine.capacity===3?'Three':'Both')+' spares are fitted. Remove one or tap an occupied socket to replace it.');
     return;
   }
   move = next;
@@ -565,7 +570,7 @@ function fit(i) {
       ' fitted to ' +
       socketName(i) +
       (flipped ? ', reversed.' : '.') +
-      (machine.capacity === 2 && !move.second
+      (machine.capacity > 1 && fittings(machine,move).length<machine.capacity
         ? ' Fit another part or test this handoff.'
         : ' Test your repair.'),
   );
@@ -819,6 +824,11 @@ function finish() {
         : 'The parcel reached the receiver from the other direction. Inspect that pass before reversing the drive.',
     );
   }
+  if(!win && machine.capacity===3) {
+    const placed=fittings(machine,move);
+    const acted=run.items.filter((it,i)=>it.shape.fitted&&run.uses.some(e=>e.item===i));
+    message(placed.length===0?'Three fittings are missing. Start with the first reachable socket.':acted.length+' of '+placed.length+' installed fittings acted. '+(placed.length<3?'Keep the working handoff and try the next spare.':'Inspect the contacts to find the missed handoff.'));
+  }
   if (!win && machine.capacity === 2 && !machine.contract) {
     const installed = fittings(machine, move);
     const used = run.items
@@ -903,7 +913,7 @@ function launch(replay = false) {
       ? 'Replaying the recorded repair.'
       : move
         ? move.second
-          ? 'Testing both fitted parts.'
+          ? move.third ? 'Testing three fitted parts.' : 'Testing both fitted parts.'
           : 'Testing the fitted ' + parts[move.part].name.toLowerCase() + '.'
         : 'Watch where the marble goes.',
   );
@@ -971,6 +981,7 @@ $('next').addEventListener('click', () => {
   location.hash = machines[i + 1].id;
 });
 $('share').addEventListener('click', () => copyLink(false));
+$('share-assembly').addEventListener('click',()=>copyLink(true));
 $('share-setup').addEventListener('click', () => copyLink(true));
 async function copyLink(includeFit) {
   const sharedMachine = machine;
@@ -1097,7 +1108,9 @@ function navigate(resolved, id, announce = false, sharedFit = null) {
   $('goal').textContent = machine.goal;
   $('fit-instruction').textContent = machine.contract
     ? 'Fit one spare for economy or try two for speed.'
-    : machine.capacity === 2
+    : machine.capacity === 3
+      ? 'Fit three different spares. Test each handoff as you build.'
+      : machine.capacity === 2
       ? 'Choose two different parts. Fit each to its own socket.'
       : 'Choose a part, then tap a socket.';
   $('open-lab').hidden = false;
@@ -1109,7 +1122,7 @@ function navigate(resolved, id, announce = false, sharedFit = null) {
     (index < 140 ||
       machine.clockwork ||
       machine.rigging ||
-      machine.capacity === 2 ||
+      machine.capacity > 1 ||
       machine.transmission ||
       machine.sorting ||
       machine.flight),

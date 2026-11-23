@@ -1,5 +1,5 @@
 import { orderById } from './work-orders.js';
-import { packFittings } from './machines.js';
+import { packFittings, packedParts } from './machines.js';
 import { campaignById } from './campaign.js';
 import { decodePrint } from './workshop.js';
 
@@ -38,7 +38,7 @@ export function repairBook(getStorage) {
   }
   function save(id, move, tick) {
     const record = {
-      ...packFittings([move, move.second].filter(Boolean)),
+      ...packFittings(packedParts(move)),
       tick,
       savedAt: Date.now(),
     };

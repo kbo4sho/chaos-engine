@@ -133,6 +133,7 @@ export function installBench(api) {
   };
   const move = readPlacement('');
   if (args.has('part2')) move.second = readPlacement('2');
+  if (args.has('part3')) move.third = readPlacement('3');
   // Keep the solver's physical units across devices. Shrinking a domino's
   // actual body changes its inertia and its ability to topple its neighbor.
   api.setMachineViewport({ width: WIDTH, height: HEIGHT });

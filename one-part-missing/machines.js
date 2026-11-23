@@ -163,34 +163,32 @@ function validPlacement(machine, fit) {
 function cleanFit(fit) {
   return { part: fit.part, socket: fit.socket, ...(fit.flipped ? { flipped: true } : {}) };
 }
+export function packedParts(move) {
+  return move ? [move, move.second, move.third].filter(Boolean) : [];
+}
 export function fittings(machine, move) {
-  if (!validPlacement(machine, move)) return [];
-  if (!move.second) return [cleanFit(move)];
-  const second = move.second;
-  if (
-    machine.capacity !== 2 ||
-    !validPlacement(machine, second) ||
-    second.second ||
-    second.part === move.part ||
-    second.socket === move.socket
-  )
-    return [];
-  return [cleanFit(move), cleanFit(second)].sort((a, b) => a.socket - b.socket);
+  if (!move || (move.third && !move.second)) return [];
+  const placed = packedParts(move);
+  if (placed.length > (machine.capacity || 1) ||
+      placed.some((f,i) => !validPlacement(machine,f) || (i>0&&(f.second||f.third))) ||
+      new Set(placed.map(f=>f.part)).size !== placed.length ||
+      new Set(placed.map(f=>f.socket)).size !== placed.length) return [];
+  return placed.map(cleanFit).sort((a,b)=>a.socket-b.socket);
 }
 export function packFittings(placed) {
-  const sorted = placed.map(cleanFit).sort((a, b) => a.socket - b.socket);
-  return sorted[1] ? { ...sorted[0], second: sorted[1] } : sorted[0] || null;
+  const [first, second, third] = placed.map(cleanFit).sort((a,b)=>a.socket-b.socket);
+  return first ? {...first,...(second && {second}),...(third && {third})} : null;
 }
 export function validMove(machine, move) {
   return fittings(machine, move).length >= (machine.minimum || machine.capacity || 1);
 }
 export function placePart(machine, move, placement) {
   if (!validPlacement(machine, placement)) return move;
-  if (machine.capacity !== 2) return cleanFit(placement);
+  if ((machine.capacity || 1) === 1) return cleanFit(placement);
   const remaining = fittings(machine, move).filter(
     (f) => f.socket !== placement.socket && f.part !== placement.part,
   );
-  if (remaining.length === 2) return move;
+  if (remaining.length >= machine.capacity) return move;
   return packFittings([...remaining, placement]);
 }
 export function assembly(machine, move) {

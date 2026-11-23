@@ -1,4 +1,4 @@
-import { campaign } from './campaign.js';
+import { campaign, campaignById } from './campaign.js';
 import { orderBoard } from './order-board.js';
 import { orderPlans } from './order-plans.js';
 import { fittings, packFittings, validMove, LIMIT } from './machines.js';
@@ -35,13 +35,14 @@ export function decodeFitting(m, code) {
     if (!match) return null;
     placements.push({ socket: match[1].charCodeAt(0) - 97, part: match[2] });
   }
-  if (placements.length > 2) return null;
+  if (placements.length > (m.capacity || 1)) return null;
   const move = packFittings(placements);
   return fitCode(m, move) === code ? move : null;
 }
 export function readOrderLink(id) {
   const [base, code, ...rest] = id.split('/build/');
-  const m = orderById.get(base);
+  const assembly = code !== undefined ? campaignById.get(base) : null;
+  const m = orderById.get(base) || (assembly?.capacity === 3 && assembly);
   if (!m || rest.length) return null;
   if (code === undefined) return { machine: m, move: null };
   const move = decodeFitting(m, code);

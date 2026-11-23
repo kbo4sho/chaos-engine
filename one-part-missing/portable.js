@@ -1,8 +1,11 @@
 import {readAsset,base64} from './asset-source.js';
-import { packFittings } from './machines.js';
+import { packFittings, packedParts } from './machines.js';
 // Package only the published application assets. Start from the empty HTML
 // shell, so player records, clipboard values and in-progress runs stay local.
 const modules = [
+  'assembly-course',
+  'assembly-boards',
+  'fitting-ledger',
   'flight',
   'flight-art',
   'flight-course',
@@ -104,7 +107,7 @@ export async function portableFile(machine, replay = null) {
   entry.textContent = "import 'missing/play';";
   doc.body.dataset.portable = machine.id;
   if (replay)
-    doc.body.dataset.repair = JSON.stringify(packFittings([replay, replay.second].filter(Boolean)));
+    doc.body.dataset.repair = JSON.stringify(packFittings(packedParts(replay)));
   doc.title = machine.title + ' · One Part Missing';
   // The portable file is a single challenge that can be forwarded intact.
   const brand = doc.querySelector('.brand');

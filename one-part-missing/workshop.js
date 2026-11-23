@@ -153,7 +153,7 @@ export function tuneTarget(machine, x, y) {
     goals,
     description:
       'The final target has been moved. ' +
-      (machine.capacity === 2 ? 'Fit two parts' : 'Fit a part') +
+      (machine.capacity === 3 ? 'Fit three parts' : machine.capacity === 2 ? 'Fit two parts' : 'Fit a part') +
       ' to reach its new position.',
   };
 }

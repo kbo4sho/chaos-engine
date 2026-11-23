@@ -66,7 +66,9 @@ export function makeEditor(M) {
     }
     current = machine;
     el('maker-instruction').textContent =
-      machine.capacity === 2
+      machine.capacity === 3
+        ? 'Move the final receiver. The press checks each triple and rejects shorter repairs.'
+        : machine.capacity === 2
         ? 'Move the final target. The press tests every pair and rejects a one-part shortcut.'
         : 'Move the final target. The press checks whether one part can still reach it.';
     const code = decodePrint(machine.id);

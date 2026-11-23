@@ -172,7 +172,7 @@ export function guideRepair(M, m, current, which) {
   const needed = plan.fit.filter((f) => !installed.some((done) => sign(done, f)));
   // A redundant extra fitting on an open order can be the sole cause of failure.
   const removals =
-    m.capacity !== 2
+    !(m.capacity > 1)
       ? []
       : installed.filter(
           (f) =>

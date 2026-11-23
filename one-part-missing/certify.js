@@ -1,6 +1,6 @@
 import { trial, canFlip, packFittings } from './machines.js';
 export const offsets = [-2, 0, 2];
-export function* possibilities(machine) {
+export function* possibilities(machine, count = machine.capacity || 1) {
   const singles = [];
   for (const part of machine.tray) {
     for (let socket = 0; socket < machine.sockets.length; socket++) {
@@ -8,22 +8,20 @@ export function* possibilities(machine) {
       if (canFlip(machine, part)) singles.push({ part, socket, flipped: true });
     }
   }
-  if (machine.capacity !== 2) {
-    yield* singles;
-    return;
-  }
-  for (const first of singles)
-    for (const second of singles) {
-      if (first.socket < second.socket && first.part !== second.part)
-        yield packFittings([first, second]);
+  function* choose(placed, nextSocket) {
+    if (placed.length === count) {yield packFittings(placed);return;}
+    for (const candidate of singles) {
+      if (candidate.socket < nextSocket || placed.some(f=>f.part===candidate.part)) continue;
+      yield* choose([...placed,candidate],candidate.socket+1);
     }
+  }
+  yield* choose([],0);
 }
 export function certify(M, machine) {
   if (!offsets.every((n) => trial(M, machine, null, n).state === 'miss')) return null;
-  if (machine.capacity === 2) {
-    for (const part of machine.tray)
-      for (let socket = 0; socket < machine.sockets.length; socket++)
-        if (offsets.some((n) => trial(M, machine, { part, socket }, n).state === 'won')) return null;
+  for (let count=1; count<(machine.capacity || 1); count++) {
+    for (const partial of possibilities(machine,count))
+      if (offsets.some(n=>trial(M,machine,partial,n).state==='won')) return null;
   }
   const repairs = [];
   for (const move of possibilities(machine)) {

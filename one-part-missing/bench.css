@@ -1560,3 +1560,13 @@ summary {
     object-fit: contain;
   }
 }
+
+#assembly-entry{color:var(--cyan);}
+#fitting-ledger{border-top:1px solid var(--line);padding-top:6px;margin:5px 0;}
+#fitting-ledger h3{font:17px var(--display);color:var(--muted);margin:0 0 4px;}
+#fitting-events{display:flex;flex-wrap:wrap;gap:3px 9px;margin-bottom:5px;font:12px/1.5 var(--mono);color:var(--muted);}
+#fitting-events button{font:inherit;min-height:32px;padding:3px 5px;text-align:left;}
+#fitting-events .acted{color:var(--gold);}
+#fitting-events button:disabled{opacity:1;}
+#share-assembly{min-height:34px;font:12px var(--mono);padding:4px 8px;}
+body[data-portable] #share-assembly{display:none!important;}
