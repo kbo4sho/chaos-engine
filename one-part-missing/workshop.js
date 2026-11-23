@@ -1,14 +1,15 @@
-import { guideRepair } from './repair-coach.js';
-import { readDesign, proveDesign } from './blueprints.js';
-import { openTicket, readTicket, printTools } from './tool-press.js';
+import { registrations } from "./classic-registration.js";
+import { guideRepair } from "./repair-coach.js";
+import { readDesign, proveDesign } from "./blueprints.js";
+import { openTicket, readTicket, printTools } from "./tool-press.js";
 // Generate a complete delivery line, remove a working part, then test the
 // incomplete machine and candidate repairs in the very same engine as play.
-import { machines, createRun, advance, trial } from './machines.js';
+import { machines, createRun, advance, trial } from "./machines.js";
 
-import { campaign, campaignById } from './campaign.js';
+import { campaign, campaignById } from "./campaign.js";
 
-import { certify, offsets } from './certify.js';
-export { certify } from './certify.js';
+import { certify, offsets } from "./certify.js";
+export { certify } from "./certify.js";
 
 function randomStream(seed) {
   let v = seed >>> 0;
@@ -20,42 +21,52 @@ function randomStream(seed) {
 
 export function generate(M, seed) {
   if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff)
-    throw new Error('Invalid workshop number');
+    throw new Error("Invalid workshop number");
   const random = randomStream(seed);
   const range = (min, max) => Math.round(min + (max - min) * random());
   for (let attempt = 0; attempt < 32; attempt++) {
-    const type = ['bridge', 'chute', 'bumper'][range(0, 2)];
+    const type = ["bridge", "chute", "bumper"][range(0, 2)];
     const x = range(133, 195),
       y = range(107, 150),
       w = range(174, 250),
       a = range(16, 34) / 100;
-    const first = { kind: 'rail', x, y, w, h: 12, a };
+    const first = { kind: "rail", x, y, w, h: 12, a };
     const ball = {
-      kind: 'marble',
+      kind: "marble",
       x: x - w / 2 + range(11, 36),
       y: y - (w * a) / 2 - range(27, 43),
       r: 12,
       vx: range(16, 31) / 10,
     };
-    const correct = { x: x + w / 2 + range(24, 61), y: y + (w * a) / 2 + range(48, 93) };
-    const decoy = { x: correct.x + range(50, 138), y: correct.y + range(65, 93) };
+    const correct = {
+      x: x + w / 2 + range(24, 61),
+      y: y + (w * a) / 2 + range(48, 93),
+    };
+    const decoy = {
+      x: correct.x + range(50, 138),
+      y: correct.y + range(65, 93),
+    };
     const sockets = random() < 0.5 ? [correct, decoy] : [decoy, correct];
-    const tray = ['bumper', 'chute', 'bridge'];
+    const tray = ["bumper", "chute", "bridge"];
     for (let i = tray.length - 1; i > 0; i--) {
       const j = Math.floor(random() * (i + 1));
       [tray[i], tray[j]] = [tray[j], tray[i]];
     }
-    const goalKind = ['bell', 'flag', 'chime'][range(0, 2)];
+    const goalKind = ["bell", "flag", "chime"][range(0, 2)];
     const machine = {
-      id: 'press-1-' + seed,
-      title: 'Workshop No. ' + seed,
-      field: 'Machine press',
+      id: "press-1-" + seed,
+      title: "Workshop No. " + seed,
+      field: "Machine press",
       goal: {
-        bell: 'Ring the brass bell.',
-        flag: 'Raise the signal flag.',
-        chime: 'Strike the suspended chime.',
+        bell: "Ring the brass bell.",
+        flag: "Raise the signal flag.",
+        chime: "Strike the suspended chime.",
       }[goalKind],
-      success: { bell: 'The bell rang.', flag: 'Flag raised.', chime: 'The chime sounded.' }[goalKind],
+      success: {
+        bell: "The bell rang.",
+        flag: "Flag raised.",
+        chime: "The chime sounded.",
+      }[goalKind],
       ball,
       fixtures: [first],
       tray,
@@ -65,7 +76,7 @@ export function generate(M, seed) {
     const intended = { part: type, socket: sockets.indexOf(correct) };
     const run = createRun(M, machine, intended);
     const candidates = [];
-    while (run.state === 'running') {
+    while (run.state === "running") {
       advance(M, run);
       const p = run.ball.position;
       if (
@@ -76,7 +87,7 @@ export function generate(M, seed) {
         p.x < 670 &&
         Math.hypot(p.x - correct.x, p.y - correct.y) > 80 &&
         run.tick > 90 &&
-        (type === 'chute' ? p.y > correct.y + 18 : p.x > correct.x + 60)
+        (type === "chute" ? p.y > correct.y + 18 : p.x > correct.x + 60)
       )
         candidates.push({ ...p });
     }
@@ -85,8 +96,12 @@ export function generate(M, seed) {
       .reverse()
       .filter((_, i) => i % 3 === 0)
       .slice(0, 5)) {
-      Object.assign(machine.goals[0], { x: Math.round(point.x), y: Math.round(point.y) });
-      if (!offsets.every((n) => trial(M, machine, intended, n).state === 'won')) continue;
+      Object.assign(machine.goals[0], {
+        x: Math.round(point.x),
+        y: Math.round(point.y),
+      });
+      if (!offsets.every((n) => trial(M, machine, intended, n).state === "won"))
+        continue;
       const verified = certify(M, machine);
       if (verified) return { ...machine, verifiedRepairs: verified.length };
     }
@@ -98,8 +113,8 @@ export function generate(M, seed) {
   const translate = (v) => ({ ...v, x: v.x + shift });
   const fallback = {
     ...template,
-    id: 'press-1-' + seed,
-    title: 'Workshop No. ' + seed,
+    id: "press-1-" + seed,
+    title: "Workshop No. " + seed,
     description: template.description,
     fixtures: template.fixtures.map(translate),
     ball: translate(template.ball),
@@ -107,7 +122,7 @@ export function generate(M, seed) {
     sockets: template.sockets.map(translate),
   };
   const verified = certify(M, fallback);
-  if (!verified) throw new Error('The machine did not pass its trials');
+  if (!verified) throw new Error("The machine did not pass its trials");
   return { ...fallback, verifiedRepairs: verified.length };
 }
 
@@ -116,18 +131,26 @@ export function generate(M, seed) {
 export function drawClassic(M, seed) {
   const random = randomStream(seed);
   const pick = (count) => Math.floor(random() * count);
-  const plate = campaign[pick(29)];
-  const dx = pick(21) - 10, dy = pick(11) - 5;
+  const [index, dx, dy] = registrations[pick(registrations.length)];
+  const plate = campaign[index];
   const shift = (p) => ({ ...p, x: p.x + dx, y: p.y + dy });
   const sockets = plate.sockets.map(shift);
   const tray = [...plate.tray];
   if (pick(2)) sockets.reverse();
   if (pick(2)) tray.reverse();
-  const machine = { ...plate, id: 'press-3-' + seed, title: 'Workshop No. ' + seed,
-    field: 'Machine press', fixtures: plate.fixtures.map(shift), ball: shift(plate.ball),
-    goals: plate.goals.map(shift), sockets, tray };
+  const machine = {
+    ...plate,
+    id: "press-3-" + seed,
+    title: "Workshop No. " + seed,
+    field: "Machine press",
+    fixtures: plate.fixtures.map(shift),
+    ball: shift(plate.ball),
+    goals: plate.goals.map(shift),
+    sockets,
+    tray,
+  };
   const repairs = certify(M, machine);
-  if (!repairs) throw Error('The machine did not pass its trials');
+  if (!repairs) throw Error("The machine did not pass its trials");
   return { ...machine, verifiedRepairs: repairs.length };
 }
 
@@ -138,7 +161,7 @@ function resolveBase(M, id) {
   if (ticket) return openTicket(M, ticket);
   const match = /^press-([13])-(0|[1-9]\d{0,9})$/.exec(id);
   if (!match || Number(match[2]) > 0xffffffff) return null;
-  return (match[1] === '3' ? drawClassic : generate)(M, Number(match[2]));
+  return (match[1] === "3" ? drawClassic : generate)(M, Number(match[2]));
 }
 
 const ID_PATTERN = /^([a-z][a-z0-9-]*)(?:~(-?[0-8])\.(-?[0-8]))?$/;
@@ -151,17 +174,25 @@ export function decodePrint(id) {
   if (!match) return null;
   const base = match[1],
     classic = /^press-[13]-(0|[1-9]\d{0,9})$/.exec(base);
-  if (!campaignById.has(base) && !(classic && Number(classic[1]) <= 0xffffffff) && !readTicket(base))
+  if (
+    !campaignById.has(base) &&
+    !(classic && Number(classic[1]) <= 0xffffffff) &&
+    !readTicket(base)
+  )
     return null;
   const x = Number(match[2] || 0),
     y = Number(match[3] || 0);
-  if (match[2] && ((!x && !y) || match[2] !== String(x) || match[3] !== String(y))) return null;
+  if (
+    match[2] &&
+    ((!x && !y) || match[2] !== String(x) || match[3] !== String(y))
+  )
+    return null;
   return { base: match[1], x, y };
 }
 
 export function tuneTarget(machine, x, y) {
   if (![x, y].every((n) => Number.isInteger(n) && Math.abs(n) <= 8))
-    throw new Error('Invalid target position');
+    throw new Error("Invalid target position");
   if (!x && !y) return machine;
   const goals = machine.goals.map((g) => ({ ...g }));
   const last = goals.at(-1);
@@ -169,13 +200,17 @@ export function tuneTarget(machine, x, y) {
   last.y += 8 * y;
   return {
     ...machine,
-    id: machine.id + '~' + x + '.' + y,
-    title: machine.title + ' · remix',
+    id: machine.id + "~" + x + "." + y,
+    title: machine.title + " · remix",
     goals,
     description:
-      'The final target has been moved. ' +
-      (machine.capacity === 3 ? 'Fit three parts' : machine.capacity === 2 ? 'Fit two parts' : 'Fit a part') +
-      ' to reach its new position.',
+      "The final target has been moved. " +
+      (machine.capacity === 3
+        ? "Fit three parts"
+        : machine.capacity === 2
+          ? "Fit two parts"
+          : "Fit a part") +
+      " to reach its new position.",
   };
 }
 
@@ -187,14 +222,19 @@ export function proveTarget(M, draft) {
     last.y - last.h / 2 < 14 ||
     last.y + last.h / 2 > 371
   )
-    return { reason: 'The target extends off the bench. Slide it back into view.' };
-  if (!offsets.every((n) => trial(M, draft, null, n).state === 'miss'))
-    return { reason: 'The empty machine already reaches the target. Try a different position.' };
+    return {
+      reason: "The target extends off the bench. Slide it back into view.",
+    };
+  if (!offsets.every((n) => trial(M, draft, null, n).state === "miss"))
+    return {
+      reason:
+        "The empty machine already reaches the target. Try a different position.",
+    };
   const repairs = certify(M, draft);
   if (!repairs)
     return {
       reason:
-        'No fitting reached that target at all three release points. Try moving it closer to the track.',
+        "No fitting reached that target at all three release points. Try moving it closer to the track.",
     };
   return { machine: { ...draft, verifiedRepairs: repairs.length } };
 }
@@ -216,7 +256,7 @@ export function pressRequest(M, request) {
   }
   if (request.design) {
     const d = readDesign(request.design);
-    return d ? proveDesign(M, d) : { reason: 'Invalid design drawing.' };
+    return d ? proveDesign(M, d) : { reason: "Invalid design drawing." };
   }
   if (request.press) return printTools(M, request.press);
   if (request.draft) return proveTarget(M, request.draft);

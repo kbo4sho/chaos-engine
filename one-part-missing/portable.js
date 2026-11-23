@@ -52,6 +52,7 @@ const modules = [
   'press-catalog',
   'press-reserves',
   'tool-press',
+  'classic-registration',
   'workshop',
   'blueprints',
   'design-bench',
