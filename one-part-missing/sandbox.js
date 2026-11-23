@@ -1,4 +1,4 @@
-import { devices, installDevices } from './devices.js';
+import { instruments, installDevices } from './devices.js';
 import { WIDTH, HEIGHT, assembly, validMove, makeBody } from './machines.js';
 import { resolveMachine } from './workshop.js';
 import { drawSandboxPart } from './drawing.js';
@@ -16,7 +16,7 @@ export function installBench(api) {
         scene = { tools: [], marbles: [] };
         for (const body of bodies) {
           const shape = body.render.machineShape;
-          if (shape && (devices[shape.kind] || shape.kind === 'outlet'))
+          if (shape && (instruments[shape.kind] || shape.kind === 'outlet'))
             scene.tools.push({ body, shape });
           if (!body.isStatic && !body.isSensor && (shape?.kind === 'marble' || body.circleRadius))
             scene.marbles.push(body);

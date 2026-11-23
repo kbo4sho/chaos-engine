@@ -1,4 +1,6 @@
 // Bake the targets once. Gameplay never adjusts equipment or receivers to make a shot land.
+import { buildRelay } from './lib/author-relay-boards.mjs';
+import { motionAt } from '../one-part-missing/mechanisms.js';
 import fs from 'node:fs';
 import M from 'matter-js';
 import { createRun, advance, trial } from '../one-part-missing/machines.js';
@@ -14,6 +16,11 @@ const key = {
   S: 'syrup',
   P: 'portal',
   R: 'repulsor',
+  C: 'cam',
+  E: 'elevator',
+  I: 'piston',
+  W: 'pinwheel',
+  K: 'tripwire',
 };
 // Uppercase is the missing fitting. A lesson then changes its approach, order or partner.
 const recipes = [
@@ -24,7 +31,9 @@ const recipes = [
   'bFm sTb dBt mPs fRb rMt pSd tFm dPb mTr',
   'fRbp bMtf pDbt tSfp bDrm mFbt rPds bTrp dMfb prtB',
 ].flatMap((chapter) => chapter.split(' '));
-const file = new URL('../one-part-missing/tool-boards.js', import.meta.url);
+const clockRecipes = ['E C E C eB cT bE tC eMb cFt', 'I W K I W K iB wK cIf mWe'].flatMap((s) =>
+  s.split(' '),
+);
 const between = (n, low, high) => n >= low && n <= high;
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const within = (p) => between(p.x, 56, 664) && between(p.y, 45, 326);
@@ -42,7 +51,7 @@ function trace(machine, move, offset = 0) {
   return { path, uses: r.uses.map((u) => ({ ...u, ...r.items[u.item].shape })) };
 }
 
-function build(i, recipe) {
+export function build(i, recipe) {
   let seed = (i + 1) * 61717;
   const rnd = () => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296;
   const integer = (a, b) => Math.floor(a + (b - a + 1) * rnd());
@@ -92,6 +101,18 @@ function build(i, recipe) {
           y += 18;
           x += orientation * integer(7, 29);
           if (kind === 'conveyor' && i > 2 && rnd() < 0.3) orientation *= -1;
+        } else if (['cam', 'elevator', 'piston', 'pinwheel'].includes(kind)) {
+          const drift = motionAt({ kind, x: 0, y: 0, dir: orientation }, p.t);
+          if (kind === 'piston') {
+            x -= orientation * integer(7, 28) + drift.x;
+            y += integer(-15, 15);
+          } else if (kind === 'pinwheel') {
+            x += orientation * integer(-15, 15);
+            y += integer(13, 33);
+          } else {
+            x += orientation * integer(-12, 20) - drift.x;
+            y += (kind === 'cam' ? 28 : 17) - drift.y;
+          }
         } else if (kind === 'fan') {
           y += integer(34, 76);
         } else if (kind === 'repulsor' || kind === 'magnet') {
@@ -161,7 +182,7 @@ function build(i, recipe) {
     board.tools = board.tools.filter((q) => q !== correct);
     const mount = correct.slice(1);
     const sockets = [mount];
-    const count = i < 2 ? 1 : i < 20 ? 2 : i < 45 ? 3 : 4;
+    const count = i >= 60 ? (i % 10 < 2 ? 2 : 3) : i < 2 ? 1 : i < 20 ? 2 : i < 45 ? 3 : 4;
     for (let j = 0; sockets.length < count && j < 60; j++) {
       const pos = { x: integer(94, 626), y: integer(100, 305) };
       if (
@@ -179,7 +200,7 @@ function build(i, recipe) {
       'bridge',
       'bumper',
       ...new Set(
-        recipes
+        [...recipes, ...clockRecipes]
           .slice(0, i + 1)
           .join('')
           .toUpperCase()
@@ -209,8 +230,38 @@ function build(i, recipe) {
         board.targets.unshift(['chime', Math.round(p.x), Math.round(p.y), 30, 34]);
       }
       const machine = blank();
-      const ok = [-3, -2, -1, 0, 1, 2, 3].every((n) => trial(M, machine, move, n).state === 'won');
+      const offsets =
+        i >= 60 ? Array.from({ length: 25 }, (_, j) => (j - 12) / 4) : [-3, -2, -1, 0, 1, 2, 3];
+      const ok = offsets.every((n) => trial(M, machine, move, n).state === 'won');
       if (!ok) continue;
+      if (
+        i >= 60 &&
+        [-0.007, 0.007].some((d) =>
+          [-3, -1, 0, 1, 3].some(
+            (n) =>
+              trial(M, { ...machine, ball: { ...machine.ball, vx: machine.ball.vx + d } }, move, n)
+                .state !== 'won',
+          ),
+        )
+      )
+        continue;
+      if (
+        i >= 60 &&
+        machine.fixtures.some(
+          (fixture) =>
+            fixture.kind !== 'rail' &&
+            fixture.kind !== 'outlet' &&
+            trial(
+              M,
+              {
+                ...machine,
+                fixtures: machine.fixtures.map((s) => (s === fixture ? { ...s, disabled: true } : s)),
+              },
+              move,
+            ).state === 'won',
+        )
+      )
+        continue;
       const repairs = certify(M, machine);
       if (repairs?.length !== 1) continue;
       // Reject lucky center-line alternatives as well as fully robust alternatives.
@@ -242,14 +293,32 @@ function build(i, recipe) {
   }
   throw Error('Could not author ' + (i + 101) + ' ' + recipe);
 }
-const boards = [];
-for (const [i, recipe] of recipes.entries()) {
-  boards.push(build(i, recipe));
-  console.log('Certified', i + 101, recipe);
+export function saveBoards(name, boards) {
+  const file = new URL('../one-part-missing/' + name + '-boards.js', import.meta.url);
+  fs.writeFileSync(
+    file,
+    '// Fixed release, mount and receiver coordinates for the ' +
+      (name === 'tool' ? 'powered tool' : 'clockwork') +
+      ' course.\nexport const ' +
+      name +
+      'Boards = [\n' +
+      boards.map((b) => '  ' + JSON.stringify(b) + ',').join('\n') +
+      '\n];\n',
+  );
 }
-fs.writeFileSync(
-  file,
-  '// Fixed release, mount and receiver coordinates for the powered tool course.\nexport const toolBoards = [\n' +
-    boards.map((b) => '  ' + JSON.stringify(b) + ',').join('\n') +
-    '\n];\n',
-);
+if (process.argv[1] && import.meta.url === new URL('file://' + process.argv[1]).href) {
+  const clock = process.argv.includes('--clock');
+  const boards = (clock ? clockRecipes : recipes).map((recipe, index) => {
+    const i = index + (clock ? 60 : 0);
+    const board = build(i, recipe);
+    console.log('Certified', i + 101, recipe);
+    return board;
+  });
+  if (clock) {
+    for (let i = 0; i < 20; i++) {
+      boards.push(buildRelay(i, build));
+      console.log('Certified relay', 181 + i);
+    }
+  }
+  saveBoards(clock ? 'clock' : 'tool', boards);
+}

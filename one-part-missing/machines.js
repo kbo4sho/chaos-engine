@@ -1,4 +1,5 @@
-import { devices, installDevices } from './devices.js';
+import { rotorBody } from './mechanisms.js';
+import { instruments, installDevices } from './devices.js';
 
 // Coordinates and velocities use the same 720 × 400 workbench for every screen.
 export const WIDTH = 720;
@@ -14,7 +15,7 @@ const gate = (kind, x, y, w = 46, h = 42) => ({ kind, x, y, w, h, sensor: true }
 const socket = (x, y) => ({ x, y });
 
 export const parts = {
-  ...devices,
+  ...instruments,
   bridge: {
     name: 'Bridge',
     description: 'Span a gap',
@@ -161,7 +162,7 @@ export function assembly(machine, move) {
 
 export function makeBody(M, shape) {
   const { kind } = shape;
-  const moving = ['marble', 'rocker', 'tile', 'weight'].includes(kind);
+  const moving = ['marble', 'cargo', 'rocker', 'tile', 'weight'].includes(kind);
   const options = {
     label: kind,
     angle: shape.a || 0,
@@ -176,9 +177,12 @@ export function makeBody(M, shape) {
     },
   };
   const { x, y } = shape;
-  const body = shape.r
-    ? M.Bodies.polygon(x, y, 40, shape.r, options)
-    : M.Bodies.rectangle(x, y, shape.w, shape.h, options);
+  const body =
+    kind === 'pinwheel'
+      ? rotorBody(M, shape, options)
+      : shape.r
+        ? M.Bodies.polygon(x, y, 40, shape.r, options)
+        : M.Bodies.rectangle(x, y, shape.w, shape.h, options);
   if (shape.bounce) body.restitution = shape.bounce;
   if (shape.r) body.circleRadius = shape.r;
   if (shape.vx) M.Body.setVelocity(body, { x: shape.vx, y: 0 });
@@ -201,21 +205,30 @@ export function createRun(M, machine, move = null, offset = 0) {
     items,
     ball,
     goals,
+    cargo: items.find((i) => i.shape.kind === 'cargo')?.body,
     striker: machine.striker || 'marble',
     hits: [],
     uses: [],
     tick: 0,
     state: 'running',
   };
-  const tools = items.filter(({ shape }) => devices[shape.kind] || shape.kind === 'outlet');
+  const tools = items.filter(({ shape }) => instruments[shape.kind] || shape.kind === 'outlet');
   if (tools.length) {
-    const scene = { tools, marbles: [ball] };
+    const scene = {
+      tools,
+      marbles: items.filter((i) => ['marble', 'cargo'].includes(i.shape.kind)).map((i) => i.body),
+    };
     installDevices(
       M,
       engine,
       () => scene,
-      (tool) => {
-        run.uses.push({ kind: tool.shape.kind, item: items.indexOf(tool), tick: run.tick });
+      (tool, actor) => {
+        run.uses.push({
+          kind: tool.shape.kind,
+          item: items.indexOf(tool),
+          tick: run.tick,
+          actor: actor.label,
+        });
       },
     );
   }
@@ -238,12 +251,16 @@ export function advance(M, run) {
   else {
     const { x, y } = run.ball.position;
     const outside = y > HEIGHT + 70 || x > WIDTH + 65 || x < -65;
+    const nextStriker = run.goals[run.hits.length]?.shape.striker || run.striker;
+    const parcelLost =
+      nextStriker === 'cargo' &&
+      run.cargo &&
+      (run.cargo.position.y > HEIGHT + 70 ||
+        run.cargo.position.x < -65 ||
+        run.cargo.position.x > WIDTH + 65 ||
+        (outside && !run.uses.some((u) => u.kind === 'switch')));
     // A tile can still trip the flag after the marble leaves the board.
-    if (
-      run.tick >= LIMIT ||
-      (outside && (run.goals[run.hits.length]?.shape.striker || run.striker) === 'marble')
-    )
-      run.state = 'miss';
+    if (run.tick >= LIMIT || parcelLost || (outside && nextStriker === 'marble')) run.state = 'miss';
   }
 }
 

@@ -1,6 +1,13 @@
-import { devices, outlet } from './devices.js';
+import { instruments, outlet } from './devices.js';
 import { toolBoards } from './tool-boards.js';
 
+import { clockBoards } from './clock-boards.js';
+export const clockChapters = [
+  ['Lift shop', 'Meet the traveling platform and the off-center wheel.'],
+  ['Rotary works', 'Time an encounter with a piston, a pinwheel or a tripwire.'],
+  ['Gatehouse', 'The gold marble trips a switch. Its hatch releases the blue parcel.'],
+  ['Parcel depot', 'Trace the signal to the door, then follow the parcel through the second half.'],
+];
 export const toolChapters = [
   ['Belt & spring', 'A belt changes sideways speed. A trampoline changes the height of the next arc.'],
   ['Air & iron', 'Work with the space above a fan and the curved approach to a magnet.'],
@@ -17,6 +24,10 @@ const lessonNames = [
   'Through ticket|Opposite poles|Arrival speed|Back pressure|Across the room|Return address|Express lane|Split current|Long distance|Switching office',
   'Air mail|Soft catch|Change of track|Catch and release|Cross connection|Bend the stream|Transfer window|Spring tide|Signal transfer|Relay master',
   'Pressure line|The long carry|Round trip|Second landing|Corner office|Magnetic junction|Clockwork post|Overnight express|Last connection|Closing time',
+  'From below|High lobe|Up and over|Cam follower|Moving walkway|High-water mark|Drawbridge shift|Two strokes|Crosshead|Lift inspection',
+  'Cross slide|First rotation|Across the wire|Outward stroke|Catch a blade|Sideways step|Return stroke|Trip circuit|Driven shaft|Rotary exchange',
+  'Open the hatch|Two marbles|Door to door|On signal|Latch room|Remote delivery|Blue freight|Relay cabinet|The release line|Gatehouse test',
+  'Freight lift|Parcel belt|Roundhouse|Under the door|Pickup spring|Split delivery|Railhead|Night sorting|The second shift|Last parcel',
 ].map((titles) => titles.split('|'));
 
 const lessons = [
@@ -72,29 +83,70 @@ export function courseMachine(board, index) {
   const { release, rail, tools, sockets, tray, targets } = board;
   const title = lessonNames[Math.floor(index / 10)][index % 10];
   const toTool = ([kind, x, y, dir = 1]) => ({
-    ...(kind === 'outlet' ? outlet : devices[kind].shape),
+    ...(kind === 'outlet' ? outlet : instruments[kind].shape),
     x,
     y,
     dir,
   });
-  const goals = targets.map(([kind, x, y, w, h]) => ({ kind, x, y, w, h, sensor: true }));
-  const lesson =
+  const goals = targets.map(([kind, x, y, w, h, striker]) => ({
+    kind,
+    x,
+    y,
+    w,
+    h,
+    sensor: true,
+    ...(striker ? { striker } : {}),
+  }));
+  const classicNote =
     lessons[index] ||
     (index < 50
       ? 'Run the incomplete machine. Watch for the first tool the marble fails to reach.'
       : 'Trace each handoff before fitting a part. Scrub the film to check where the chain changes.');
+  const clockNotes = [
+    'An elevator changes height while the marble is in flight. Look for their meeting point.',
+    'The axle is off center. Follow the high side of the wheel as it turns.',
+    'Watch the moving platform before choosing the next landing.',
+    'The rim follows a different path from the axle. Find the surface that will actually meet the marble.',
+    'Start from the drop. At what height does the moving surface meet the marble?',
+    'Predict the surface position when the marble arrives, then check the contact frame.',
+    'Trace the gap after the lift. A later contact means a different exit.',
+    'Follow both strokes. Watch how much horizontal speed reaches the second part.',
+    'Find the first moving surface that could redirect the release.',
+    'Inspect the first contact, then predict the handoff with the moving part.',
+    'The piston sweeps sideways. Place its face where the marble crosses the stroke.',
+    'A pinwheel meets the marble with a moving blade. Look at which way it turns.',
+    'The tripwire keeps travel along its length and kicks across it. Follow the arrow.',
+    'Check which side of the piston faces the incoming marble.',
+    'Look for the blade that will be rising at the instant of contact.',
+    'A wire can interrupt the fall in midair. Trace the direction printed on its beam.',
+    'Watch which half of the stroke meets the marble.',
+    'Predict what will reach the wire before it sends the marble onward.',
+    'Start with the moving solid. Trace the arc from its first contact.',
+    'Locate the first failed handoff, then test a repair at that point.',
+  ];
+  const lesson =
+    index < 60
+      ? classicNote
+      : clockNotes[index - 60] ||
+        (index < 90
+          ? 'The gold marble operates the trip switch. Follow its cable to the hatch holding the blue parcel.'
+          : 'Watch the blue parcel after the hatch opens. Which part changes its delivery path?');
   const mounts = sockets.map(([x, y, dir = 1]) => ({ x, y, dir }));
   const fixtures = [
     ...(rail ? [{ kind: 'rail', x: rail[0], y: rail[1], w: rail[2], h: 12, a: rail[3] }] : []),
     ...tools.map(toTool),
+    ...(board.guides || []).map(([x, y, w, a]) => ({ kind: 'rail', x, y, w, h: 10, a })),
   ];
+  if (board.cargo) fixtures.push({ kind: 'cargo', x: board.cargo[0], y: board.cargo[1], r: 11 });
   return {
-    id: 'tools-' + slug(title),
+    id: (index < 60 ? 'tools-' : 'works-') + slug(title),
     title,
     lesson,
-    toolCourse: true,
-    goal:
-      goals.length === 1
+    toolCourse: index < 60,
+    clockwork: index >= 60,
+    goal: board.cargo
+      ? 'Trip the switch, then deliver the blue parcel to the receiver.'
+      : goals.length === 1
         ? 'Repair the machine to ' + verbs[goals[0].kind] + '.'
         : 'Strike the numbered targets in order.',
     description:
@@ -103,7 +155,7 @@ export function courseMachine(board, index) {
       '. ' +
       (tools.length
         ? 'Installed equipment: ' +
-          tools.map(([k]) => devices[k]?.name || 'portal exit').join(', ') +
+          tools.map(([k]) => instruments[k]?.name || 'portal exit').join(', ') +
           '. '
         : '') +
       'The final target is ' +
@@ -118,3 +170,5 @@ export function courseMachine(board, index) {
   };
 }
 export const toolCourse = toolBoards.map(courseMachine);
+
+export const clockCourse = clockBoards.map((board, i) => courseMachine(board, i + 60));

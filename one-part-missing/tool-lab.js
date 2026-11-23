@@ -1,10 +1,45 @@
 import { createRun, advance, HEIGHT, WIDTH } from './machines.js';
-import { devices, outlet } from './devices.js';
+import { instruments, outlet } from './devices.js';
 import { draw, atFrame, snapshot } from './drawing.js';
 
 // A controlled experiment for each tool keeps the release identical in both runs.
 // The reference belt/bed is an unpowered solid. Fields switch off completely.
 const experiments = {
+  elevator: {
+    mount: [288, 265],
+    release: [155, 54, 4.2],
+    question: 'Where does the rising deck meet the marble?',
+  },
+  cam: {
+    mount: [309, 214],
+    release: [150, 57, 4.9],
+    question: 'Which part of the rotating rim meets the marble first?',
+  },
+  piston: {
+    mount: [234, 190],
+    release: [165, 55, 4.1],
+    question: 'Does the marble meet the extending face or the returning face?',
+  },
+  pinwheel: {
+    mount: [311, 210],
+    release: [155, 50, 4.5],
+    question: 'What changes when the blades are allowed to turn?',
+  },
+  tripwire: {
+    mount: [318, 196],
+    release: [154, 51, 5],
+    question: 'Which way does the marble leave the wire?',
+  },
+  switch: {
+    mount: [205, 151],
+    release: [99, 45, 3.8],
+    question: 'When does the blue parcel begin moving after the gold marble hits the switch?',
+  },
+  hatch: {
+    mount: [460, 135],
+    release: [99, 45, 3.8],
+    question: 'How does the parcel move when the door can swing open?',
+  },
   conveyor: {
     mount: [299, 212],
     release: [170, 52, 4.1],
@@ -48,35 +83,55 @@ const experiments = {
 };
 export function experiment(M, kind, offset = 0) {
   const { mount, release } = experiments[kind];
+  const delivery = kind === 'switch' || kind === 'hatch';
   const machine = {
     fixtures: [
-      { ...devices[kind].shape, x: mount[0], y: mount[1] },
+      { ...instruments[kind].shape, x: mount[0], y: mount[1] },
+      ...(delivery
+        ? [
+            kind === 'switch'
+              ? { ...instruments.hatch.shape, x: 460, y: 135 }
+              : { ...instruments.switch.shape, x: 205, y: 151 },
+            { kind: 'cargo', x: 471, y: 113, r: 11 },
+          ]
+        : []),
       ...(kind === 'portal' ? [{ ...outlet, x: 423, y: 100 }] : []),
     ],
     ball: { kind: 'marble', r: 12, x: release[0] + offset, y: release[1], vx: release[2] },
-    goals: [{ kind: 'chime', x: 2000, y: 2000, w: 22, h: 28, sensor: true }],
+    goals: [
+      {
+        kind: 'chime',
+        x: 2000,
+        y: 2000,
+        w: 22,
+        h: 28,
+        sensor: true,
+        striker: delivery ? 'cargo' : 'marble',
+      },
+    ],
     sockets: [],
     tray: [],
   };
   const simulate = (disabled) => {
     const run = createRun(M, {
       ...machine,
-      fixtures: machine.fixtures.map((s) => ({ ...s, disabled })),
+      fixtures: machine.fixtures.map((s) => ({ ...s, disabled: disabled && s.kind === kind })),
     });
+    const tracked = delivery ? run.items.find((i) => i.shape.kind === 'cargo').body : run.ball;
     const tape = [snapshot(run)],
-      path = [[run.ball.position.x, run.ball.position.y, false]];
+      path = [[tracked.position.x, tracked.position.y, false]];
     let used = 0;
     while (run.state === 'running' && run.tick < 145) {
       advance(M, run);
       tape.push(snapshot(run));
-      path.push([run.ball.position.x, run.ball.position.y, run.uses.length > used && kind === 'portal']);
+      path.push([tracked.position.x, tracked.position.y, run.uses.length > used && kind === 'portal']);
       used = run.uses.length;
-      const { x, y } = run.ball.position;
+      const { x, y } = tracked.position;
       if (y > HEIGHT - 10 || x > WIDTH - 12 || x < 12 || y < -50) break;
     }
     return { run, tape, path };
   };
-  return { powered: simulate(false), reference: simulate(true) };
+  return { powered: simulate(false), reference: simulate(true), delivery };
 }
 
 export function setupLab(M) {
@@ -102,7 +157,7 @@ export function setupLab(M) {
     const index = Math.min(frame, powered.tape.length - 1),
       refIndex = Math.min(frame, reference.path.length - 1);
     draw(ctx, atFrame(powered.run, powered.tape[index]), {
-      trail: powered.path.slice(0, index + 1),
+      [data.delivery ? 'cargoTrail' : 'trail']: powered.path.slice(0, index + 1),
       ghost: reference.path.slice(0, refIndex + 1),
     });
     const [x, y] = reference.path[refIndex];
@@ -128,10 +183,11 @@ export function setupLab(M) {
     el('lab-question').textContent = experiments[menu.value].question;
     canvas.setAttribute(
       'aria-label',
-      devices[menu.value].name +
-        ' experiment. Solid gold path shows the active tool. Dashed path shows the same release without power.',
+      instruments[menu.value].name +
+        ' experiment. The solid path shows the active tool. Dashed path shows the same release without power.',
     );
-    const first = data.powered.run.uses[0];
+    const first = data.powered.run.uses.find((use) => use.kind === menu.value);
+    modal.classList.toggle('parcel-experiment', data.delivery);
     el('lab-contact').textContent = first
       ? 'First contact at ' + (first.tick / 60).toFixed(2) + ' s'
       : 'Outside the working area';
@@ -144,7 +200,7 @@ export function setupLab(M) {
     if (frame >= Number(slider.max)) stop();
     else raf = requestAnimationFrame(animate);
   }
-  for (const [kind, part] of Object.entries(devices)) menu.add(new Option(part.name, kind));
+  for (const [kind, part] of Object.entries(instruments)) menu.add(new Option(part.name, kind));
   menu.addEventListener('change', reset);
   el('lab-offset').addEventListener('change', reset);
   slider.addEventListener('input', () => {

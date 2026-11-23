@@ -1,3 +1,5 @@
+import { mechanisms } from './mechanisms.js';
+import { drawMechanism, drawMachineGuides, mechanicalIcons, parcel } from './mechanical-art.js';
 import { FAN_HEIGHT, POLE_REACH } from './devices.js';
 import { WIDTH, HEIGHT } from './machines.js';
 
@@ -443,6 +445,16 @@ function body(c, item, run) {
     const idx = run.goals.indexOf(item),
       hit = run.hits[idx];
     target(c, s, hit !== undefined, hit === undefined ? 0 : run.tick - hit, idx, run.goals.length);
+  } else if (s.kind === 'cargo') parcel(c, s.r);
+  else if (mechanisms[s.kind]) {
+    const events = run.uses.filter((u) => u.item === run.items.indexOf(item));
+    drawMechanism(
+      c,
+      s,
+      events.some((u) => run.tick - u.tick < 18),
+      events.length > 0,
+      b.angle,
+    );
   } else if (poweredColors[s.kind]) {
     const i = run.items.indexOf(item);
     const active = run.uses?.some((u) => u.item === i && run.tick - u.tick < 22);
@@ -466,13 +478,16 @@ function body(c, item, run) {
   c.restore();
 }
 
-export function draw(c, run, { trail = [], ghost = [], small = false } = {}) {
+export function draw(c, run, { trail = [], ghost = [], cargoTrail = [], small = false } = {}) {
   c.save();
   c.setTransform(c.canvas.width / WIDTH, 0, 0, c.canvas.height / HEIGHT, 0, 0);
   c.clearRect(0, 0, WIDTH, HEIGHT);
   if (!small) {
     grid(c);
     for (const item of run.items) stand(c, item.shape);
+    drawMachineGuides(c, run.items, run.uses);
+    const cargo = run.items.find((i) => i.shape.kind === 'cargo');
+    if (cargo) caption(c, 'PARCEL', cargo.shape.x, Math.max(16, cargo.shape.y - 18), 'center');
     const start = run.items.find((i) => i.shape.kind === 'marble').shape;
     caption(c, 'RELEASE', Math.min(start.x, WIDTH - 70), Math.max(16, start.y - 24), 'center');
     if (ghost.length > 1) {
@@ -480,9 +495,12 @@ export function draw(c, run, { trail = [], ghost = [], small = false } = {}) {
       tracePath(c, ghost, '#80948b');
       c.setLineDash([]);
     }
+    if (cargoTrail.length > 1) tracePath(c, cargoTrail, '#87c9ee');
     if (trail.length > 1) tracePath(c, trail, '#c7a569');
   }
-  for (const item of run.items) if (item.body !== run.ball) body(c, item, run);
+  for (const item of run.items)
+    if (item.body !== run.ball && item.shape.kind !== 'cargo') body(c, item, run);
+  for (const item of run.items) if (item.shape.kind === 'cargo') body(c, item, run);
   body(
     c,
     run.items.find((i) => i.body === run.ball),
@@ -506,7 +524,7 @@ const icons = {
 export function partIcon(id) {
   return (
     '<svg viewBox="0 0 60 40" fill="none" stroke="#73e2e3" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">' +
-    (icons[id] || toolIcons[id]) +
+    (icons[id] || toolIcons[id] || mechanicalIcons[id]) +
     '</svg>'
   );
 }
@@ -524,6 +542,9 @@ export function drawSandboxPart(c, render, timestamp) {
       ? Math.max(0, (timestamp - render.struckAt) / 16.67)
       : Infinity;
     target(c, s, age !== Infinity, age, render.noteIndex || 0, render.noteCount || 1);
+  } else if (s.kind === 'cargo') parcel(c, s.r);
+  else if (mechanisms[s.kind]) {
+    drawMechanism(c, s, timestamp - render.poweredAt < 360, Boolean(render.gateOpen || render.switchOn));
   } else if (poweredColors[s.kind]) {
     powered(c, s, timestamp / 16.67, timestamp - render.poweredAt < 360);
   } else if (s.r) {

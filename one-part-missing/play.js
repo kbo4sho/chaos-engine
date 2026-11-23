@@ -1,5 +1,5 @@
 import { WIDTH, HEIGHT, STEP, canFlip, parts, validMove, createRun, advance } from './machines.js';
-import { devices as deviceParts } from './devices.js';
+import { instruments as deviceParts } from './devices.js';
 import { campaign as machines, chapters, campaignById } from './campaign.js';
 import { repairBook, repairPrefix } from './repairs.js';
 import { portableFile } from './portable.js';
@@ -82,11 +82,19 @@ function startAudio() {
 }
 function drawBench() {
   if (!run) return;
+  const cargoIndex = run.cargo ? run.items.findIndex((item) => item.body === run.cargo) : -1;
+  const cursor = inspection === null ? tape.length - 1 : inspection;
+  const cargoTrail =
+    cargoIndex === -1
+      ? []
+      : tape
+          .slice(Math.max(0, cursor - 28), cursor + 1)
+          .map((frame) => frame.poses[cargoIndex].slice(0, 2));
   if (inspection !== null) {
     const sample = tape[inspection],
       upto = Math.floor(sample.tick / 3);
-    draw(c, atFrame(run, sample), { trail: trail.slice(Math.max(0, upto - 28), upto) });
-  } else draw(c, run, { trail: trail.slice(-28), ghost });
+    draw(c, atFrame(run, sample), { trail: trail.slice(Math.max(0, upto - 28), upto), cargoTrail });
+  } else draw(c, run, { trail: trail.slice(-28), ghost, cargoTrail });
 }
 function addFrame() {
   if (tape.at(-1)?.tick !== run.tick) tape.push(snapshot(run));
@@ -96,6 +104,18 @@ $('scrubber').addEventListener('input', () => {
   const seconds = (tape[inspection].tick / 60).toFixed(2) + ' s';
   $('film-time').value = seconds;
   $('scrubber').setAttribute('aria-valuetext', seconds);
+  $('counter').textContent = seconds;
+  $('pilot').textContent = 'Inspecting';
+  $('sockets').hidden = true;
+  if (run.cargo) {
+    const tick = tape[inspection].tick;
+    $('signal').textContent =
+      run.hits.at(-1) <= tick
+        ? 'Parcel delivered'
+        : run.uses.some((u) => u.kind === 'hatch' && u.tick <= tick)
+          ? 'Hatch open'
+          : 'Hatch closed';
+  }
   drawBench();
 });
 new ResizeObserver(() => {
@@ -132,6 +152,11 @@ function updateShelf() {
     nextTool && nextTool !== machines.find((m) => m.toolCourse)
       ? 'Resume tool course →'
       : 'Play the tool course →';
+  const clockStart = machines.find((m) => m.clockwork);
+  const nextClock = unfinished.find((m) => m.clockwork);
+  $('clock-entry').href = '#' + (nextClock || clockStart).id;
+  $('clock-entry').textContent =
+    nextClock && nextClock !== clockStart ? 'Resume clockwork course →' : 'Play the clockwork course →';
   $('chapter').value = activeChapter;
   $('chapter-hint').textContent = chapters[activeChapter][1];
   const links = machines.slice(activeChapter * 10, activeChapter * 10 + 10).map((m, i) => {
@@ -175,6 +200,7 @@ $('shelf').addEventListener('click', focusCurrent);
 $('continue').addEventListener('click', focusCurrent);
 
 function controls() {
+  $('sockets').hidden = inspection !== null;
   const busy = playing(),
     won = savedMove() || enclosedReplay;
   $('flip').hidden = !machine.reversible;
@@ -212,6 +238,13 @@ function controls() {
         machine.goals.length +
         (machine.goals.every((g) => g.kind === 'chime') ? ' notes' : ' contacts')
       : '';
+  if (machine.fixtures.some((s) => s.kind === 'cargo'))
+    $('signal').textContent =
+      phase === 'won'
+        ? 'Parcel delivered'
+        : run.uses.some((u) => u.kind === 'hatch')
+          ? 'Hatch open'
+          : 'Hatch closed';
   for (const b of $('parts').children) {
     b.disabled = busy;
     b.setAttribute('aria-pressed', String(selected === b.dataset.part));
@@ -420,10 +453,16 @@ function finish() {
   const seen = new Set();
   const cues = [];
   for (const use of run.uses) {
-    if (seen.has(use.item)) continue;
-    seen.add(use.item);
+    const contact = use.item + '/' + use.actor;
+    if (seen.has(contact)) continue;
+    seen.add(contact);
     const cue = document.createElement('button');
-    const label = parts[use.kind].name + ' · ' + (use.tick / 60).toFixed(2) + ' s';
+    const label =
+      (use.actor === 'cargo' ? 'Parcel · ' : '') +
+      parts[use.kind].name +
+      ' · ' +
+      (use.tick / 60).toFixed(2) +
+      ' s';
     cue.textContent = label;
     cue.setAttribute('aria-label', 'Inspect ' + label);
     cue.addEventListener('click', () => {
@@ -449,7 +488,7 @@ function finish() {
         ? 'That repair missed. Try another part or socket.'
         : 'The machine missed. Pick a part, then tap a socket.',
   );
-  if (!win && machine.toolCourse && move) {
+  if (!win && machine.lesson && move) {
     const part = run.items.findIndex((item) => item.shape.fitted);
     const reached = run.uses.some((u) => u.item === part);
     if (parts[move.part].shape.kind in deviceParts)
@@ -461,6 +500,12 @@ function finish() {
               '. Check where the marble travels.',
       );
   }
+  if (!win && run.cargo)
+    message(
+      run.uses.some((u) => u.kind === 'hatch')
+        ? 'The hatch opened. Inspect the blue parcel’s path to the receiver.'
+        : 'The parcel is waiting. Trace the gold marble to the trip switch.',
+    );
   if (!win) tone(128, 0.14, 0.025, 'triangle');
 }
 function frame(now) {
@@ -480,7 +525,10 @@ function frame(now) {
     const before = run.hits.length,
       uses = run.uses.length;
     advance(M, run);
-    if (run.uses.length > uses) addFrame();
+    if (run.uses.length > uses) {
+      addFrame();
+      if (machine.fixtures.some((s) => s.kind === 'cargo')) controls();
+    }
     if (run.tick % 3 === 0) {
       addFrame();
       const jumped = run.uses.some((u) => u.kind === 'portal' && u.tick > run.tick - 3);
@@ -645,9 +693,11 @@ function navigate(resolved, id, announce = false) {
   $('machine-title').tabIndex = -1;
   $('machine-title').textContent = machine.title;
   $('goal').textContent = machine.goal;
-  $('open-lab').hidden = !machine.toolCourse;
+  $('open-lab').hidden = !machine.lesson;
   $('lesson').hidden = !machine.lesson;
-  $('lesson').open = Boolean(machine.lesson && index >= 0 && index % 10 < 2 && index < 140);
+  $('lesson').open = Boolean(
+    machine.lesson && index >= 0 && index % 10 < 2 && (index < 140 || machine.clockwork),
+  );
   $('lesson-text').textContent = machine.lesson || '';
   document.title = machine.title + ' · One Part Missing';
   $('diagram').setAttribute(

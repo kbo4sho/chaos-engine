@@ -661,7 +661,8 @@ summary {
   }
 }
 
-#tool-entry {
+#tool-entry,
+#clock-entry {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
@@ -781,4 +782,8 @@ summary {
 #lab-contact {
   color: var(--muted);
   font: 12px var(--mono);
+}
+
+.parcel-experiment .lab-legend span:first-child::before {
+  border-color: #87c9ee;
 }

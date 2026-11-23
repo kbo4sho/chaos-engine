@@ -1,4 +1,5 @@
 // Powered workshop parts. The bench, exported game and sandbox step these same rules.
+import { mechanisms, installMechanisms } from './mechanisms.js';
 export const devices = {
   conveyor: { name: 'Conveyor', description: 'Carry along the belt', shape: { w: 104, h: 14 } },
   trampoline: { name: 'Trampoline', description: 'Spring back upward', shape: { w: 78, h: 12 } },
@@ -20,12 +21,13 @@ export const FAN_HEIGHT = 100;
 export const POLE_REACH = 85;
 
 export function installDevices(M, engine, getScene, onUse) {
+  installMechanisms(M, engine, getScene, onUse);
   const contact = new WeakMap();
   M.Events.on(engine, 'beforeUpdate', () => {
     const { tools, marbles } = getScene();
     for (const tool of tools) {
       const s = tool.shape;
-      if (s.kind === 'outlet' || s.disabled) continue;
+      if (!Object.hasOwn(devices, s.kind) || s.disabled) continue;
       for (const ball of marbles) {
         const dx = ball.position.x - tool.body.position.x;
         const dy = ball.position.y - tool.body.position.y;
@@ -93,7 +95,7 @@ export function installDevices(M, engine, getScene, onUse) {
           }
         }
         if (working) {
-          if (!touching.has(ball)) onUse?.(tool);
+          if (!touching.has(ball)) onUse?.(tool, ball);
           touching.add(ball);
           M.Body.setVelocity(ball, { x: vx, y: vy });
         } else touching.delete(ball);
@@ -101,3 +103,5 @@ export function installDevices(M, engine, getScene, onUse) {
     }
   });
 }
+
+export const instruments = { ...devices, ...mechanisms };

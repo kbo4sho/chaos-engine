@@ -1,11 +1,13 @@
 // Package only the published application assets. Start from the empty HTML
 // shell, so player records, clipboard values and in-progress runs stay local.
 const modules = [
+  'mechanisms',
   'devices',
   'machines',
   'tool-course',
   'tool-lab',
   'tool-boards',
+  'clock-boards',
   'campaign-layout',
   'campaign-score',
   'campaign',
@@ -14,6 +16,7 @@ const modules = [
   'press-client',
   'repairs',
   'drawing',
+  'mechanical-art',
   'portable',
   'play',
 ];
