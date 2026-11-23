@@ -1,6 +1,6 @@
 # Build a machine
 
-Six editable starter machines cover powered transfers, parcel release, cable rigs, shaft drives and two-load sorting. A player can change hardware, move a station, adjust physical settings, capture a receiver from a simulated run and choose the missing station.
+The six original editable starter machines cover powered transfers, parcel release, cable rigs, shaft drives and two-load sorting. A player can change hardware, move a station, adjust physical settings, capture a receiver from a simulated run and choose the missing station. The [compound design library](./compound-designer.md) adds 120 machines with up to three missing tools.
 
 ## Sub-features
 

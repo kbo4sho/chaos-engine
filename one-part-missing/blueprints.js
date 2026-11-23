@@ -1,5 +1,6 @@
 // Kit and option order are part of the version-one shared drawing format.
 // Each kit is an authored, working repair whose stations can be rearranged.
+import { compoundById, buildCompound, proveCompound } from './compound-design.js';
 import { campaignById } from './campaign.js';
 import { parts, createRun, advance, trial } from './machines.js';
 import { certify } from './certify.js';
@@ -45,12 +46,14 @@ export const designKits = kits.map(([name, id, part, socket]) => {
   stations.push({ kind: part, options: options[part], fixture: -1, point: { ...base.sockets[socket] } });
   return { name, base, stations, socket };
 });
+export const getDesignKit = (id) => designKits[id] || compoundById.get(id);
 export const draftKey = 'chaos.one-part-missing.design-draft.v1';
 export function freshDesign(kit = 0) {
-  const k = designKits[kit];
+  const k = getDesignKit(kit);
   return {
     kit,
-    missing: k.stations.length - 1,
+    missing: k.level ? 0 : k.stations.length - 1,
+    ...(k.level ? { hidden: k.stations.map((_, i) => i) } : {}),
     edits: k.stations.map(() => ({ type: 0, x: 0, y: 0, tune: 0 })),
     target: null,
   };
@@ -58,26 +61,33 @@ export function freshDesign(kit = 0) {
 export function encodeDesign(d) {
   // A dot separates base-36 coordinates because x is itself a base-36 digit.
   const t = d.target ? d.target.map((n) => n.toString(36)).join('.') : 's';
-  return [
-    'design',
-    '1',
-    d.kit.toString(36),
-    d.missing.toString(36),
-    d.edits.map((e) => [e.type, e.x + 4, e.y + 4, e.tune + 2].join('')).join(''),
-    t,
-  ].join('-');
+  const edits = d.edits.map((e) => [e.type, e.x + 4, e.y + 4, e.tune + 2].join('')).join('');
+  const k = getDesignKit(d.kit);
+  if (k.level) {
+    const mask = d.hidden.reduce((m, i) => m | (1 << i), 0);
+    return ['design', '2', k.level.toString(36), mask.toString(36), edits, t].join('-');
+  }
+  return ['design', '1', d.kit.toString(36), d.missing.toString(36), edits, t].join('-');
 }
 export function readDesign(id) {
   if (typeof id !== 'string' || id.length > 52) return null;
-  const match = /^design-1-([0-9])-([0-9])-([0-9]+)-(s|[0-9a-z]{1,2}\.[0-9a-z]{1,2})$/.exec(id);
+  const match = /^design-([12])-([0-9a-z]{1,2})-([0-9])-([0-9]+)-(s|[0-9a-z]{1,2}\.[0-9a-z]{1,2})$/.exec(
+    id,
+  );
   if (!match) return null;
-  const kit = Number(match[1]),
-    missing = Number(match[2]),
-    k = designKits[kit];
-  if (!k || !k.stations[missing] || match[3].length !== k.stations.length * 4) return null;
+  const compound = match[1] === '2',
+    code = parseInt(match[2], 36),
+    kit = compound ? 1000 + code : code;
+  const k = getDesignKit(kit);
+  if (!k || Boolean(k.level) !== compound || match[4].length !== k.stations.length * 4) return null;
+  const mask = Number(match[3]);
+  const hidden = compound ? k.stations.flatMap((_, i) => (mask & (1 << i) ? [i] : [])) : null;
+  if (compound && (!mask || mask >= 1 << k.stations.length)) return null;
+  const missing = compound ? hidden[0] : mask;
+  if (!k.stations[missing]) return null;
   const edits = [];
   for (const [i, st] of k.stations.entries()) {
-    const [type, h, v, g] = [...match[3].slice(i * 4, i * 4 + 4)].map(Number);
+    const [type, h, v, g] = [...match[4].slice(i * 4, i * 4 + 4)].map(Number);
     if (!st.options[type] || h > 8 || v > 8 || g > 4) return null;
     const kind = st.options[type],
       linked = parts[kind].shape;
@@ -85,8 +95,8 @@ export function readDesign(id) {
     if (!tuning(kind) && g !== 2) return null;
     edits.push({ type, x: h - 4, y: v - 4, tune: g - 2 });
   }
-  const target = match[4] === 's' ? null : match[4].split('.').map((x) => parseInt(x, 36));
-  const d = { kit, missing, edits, target };
+  const target = match[5] === 's' ? null : match[5].split('.').map((x) => parseInt(x, 36));
+  const d = { kit, missing, edits, target, ...(compound ? { hidden } : {}) };
   if (
     target &&
     (!targetInside(k.base.goals.at(-1), target) ||
@@ -106,6 +116,22 @@ export function targetInside(goal, [x, y]) {
   );
 }
 export function tuning(kind) {
+  if (
+    [
+      'float',
+      'parachute',
+      'thruster',
+      'keel',
+      'hopper',
+      'bank',
+      'unload',
+      'lift',
+      'gyro',
+      'phase',
+    ].includes(kind)
+  )
+    return 'Pickup radius';
+  if (['pulse', 'swirl', 'positive', 'negative', 'ground'].includes(kind)) return 'Field radius';
   if (kind === 'pulley' || kind === 'spring' || kind === 'tether') return 'Cable length';
   if (kind === 'motor') return 'Motor speed';
   if (kind === 'rack') return 'Pinion radius';
@@ -120,6 +146,10 @@ function calibrated(point, kind, e) {
   const p = { ...point, x: point.x + 8 * e.x, y: point.y + 8 * e.y };
   if (!e.tune) return p;
   const factor = 1 + e.tune * 0.15;
+  if (['Pickup radius', 'Field radius'].includes(tuning(kind))) {
+    p.r = (p.r || parts[kind].shape.r || 18) * factor;
+    return p;
+  }
   if (['pulley', 'spring', 'tether'].includes(kind)) {
     if (p.length) p.length *= factor;
     else p.rest = (p.rest || 1) * factor;
@@ -133,8 +163,9 @@ function calibrated(point, kind, e) {
   return p;
 }
 export function buildDesign(d) {
-  const k = designKits[d.kit],
-    m = k.base;
+  const k = getDesignKit(d.kit);
+  if (k.level) return buildCompound(d, k, calibrated, encodeDesign);
+  const m = k.base;
   const stations = k.stations.map((st, i) => {
     const e = d.edits[i],
       kind = st.options[e.type];
@@ -174,7 +205,9 @@ export function buildDesign(d) {
 }
 export const designOffsets = [-3, -2, -1, 0, 1, 2, 3];
 export function proveDesign(M, d) {
-  const { machine, intended } = buildDesign(d);
+  const layout = buildDesign(d);
+  if (d.hidden) return proveCompound(M, layout, designOffsets);
+  const { machine, intended } = layout;
   if (designOffsets.some((n) => trial(M, machine, null, n).state === 'won'))
     return {
       reason:
@@ -196,16 +229,29 @@ export function designFilm(M, d, intact) {
   const { machine, intended } = buildDesign(d),
     run = createRun(M, machine, intact ? intended : null),
     tape = [snapshot(run)];
+  const last = machine.goals.at(-1),
+    kind = last.striker || machine.striker || 'marble';
+  let targetActor = run.items.find((it) => it.body.label === kind)?.body || run.ball;
+  if (kind !== 'marble' && kind !== 'cargo') {
+    const goal = run.goals.at(-1).body;
+    M.Events.on(run.engine, 'collisionStart', (event) => {
+      if (run.hits.length !== run.goals.length) return;
+      for (const { bodyA, bodyB } of event.pairs) {
+        const body = bodyA === goal ? bodyB : bodyB === goal ? bodyA : null;
+        if (body?.label === kind) targetActor = body;
+      }
+    });
+  }
   while (run.state === 'running') {
     advance(M, run);
     tape.push(snapshot(run));
   }
-  const last = machine.goals.at(-1),
-    targetActor = last.striker === 'cargo' ? run.cargo : run.ball;
   return {
     run,
     tape,
     actorIndex: run.items.findIndex((it) => it.body === targetActor),
-    targetActor: last.striker === 'cargo' ? 'blue parcel' : 'gold marble',
+    targetActor:
+      { cargo: 'blue parcel', tile: 'domino', weight: 'drop weight', marble: 'gold marble' }[kind] ||
+      kind,
   };
 }

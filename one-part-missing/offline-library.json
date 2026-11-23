@@ -1,8 +1,8 @@
 {
   "format": 1,
-  "version": "faec41df9b5066c8",
-  "benchVersion": "9f0ad37b8811",
-  "bytes": 2554807,
+  "version": "021c15c045b73f50",
+  "benchVersion": "25edd1f6cac6",
+  "bytes": 2582346,
   "assets": [
     {
       "path": "examples/chaos-examples.js",
@@ -56,18 +56,18 @@
     },
     {
       "path": "one-part-missing/bench-release.js",
-      "size": 517061,
-      "hash": "9f0ad37b88112c089e2db45ffea1c9ac2c7e18cf56a2d0ca5c6bace665386dc2"
+      "size": 527794,
+      "hash": "25edd1f6cac64436f30a26590dbf76e39b0180d19d787b0eb48aa72df0171a36"
     },
     {
       "path": "one-part-missing/bench.css",
-      "size": 38364,
-      "hash": "ab0c4ec27cc8c70a9bcd51320ef84e0b7b2df0a9b4ee6da71d27f954bd2e97da"
+      "size": 38788,
+      "hash": "0e9d77dcdbe5c687c5251010620a9e8236ef23e718ed6dcdca6749fa9ac0931b"
     },
     {
       "path": "one-part-missing/blueprints.js",
-      "size": 8348,
-      "hash": "0358d082aacaa4169d735349f89bf228bc3fb14ebee8f0ef47af3b8504b214cd"
+      "size": 10353,
+      "hash": "4b4942b00db9b2b47cf533bf41f3ebdfec10ccbe7b45919cfa6e3aa130f0a52d"
     },
     {
       "path": "one-part-missing/campaign-layout.js",
@@ -115,6 +115,16 @@
       "hash": "e430bdc06db2cff222439856b796d4676490726ece3acee247b082236afec82d"
     },
     {
+      "path": "one-part-missing/compound-design.js",
+      "size": 5566,
+      "hash": "ac2b18a321077c8077a89abd321ce7d7569745efb343110981988f61df051fe4"
+    },
+    {
+      "path": "one-part-missing/compound-templates.js",
+      "size": 5370,
+      "hash": "0d26df830afe4e21987d3ffa0116a35de941f79c6507ffe28a142a4694d2086a"
+    },
+    {
       "path": "one-part-missing/control-room/console.js",
       "size": 7299,
       "hash": "701bf70f75943456a7efbdaa016d20190f5c159b6c02639c5fc957a4fc4c0b62"
@@ -146,8 +156,8 @@
     },
     {
       "path": "one-part-missing/design-bench.js",
-      "size": 9409,
-      "hash": "fb7eb2b9cbf9011886fd4ecbc1f6f2adccd3493ca625e2b7ea632557c97018c5"
+      "size": 12092,
+      "hash": "66d40ddb6c6db69251c471f22bb716a206080764716b775758c6f0e6e7336b6c"
     },
     {
       "path": "one-part-missing/devices.js",
@@ -371,8 +381,8 @@
     },
     {
       "path": "one-part-missing/index.html",
-      "size": 36168,
-      "hash": "04e2572a5b2bdecb96d460903f9ca6d27a4174cdcd39f40fdca54a54571a7591"
+      "size": 36656,
+      "hash": "5da1cee3d2b99b4bb3901d0708bdd9fe278224e98caa38a92905ffdbc4b11379"
     },
     {
       "path": "one-part-missing/learning.js",
@@ -481,13 +491,13 @@
     },
     {
       "path": "one-part-missing/play.js",
-      "size": 58913,
-      "hash": "17428544539f25b17b91b1aa90a5a8ef2f6d66dbb9e4946858f9c335e29c1b3f"
+      "size": 59138,
+      "hash": "c2734f2aefc4cc2ce3ef7ac8d0a602f55f2c5ac4f08b4f51d292d4c2e9eb6bab"
     },
     {
       "path": "one-part-missing/portable.js",
-      "size": 5242,
-      "hash": "ab9778c6d336a44ef75428e8d88c0222dff802c5389a6ede16975332c3e59d5d"
+      "size": 5287,
+      "hash": "bc6972600976a9ecd31948e70790b217416f51f63a2065d923f2b229fdb59e8b"
     },
     {
       "path": "one-part-missing/practice-targets.js",

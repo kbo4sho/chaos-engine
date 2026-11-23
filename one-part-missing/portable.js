@@ -70,6 +70,8 @@ const modules = [
   'tool-press',
   'classic-registration',
   'workshop',
+  'compound-templates',
+  'compound-design',
   'blueprints',
   'design-bench',
   'maker',

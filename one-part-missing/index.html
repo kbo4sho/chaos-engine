@@ -8,7 +8,7 @@
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="bench.css" />
     <script src="../vendor/matter-0.20.0.min.js"></script>
-    <script type="module" src="bench-release.js?v=9f0ad37b8811"></script>
+    <script type="module" src="bench-release.js?v=25edd1f6cac6"></script>
   </head>
   <body>
     <header class="mast">
@@ -131,6 +131,7 @@
           </button>
           <div id="after-win" hidden>
             <button id="next" class="quiet">Next machine →</button>
+            <button type="button" class="quiet" id="design-working" hidden>Design this machine</button>
             <button id="study-open" class="quiet" type="button" aria-haspopup="dialog">What did my spare change?</button>
             <button id="replay" class="quiet">Watch replay</button
             ><button id="save-replay" class="quiet">Save replay file</button
@@ -365,6 +366,7 @@
       <details class="maker" id="design-bench">
         <summary>Build a machine</summary>
         <div class="design-intro">
+          <label>Design library<select id="design-library"><option value="starter">Six starter machines</option><option value="2">Two working spares</option><option value="3">Three working spares</option></select></label>
           <label>Starter machine<select id="design-kit"></select></label
           ><button id="design-import" class="quiet" hidden>Edit this shared machine</button
           ><button id="design-undo" class="quiet" disabled>Undo</button
@@ -417,7 +419,8 @@
                 ><span id="design-tune-label"></span> <output id="design-setting"></output></label
               ><input id="design-tune" type="range" min="-2" max="2" step="1" />
             </div>
-            <label>Remove for the puzzle<select id="design-missing"></select></label>
+            <label id="design-one-label">Remove for the puzzle<select id="design-missing"></select></label>
+            <fieldset id="design-omissions" hidden><legend>Remove for the puzzle</legend><div id="design-hidden-stations"></div></fieldset>
             <button class="primary" id="design-prove">Test &amp; play this design</button>
             <p id="design-status" role="status"></p>
           </section>

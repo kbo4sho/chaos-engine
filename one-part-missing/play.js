@@ -112,7 +112,7 @@ const coach = setupCoach(M, $, (choice) => {
   socket.focus();
 });
 const setEditorMachine = makeEditor(M);
-const setDesignMachine = setupDesignBench(M, (machine) => {
+const designBench = setupDesignBench(M, (machine) => {
   if (location.hash === '#' + machine.id) navigate(machine, machine.id, true);
   else {
     freshPrint = machine;
@@ -559,6 +559,7 @@ function controls() {
   $('reset').disabled = phase === 'ready' && !move && !selected && !ghost.length && waitingSocket === null;
   $('after-win').hidden = !won || busy;
   $('study-open').hidden=!campaignById.has(machine.id);
+  $('design-working').hidden=!personalRepair||!designBench.available(machine)||Boolean(document.body.dataset.portable);
   $('next').textContent =
     machines.indexOf(machine) === machines.length - 1 || !machines.includes(machine)
       ? 'Machine press ↓'
@@ -1204,6 +1205,7 @@ async function downloadMachine(button, replay) {
   }
 }
 $('download').addEventListener('click', (event) => downloadMachine(event.currentTarget, null));
+$('design-working').addEventListener('click',()=>{focusBench.close();designBench.openMachine(machine);});
 $('study-open').addEventListener('click',()=>{
   const fit=enclosedReplay || savedMove();
   if (fit) spareStudy.open(machine,fit);
@@ -1228,7 +1230,7 @@ function navigate(resolved, id, announce = false, sharedFit = null, race = null,
     } catch {}
   }
   setEditorMachine(machine);
-  setDesignMachine(machine);
+  designBench.navigate(machine);
   desk.navigate(machine);
   matches.navigate(match);
   training.navigate(course);

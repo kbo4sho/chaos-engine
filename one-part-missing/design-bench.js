@@ -1,7 +1,10 @@
+import { compoundKits, compoundByMachine } from './compound-design.js';
+import { chapters } from './campaign.js';
 import { parts, WIDTH, HEIGHT } from './machines.js';
 import { draw, atFrame } from './drawing.js';
 import {
   designKits,
+  getDesignKit,
   draftKey,
   freshDesign,
   readDesign,
@@ -24,7 +27,29 @@ export function setupDesignBench(M, playMachine) {
     slider = el('design-frame'),
     canvas = el('design-diagram'),
     ctx = canvas.getContext('2d');
-  for (const [i, k] of designKits.entries()) kit.add(new Option(k.name, i));
+  const library = el('design-library');
+  function selectLibrary(count) {
+    const key = String(count || 'starter');
+    if (kit.dataset.group === key) return;
+    kit.dataset.group = key;
+    library.value = key;
+    kit.replaceChildren();
+    if (!count) {
+      for (const [i, k] of designKits.entries()) kit.add(new Option(k.name, i));
+      return;
+    }
+    const groups = new Map();
+    for (const item of compoundKits.filter((k) => k.stations.length === count)) {
+      const chapter = chapters[Math.floor((item.level - 1) / 10)][0];
+      if (!groups.has(chapter)) {
+        const g = document.createElement('optgroup');
+        g.label = chapter;
+        kit.append(g);
+        groups.set(chapter, g);
+      }
+      groups.get(chapter).append(new Option(item.level + ' · ' + item.name, item.id));
+    }
+  }
   let draft,
     selected = 0,
     current = null,
@@ -38,12 +63,13 @@ export function setupDesignBench(M, playMachine) {
     draft = readDesign(localStorage.getItem(draftKey));
   } catch {}
   draft ??= freshDesign();
+  selectLibrary(getDesignKit(draft.kit).level ? getDesignKit(draft.kit).stations.length : 0);
   kit.value = draft.kit;
   let previous = [],
     following = [];
   const offset = (v, minus, plus) =>
     v === 0 ? 'Centered' : Math.abs(8 * v) + ' ' + (v < 0 ? minus : plus);
-  const chosen = () => designKits[draft.kit].stations[selected];
+  const chosen = () => getDesignKit(draft.kit).stations[selected];
   function stop() {
     cancelAnimationFrame(raf);
     raf = 0;
@@ -98,7 +124,8 @@ export function setupDesignBench(M, playMachine) {
     stop();
     cancel();
     el('design-status').textContent = '';
-    const k = designKits[draft.kit];
+    const k = getDesignKit(draft.kit);
+    selectLibrary(k.level ? k.stations.length : 0);
     kit.value = draft.kit;
     selected = Math.min(selected, k.stations.length - 1);
     layout = buildDesign(draft);
@@ -107,6 +134,32 @@ export function setupDesignBench(M, playMachine) {
       menu.replaceChildren(...names.map((n, i) => new Option(n, i)));
     station.value = selected;
     missing.value = draft.missing;
+    el('design-one-label').hidden = Boolean(k.level);
+    el('design-omissions').hidden = !k.level;
+    if (k.level) {
+      const list = el('design-hidden-stations');
+      list.replaceChildren(
+        ...names.map((name, i) => {
+          const label = document.createElement('label'),
+            box = document.createElement('input');
+          box.type = 'checkbox';
+          box.value = i;
+          box.checked = draft.hidden.includes(i);
+          box.disabled = box.checked && draft.hidden.length === 1;
+          box.addEventListener('change', () => {
+            patch((next) => {
+              next.hidden = box.checked
+                ? [...next.hidden, i].sort((a, b) => a - b)
+                : next.hidden.filter((n) => n !== i);
+              next.missing = next.hidden[0];
+            });
+            list.querySelector('input[value="' + i + '"]')?.focus({ preventScroll: true });
+          });
+          label.append(box, name);
+          return label;
+        }),
+      );
+    }
     const st = chosen(),
       e = draft.edits[selected],
       kind = st.options[e.type];
@@ -132,8 +185,8 @@ export function setupDesignBench(M, playMachine) {
       k.name +
         ' preview. Editing ' +
         names[selected] +
-        '. Missing station ' +
-        names[draft.missing] +
+        '. Removed for the puzzle: ' +
+        (draft.hidden || [draft.missing]).map((i) => names[i]).join(', ') +
         '.',
     );
     el('design-stock-target').hidden = !draft.target;
@@ -173,6 +226,11 @@ export function setupDesignBench(M, playMachine) {
   }
   el('design-undo').addEventListener('click', () => travel(previous, following));
   el('design-redo').addEventListener('click', () => travel(following, previous));
+  library.addEventListener('change', () => {
+    selectLibrary(Number(library.value) || 0);
+    selected = 0;
+    change(freshDesign(Number(kit.value)));
+  });
   kit.addEventListener('change', () => {
     selected = 0;
     change(freshDesign(Number(kit.value)));
@@ -235,7 +293,7 @@ export function setupDesignBench(M, playMachine) {
   });
   el('design-target').addEventListener('click', () => {
     const xy = film.tape[frame].poses[film.actorIndex].slice(0, 2).map(Math.round);
-    const g = designKits[draft.kit].base.goals.at(-1);
+    const g = getDesignKit(draft.kit).base.goals.at(-1);
     patch((d) => {
       d.target = xy[0] === g.x && xy[1] === g.y ? null : xy;
     }, false);
@@ -280,9 +338,13 @@ export function setupDesignBench(M, playMachine) {
       cancel();
       return;
     }
-    render();
+    if (!layout) render();
+    else {
+      frame = 0;
+      paint();
+    }
   });
-  return (m) => {
+  const navigate = (m) => {
     current = m.designed ? m.id : null;
     el('design-import').hidden = !current;
     if (panel.open) {
@@ -290,5 +352,19 @@ export function setupDesignBench(M, playMachine) {
       stop();
       cancel();
     }
+  };
+  return {
+    navigate,
+    available: (m) => compoundByMachine.has(m.id),
+    openMachine(m) {
+      const k = compoundByMachine.get(m.id);
+      if (!k) return;
+      selected = 0;
+      change(freshDesign(k.id));
+      if (!layout) render();
+      panel.open = true;
+      panel.scrollIntoView({ block: 'start' });
+      kit.focus({ preventScroll: true });
+    },
   };
 }
