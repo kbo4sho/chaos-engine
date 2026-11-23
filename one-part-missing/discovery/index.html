@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#080c10" />
+    <title>Change one thing · One Part Missing</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="../bench.css" />
+    <link rel="stylesheet" href="desk.css" />
+    <script src="../../vendor/matter-0.20.0.min.js"></script>
+    <script type="module" src="desk.js"></script>
+  </head>
+  <body>
+    <header class="mast">
+      <div class="mast-inner">
+        <a class="brand" href="../">← One Part Missing</a>
+        <h1>Change one thing</h1>
+      </div>
+    </header>
+    <main>
+      <div class="bench">
+        <header class="instrument-head">
+          <div>
+            <p class="eyeline" id="discovery-family"></p>
+            <h2 id="discovery-title" tabindex="-1"></h2>
+            <p id="discovery-brief"></p>
+          </div>
+        </header>
+        <section class="cabinet" aria-label="Machine exposure">
+          <div class="glass">
+            <div class="exposure-strip">
+              <strong id="discovery-mode"></strong
+              ><button class="quiet" id="discovery-lens" type="button" aria-pressed="true">
+                Close-up</button
+              ><output id="discovery-clock">0.00 s</output>
+            </div>
+            <canvas
+              id="discovery-scene"
+              width="720"
+              height="400"
+              role="img"
+              aria-label="Machine at release"
+            ></canvas>
+          </div>
+          <div class="transport">
+            <button class="primary" id="discovery-run" type="button">Run machine</button>
+            <label class="quiet"
+              >Speed
+              <select id="discovery-rate">
+                <option value=".5">½×</option>
+                <option selected value="1">1×</option>
+                <option value="2">2×</option>
+              </select></label
+            >
+            <output id="discovery-limit"></output>
+          </div>
+          <div class="film" id="discovery-film" hidden>
+            <label for="discovery-frame">Inspect</label
+            ><input id="discovery-frame" type="range" min="0" max="1" value="0" step="1" /><button
+              class="quiet"
+              id="discovery-end"
+              type="button"
+            >
+              Exposure
+            </button>
+          </div>
+          <div id="discovery-events" hidden>
+            <button id="discovery-contact" class="quiet" type="button" hidden></button>
+            <button id="discovery-first" class="quiet" type="button" hidden></button>
+          </div>
+        </section>
+        <aside class="drawer" aria-labelledby="discovery-control">
+          <div class="drawer-top"><h2 id="discovery-control"></h2></div>
+          <div id="discovery-settings" role="group" aria-labelledby="discovery-control"></div>
+          <p id="discovery-receivers" hidden></p>
+          <p id="discovery-result" role="status" aria-live="polite"></p>
+          <p id="discovery-reading" hidden></p>
+          <label id="discovery-contrast" hidden
+            ><input type="checkbox" id="discovery-overlay" checked /><span
+              id="discovery-overlay-label"
+            ></span
+          ></label>
+          <details id="discovery-hint">
+            <summary>What to watch</summary>
+            <p id="discovery-cue"></p>
+          </details>
+          <a id="discovery-next" class="action-link" hidden></a>
+          <a id="discovery-back" hidden>Revisit the experiment</a>
+          <div id="discovery-phone-notes"></div>
+        </aside>
+      </div>
+      <nav class="discovery-library" aria-label="Discovery puzzles">
+        <label for="discovery-select">Discovery puzzles</label
+        ><select id="discovery-select"></select
+        ><output id="discovery-progress"></output>
+      </nav>
+      <noscript>Enable JavaScript to run the machines.</noscript>
+    </main>
+  </body>
+</html>

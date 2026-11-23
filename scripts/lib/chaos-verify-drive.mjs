@@ -701,6 +701,26 @@ async function driveBank(page) {
 }
 
 const journeys = {
+  'replay-clips': async page => {
+    const {verifyReplayClips} = await import('./verify-replay-clips.mjs');
+    await verifyReplayClips(page,{url,record,shot,outDir});
+    result.passed = result.failures.length === 0;
+  },
+  'discovery': async page => {
+    const {verifyDiscovery} = await import('./verify-discovery.mjs');
+    await verifyDiscovery(page,{url,record,shot,outDir});
+    result.passed = result.failures.length === 0;
+  },
+  'friend-races': async page => {
+    const {verifyFriendRaces} = await import('./verify-friend-races.mjs');
+    await verifyFriendRaces(page,{url,record,shot,outDir});
+    result.passed = result.failures.length === 0;
+  },
+  'phone-bench': async page => {
+    const {verifyPhoneBench} = await import('./verify-phone-bench.mjs');
+    await verifyPhoneBench(page,{url,record,shot,outDir});
+    result.passed = result.failures.length === 0;
+  },
   'spare-study': async page => {
     const {verifySpareStudy} = await import('./verify-spare-study.mjs');
     await verifySpareStudy(page,{url,record,shot,outDir});

@@ -153,6 +153,8 @@ Field controls use octagonal service plates. A moving signed badge identifies ch
 
 The test bay pairs each adjustment with its physical unit. Matching letters mark its station on the board. Three short rows show what was tested, the input and the result; the optional comparison uses different line patterns and labeled targets.
 
+On small phones the spare tray and run controls precede secondary film tools. A gold rewind ring marks an observed miss. Friend race films distinguish the solid reply from the dashed challenger and label each arrival. Discovery exposures mark the gold marble with a ring and the blue parcel with a diamond. Time, position and result also appear as text.
+
 ## Do's and Don'ts
 
 - **Do:** Extend the existing tool-button, status, particle, audio, haptic, cleanup, and custom-rendering conventions end to end.

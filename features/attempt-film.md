@@ -4,6 +4,8 @@ Players can enlarge a working machine, zoom in on a mount and compare two differ
 
 ## Sub-features
 
+- [Friend challenge films](./friend-races.md) use the same controls and include both actual arrivals.
+
 - [Inspect a missed repair](./repair-coach.md) also offers a reference comparison after a single missed run.
 
 - Expand moves the live drawing, socket controls and parts drawer into a full-viewport dialog. Zoom ranges from 100% to 250%. The scrollable drawing supports panning and focusing a socket brings it into view. Fit returns the whole machine to view.

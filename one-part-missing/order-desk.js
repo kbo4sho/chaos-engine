@@ -32,7 +32,7 @@ export function setupOrders(el, load) {
   }
   for (const role of ['economy', 'speed']) {
     el('order-' + role + '-load').addEventListener('click', () => {
-      if (scores[role]) load(scores[role].move);
+      if (scores[role]) load(scores[role].move, scores[role]);
     });
   }
   group.addEventListener('change', renderMap);
@@ -73,6 +73,7 @@ export function setupOrders(el, load) {
   }
   return {
     showMap,
+    get fastest() { return scores.speed; },
     refresh,
     navigate(m) {
       if (m.contract) group.value = String(Math.floor(m.orderIndex / 6));

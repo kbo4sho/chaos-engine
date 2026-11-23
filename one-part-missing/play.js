@@ -9,6 +9,8 @@ import { chooseStart, rememberRoute, setupFinder } from './library.js';
 import { orders, readOrderLink, fitCode, orderPrefix } from './work-orders.js';
 import { setupOrders } from './order-desk.js';
 import { receiverOpen } from './transmissions.js';
+import { editHistory } from './bench-edits.js';
+import { setupRace, readRace } from './friend-race.js';
 import { setupFilms } from './attempt-film.js';
 import { setupFocus } from './focus.js';
 import { styles as pressStyles, availableTools } from './tool-press.js';
@@ -37,11 +39,33 @@ import { setupPredictions } from './prediction-desk.js';
 import { setupLab } from './tool-lab.js';
 import { draw, partIcon, snapshot, atFrame } from './drawing.js';
 
+// Keep the run and parts together. The same film and lesson controls move below
+// the repair on a phone so their state, listeners and accessible labels survive.
+const phoneWidth = matchMedia('(max-width: 640px)');
+const phoneNotes = document.getElementById('phone-notes');
+const benchNotes = ['lesson', 'film', 'compare-attempts', 'dispatch-log', 'cues'].map(id => {
+  const node = document.getElementById(id);
+  const anchor = document.createComment(id);
+  node.before(anchor);
+  return { node, anchor };
+});
+function arrangeNotes() {
+  for (const { node, anchor } of benchNotes) {
+    if (phoneWidth.matches) phoneNotes.append(node);
+    else anchor.after(node);
+  }
+}
+arrangeNotes();
+phoneWidth.addEventListener('change', arrangeNotes);
+
 const M = window.Matter;
 const $ = (id) => document.getElementById(id);
 const c = $('diagram').getContext('2d');
 const films = setupFilms($),
   focusBench = setupFocus($);
+const raceDesk = setupRace($, films);
+const edits = editHistory();
+let waitingSocket = null;
 function inspectTick(tick) {
   const frame = tape.findIndex(sample => sample.tick >= tick);
   if (frame < 0) return;
@@ -57,6 +81,7 @@ const coach = setupCoach(M, $, (choice) => {
     b?.focus();
     return;
   }
+  waitingSocket = null;
   selectPart(choice.part);
   flipped = Boolean(choice.flipped);
   controls();
@@ -86,12 +111,13 @@ const studyPlayback = {
 const lab = setupLab(M, studyPlayback);
 const forecasts = setupPredictions(M, studyPlayback);
 const finder = setupFinder($);
-const desk = setupOrders($, (fit) => {
+const desk = setupOrders($, (fit, record) => {
   if (playing()) return;
-  move = fit;
+  changeFittings(fit);
   selected = fit.part;
   flipped = false;
   resetRun(true);
+  raceDesk.useRecord(record);
   message('Record setup fitted. Run it or change a spare.');
 });
 const learning = setupLearning({ el: $, lab });
@@ -294,6 +320,7 @@ new ResizeObserver(() => {
     scale = Math.min(2, window.devicePixelRatio || 1, 2160 / Math.max(1, rect.width));
   if (rect.width) {
     if(machine)mountLayout($('sockets'),machine,fittings(machine,move).map(f=>f.socket));
+    coach.positionPin();
     $('diagram').width = Math.round(rect.width * scale);
     $('diagram').height = Math.round(rect.height * scale);
     drawBench();
@@ -409,9 +436,12 @@ $('continue').addEventListener('click', focusCurrent);
 function controls() {
   $('sockets').hidden = inspection !== null;
   const busy = playing(),
-    won = savedMove() || enclosedReplay;
+    won = !raceDesk.blind && (savedMove() || enclosedReplay);
   films.duringRun(busy);
   desk.controls(machine, move, busy);
+  $('order-card').hidden = !machine.contract || raceDesk.blind;
+  $('undo-fitting').hidden = !edits.available;
+  $('undo-fitting').disabled = busy;
   const placed = fittings(machine, move),
     paired = machine.capacity > 1;
   $('fitting-ledger').hidden=machine.capacity!==3 && !machine.grand;
@@ -436,7 +466,7 @@ function controls() {
           );
           b.disabled = busy;
           b.addEventListener('click', () => {
-            move = packFittings(fittings(machine, move).filter((p) => p.socket !== f.socket));
+            changeFittings(packFittings(fittings(machine, move).filter((p) => p.socket !== f.socket)));
             selected = f.part;
             resetRun(true);
             message(parts[f.part].name + ' returned to the drawer.');
@@ -466,7 +496,7 @@ function controls() {
         : phase === 'miss'
           ? 'Run again'
           : 'Run machine';
-  $('reset').disabled = phase === 'ready' && !move && !selected && !ghost.length;
+  $('reset').disabled = phase === 'ready' && !move && !selected && !ghost.length && waitingSocket === null;
   $('after-win').hidden = !won || busy;
   $('study-open').hidden=!campaignById.has(machine.id);
   $('next').textContent =
@@ -508,6 +538,7 @@ function controls() {
   }
   for (const [i, b] of [...$('sockets').children].entries()) {
     b.disabled = busy;
+    b.classList.toggle('awaiting-part', waitingSocket === i);
     b.classList.toggle(
       'fitted',
       placed.some((f) => f.socket === i),
@@ -526,7 +557,7 @@ function controls() {
     b.querySelector('span').dataset.direction = mark;
     b.setAttribute(
       'aria-description',
-      mark
+      waitingSocket === i ? 'Selected socket. Choose a spare to fit here.' : mark
         ? selected === 'conveyor'
           ? 'Belt runs ' + (dir === 1 ? 'right' : 'left')
           : 'Turns ' + (dir === 1 ? 'counterclockwise' : 'clockwise')
@@ -535,6 +566,7 @@ function controls() {
     b.setAttribute('aria-pressed', String(placed.some((f) => f.socket === i)));
   }
   mountLayout($('sockets'),machine,placed.map(f=>f.socket));
+  coach.positionPin();
   const hash = new URLSearchParams({ machine: machine.id });
   placed.forEach((fit,i)=>{
     const suffix=i?String(i+1):'';
@@ -565,18 +597,26 @@ function resetRun(keepGhost = false) {
   controls();
   drawBench();
 }
+function changeFittings(next) {
+  edits.remember(move, next);
+  move = next;
+  waitingSocket = null;
+}
 function selectPart(id) {
   if (playing()) return;
   if (selected !== id) flipped = false;
   selected = id;
   if (phase !== 'ready') resetRun(true);
   controls();
-  message(parts[id].name + ' selected. Tap a socket.');
+  if (waitingSocket !== null) fit(waitingSocket);
+  else message(parts[id].name + ' selected. Tap a socket.');
 }
 function fit(i) {
   if (playing()) return;
   if (!selected) {
-    message('Pick a part from the drawer, then tap socket ' + socketName(i) + '.');
+    waitingSocket = waitingSocket === i ? null : i;
+    controls();
+    message(waitingSocket === null ? 'Socket selection cleared.' : 'Socket ' + socketName(i) + ' selected. Choose a spare to fit here.');
     return;
   }
   const next = placePart(machine, move, {
@@ -588,7 +628,7 @@ function fit(i) {
     message((machine.capacity===3?'Three':'Both')+' spares are fitted. Remove one or tap an occupied socket to replace it.');
     return;
   }
-  move = next;
+  changeFittings(next);
   resetRun(true);
   tone(250, 0.1, 0.03, 'triangle');
   message(
@@ -711,6 +751,7 @@ window.addEventListener('pointermove', (event) => {
   if (!dragging.active) {
     dragging.active = true;
     dragging.b.setPointerCapture(event.pointerId);
+    waitingSocket = null;
     selectPart(dragging.id);
     dragGhost.innerHTML = partIcon(dragging.id);
     dragGhost.hidden = false;
@@ -747,6 +788,7 @@ function finish() {
   ghost = trail.slice();
   addFrame();
   const attempt = films.add(machine, run, move, tape);
+  if (win && !replaying) raceDesk.delivered(move, run.hits.at(-1), attempt);
   if (!win) coach.capture(machine, move, attempt, run.passes);
   $('scrubber').max = tape.length - 1;
   $('scrubber').value = tape.length - 1;
@@ -926,10 +968,11 @@ function launch(replay = false) {
   if (replay) {
     const last = enclosedReplay || savedMove();
     if (!last) return;
-    move = last;
+    changeFittings(last);
     selected = last.part;
     flipped = Boolean(last.flipped);
   }
+  waitingSocket = null;
   startAudio();
   resetRun();
   replaying = replay;
@@ -970,8 +1013,19 @@ $('playback-rate').addEventListener('change', () => {
   elapsed = 0;
 });
 $('replay').addEventListener('click', () => launch(true));
+$('undo-fitting').addEventListener('click', () => {
+  if (playing() || !edits.available) return;
+  move = edits.undo();
+  waitingSocket = null;
+  selected = null;
+  flipped = false;
+  resetRun(true);
+  const placed = fittings(machine, move);
+  message(placed.length ? 'Previous fittings restored. Test the repair.' : 'Fitting removed. The sockets are empty.');
+  if (!edits.available) $('run').focus({preventScroll:true});
+});
 $('reset').addEventListener('click', () => {
-  move = null;
+  changeFittings(null);
   selected = null;
   flipped = false;
   resetRun();
@@ -1072,7 +1126,7 @@ $('save-replay').addEventListener('click', (event) => {
   const replay = desk.isRecord(machine, move) ? move : savedMove();
   if (replay) downloadMachine(event.currentTarget, replay);
 });
-function navigate(resolved, id, announce = false, sharedFit = null) {
+function navigate(resolved, id, announce = false, sharedFit = null, race = null) {
   spareStudy.close();
   forecasts.close();
   lab.close();
@@ -1089,7 +1143,10 @@ function navigate(resolved, id, announce = false, sharedFit = null) {
   setEditorMachine(machine);
   setDesignMachine(machine);
   desk.navigate(machine);
+  raceDesk.navigate(machine, race, desk.fastest);
   if (resolved && !document.body.dataset.portable) rememberRoute(machine, learningActive);
+  edits.clear();
+  waitingSocket = null;
   move = sharedFit;
   selected = sharedFit?.part || null;
   flipped = false;
@@ -1174,6 +1231,8 @@ function navigate(resolved, id, announce = false, sharedFit = null) {
   message(
     !resolved && id
       ? 'Unknown puzzle. The first machine is ready.'
+      : raceDesk.blind
+        ? 'A fresh bench. Make your own delivery to compare with the challenger.'
       : sharedFit
         ? 'Shared setup fitted. Run it to measure the delivery.'
         : enclosedReplay
@@ -1283,8 +1342,9 @@ async function route(announce) {
   const id = learningActive ? guidedId : requested;
   const bench = document.querySelector('.bench');
   try {
+    const race = id.startsWith('race/') ? readRace(M, id) : null;
     const order = readOrderLink(id);
-    let resolved = order?.machine || (freshPrint?.id === id ? freshPrint : campaignById.get(id));
+    let resolved = race?.machine || order?.machine || (freshPrint?.id === id ? freshPrint : campaignById.get(id));
     freshPrint = null;
     if (!resolved && decodePrint(id)) {
       bench.inert = true;
@@ -1292,7 +1352,11 @@ async function route(announce) {
       pressBusy(true);
       resolved = await usePress(M, { id }, controller.signal);
     }
-    if (!controller.signal.aborted) navigate(resolved, id, announce, order?.move);
+    if (!controller.signal.aborted) {
+      navigate(resolved, id, announce, order?.move, race);
+      if (race?.reply) raceDesk.watchReturn();
+      if (id.startsWith('race/') && !race) message('This challenge link could not be replayed. Ask for a new link.');
+    }
   } catch {
     if (!controller.signal.aborted) {
       navigate(null, id, announce);

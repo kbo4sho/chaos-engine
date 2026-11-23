@@ -105,3 +105,9 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Fault desk](./fault-desk.md) covers diagnosing a changed station from paired physical runs, testing repairs, best service records and portable cases.
 
 - [Remove a spare](./spare-study.md) covers predictions about earned repairs, matched physics runs, per-spare measurements and offline comparisons.
+
+- [Phone repair bench](./phone-bench.md) covers touch repairs, inline misses and quarter-speed inspection.
+- [Friend challenges](./friend-races.md) covers blind work orders and two-way race films.
+- [Change one thing](./discovery.md) covers twelve pairs of exploratory and transfer rigs.
+
+- [Replay GIFs](./replay-clips.md) covers local, animated exports of comparison films.

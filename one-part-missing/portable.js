@@ -53,6 +53,9 @@ const modules = [
   'order-plans',
   'work-orders',
   'order-desk',
+  'friend-race',
+  'race-book',
+  'bench-edits',
   'certify',
   'press-catalog',
   'press-reserves',
@@ -66,6 +69,9 @@ const modules = [
   'repairs',
   'drawing',
   'attempt-film',
+  'clip-controls',
+  'replay-clip',
+  'gifenc',
   'repair-coach',
   'coach-desk',
   'focus',
@@ -105,7 +111,7 @@ export async function portableFile(machine, replay = null) {
   modules.forEach((name, i) => {
     // Data modules have no directory for relative imports. Give our own
     // module specifiers stable names in a standard HTML import map.
-    const source = sources[i].replace(/(\bfrom\s+['"])\.\/([\w-]+)\.js(['"])/g, '$1missing/$2$3');
+    const source = sources[i].replace(/(\b(?:from\s+|import\(\s*)['"])\.\/([\w-]+)\.js(['"])/g, '$1missing/$2$3');
     imports['missing/' + name] =
       'data:text/javascript;base64,' + base64(new TextEncoder().encode(source));
   });

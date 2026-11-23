@@ -4,6 +4,8 @@ After a failed run, players can inspect the first unfinished receiver, request a
 
 ## Sub-features
 
+- On the [phone bench](./phone-bench.md), tap the gold marker to replay the measured miss at quarter speed.
+
 - The first view uses the player's recorded frames. It identifies a rejected timed or directional pass, the best consecutive hold inside a sorting bin, an absent required striker or the closest center-to-receiver distance.
 - The next view simulates a working setup and overlays its dashed path on the player's hardware. First separation finds the first of three consecutive frames where the two paths are at least one load radius apart.
 - Show one fitting reveals the tool, socket and orientation. A reference repair prioritizes retaining the player's existing fittings. A two-part machine can reveal its remaining changes one at a time.

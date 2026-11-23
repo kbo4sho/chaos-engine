@@ -24,6 +24,7 @@
           <div>
             <p class="eyeline" id="machine-no">Level 001 / 400 · First shift</p>
             <h2 id="machine-title">The last bell</h2>
+            <p id="race-target" class="eyeline" hidden></p>
             <p id="goal">Ring the brass bell.</p>
           </div>
           <div class="bench-nav">
@@ -61,6 +62,7 @@
                   role="img"
                   aria-label="Machine diagram"
                 ></canvas>
+                <button id="miss-pin" type="button" aria-haspopup="dialog" aria-label="Replay the missed handoff in slow motion" hidden><span aria-hidden="true">↺</span></button>
                 <div id="sockets" role="group" aria-label="Mounting sockets"></div>
               </div>
             </div>
@@ -70,6 +72,7 @@
               <span aria-hidden="true">▶</span> <span id="run-label">Run machine</span>
             </button>
             <button id="frame-step" class="quiet" hidden type="button">Step 1 frame</button>
+            <button id="undo-fitting" class="quiet" type="button" hidden>Undo fit</button>
             <button id="reset" class="quiet" disabled>Reset</button>
             <span id="signal" aria-hidden="true"></span><output id="receiver-clock" hidden></output>
           </div>
@@ -123,11 +126,24 @@
             Inspect this miss
           </button>
           <div id="after-win" hidden>
+            <button id="next" class="quiet">Next machine →</button>
             <button id="study-open" class="quiet" type="button" aria-haspopup="dialog">What did my spare change?</button>
             <button id="replay" class="quiet">Watch replay</button
             ><button id="save-replay" class="quiet">Save replay file</button
-            ><button id="next" class="quiet">Next machine →</button>
+            >
           </div>
+          <section id="race-panel" aria-labelledby="race-title" hidden>
+            <h3 id="race-title">Challenge a friend</h3>
+            <p id="race-score"></p>
+            <div class="race-actions">
+              <button type="button" id="race-copy" class="quiet">Copy challenge link</button>
+              <button type="button" id="race-pass" class="quiet" hidden>Pass the phone</button>
+              <button type="button" id="race-watch" class="quiet" aria-haspopup="dialog" hidden>Compare both runs</button>
+            </div>
+            <output id="race-feedback" aria-live="polite"></output>
+            <input id="race-url" aria-label="Friend challenge link" readonly hidden>
+          </section>
+          <div id="phone-notes"></div>
           <section id="order-card" aria-labelledby="order-card-title" hidden>
             <h3 id="order-card-title">Your delivery records</h3>
             <div class="score-row">
@@ -201,6 +217,7 @@
         </details>
         <p id="chapter-hint"></p>
         <div id="shelf"></div>
+        <a id="discovery-entry" href="discovery/">Change one thing · 12 discovery puzzles →</a>
         <details class="study" id="lesson-map">
           <summary>Tool lessons <span id="learning-progress"></span></summary>
           <label
@@ -211,9 +228,13 @@
         </details>
         <details class="study" id="order-map">
           <summary>Work orders <span id="order-progress"></span></summary>
-          <p>Deliver with one spare, then try to beat your time with two.</p>
+          <p>Deliver with one spare, then try to beat your time with two. Send a friend the time to beat or pass the phone.</p>
           <label>Order book<select id="order-group"></select></label>
           <div id="order-list"></div>
+          <details id="race-recent" class="study" hidden>
+            <summary>Recent challenges on this browser</summary>
+            <nav id="race-list" aria-label="Recent challenges"></nav>
+          </details>
         </details>
         <details class="study" id="practice">
           <summary>Practice by tool</summary>
@@ -394,7 +415,18 @@
           ><button type="button" class="quiet" id="compare-forward" aria-label="Next frame">+1</button
           ><button type="button" class="quiet" id="compare-change">First separation</button>
         </div>
+        <div id="compare-finishes" class="film-controls" hidden>
+          <button type="button" class="quiet" id="compare-reply-arrival"></button>
+          <button type="button" class="quiet" id="compare-host-arrival"></button>
+          <output id="compare-receipts"></output>
+        </div>
         <output id="compare-distance" for="compare-frame"></output>
+        <div id="compare-clip" class="clip-actions">
+          <button type="button" class="quiet" data-clip-make>Make replay GIF</button>
+          <a data-clip-save hidden>Save GIF</a>
+          <button type="button" class="quiet" data-clip-share hidden>Share GIF</button>
+          <output data-clip-status aria-live="polite"></output>
+        </div>
       </dialog>
       <dialog id="tool-lab" aria-labelledby="lab-title">
         <div class="lab-head">
@@ -462,6 +494,7 @@
           >
         </div>
         <div class="coach-tools">
+          <button type="button" class="quiet" id="coach-slow">Replay at ¼ speed</button>
           <button type="button" class="quiet" id="coach-return">Closest approach</button
           ><button type="button" class="quiet" id="coach-compare">See the working motion</button
           ><button type="button" class="quiet" id="coach-change" hidden>First separation</button>

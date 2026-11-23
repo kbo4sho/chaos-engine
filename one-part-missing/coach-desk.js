@@ -1,3 +1,4 @@
+import { mountLabels } from './mount-layout.js';
 import { draw, atFrame } from './drawing.js';
 import { parts, WIDTH, HEIGHT } from './machines.js';
 import { inspectMiss, compareHandoff } from './repair-coach.js';
@@ -6,6 +7,8 @@ const clock = (t) => (t / 60).toFixed(2) + ' s';
 export function setupCoach(M, el, select) {
   const modal = el('repair-coach'),
     open = el('inspect-miss'),
+    pin = el('miss-pin'),
+    slow = el('coach-slow'),
     canvas = el('coach-scene'),
     c = canvas.getContext('2d'),
     slider = el('coach-frame');
@@ -17,7 +20,14 @@ export function setupCoach(M, el, select) {
     shown = 0,
     pending = null,
     overlay = false;
+  let replayFrame = 0;
+  function stopReplay() {
+    cancelAnimationFrame(replayFrame);
+    replayFrame = 0;
+    slow.textContent = 'Replay at ¼ speed';
+  }
   function cancel() {
+    stopReplay();
     pending?.abort();
     pending = null;
     el('coach-compare').disabled = false;
@@ -32,6 +42,23 @@ export function setupCoach(M, el, select) {
     overlay = false;
     shown = 0;
     open.hidden = true;
+    pin.hidden = true;
+  }
+  function positionPin() {
+    if (pin.hidden || !attempt || !diagnosis) return;
+    const stage = el('stage'), w = stage.clientWidth, h = stage.clientHeight;
+    if (!w || !h) return;
+    const [x,y] = attempt.film.frames[diagnosis.tick].poses[diagnosis.actor];
+    const anchor = {x: Math.max(0,Math.min(w,x / WIDTH * w)), y: Math.max(0,Math.min(h,y / HEIGHT * h))};
+    const occupied = [...el('sockets').children].map(b => ({
+      x: b.offsetLeft, y: b.offsetTop,
+    }));
+    const [point] = mountLabels([anchor], [], w, h, [], occupied);
+    const dx=anchor.x-point.x, dy=anchor.y-point.y;
+    pin.style.left = point.x+'px';
+    pin.style.top = point.y+'px';
+    pin.style.setProperty('--pin-length', Math.hypot(dx,dy)+'px');
+    pin.style.setProperty('--pin-angle', Math.atan2(dy,dx)+'rad');
   }
   function paint() {
     const { m, film } = attempt,
@@ -105,14 +132,14 @@ export function setupCoach(M, el, select) {
     );
   }
   function go(frame) {
+    stopReplay();
     t = Math.max(0, Math.min(Number(slider.max), frame));
     paint();
   }
   function inspect() {
     if (!attempt) return;
-    if (!diagnosis) {
-      diagnosis = inspectMiss(attempt.m, attempt.film, attempt.passes);
-      if (!diagnosis) return;
+    if (!diagnosis) return;
+    if (!attempt.path) {
       attempt.path = attempt.film.frames.map((f) => f.poses[diagnosis.actor]);
       attempt.jumps = new Set(
         attempt.film.uses
@@ -137,7 +164,32 @@ export function setupCoach(M, el, select) {
     paint();
     el('coach-close').focus({ preventScroll: true });
   }
+  function slowReplay() {
+    if (replayFrame) {
+      stopReplay();
+      return;
+    }
+    if (overlay) showOverlay(false);
+    const start = Math.max(0, diagnosis.tick - 36);
+    const end = Math.min(attempt.path.length - 1, diagnosis.tick + 18);
+    go(start);
+    const origin = performance.now();
+    slow.textContent = 'Pause replay';
+    const advance = now => {
+      t = Math.min(end, start + Math.floor(Math.max(0, now - origin) * 15 / 1000));
+      paint();
+      if (t < end) replayFrame = requestAnimationFrame(advance);
+      else stopReplay();
+    };
+    replayFrame = requestAnimationFrame(advance);
+  }
+  slow.addEventListener('click', slowReplay);
   open.addEventListener('click', inspect);
+  pin.addEventListener('click', () => {
+    inspect();
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) go(diagnosis.tick);
+    else slowReplay();
+  });
   function showOverlay(enable) {
     overlay = enable;
     slider.max = enable ? comparison.end : attempt.path.length - 1;
@@ -241,9 +293,16 @@ export function setupCoach(M, el, select) {
   });
   return {
     clear,
+    positionPin,
     capture(m, move, film, passes) {
       clear();
-      attempt = { m, move, film, passes: [...passes] };
+      diagnosis = inspectMiss(m, film, passes);
+      if (!diagnosis) return;
+      attempt = { m, move, film };
+
+      pin.title = 'Replay the missed handoff at ' + clock(diagnosis.tick);
+      pin.hidden = false;
+      positionPin();
       open.hidden = false;
     },
   };

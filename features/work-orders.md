@@ -4,6 +4,8 @@ Twenty-four delivery jobs keep two personal records. One spare can always finish
 
 ## Sub-features
 
+- [Friend challenges](./friend-races.md) send a blind time to beat and return a synchronized two-run replay.
+
 - Four order books move from basic powered tracks to signals, cables and shaft transmissions. Each order has its own receiver, parts drawer and bench note.
 - Fewest parts favors a compact build, then the quicker delivery with that part count. Fastest favors elapsed simulation time, then fewer parts. Players can refit either record and continue experimenting.
 - Copy fitted setup shares an exact arrangement. Opening it fits the spares and lets the recipient test them. A delivery earns credit only when the recipient runs it.

@@ -1587,3 +1587,68 @@ body[data-portable] #share-assembly{display:none!important;}
 .study-bar {margin-bottom:4px;color:var(--cyan);} #study-diagram {display:block;width:100%;height:auto;aspect-ratio:720/400;border:1px solid var(--line);}
 #study-choices {justify-content:flex-start;} #study-choices [data-answer=correct] {border-color:#87d8a0;color:#baf6c7;opacity:1;} #study-result {line-height:1.45;}
 #spare-study .film {display:flex;align-items:center;gap:6px;flex-wrap:wrap;} #study-frame{flex:1 1 70px;min-width:55px;}
+
+#miss-pin {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--gold);
+}
+#miss-pin span {
+  display: grid;
+  place-items: center;
+  width: 29px;
+  height: 29px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  background: var(--bg);
+  font: 21px/1 var(--mono);
+}
+#phone-notes:empty { display: none; }
+@media (max-width: 640px) {
+  .mast-inner { min-height: 44px; }
+  main { padding-top: 7px; }
+  .bench { gap: 6px; }
+  .bench .transport { margin-top: 4px; gap: 6px; }
+  .bench .drawer-top { margin: 0 0 3px; }
+  .bench .drawer-top h2 { font-size: 22px; }
+  .bench .part { min-height: 44px; padding: 2px 4px; }
+  .bench #status { margin: 4px 0; }
+  #after-win #next { color: var(--green); border-color: var(--green); }
+  #phone-notes { margin-block: 6px; }
+}
+#race-panel { border-block-start: 1px solid var(--line); margin-top: 10px; padding-block: 8px; }
+#race-panel h3 { font: 24px var(--display); margin: 0; }
+#race-score { color: var(--muted); font-size: 14px; margin-block: 3px 7px; }
+.race-actions { display: flex; flex-wrap: wrap; gap: 5px; }
+#race-target { color: var(--gold); margin-block: 3px; }
+#race-feedback { display: block; color: var(--cyan); font-size: 13px; }
+#race-url { width: 100%; }
+#discovery-entry { display:inline-flex; align-items:center; min-height:44px; color:var(--cyan); }
+.socket.awaiting-part span {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-style: solid;
+}
+#miss-pin::before {
+  content: '';
+  pointer-events:none;
+  position:absolute;
+  top:50%; left:50%;
+  width:var(--pin-length);
+  border-top:1px dashed var(--gold);
+  transform:rotate(var(--pin-angle));
+  transform-origin:left;
+}
+#miss-pin span { position:relative; }
+#race-list { display:grid; }
+#race-list a { display:flex; align-items:center; min-height:44px; font:13px/1.4 var(--mono); border-bottom:1px solid var(--line); }
+.clip-actions { display:flex; flex-wrap:wrap; align-items:center; gap:5px 9px; margin-block:6px; }
+.clip-actions a { display:inline-flex; align-items:center; min-height:44px; color:var(--green); font:13px var(--mono); }
+.clip-actions output { font:12px var(--mono); color:var(--muted); }

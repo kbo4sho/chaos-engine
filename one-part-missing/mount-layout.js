@@ -1,9 +1,9 @@
 // Keep the entire touch target selectable in dense machines. The leader points
 // back to the exact physics socket even when the label must move on a phone.
-export function mountLabels(anchors, targets, width, height, pressed = []) {
+export function mountLabels(anchors, targets, width, height, pressed = [], occupied = []) {
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v)),
     half = Math.min(22, width / 2, height / 2);
-  const points = [];
+  const points = [...occupied];
   for (const [index, a] of anchors.entries()) {
     const beside = targets.some((g) => Math.hypot(g.x - a.x, g.y - a.y) < Math.min(30, width * 0.058));
     const desired = { x: a.x, y: a.y + (beside ? 25 : pressed.includes(index) ? -17 : 0) };
@@ -32,7 +32,7 @@ export function mountLabels(anchors, targets, width, height, pressed = []) {
     }
     points.push(best);
   }
-  return points;
+  return points.slice(occupied.length);
 }
 export function mountLayout(layer, machine, pressed) {
   const w = layer.clientWidth,

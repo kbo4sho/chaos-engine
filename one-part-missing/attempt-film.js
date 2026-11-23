@@ -1,3 +1,4 @@
+import { clipControls } from './clip-controls.js';
 import { atFrame, draw, drawActors, snapshot } from './drawing.js';
 import { parts, WIDTH, HEIGHT, fittings, createRun, advance } from './machines.js';
 
@@ -43,8 +44,8 @@ export function keepAttempts(history, next) {
 function gapAt(a, b, kind, t) {
   const ia = a.actors[kind],
     ib = b.actors[kind],
-    ap = a.frames[t].poses[ia],
-    bp = b.frames[t].poses[ib];
+    ap = a.frames[Math.min(t, a.frames.length - 1)].poses[ia],
+    bp = b.frames[Math.min(t, b.frames.length - 1)].poses[ib];
   const distance = Math.hypot(ap[0] - bp[0], ap[1] - bp[1]);
   if (a.items[ia].shape.flywheel) {
     const rim = 2 * a.items[ia].shape.r * Math.abs(Math.sin((ap[2] - bp[2]) / 2));
@@ -147,6 +148,7 @@ export function setupFilms(el) {
     canvas = el('compare-diagram'),
     c = canvas.getContext('2d');
   let history = null,
+    viewing = null,
     study = null,
     t = 0,
     raf = 0,
@@ -157,17 +159,38 @@ export function setupFilms(el) {
     origin = null;
     el('compare-play').textContent = 'Play';
   };
+  function scene(c, t, hardware) {
+    const {latest,previous} = viewing, cursor = film => Math.min(t, film.frames.length - 1);
+    draw(c, atFrame(hardware, hardware.frames[cursor(hardware)]), {showActors:false});
+    c.save();
+    c.setTransform(c.canvas.width/WIDTH,0,0,c.canvas.height/HEIGHT,0,0);
+    drawTrails(c,latest,cursor(latest),false);
+    drawActors(c,atFrame(latest,latest.frames[cursor(latest)]));
+    drawTrails(c,previous,cursor(previous),true);
+    c.restore();
+  }
+  const clips=clipControls(el('compare-clip'),()=>{
+    if(!study || !viewing)return null;
+    const {latest,previous,race}=viewing, first=study.first?.tick,
+      a=latest.frames.length-1,b=previous.frames.length-1;
+    const hardware=el('compare-hardware').value==='previous'?previous:latest;
+    const names=race?['Reply','Challenger']:['Latest','Previous'];
+    const caption=t=>{
+      if(race && t>=Math.max(a,b))return a===b?'Both deliveries arrived together.':(a<b?'Reply':'Challenger')+' arrived '+clock(Math.abs(b-a))+' earlier.';
+      if(race && t>=Math.min(a,b))return (a<b?'Reply':'Challenger')+' arrived. The other load is still in transit.';
+      if(first!=null && t>=first)return 'Paths separate at '+clock(first)+'.';
+      return race?'Both runs share one release clock.':'Two setups on the same machine.';
+    };
+    return {title:el('machine-title').textContent,label:race?'FRIEND CHALLENGE':'COMPARE SETUPS',
+      filename:race?'challenge-'+latest.machine:'comparison-'+latest.machine.split('~')[0],
+      end:study.end,highlights:[first,a,b],scene:(ctx,t)=>scene(ctx,t,hardware),caption,
+      legend:race?[names[0]+' '+clock(a),names[1]+' '+clock(b)]:names};
+  });
   function paint() {
     if (!study) return;
-    const { latest, previous } = history,
+    const { latest, previous } = viewing,
       hardware = el('compare-hardware').value === 'previous' ? previous : latest;
-    draw(c, atFrame(hardware, hardware.frames[t]), { showActors: false });
-    c.save();
-    c.setTransform(canvas.width / WIDTH, 0, 0, canvas.height / HEIGHT, 0, 0);
-    drawTrails(c, latest, t, false);
-    drawActors(c, atFrame(latest, latest.frames[t]));
-    drawTrails(c, previous, t, true);
-    c.restore();
+    scene(c,t,hardware);
     el('compare-time').value = clock(t);
     range.value = t;
     range.setAttribute('aria-valuetext', clock(t) + ', frame ' + t);
@@ -176,6 +199,11 @@ export function setupFilms(el) {
         actorName(latest, kind) + ' ' + Math.round(gapAt(latest, previous, kind, t)) + ' units apart',
     );
     el('compare-distance').textContent = gaps.join(' · ');
+    if (viewing.race) {
+      el('compare-receipts').textContent = [latest, previous].map((film,i) =>
+        (i ? 'Challenger' : 'Reply') + (t >= film.frames.length - 1 ? ' arrived' : ' in transit'),
+      ).join(' · ');
+    }
     el('compare-back').disabled = t === 0;
     el('compare-forward').disabled = t === study.end;
   }
@@ -191,15 +219,24 @@ export function setupFilms(el) {
     if (t < study.end) raf = requestAnimationFrame(animate);
     else stop();
   }
-  open.addEventListener('click', () => {
-    if (!history?.previous) return;
-    study = compareAttempts(history.latest, history.previous);
+  function comparePair(latest, previous, race = false) {
+    if (!latest || !previous) return;
+    clips.clear();
+    const latestName = race ? 'Reply' : 'Latest', previousName = race ? 'Challenger' : 'Previous';
+    viewing = { latest, previous, race };
+    el('compare-title').textContent = race ? 'Challenge replay' : 'Compare setups';
+    el('compare-finishes').hidden = !race;
+    const options = el('compare-hardware').options;
+    options[0].textContent = latestName + ' setup';
+    options[1].textContent = previousName + ' setup';
+    study = compareAttempts(latest, previous);
+    if (race) study.end = Math.max(latest.frames.length, previous.frames.length) - 1;
     const { first, end } = study;
     range.max = end;
     el('compare-change').disabled = !first;
     el('compare-findings').textContent = first
       ? 'The ' +
-        actorName(history.latest, first.kind).toLowerCase() +
+        actorName(latest, first.kind).toLowerCase() +
         ' separates by one radius at ' +
         clock(first.tick) +
         '.'
@@ -208,18 +245,25 @@ export function setupFilms(el) {
     if (study.contact) {
       const u = study.contact;
       el('compare-contact').textContent =
-        u.whose + ' tool contact · ' + parts[u.kind].name + ' · ' + clock(u.tick);
+        (u.whose === 'Latest' ? latestName : previousName) + ' tool contact · ' + parts[u.kind].name + ' · ' + clock(u.tick);
     }
-    el('compare-overlap').textContent = 'Shared recording · ' + clock(end);
+    el('compare-overlap').textContent = (race ? 'Both deliveries · ' : 'Shared recording · ') + clock(end);
+    if (race) {
+      el('compare-reply-arrival').textContent = 'Reply arrival · ' + clock(latest.frames.length - 1);
+      el('compare-host-arrival').textContent = 'Challenger arrival · ' + clock(previous.frames.length - 1);
+    }
     el('compare-latest').textContent =
-      'Latest · ' + history.latest.label + ' · ' + history.latest.outcome;
+      latestName + ' · ' + latest.label + ' · ' + latest.outcome;
     el('compare-previous').textContent =
-      'Previous · ' + history.previous.label + ' · ' + history.previous.outcome;
+      previousName + ' · ' + previous.label + ' · ' + previous.outcome;
     el('compare-hardware').value = 'latest';
     modal.showModal();
     go(first?.tick || 0);
     el('compare-close').focus({ preventScroll: true });
-  });
+  }
+  open.addEventListener('click', () => comparePair(history?.latest, history?.previous));
+  el('compare-reply-arrival').addEventListener('click', () => go(viewing.latest.frames.length - 1));
+  el('compare-host-arrival').addEventListener('click', () => go(viewing.previous.frames.length - 1));
   range.addEventListener('input', () => go(Number(range.value)));
   el('compare-hardware').addEventListener('change', paint);
   el('compare-back').addEventListener('click', () => go(t - 1));
@@ -237,10 +281,13 @@ export function setupFilms(el) {
   });
   el('compare-close').addEventListener('click', () => modal.close());
   modal.addEventListener('close', () => {
+    clips.clear();
     stop();
     study = null;
+    viewing = null;
   });
   return {
+    comparePair,
     add(machine, run, move, tape) {
       history = keepAttempts(history, recordAttempt(machine, run, move, tape));
       open.hidden = !history.previous;
