@@ -96,12 +96,12 @@ export async function verifyGrandRelays(home, { url, record, shot, outDir }) {
     fits.find((f) => f.part !== "swirl"),
   );
   for (const [i, m] of relayCourse.entries()) {
+    if (i === 10) await p.setViewport({ width: 1280, height: 800, isMobile: false, hasTouch: false });
     if (i) {
       await p.click("#next");
       await head(p, m);
       for (const f of fittings(m, certify(M, m)[0])) await place(p, f);
     }
-    if (i === 10) await p.setViewport({ width: 1280, height: 800 });
     await run(p, "won");
     await p.click("#dispatch-log summary");
     const rows = await lines(p),
