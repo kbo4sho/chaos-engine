@@ -279,8 +279,37 @@ export function createRun(M, machine, move = null, offset = 0) {
         run.uses.push({ kind: l.rig.kind, item, tick: run.tick, actor: 'rig', action });
       },
     );
+  // Read passive fittings at the physical collision as well as the powered tools at activation.
+  const passive = new Map();
+  for (const [item, { shape, body }] of items.entries()) {
+    if (!shape.fitted && !shape.labPiece) continue;
+    const kind = shape.kind === 'tile' ? 'domino' : shape.kind;
+    if (['bridge', 'chute', 'bumper', 'weight', 'domino'].includes(kind))
+      passive.set(body, { item, kind, seen: new Set() });
+  }
   M.Events.on(engine, 'collisionStart', ({ pairs }) => {
     for (const { bodyA, bodyB } of pairs) {
+      if (passive.size) {
+        const fitting = passive.get(bodyA) || passive.get(bodyB);
+        if (fitting) {
+          const other = passive.has(bodyA) ? bodyB : bodyA;
+          const makesContact =
+            fitting.kind === 'weight'
+              ? other.label === 'rocker'
+              : fitting.kind === 'domino'
+                ? other.label === 'tile'
+                : other === run.ball || other === run.cargo;
+          if (makesContact && !fitting.seen.has(other.label)) {
+            fitting.seen.add(other.label);
+            run.uses.push({
+              kind: fitting.kind,
+              item: fitting.item,
+              actor: other.label,
+              tick: run.tick,
+            });
+          }
+        }
+      }
       const goal = goals[run.hits.length];
       const target = goal?.body;
       const striker = bodyA === target ? bodyB : bodyB === target ? bodyA : null;

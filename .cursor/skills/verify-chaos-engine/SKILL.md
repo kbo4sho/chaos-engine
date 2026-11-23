@@ -159,6 +159,7 @@ All helpers are executable. Invoke them from the repo root.
 | `./scripts/verify-chaos-engine drive puzzle-campaign` | [Full campaign](features/puzzle-campaign.md), all 280 repairs, chapter progress, rail orientation and portable replay |
 | `./scripts/verify-chaos-engine drive tool-press` | [Tool-aware press](features/tool-press.md), selected tool pairs, accurate shared geometry and standalone cargo replays |
 | `./scripts/verify-chaos-engine drive tool-lessons` | [Guided lessons](features/tool-lessons.md), 46 mixed lessons, shared repairs, all-tool practice and frame stepping |
+| `./scripts/verify-chaos-engine drive attempt-film` | [Expanded bench and comparison film](features/attempt-film.md), zoom, aligned trials, one-frame stepping and independent parcel motion |
 | `./scripts/verify-chaos-engine drive paired-repairs` | [Two-part repairs](features/paired-repairs.md), single-fit trials, two installed parts, reload and offline delivery |
 | `./scripts/verify-chaos-engine drive rigging-course` | [Cable rigs](features/rigging-course.md), two-body constraints, break inspection, saved rig and offline delivery |
 | `./scripts/verify-chaos-engine drive clockwork-course` | [Clockwork and cargo](features/clockwork-course.md), moving solids, seven mechanical experiments, signal delivery and saved assemblies |

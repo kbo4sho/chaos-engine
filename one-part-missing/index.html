@@ -42,17 +42,27 @@
                 <option value="1" selected>1×</option>
                 <option value="2">2×</option>
                 <option value="4">4×</option></select
-              ><span id="counter">0.00 s</span>
+              ><span id="counter">0.00 s</span
+              ><button
+                id="focus-open"
+                type="button"
+                aria-haspopup="dialog"
+                aria-label="Expand workbench"
+              >
+                Expand ↗
+              </button>
             </div>
-            <div id="stage">
-              <canvas
-                width="720"
-                height="400"
-                id="diagram"
-                role="img"
-                aria-label="Machine diagram"
-              ></canvas>
-              <div id="sockets" role="group" aria-label="Mounting sockets"></div>
+            <div id="stage-port">
+              <div id="stage">
+                <canvas
+                  width="720"
+                  height="400"
+                  id="diagram"
+                  role="img"
+                  aria-label="Machine diagram"
+                ></canvas>
+                <div id="sockets" role="group" aria-label="Mounting sockets"></div>
+              </div>
             </div>
           </div>
           <div class="transport">
@@ -71,6 +81,9 @@
               >0.00 s</output
             >
           </div>
+          <button type="button" id="compare-attempts" class="quiet" aria-haspopup="dialog" hidden>
+            Compare last two setups
+          </button>
           <div id="cues" aria-label="Tool contacts in this run" role="group" hidden></div>
         </section>
         <aside class="drawer" aria-labelledby="drawer-title">
@@ -194,6 +207,59 @@
           </div>
         </div>
       </details>
+      <dialog id="focus-view" aria-labelledby="focus-title">
+        <header class="focus-head">
+          <h2 id="focus-title"></h2>
+          <div class="focus-tools" role="group" aria-label="Bench magnification">
+            <button type="button" id="focus-out" aria-label="Zoom out">−</button
+            ><output id="focus-scale" aria-label="Magnification">100%</output
+            ><button type="button" id="focus-in" aria-label="Zoom in">+</button
+            ><button type="button" id="focus-fit">Fit</button>
+          </div>
+          <button type="button" class="quiet" id="focus-close">Close</button>
+        </header>
+        <div id="focus-content"></div>
+      </dialog>
+      <dialog id="attempt-film" aria-labelledby="compare-title">
+        <header class="lab-head">
+          <h2 id="compare-title">Compare setups</h2>
+          <button type="button" class="quiet" id="compare-close">Close</button>
+        </header>
+        <div class="film-legend">
+          <span id="compare-latest"></span><span id="compare-previous"></span>
+        </div>
+        <canvas
+          id="compare-diagram"
+          width="900"
+          height="500"
+          role="img"
+          aria-label="Synchronized paths of the latest and previous setups"
+        ></canvas>
+        <div class="film-controls">
+          <label for="compare-hardware">Show hardware</label
+          ><select id="compare-hardware">
+            <option value="latest">Latest setup</option>
+            <option value="previous">Previous setup</option></select
+          ><span id="compare-overlap"></span>
+        </div>
+        <p id="compare-findings"></p>
+        <button type="button" class="quiet" id="compare-contact" hidden></button>
+        <div class="film">
+          <label for="compare-frame">Frame</label
+          ><input id="compare-frame" type="range" min="0" max="1" value="0" /><output
+            id="compare-time"
+            for="compare-frame"
+            >0.00 s</output
+          >
+        </div>
+        <div class="film-controls">
+          <button type="button" class="quiet" id="compare-back" aria-label="Previous frame">−1</button
+          ><button type="button" class="quiet" id="compare-play">Play</button
+          ><button type="button" class="quiet" id="compare-forward" aria-label="Next frame">+1</button
+          ><button type="button" class="quiet" id="compare-change">First separation</button>
+        </div>
+        <output id="compare-distance" for="compare-frame"></output>
+      </dialog>
       <dialog id="tool-lab" aria-labelledby="lab-title">
         <div class="lab-head">
           <h2 id="lab-title">Tool lab</h2>

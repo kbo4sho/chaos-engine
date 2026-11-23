@@ -484,7 +484,7 @@ function body(c, item, run) {
 export function draw(
   c,
   run,
-  { trail = [], ghost = [], cargoTrail = [], small = false, mount = null } = {},
+  { trail = [], ghost = [], cargoTrail = [], small = false, mount = null, showActors = true } = {},
 ) {
   c.save();
   c.setTransform(c.canvas.width / WIDTH, 0, 0, c.canvas.height / HEIGHT, 0, 0);
@@ -508,13 +508,16 @@ export function draw(
   drawBenchRig(c, run.items, mount);
   for (const item of run.items)
     if (item.body !== run.ball && item.shape.kind !== 'cargo') body(c, item, run);
+  if (showActors) drawActors(c, run);
+  c.restore();
+}
+export function drawActors(c, run) {
   for (const item of run.items) if (item.shape.kind === 'cargo') body(c, item, run);
   body(
     c,
     run.items.find((i) => i.body === run.ball),
     run,
   );
-  c.restore();
 }
 
 const icons = {

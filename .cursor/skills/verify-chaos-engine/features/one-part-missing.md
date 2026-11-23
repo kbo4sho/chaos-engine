@@ -9,6 +9,7 @@ Players fit one spare part to a broken machine, test the repair, inspect the run
 - `replay` plays a recorded fitting after reload. The inspection slider reviews individual moments of the latest run.
 - `press` generates a machine, tests its repairs and copies a link to its original setup.
 - `remix` moves the final target and shares edited positions that pass the same physics trials.
+- `compare` overlays the previous distinct setup and the latest attempt at the same physics tick. Expand enlarges the working board and keeps the controls live.
 - `sandbox` opens the current assembly paused in a separate sandbox tab. Manual saves use ordinary game slots.
 
 ## How to get to it (user POV)

@@ -961,3 +961,226 @@ summary {
     min-height: 44px;
   }
 }
+#focus-open {
+  color: var(--cyan);
+  border: 0;
+  border-left: 1px solid var(--line);
+  border-radius: 0;
+  padding: 2px 7px;
+  margin-left: 6px;
+  min-height: 25px;
+  font: 12px var(--mono);
+  background: transparent;
+}
+#stage-port {
+  min-width: 0;
+  position: relative;
+}
+#focus-view,
+#attempt-film {
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid #467482;
+}
+#focus-view::backdrop,
+#attempt-film::backdrop {
+  background: #03080ce8;
+}
+#focus-view {
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0;
+  overflow: auto;
+  padding: 0 clamp(10px, 2vw, 32px) 20px;
+}
+.expanded-bench {
+  overflow: hidden;
+}
+.focus-head {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 5px 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 8px;
+}
+.focus-head h2 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font: clamp(18px, 3.4vw, 32px)/1.03 var(--display);
+  overflow-wrap: anywhere;
+}
+.focus-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.focus-tools button,
+#focus-close {
+  padding: 4px 8px;
+  min-width: 36px;
+  min-height: 36px;
+  font: 14px var(--mono);
+}
+#focus-scale {
+  min-width: 4ch;
+  text-align: center;
+  font: 12px var(--mono);
+  color: var(--cyan);
+}
+#focus-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 27%);
+  gap: clamp(10px, 2vw, 28px);
+  align-items: start;
+}
+#focus-content .cabinet,
+#focus-content .drawer {
+  grid-area: auto;
+}
+#focus-view #stage-port {
+  overflow: auto;
+  overscroll-behavior: contain;
+  max-height: calc(100dvh - 168px);
+  scrollbar-color: #527883 var(--panel);
+  touch-action: pan-x pan-y pinch-zoom;
+}
+#focus-view #focus-open {
+  display: none;
+}
+#focus-view .drawer {
+  padding-top: 0;
+}
+#attempt-film {
+  width: min(840px, 96vw);
+  max-height: 94dvh;
+  overflow: auto;
+  padding: clamp(12px, 2.5vw, 25px);
+}
+#compare-diagram {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+}
+.film-legend {
+  display: grid;
+  gap: 3px;
+  margin: 0.3rem 0 0.55rem;
+  color: var(--text);
+  font: 12px/1.4 var(--mono);
+}
+.film-legend span::before {
+  content: '';
+  display: inline-block;
+  vertical-align: middle;
+  width: 22px;
+  border-top: 2px solid var(--gold);
+  margin-right: 7px;
+}
+.film-legend span + span::before {
+  border-top: 2px dashed #c3cfd9;
+}
+.film-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 8px 0;
+  font: 12px var(--mono);
+}
+.film-controls select,
+.film-controls button {
+  min-height: 36px;
+  padding: 4px 8px;
+}
+#compare-overlap,
+#compare-distance {
+  color: var(--muted);
+  font: 12px var(--mono);
+}
+#compare-findings {
+  margin: 10px 0 6px;
+}
+#compare-attempts {
+  margin-top: 6px;
+  min-height: 36px;
+  color: var(--cyan);
+}
+@media (max-width: 640px) and (orientation: portrait) {
+  #focus-content {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  #focus-view #stage-port {
+    max-height: 58dvh;
+  }
+  .focus-head {
+    flex-wrap: wrap;
+  }
+  .focus-head h2 {
+    min-width: 70px;
+  }
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  #focus-content {
+    grid-template-columns: minmax(0, 1fr) minmax(170px, 27%);
+  }
+  .focus-head {
+    position: relative;
+    min-height: 41px;
+  }
+  .focus-head h2 {
+    font-size: 22px;
+  }
+  #focus-view #stage-port {
+    max-height: calc(100dvh - 128px);
+  }
+}
+@media (pointer: coarse) {
+  .focus-tools button,
+  #focus-close,
+  .film-controls button,
+  #compare-attempts {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .focus-head {
+    gap: 4px;
+  }
+}
+#compare-contact {
+  padding: 3px 7px;
+  color: var(--cyan);
+  font: 12px var(--mono);
+  min-height: 32px;
+}
+#focus-content .drawer-top {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+#focus-content .drawer-top h2 {
+  font-size: clamp(21px, 2.5vw, 30px);
+  line-height: 1.05;
+}
+#focus-content .drawer-top p {
+  grid-column: 1/-1;
+}
+#focus-content .drawer-top #open-lab {
+  grid-row: 1;
+  min-height: 34px;
+  margin: 0;
+  padding: 4px 6px;
+}
+#stage-port:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: -2px;
+}

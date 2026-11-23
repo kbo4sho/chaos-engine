@@ -1,3 +1,5 @@
+import { setupFilms } from './attempt-film.js';
+import { setupFocus } from './focus.js';
 import { styles as pressStyles, availableTools } from './tool-press.js';
 import { lessons, lessonById, lessonLink, setupLearning } from './learning.js';
 import {
@@ -26,6 +28,8 @@ import { draw, partIcon, snapshot, atFrame } from './drawing.js';
 const M = window.Matter;
 const $ = (id) => document.getElementById(id);
 const c = $('diagram').getContext('2d');
+const films = setupFilms($),
+  focusBench = setupFocus($);
 const setEditorMachine = makeEditor(M);
 let resumeAfterLab = false;
 const lab = setupLab(M, {
@@ -155,7 +159,7 @@ $('scrubber').addEventListener('input', () => {
 });
 new ResizeObserver(() => {
   const rect = $('stage').getBoundingClientRect(),
-    scale = Math.min(2, window.devicePixelRatio || 1);
+    scale = Math.min(2, window.devicePixelRatio || 1, 2160 / Math.max(1, rect.width));
   if (rect.width) {
     $('diagram').width = Math.round(rect.width * scale);
     $('diagram').height = Math.round(rect.height * scale);
@@ -249,6 +253,7 @@ function controls() {
   $('sockets').hidden = inspection !== null;
   const busy = playing(),
     won = savedMove() || enclosedReplay;
+  films.duringRun(busy);
   const placed = fittings(machine, move),
     paired = machine.capacity === 2;
   $('fitted-pair').hidden = !paired;
@@ -592,6 +597,7 @@ function finish() {
   runPaused = false;
   ghost = trail.slice();
   addFrame();
+  films.add(machine, run, move, tape);
   $('scrubber').max = tape.length - 1;
   $('scrubber').value = tape.length - 1;
   const seconds = (run.tick / 60).toFixed(2) + ' s';
@@ -687,19 +693,16 @@ function tickMachine() {
     // Continue the actual mechanism while the bell swings or the flag rises.
     M.Engine.update(run.engine, STEP);
     run.tick++;
-    if (run.tick % 3 === 0) addFrame();
+    addFrame();
     if (run.tick >= finishTick) finish();
     return;
   }
   const before = run.hits.length,
     uses = run.uses.length;
   advance(M, run);
-  if (run.uses.length > uses) {
-    addFrame();
-    if (run.gated && run.cargo) controls();
-  }
+  addFrame();
+  if (run.uses.length > uses && run.gated && run.cargo) controls();
   if (run.tick % 3 === 0) {
-    addFrame();
     const jumped = run.uses.some((u) => u.kind === 'portal' && u.tick > run.tick - 3);
     trail.push([run.ball.position.x, run.ball.position.y, jumped]);
   }
@@ -792,6 +795,7 @@ $('sound').addEventListener('click', () => {
   } else audio?.suspend().catch(() => {});
 });
 $('next').addEventListener('click', () => {
+  focusBench.close();
   if (learningActive) {
     const next = lessons[lessonById.get(machine.id) + 1];
     if (next) location.hash = lessonLink(next.machine.id);
@@ -855,6 +859,8 @@ $('save-replay').addEventListener('click', (event) => {
 });
 function navigate(resolved, id, announce = false) {
   lab.close();
+  films.clear();
+  focusBench.close();
   machine = resolved || machines[0];
   enclosedReplay = null;
   if (document.body.dataset.portable === machine.id && document.body.dataset.repair) {

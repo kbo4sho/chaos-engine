@@ -27,6 +27,8 @@ const modules = [
   'press-client',
   'repairs',
   'drawing',
+  'attempt-film',
+  'focus',
   'mechanical-art',
   'portable',
   'learning',

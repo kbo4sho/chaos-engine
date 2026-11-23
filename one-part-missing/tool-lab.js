@@ -208,27 +208,6 @@ export function experiment(M, kind, offset = 0) {
         .filter((s) => !(unpowered && disabled && s.labPiece))
         .map((s) => ({ ...s, disabled: disabled && s.kind === kind })),
     });
-    if (unpowered && !disabled && !wired) {
-      const index = run.items.findIndex((it) => it.shape.labPiece);
-      const part = run.items[index].body;
-      M.Events.on(run.engine, 'collisionStart', ({ pairs }) => {
-        if (run.uses.length) return;
-        for (const { bodyA, bodyB } of pairs) {
-          const other = bodyA === part ? bodyB : bodyB === part ? bodyA : null;
-          if (
-            !other ||
-            (kind === 'weight'
-              ? other.label !== 'rocker'
-              : kind === 'domino'
-                ? other.label !== 'tile'
-                : other !== run.ball)
-          )
-            continue;
-          run.uses.push({ item: index, kind, tick: run.tick });
-          break;
-        }
-      });
-    }
     const tracked =
       run.items.find((it) => it.shape.track || (delivery && it.shape.kind === 'cargo'))?.body ||
       run.ball;

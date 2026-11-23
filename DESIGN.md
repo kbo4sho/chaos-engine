@@ -125,6 +125,8 @@ Write terse machine-like feedback with a concrete result or next action: `HATCH 
 
 The puzzle route uses the sandbox’s black glass, cyan track, green run control and VT323 display type. Amber marks the moving marble, fitted hardware and goals. The playfield occupies the wide column, with a compact parts drawer beside it on desktop and directly below it on a phone. Lettered sockets have 44px hit areas and accept dragging, tapping or keyboard activation. The level map displays one chapter of ten machines at a time. In two-part repairs, the drawer lists the installed fittings by socket and offers an individual remove control for each. Numbers, checkmarks and text identify contact order, completed repairs and the current level alongside color.
 
+The expanded workbench keeps the same drawing and controls in a modal with a scrollable playfield. Comparison films draw the latest path as a solid stroke and the earlier path as a dashed stroke with a hollow endpoint. Each setup label includes its parts, sockets and outcome.
+
 ## Do's and Don'ts
 
 - **Do:** Extend the existing tool-button, status, particle, audio, haptic, cleanup, and custom-rendering conventions end to end.
