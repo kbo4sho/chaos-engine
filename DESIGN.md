@@ -137,6 +137,8 @@ Sorting bins pair a gold circle and blue diamond with written labels. A HOLD bin
 
 A prediction shows the dashed reference before the player answers. The reveal overlays the active tool’s solid path, numeric readings and a labelled result. A directional arrow marks the timing line in changed-input experiments.
 
+The design bench uses numbered stations and a dashed gold ring to identify the part being edited. The preview can run with that station removed or with the whole machine assembled. Calibration controls use the physical property and a percentage of the original setting.
+
 ## Do's and Don'ts
 
 - **Do:** Extend the existing tool-button, status, particle, audio, haptic, cleanup, and custom-rendering conventions end to end.

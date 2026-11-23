@@ -1,3 +1,4 @@
+import { setupDesignBench } from './design-bench.js';
 import { chooseStart, rememberRoute, setupFinder } from './library.js';
 import { orders, readOrderLink, fitCode, orderPrefix } from './work-orders.js';
 import { setupOrders } from './order-desk.js';
@@ -36,6 +37,13 @@ const c = $('diagram').getContext('2d');
 const films = setupFilms($),
   focusBench = setupFocus($);
 const setEditorMachine = makeEditor(M);
+const setDesignMachine = setupDesignBench(M, (machine) => {
+  if (location.hash === '#' + machine.id) navigate(machine, machine.id, true);
+  else {
+    freshPrint = machine;
+    location.hash = machine.id;
+  }
+});
 let resumeAfterLab = false;
 const studyPlayback = {
   onOpen() {
@@ -1009,6 +1017,7 @@ function navigate(resolved, id, announce = false, sharedFit = null) {
     } catch {}
   }
   setEditorMachine(machine);
+  setDesignMachine(machine);
   desk.navigate(machine);
   if (resolved && !document.body.dataset.portable) rememberRoute(machine, learningActive);
   move = sharedFit;
@@ -1037,6 +1046,9 @@ function navigate(resolved, id, announce = false, sharedFit = null) {
       machine.verifiedRepairs +
       (machine.verifiedRepairs === 1 ? ' fitting worked' : ' fittings worked') +
       ' at all three. Every available fitting was tested.';
+  if (machine.designed)
+    $('proof-text').textContent +=
+      ' The complete design delivered and the empty station missed at seven release points.';
   if (machine.pressPlate) $('proof-text').textContent += ' Press plate: ' + machine.pressPlate + '.';
   const index = machines.indexOf(machine),
     seq = index < 0 ? 'W' : number(index + 1);
@@ -1045,6 +1057,7 @@ function navigate(resolved, id, announce = false, sharedFit = null) {
     index < 0
       ? 'Machine press · verified'
       : 'Level ' + seq + ' / ' + machines.length + ' · ' + chapters[activeChapter][0];
+  if (machine.designed) $('machine-no').textContent = 'Design bench · verified';
   if (machine.contract)
     $('machine-no').textContent = 'Work order ' + number(machine.orderIndex + 1) + ' / ' + orders.length;
   if (learningActive) {

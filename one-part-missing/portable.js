@@ -41,6 +41,8 @@ const modules = [
   'press-reserves',
   'tool-press',
   'workshop',
+  'blueprints',
+  'design-bench',
   'maker',
   'press-client',
   'repairs',

@@ -1,3 +1,4 @@
+import { readDesign, proveDesign } from './blueprints.js';
 import { openTicket, readTicket, printTools } from './tool-press.js';
 // Generate a complete delivery line, remove a working part, then test the
 // incomplete machine and candidate repairs in the very same engine as play.
@@ -123,6 +124,7 @@ const ID_PATTERN = /^([a-z][a-z0-9-]*)(?:~(-?[0-8])\.(-?[0-8]))?$/;
 // Offsets are encoded as eight-pixel notches relative to the original print.
 // A second edit always revises those same offsets, so links never accumulate edits.
 export function decodePrint(id) {
+  if (readDesign(id)) return { base: id, x: 0, y: 0 };
   const match = ID_PATTERN.exec(id);
   if (!match) return null;
   const base = match[1],
@@ -176,6 +178,8 @@ export function proveTarget(M, draft) {
 }
 
 export function resolveMachine(M, id) {
+  const design = readDesign(id);
+  if (design) return proveDesign(M, design).machine || null;
   const code = decodePrint(id);
   if (!code) return null;
   const base = resolveBase(M, code.base);
@@ -184,6 +188,10 @@ export function resolveMachine(M, id) {
 }
 
 export function pressRequest(M, request) {
+  if (request.design) {
+    const d = readDesign(request.design);
+    return d ? proveDesign(M, d) : { reason: 'Invalid design drawing.' };
+  }
   if (request.press) return printTools(M, request.press);
   if (request.draft) return proveTarget(M, request.draft);
   return resolveMachine(M, request.id);

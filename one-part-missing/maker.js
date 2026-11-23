@@ -57,8 +57,8 @@ export function makeEditor(M) {
   });
   return (machine) => {
     pending?.abort();
-    panel.hidden = Boolean(machine.contract);
-    if (machine.contract) {
+    panel.hidden = Boolean(machine.contract || machine.designed);
+    if (machine.contract || machine.designed) {
       panel.open = false;
       current = null;
       draft = null;

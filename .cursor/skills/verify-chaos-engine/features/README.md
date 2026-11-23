@@ -85,3 +85,5 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Sorting room](./sorting-course.md) covers six material-handling parts, size clearance, hold times, two independent receipts and native sandbox transfer.
 
 - [Predict a run](./prediction-lab.md) covers 78 physical predictions, direction-aware timing gates, retries, saved mastery and offline experiments.
+
+- [Build a machine](./design-bench.md) covers editing real hardware, choosing the missing station, recording a receiver and sharing the tested design.

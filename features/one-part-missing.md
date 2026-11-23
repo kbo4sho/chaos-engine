@@ -4,6 +4,8 @@ Players fit one spare part to a broken machine, test the repair, inspect the run
 
 ## Sub-features
 
+- [Build a machine](./design-bench.md) lets players design and test physical puzzles from six starter machines.
+
 - `shelf` contains the [360-level campaign](./puzzle-campaign.md) and local repair progress.
 - `repair` accepts drawer-to-socket dragging or separate part and socket selections. Any physical solution counts.
 - `replay` plays a recorded fitting after reload. The inspection slider reviews individual moments of the latest run.

@@ -234,6 +234,67 @@
           </div>
         </div>
       </section>
+      <details class="maker" id="design-bench">
+        <summary>Build a machine</summary>
+        <div class="design-intro">
+          <label>Starter machine<select id="design-kit"></select></label
+          ><button id="design-import" class="quiet" hidden>Edit this shared machine</button
+          ><button id="design-undo" class="quiet" disabled>Undo</button
+          ><button id="design-redo" class="quiet" disabled>Redo</button>
+        </div>
+        <div class="maker-body">
+          <section class="design-film" aria-label="Machine preview">
+            <canvas
+              id="design-diagram"
+              width="720"
+              height="400"
+              role="img"
+              aria-label="Machine design preview"
+            ></canvas>
+            <div class="design-line">
+              <label
+                >Preview<select id="design-view">
+                  <option value="intact">Complete machine</option>
+                  <option value="missing">With station missing</option>
+                </select></label
+              ><button id="design-play" class="quiet">Play preview</button>
+            </div>
+            <div class="film">
+              <label for="design-frame">Frame</label
+              ><input type="range" id="design-frame" min="0" max="1" step="1" value="0" /><output
+                for="design-frame"
+                id="design-time"
+                >0.00 s</output
+              >
+            </div>
+            <p id="design-reading"></p>
+            <p class="design-hint">
+              Scrub the complete run to place its final target on the load’s path.
+            </p>
+            <button class="quiet" id="design-target">Set final target here</button
+            ><button class="quiet" id="design-stock-target" hidden>Restore original target</button>
+          </section>
+          <section class="maker-tools" aria-label="Station editor">
+            <h2>Stations</h2>
+            <label>Station to edit<select id="design-station"></select></label>
+            <label>Fitted tool<select id="design-part"></select></label>
+            <div id="design-position">
+              <label for="design-x">Left / right <output id="design-offset-x"></output></label
+              ><input type="range" id="design-x" min="-4" max="4" step="1" />
+              <label for="design-y">Up / down <output id="design-offset-y"></output></label
+              ><input type="range" id="design-y" min="-4" max="4" step="1" />
+            </div>
+            <div id="design-calibration">
+              <label for="design-tune"
+                ><span id="design-tune-label"></span> <output id="design-setting"></output></label
+              ><input id="design-tune" type="range" min="-2" max="2" step="1" />
+            </div>
+            <label>Remove for the puzzle<select id="design-missing"></select></label>
+            <button class="primary" id="design-prove">Test &amp; play this design</button>
+            <p id="design-status" role="status"></p>
+          </section>
+        </div>
+      </details>
       <details class="maker" id="maker">
         <summary>Move the target &amp; make a puzzle</summary>
         <div class="maker-body">
