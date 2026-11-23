@@ -77,3 +77,5 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Power transmissions](./drive-course.md) covers six shaft experiments, timed delivery, saved drive connections and portable replays.
 
 - [Expanded bench and comparison film](./attempt-film.md) covers zoom, panning, old and new paths synchronized by physics frame, and the measured first separation.
+
+- [Work orders](./work-orders.md) covers open-ended deliveries, two personal records, shared fittings and offline record replays.

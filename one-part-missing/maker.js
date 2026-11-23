@@ -57,6 +57,13 @@ export function makeEditor(M) {
   });
   return (machine) => {
     pending?.abort();
+    panel.hidden = Boolean(machine.contract);
+    if (machine.contract) {
+      panel.open = false;
+      current = null;
+      draft = null;
+      return;
+    }
     current = machine;
     el('maker-instruction').textContent =
       machine.capacity === 2

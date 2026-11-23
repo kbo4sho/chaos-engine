@@ -1,3 +1,5 @@
+import { orders, readOrderLink, fitCode, orderPrefix } from './work-orders.js';
+import { setupOrders } from './order-desk.js';
 import { receiverOpen } from './transmissions.js';
 import { setupFilms } from './attempt-film.js';
 import { setupFocus } from './focus.js';
@@ -42,6 +44,14 @@ const lab = setupLab(M, {
     if (resumeAfterLab && playing() && runPaused) setPaused(false);
     resumeAfterLab = false;
   },
+});
+const desk = setupOrders($, (fit) => {
+  if (playing()) return;
+  move = fit;
+  selected = fit.part;
+  flipped = false;
+  resetRun(true);
+  message('Record setup fitted. Run it or change a spare.');
 });
 const learning = setupLearning({ el: $, lab });
 let learningActive = false;
@@ -199,6 +209,7 @@ for (const [i, [title]] of chapters.entries()) {
 }
 function updateShelf() {
   const all = book.read();
+  desk.updateMap(machine, all);
   learning.update(all, learningActive, machine);
   const unfinished = machines.filter((m) => !validMove(m, all[m.id]));
   $('progress').textContent =
@@ -282,6 +293,7 @@ function controls() {
   const busy = playing(),
     won = savedMove() || enclosedReplay;
   films.duringRun(busy);
+  desk.controls(machine, move, busy);
   const placed = fittings(machine, move),
     paired = machine.capacity === 2;
   $('fitted-pair').hidden = !paired;
@@ -339,6 +351,8 @@ function controls() {
     machines.indexOf(machine) === machines.length - 1 || !machines.includes(machine)
       ? 'Machine press ↓'
       : 'Next machine →';
+  if (machine.contract)
+    $('next').textContent = machine.orderIndex + 1 < orders.length ? 'Next order →' : 'Work orders ↓';
   if (learningActive)
     $('next').textContent =
       lessonById.get(machine.id) === lessons.length - 1 ? 'Lesson map ↓' : 'Next lesson →';
@@ -729,7 +743,7 @@ function finish() {
         : 'The parcel reached the receiver from the other direction. Inspect that pass before reversing the drive.',
     );
   }
-  if (!win && machine.capacity === 2) {
+  if (!win && machine.capacity === 2 && !machine.contract) {
     const installed = fittings(machine, move);
     const used = run.items
       .filter((item, i) => item.shape.fitted && run.uses.some((u) => u.item === i))
@@ -773,7 +787,10 @@ function tickMachine() {
     controls();
   }
   if (run.state === 'won') {
-    if (!replaying) book.save(machine.id, move, run.tick);
+    if (!replaying && validMove(machine, move)) {
+      book.save(machine.id, move, run.tick);
+      if (machine.contract) desk.save(machine, move, run.tick);
+    }
     phase = 'finishing';
     finishTick = run.tick + 30;
     controls();
@@ -864,6 +881,12 @@ $('next').addEventListener('click', () => {
     else learning.showMap();
     return;
   }
+  if (machine.contract) {
+    const next = orders[machine.orderIndex + 1];
+    if (next) location.hash = next.id;
+    else desk.showMap();
+    return;
+  }
   const i = machines.indexOf(machine);
   if (i < 0 || i === machines.length - 1) {
     $('generate').focus();
@@ -871,13 +894,25 @@ $('next').addEventListener('click', () => {
   }
   location.hash = machines[i + 1].id;
 });
-$('share').addEventListener('click', async () => {
+$('share').addEventListener('click', () => copyLink(false));
+$('share-setup').addEventListener('click', () => copyLink(true));
+async function copyLink(includeFit) {
   const sharedMachine = machine;
   const url = new URL(location.href);
   url.hash = learningActive ? lessonLink(machine.id) : machine.id;
+  if (includeFit) {
+    const code = fitCode(machine, move);
+    if (!code) return;
+    url.hash = machine.id + '/build/' + code;
+  }
   try {
     await navigator.clipboard.writeText(url.href);
-    if (machine === sharedMachine) message('Puzzle link copied. It opens the starting machine.');
+    if (machine === sharedMachine)
+      message(
+        includeFit
+          ? 'Setup link copied. It opens with your spares fitted.'
+          : 'Puzzle link copied. It opens the starting machine.',
+      );
   } catch {
     if (machine !== sharedMachine) return;
     $('copy-fallback').hidden = false;
@@ -885,7 +920,7 @@ $('share').addEventListener('click', async () => {
     $('share-url').focus();
     $('share-url').select();
   }
-});
+}
 async function downloadMachine(button, replay) {
   const current = machine,
     label = button.textContent;
@@ -916,10 +951,10 @@ async function downloadMachine(button, replay) {
 }
 $('download').addEventListener('click', (event) => downloadMachine(event.currentTarget, null));
 $('save-replay').addEventListener('click', (event) => {
-  const replay = savedMove();
+  const replay = desk.isRecord(machine, move) ? move : savedMove();
   if (replay) downloadMachine(event.currentTarget, replay);
 });
-function navigate(resolved, id, announce = false) {
+function navigate(resolved, id, announce = false, sharedFit = null) {
   lab.close();
   films.clear();
   focusBench.close();
@@ -932,8 +967,9 @@ function navigate(resolved, id, announce = false) {
     } catch {}
   }
   setEditorMachine(machine);
-  move = null;
-  selected = null;
+  desk.navigate(machine);
+  move = sharedFit;
+  selected = sharedFit?.part || null;
   flipped = false;
   endDrag();
   $('copy-fallback').hidden = true;
@@ -941,7 +977,7 @@ function navigate(resolved, id, announce = false) {
   try {
     lastPrint = localStorage.getItem('chaos.one-part-missing.last-print.v1');
   } catch {}
-  if (!machines.includes(machine)) {
+  if (!machines.includes(machine) && !machine.contract) {
     lastPrint = machine.id;
     try {
       localStorage.setItem('chaos.one-part-missing.last-print.v1', lastPrint);
@@ -966,6 +1002,8 @@ function navigate(resolved, id, announce = false) {
     index < 0
       ? 'Machine press · verified'
       : 'Level ' + seq + ' / ' + machines.length + ' · ' + chapters[activeChapter][0];
+  if (machine.contract)
+    $('machine-no').textContent = 'Work order ' + number(machine.orderIndex + 1) + ' / ' + orders.length;
   if (learningActive) {
     const n = lessonById.get(machine.id);
     $('machine-no').textContent =
@@ -974,8 +1012,9 @@ function navigate(resolved, id, announce = false) {
   $('machine-title').tabIndex = -1;
   $('machine-title').textContent = machine.title;
   $('goal').textContent = machine.goal;
-  $('fit-instruction').textContent =
-    machine.capacity === 2
+  $('fit-instruction').textContent = machine.contract
+    ? 'Fit one spare for economy or try two for speed.'
+    : machine.capacity === 2
       ? 'Choose two different parts. Fit each to its own socket.'
       : 'Choose a part, then tap a socket.';
   $('open-lab').hidden = false;
@@ -1005,11 +1044,13 @@ function navigate(resolved, id, announce = false) {
   message(
     !resolved && id
       ? 'Unknown puzzle. The first machine is ready.'
-      : enclosedReplay
-        ? 'A repair came with this file. Watch the replay or try your own.'
-        : savedMove()
-          ? 'You repaired this machine. Play your replay or try another part.'
-          : 'Watch a run, or pick a part to fit.',
+      : sharedFit
+        ? 'Shared setup fitted. Run it to measure the delivery.'
+        : enclosedReplay
+          ? 'A repair came with this file. Watch the replay or try your own.'
+          : savedMove()
+            ? 'You repaired this machine. Play your replay or try another part.'
+            : 'Watch a run, or pick a part to fit.',
   );
   if (announce) {
     document.querySelector('.bench').inert = false;
@@ -1110,7 +1151,8 @@ async function route(announce) {
   const id = learningActive ? guidedId : requested;
   const bench = document.querySelector('.bench');
   try {
-    let resolved = freshPrint?.id === id ? freshPrint : campaignById.get(id);
+    const order = readOrderLink(id);
+    let resolved = order?.machine || (freshPrint?.id === id ? freshPrint : campaignById.get(id));
     freshPrint = null;
     if (!resolved && decodePrint(id)) {
       bench.inert = true;
@@ -1118,7 +1160,7 @@ async function route(announce) {
       pressBusy(true);
       resolved = await usePress(M, { id }, controller.signal);
     }
-    if (!controller.signal.aborted) navigate(resolved, id, announce);
+    if (!controller.signal.aborted) navigate(resolved, id, announce, order?.move);
   } catch {
     if (!controller.signal.aborted) {
       navigate(null, id, announce);
@@ -1133,7 +1175,11 @@ async function route(announce) {
   }
 }
 window.addEventListener('storage', (event) => {
-  if (machine && (event.key?.startsWith(repairPrefix) || event.key === null)) {
+  if (
+    machine &&
+    (event.key?.startsWith(repairPrefix) || event.key?.startsWith(orderPrefix) || event.key === null)
+  ) {
+    desk.refresh(machine);
     updateShelf();
     controls();
   }

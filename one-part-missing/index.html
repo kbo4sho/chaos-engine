@@ -108,6 +108,18 @@
             ><button id="save-replay" class="quiet">Save replay file</button
             ><button id="next" class="quiet">Next machine →</button>
           </div>
+          <section id="order-card" aria-labelledby="order-card-title" hidden>
+            <h3 id="order-card-title">Your delivery records</h3>
+            <div class="score-row">
+              <span>Fewest parts</span><output id="order-economy-value"></output
+              ><button id="order-economy-load" class="quiet" type="button" hidden>Fit setup</button>
+            </div>
+            <div class="score-row">
+              <span>Fastest</span><output id="order-speed-value"></output
+              ><button id="order-speed-load" class="quiet" type="button" hidden>Fit setup</button>
+            </div>
+            <button id="share-setup" type="button" class="quiet">Copy fitted setup</button>
+          </section>
           <details id="proof" hidden>
             <summary>Workshop trial record</summary>
             <p id="proof-text"></p>
@@ -143,6 +155,12 @@
             <select id="lesson-chapter"></select
           ></label>
           <div id="lesson-list"></div>
+        </details>
+        <details class="study" id="order-map">
+          <summary>Work orders <span id="order-progress"></span></summary>
+          <p>Deliver with one spare, then try to beat your time with two.</p>
+          <label>Order book<select id="order-group"></select></label>
+          <div id="order-list"></div>
         </details>
         <details class="study" id="practice">
           <summary>Practice by tool</summary>

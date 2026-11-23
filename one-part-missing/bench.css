@@ -1190,3 +1190,40 @@ summary {
   color: var(--cyan);
   font: 13px var(--mono);
 }
+
+#order-card {
+  margin-top: 12px;
+  padding: 10px 0;
+  border-block: 1px solid var(--line, #29404a);
+}
+#order-card h3 {
+  margin: 0 0 3px;
+  font-size: 1.05rem;
+}
+.score-row {
+  display: grid;
+  grid-template-columns: minmax(68px, 1fr) auto auto;
+  min-height: 38px;
+  align-items: center;
+  gap: 8px;
+}
+.score-row output {
+  color: #9bdde0;
+  font-variant-numeric: tabular-nums;
+}
+.score-row .quiet {
+  min-height: 36px;
+}
+#share-setup {
+  margin-top: 6px;
+}
+#order-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(152px, 1fr));
+  gap: 5px;
+  margin: 8px 0;
+}
+#order-map p {
+  margin: 8px 0;
+  color: var(--soft, #a4bdc8);
+}

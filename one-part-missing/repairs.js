@@ -1,3 +1,4 @@
+import { orderById } from './work-orders.js';
 import { packFittings } from './machines.js';
 import { campaignById } from './campaign.js';
 import { decodePrint } from './workshop.js';
@@ -47,12 +48,16 @@ export function repairBook(getStorage) {
       storage.setItem(repairPrefix + id, JSON.stringify(record));
       session.delete(id);
       const otherPrints = Object.entries(read())
-        .filter(([key]) => key !== id && !campaignById.has(key) && decodePrint(key))
+        .filter(
+          ([key]) => key !== id && !campaignById.has(key) && !orderById.has(key) && decodePrint(key),
+        )
         .sort((a, b) => (b[1].savedAt || 0) - (a[1].savedAt || 0));
-      for (const [key] of otherPrints.slice(campaignById.has(id) ? maxPrints : maxPrints - 1))
+      for (const [key] of otherPrints.slice(
+        campaignById.has(id) || orderById.has(id) ? maxPrints : maxPrints - 1,
+      ))
         storage.removeItem(repairPrefix + key);
     } catch {
-      const prints = [...session.keys()].filter((key) => !campaignById.has(key));
+      const prints = [...session.keys()].filter((key) => !campaignById.has(key) && !orderById.has(key));
       for (const key of prints.slice(0, Math.max(0, prints.length - maxPrints))) session.delete(key);
     }
   }

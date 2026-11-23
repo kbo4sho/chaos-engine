@@ -181,7 +181,7 @@ export function packFittings(placed) {
   return sorted[1] ? { ...sorted[0], second: sorted[1] } : sorted[0] || null;
 }
 export function validMove(machine, move) {
-  return fittings(machine, move).length === (machine.capacity || 1);
+  return fittings(machine, move).length >= (machine.minimum || machine.capacity || 1);
 }
 export function placePart(machine, move, placement) {
   if (!validPlacement(machine, placement)) return move;

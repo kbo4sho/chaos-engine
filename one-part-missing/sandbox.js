@@ -2,6 +2,7 @@ import { addTransmissions, installTransmissions, acceptsReceiver } from './trans
 import { makeLinks, installRigging } from './rigging.js';
 import { instruments, installDevices } from './devices.js';
 import { WIDTH, HEIGHT, assembly, makeBody } from './machines.js';
+import { orderById } from './work-orders.js';
 import { resolveMachine } from './workshop.js';
 import { driveConnection } from './drive-art.js';
 import { drawSandboxRig } from './rig-art.js';
@@ -94,7 +95,7 @@ export function installBench(api) {
   });
   const args = new URLSearchParams(location.hash.slice(1));
   if (!args.has('machine')) return;
-  const machine = resolveMachine(M, args.get('machine'));
+  const machine = orderById.get(args.get('machine')) || resolveMachine(M, args.get('machine'));
   if (!machine) {
     api.status('UNKNOWN MACHINE · CHOOSE PUZZLES TO OPEN THE SHELF');
     return;

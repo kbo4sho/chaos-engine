@@ -16,6 +16,7 @@ Usage: ./scripts/verify-chaos-engine <command> [options]
   drive example-scenes            Drive the built-in example scenes
   drive example-scenes-mobile     Drive examples + slots with iPhone/Android tap
   drive puzzle-campaign           Solve every numbered campaign machine
+  drive work-orders                Deliver all 24 open-ended orders, compare records and share a fitting
   drive drive-course               Transfer torque, inspect receiving windows and restore the drivetrain
   drive attempt-film               Expand, zoom and compare two real recorded setups
   drive paired-repairs             Fit, remove, replay and transfer two spare parts
@@ -242,7 +243,7 @@ cmd_doctor() {
 cmd_drive() {
   local journey="${1:-}"
   if [[ -z "$journey" ]]; then
-    echo "usage: ./scripts/verify-chaos-engine drive save-load|example-scenes|example-scenes-mobile|ui-layout|one-part-missing|puzzle-campaign|tool-course|clockwork-course|tool-lessons|tool-press|rigging-course|paired-repairs|attempt-film|drive-course" >&2
+    echo "usage: ./scripts/verify-chaos-engine drive save-load|example-scenes|example-scenes-mobile|ui-layout|one-part-missing|puzzle-campaign|tool-course|clockwork-course|tool-lessons|tool-press|rigging-course|paired-repairs|attempt-film|drive-course|work-orders" >&2
     exit 2
   fi
   cmd_doctor
