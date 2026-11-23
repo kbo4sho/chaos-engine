@@ -1,6 +1,6 @@
 import { registrations } from "./classic-registration.js";
 import { guideRepair } from "./repair-coach.js";
-import { readDesign, proveDesign } from "./blueprints.js";
+import { releaseTrials, readDesign, proveDesign } from "./blueprints.js";
 import { openTicket, readTicket, printTools } from "./tool-press.js";
 // Generate a complete delivery line, remove a working part, then test the
 // incomplete machine and candidate repairs in the very same engine as play.
@@ -253,6 +253,10 @@ export function pressRequest(M, request) {
   if (request.guide) {
     const { machine, move, which } = request.guide;
     return guideRepair(M, machine, move, which);
+  }
+  if (request.releaseTrials) {
+    const draft = readDesign(request.releaseTrials);
+    return draft ? releaseTrials(M, draft) : null;
   }
   if (request.design) {
     const d = readDesign(request.design);

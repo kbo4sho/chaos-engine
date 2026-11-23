@@ -14,10 +14,10 @@ Repair an eligible campaign machine and choose **Design this machine**, or open 
 
 ## Driving it with verify-chaos-engine
 
-Preconditions: launch and doctor pass. Run `./scripts/verify-chaos-engine drive compound-designer`. Open the final campaign machine, repair it, change its pulse calibration and leave the middle station installed. Undo and redo, reload the draft, issue it, miss a partial repair, win with both spares, open it on a fresh device, edit the shared drawing and watch its downloaded film offline. Reject two identical removable spares. Issue and repair all 120 stock designs through the controls. Also drive design-bench, machine-diagram, pair-training, qualification-course, phone-bench, offline-workshop, save-load and ui-layout.
+Preconditions: launch and doctor pass. Run `./scripts/verify-chaos-engine drive compound-designer`. Open the final campaign machine, repair it, change its pulse calibration and leave the middle station installed. Undo and redo, reload the draft, issue it, miss a partial repair, win with both spares, open it on a fresh device, edit the shared drawing and watch its downloaded film offline. Reject two identical removable spares. Issue and repair all 120 stock designs through the controls. Turn specific rebound and transmission stations into permanent hardware, compare the physical delivery and replay an earlier two-spare address. Also drive design-bench, machine-diagram, pair-training, qualification-course, phone-bench, offline-workshop, save-load and ui-layout.
 
 ## Gotchas
 
 - Each part in the drawer can be placed once. A checked station is removed for play. At least one station must remain checked.
 - The press checks seven release positions and tests the available shorter repairs. Every removed tool must act on the completed delivery. Its explanation identifies which condition failed.
-- A permanent station can change playable socket numbers. Existing single-part shared links keep their published addresses.
+- A permanent station can change playable socket numbers. Mounting a station in a new drawing retains its original place in the simulation. Earlier published designs keep their original physics and addresses.

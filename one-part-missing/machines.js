@@ -202,6 +202,12 @@ export function assembly(machine, move) {
     if (fit.flipped) shape.a = -shape.a;
     shapes.push(shape);
   }
+  if (Number.isInteger(machine.firstEditableFixture)) {
+    // A mounted spare and a removable one must act in the same physical order.
+    const mounts = shapes.splice(machine.firstEditableFixture);
+    mounts.sort((a, b) => a.mountOrder - b.mountOrder);
+    shapes.push(...mounts);
+  }
   return [...shapes, machine.ball, ...machine.goals];
 }
 

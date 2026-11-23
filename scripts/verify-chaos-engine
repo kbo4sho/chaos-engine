@@ -28,6 +28,7 @@ Usage: ./scripts/verify-chaos-engine <command> [options]
   drive offline-workshop           Keep the workshop offline
   drive compound-designer          Design a multi-part machine
   drive drawing-exchange           Exchange working drawings
+  drive release-trials             Inspect the design press trials
   drive experiment-exchange        Open discovery setups in the full sandbox, edit and measure their timed targets
   drive path-reader                Inspect recorded positions, different passes, camera crops and offline films
   drive match-cards                Play and return all eight match cards across independent profiles
@@ -276,7 +277,7 @@ cmd_doctor() {
 cmd_drive() {
   local journey="${1:-}"
   if [[ -z "$journey" ]]; then
-    echo "usage: ./scripts/verify-chaos-engine drive save-load|example-scenes|example-scenes-mobile|ui-layout|one-part-missing|puzzle-campaign|tool-course|clockwork-course|tool-lessons|tool-press|rigging-course|paired-repairs|attempt-film|drive-course|work-orders|puzzle-library|sorting-course|prediction-lab|design-bench|flight-course|repair-coach|operator-room|assembly-course|field-course|test-bay|grand-relays|fault-desk|spare-study|phone-bench|friend-races|discovery|replay-clips|double-exposures|shutter-sheets|offline-races|match-cards|path-reader|experiment-exchange|unfinished-repairs|tool-notebook|qualification-course|phone-startup|repair-transfer|pair-training|machine-diagram|offline-workshop|compound-designer|drawing-exchange" >&2
+    echo "usage: ./scripts/verify-chaos-engine drive save-load|example-scenes|example-scenes-mobile|ui-layout|one-part-missing|puzzle-campaign|tool-course|clockwork-course|tool-lessons|tool-press|rigging-course|paired-repairs|attempt-film|drive-course|work-orders|puzzle-library|sorting-course|prediction-lab|design-bench|flight-course|repair-coach|operator-room|assembly-course|field-course|test-bay|grand-relays|fault-desk|spare-study|phone-bench|friend-races|discovery|replay-clips|double-exposures|shutter-sheets|offline-races|match-cards|path-reader|experiment-exchange|unfinished-repairs|tool-notebook|qualification-course|phone-startup|repair-transfer|pair-training|machine-diagram|offline-workshop|compound-designer|drawing-exchange|release-trials" >&2
     exit 2
   fi
   cmd_doctor

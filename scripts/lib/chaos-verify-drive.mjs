@@ -836,6 +836,11 @@ const journeys = {
     await verifyFlight(page,{url,record,shot,outDir});
     result.passed = result.failures.length === 0;
   },
+  'release-trials': async page => {
+    const {verifyReleaseTrials} = await import('./verify-release-trials.mjs');
+    await verifyReleaseTrials(page,{url,record,shot,outDir});
+    result.passed = result.failures.length === 0;
+  },
   'drawing-exchange': async page => {
     const {verifyDrawingExchange} = await import('./verify-drawing-exchange.mjs');
     await verifyDrawingExchange(page,{url,record,shot,outDir});

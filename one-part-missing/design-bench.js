@@ -1,3 +1,4 @@
+import { setupReleaseDesk } from './release-desk.js';
 import { setupDrawingExchange } from './drawing-exchange.js';
 import { compoundKits, compoundByMachine } from './compound-design.js';
 import { chapters } from './campaign.js';
@@ -68,6 +69,7 @@ export function setupDesignBench(M, playMachine) {
   kit.value = draft.kit;
   let previous = [],
     following = [];
+  const releases = setupReleaseDesk(M, () => draft);
   const exchange = setupDrawingExchange(M, () => draft, next => {
     selected = 0;
     change(next);
@@ -130,6 +132,7 @@ export function setupDesignBench(M, playMachine) {
       view.value !== 'intact' || !targetInside(last, xy) || (last.x === xy[0] && last.y === xy[1]);
   }
   function render(resetFrame = true) {
+    releases.edit(draft);
     stop();
     cancel();
     el('design-status').textContent = '';
@@ -161,6 +164,7 @@ export function setupDesignBench(M, playMachine) {
                 ? [...next.hidden, i].sort((a, b) => a - b)
                 : next.hidden.filter((n) => n !== i);
               next.missing = next.hidden[0];
+              if (next.hidden.length === k.stations.length) delete next.legacyStationOrder;
             });
             list.querySelector('input[value="' + i + '"]')?.focus({ preventScroll: true });
           });
@@ -331,7 +335,10 @@ export function setupDesignBench(M, playMachine) {
       if (result.machine) {
         panel.open = false;
         playMachine(result.machine);
-      } else el('design-status').textContent = result.reason;
+      } else {
+        el('design-status').textContent = result.reason;
+        releases.proof(result);
+      }
     } catch {
       if (!controller.signal.aborted)
         el('design-status').textContent = 'The trials stopped. Run the test again.';
@@ -344,6 +351,7 @@ export function setupDesignBench(M, playMachine) {
   });
   panel.addEventListener('toggle', () => {
     if (!panel.open) {
+      releases.leave();
       stop();
       cancel();
       return;
@@ -356,6 +364,7 @@ export function setupDesignBench(M, playMachine) {
   });
   const navigate = (m) => {
     exchange.leave();
+    releases.leave();
     current = m.designed ? m.id : null;
     el('design-import').hidden = !current;
     if (panel.open) {

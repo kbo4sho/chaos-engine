@@ -1,8 +1,8 @@
 {
   "format": 1,
-  "version": "7cf4fb26b555b423",
-  "benchVersion": "4c7acb6eb811",
-  "bytes": 2594889,
+  "version": "8afdc7c534caa69f",
+  "benchVersion": "5f9b9a64a0be",
+  "bytes": 2611119,
   "assets": [
     {
       "path": "examples/chaos-examples.js",
@@ -56,18 +56,18 @@
     },
     {
       "path": "one-part-missing/bench-release.js",
-      "size": 531241,
-      "hash": "4c7acb6eb8111af7f4f2bad6c372bc3e75e774435a8f5ec6568d4bd61665453d"
+      "size": 536068,
+      "hash": "5f9b9a64a0bea8ee1d67227fcf106241bb7a2b157bb4d2f903c3e7e0ec83fc0b"
     },
     {
       "path": "one-part-missing/bench.css",
-      "size": 39920,
-      "hash": "ffd52d74b313e3d3f7469129d9d6ec4951c7f4e58a70dbfac70392f082cabd88"
+      "size": 40994,
+      "hash": "783cdd0f05912c4c9f85e6c5e99fb40cabd79a6f51280b7f8def7934c9a724c7"
     },
     {
       "path": "one-part-missing/blueprints.js",
-      "size": 10353,
-      "hash": "4b4942b00db9b2b47cf533bf41f3ebdfec10ccbe7b45919cfa6e3aa130f0a52d"
+      "size": 11029,
+      "hash": "ba518866fa4199e22624ce46049ec6710942b9495b8ed58a41e4024c3a85338f"
     },
     {
       "path": "one-part-missing/campaign-layout.js",
@@ -116,8 +116,8 @@
     },
     {
       "path": "one-part-missing/compound-design.js",
-      "size": 5566,
-      "hash": "ac2b18a321077c8077a89abd321ce7d7569745efb343110981988f61df051fe4"
+      "size": 6165,
+      "hash": "673744237a16eaab2e1b18669a0feb51f9461a26b95a0cdc94080a96a3b0dd87"
     },
     {
       "path": "one-part-missing/compound-templates.js",
@@ -156,8 +156,8 @@
     },
     {
       "path": "one-part-missing/design-bench.js",
-      "size": 12478,
-      "hash": "5afd7b9d3f9090ed92c4bd9a1907f28a07ec6cfa1e30f0943533b9cffc4ec2fe"
+      "size": 12799,
+      "hash": "4141efdbfc4038b37f62cc79994174ddceeca39b130ae6c3a1f69c44450fcedb"
     },
     {
       "path": "one-part-missing/devices.js",
@@ -386,8 +386,8 @@
     },
     {
       "path": "one-part-missing/index.html",
-      "size": 38312,
-      "hash": "2164a45ae790fb337be8d3852cbddd2902054739739a11fafc6eec8f43841cf0"
+      "size": 39523,
+      "hash": "8af5400cdc21e4f4734ba2e6cd64811644cdbf774e26ffd798b08d07bd9c585a"
     },
     {
       "path": "one-part-missing/learning.js",
@@ -411,8 +411,8 @@
     },
     {
       "path": "one-part-missing/machines.js",
-      "size": 15960,
-      "hash": "1c23c96b6abe5bbe5bb523ebf1f691ee4c7f5f7243da8c52b1c1fb3be5dfe5d7"
+      "size": 16248,
+      "hash": "51d6e0ae6b9eb384ee8c70eadd79d7e70605effe70fd1b173537af785bbb5fab"
     },
     {
       "path": "one-part-missing/maker.js",
@@ -501,8 +501,8 @@
     },
     {
       "path": "one-part-missing/portable.js",
-      "size": 5309,
-      "hash": "9973494d83d814b5ac492625f7ad8134f55bd9ee070aff55f523bb2ac89ec67c"
+      "size": 5327,
+      "hash": "bd7fab9415779997f40bcab06dc27ef96e7407eade08d999d33c50ef24b3b086"
     },
     {
       "path": "one-part-missing/practice-targets.js",
@@ -573,6 +573,11 @@
       "path": "one-part-missing/relay-course.js",
       "size": 4318,
       "hash": "01d55fffec23478d92ac58add7939f6b0361075aad51db3542d33333a586f080"
+    },
+    {
+      "path": "one-part-missing/release-desk.js",
+      "size": 7062,
+      "hash": "859c19d59650a707ee30977db278bade1d80e27b48900e6326de1c1986b30808"
     },
     {
       "path": "one-part-missing/repair-coach.js",
@@ -731,8 +736,8 @@
     },
     {
       "path": "one-part-missing/workshop.js",
-      "size": 8971,
-      "hash": "36d7b4edcaee2e1f8e133361311dc1a9ee48fdfbad7aab40e493410a537d1952"
+      "size": 9125,
+      "hash": "5925ae3d11c35cd84a1106d8875f41f53fecab6f05e7b9c4ef093196bc4b386c"
     },
     {
       "path": "puzzle-offline-worker.js",

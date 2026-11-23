@@ -8,7 +8,7 @@
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="bench.css" />
     <script src="../vendor/matter-0.20.0.min.js"></script>
-    <script type="module" src="bench-release.js?v=4c7acb6eb811"></script>
+    <script type="module" src="bench-release.js?v=5f9b9a64a0be"></script>
   </head>
   <body>
     <header class="mast">
@@ -425,6 +425,19 @@
             <p id="design-status" role="status"></p>
           </section>
         </div>
+        <button type="button" class="quiet" id="design-witness" hidden>Inspect the failed test</button>
+        <details id="design-trials">
+          <summary>Inspect seven release positions</summary>
+          <table id="release-table"><caption>Gold marble release · results in frames</caption><thead><tr><th scope="col">Release</th><th scope="col">Complete</th><th scope="col">Stripped</th></tr></thead><tbody id="release-rows"></tbody></table>
+          <p id="release-observation" role="status"></p>
+          <section id="release-screen" aria-labelledby="release-selected" hidden><h3 id="release-selected" tabindex="-1"></h3>
+            <canvas id="release-canvas" width="720" height="400" role="img" aria-label="Selected release trial"></canvas>
+            <label for="release-frame">Frame <output for="release-frame" id="release-time"></output></label>
+            <input type="range" id="release-frame" min="0" max="1" step="1" value="0" />
+            <p id="release-position"></p><div id="release-jumps" aria-label="Recorded tool and receiver contacts"></div>
+            <button id="release-back" class="quiet" type="button">Back to release table</button>
+          </section>
+        </details>
         <details id="drawing-exchange">
           <summary>Share a working drawing</summary>
           <div class="drawing-actions">

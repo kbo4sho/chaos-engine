@@ -63,10 +63,12 @@ export function buildCompound(d, kit, calibrated, encode) {
   const hidden = new Set(d.hidden),
     fixed = new Set(),
     fixtures = [...base.fixtures];
+  const ordered = !d.legacyStationOrder && hidden.size < stations.length;
   for (const [i, st] of stations.entries()) {
     if (hidden.has(i)) continue;
     fixed.add(st.socket);
     const shape = { ...parts[st.kind].shape, ...st.point };
+    if (ordered) shape.mountOrder = st.socket;
     if (shape.mirror && shape.a) shape.a = -shape.a;
     if (st.flipped) shape.a = -shape.a;
     fixtures.push(shape);
@@ -78,7 +80,9 @@ export function buildCompound(d, kit, calibrated, encode) {
     const st = stations.find((s) => s.socket === old);
     if (st)
       placed.push({ part: st.kind, socket: slots.length, ...(st.flipped ? { flipped: true } : {}) });
-    slots.push(st ? { ...st.point } : { ...p });
+    const point = { ...(st ? st.point : p) };
+    if (ordered) point.mountOrder = old;
+    slots.push(point);
   }
   const names = placed.map((f) => f.part),
     choices = [...new Set([...names, ...base.tray])].slice(0, Math.max(4, base.tray.length));
@@ -95,6 +99,7 @@ export function buildCompound(d, kit, calibrated, encode) {
     lesson: null,
     description: 'Fit ' + count + ' missing ' + (count === 1 ? 'station. ' : 'stations. ') + base.goal,
     designed: true,
+    ...(ordered ? { firstEditableFixture: base.fixtures.length } : {}),
     fixtures,
     sockets: slots,
     goals,
@@ -114,26 +119,32 @@ export function proveCompound(M, layout, offsets) {
   const winning = offsets.filter((j) => trial(M, machine, intended, j).state === 'won');
   if (winning.length !== offsets.length)
     return {
+      witness: { view: 'complete', offset: offsets.find(n => !winning.includes(n)) },
       reason:
         'The complete machine delivered at ' +
         winning.length +
         ' of 7 release points. Adjust a station or capture a different target.',
     };
-  if (offsets.some((j) => trial(M, machine, null, j).state === 'won'))
+  const emptyWin = offsets.find(j => trial(M, machine, null, j).state === 'won');
+  if (emptyWin !== undefined)
     return {
+      witness: { view: 'empty', offset: emptyWin },
       reason: 'The empty machine can deliver. Move the receiver or keep an unneeded station installed.',
     };
   const run = createRun(M, machine, intended);
   while (run.state === 'running') advance(M, run);
   if (toolEvents(machine, intended, run).filter((e) => e.grade === 'fitted').length !== machine.capacity)
     return {
+      witness: { view: 'complete', offset: 0 },
       reason:
         'One removed station never acted on this delivery. Keep it installed or change the handoff.',
     };
   for (let count = 1; count < machine.capacity; count++)
     for (const partial of possibilities(machine, count)) {
-      if (offsets.some((j) => trial(M, machine, partial, j).state === 'won'))
+      const shortcut = offsets.find(j => trial(M, machine, partial, j).state === 'won');
+      if (shortcut !== undefined)
         return {
+          witness: { view: 'shorter', offset: shortcut, move: partial },
           reason:
             'A shorter repair delivers with ' +
             count +

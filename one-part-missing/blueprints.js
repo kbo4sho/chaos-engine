@@ -65,17 +65,18 @@ export function encodeDesign(d) {
   const k = getDesignKit(d.kit);
   if (k.level) {
     const mask = d.hidden.reduce((m, i) => m | (1 << i), 0);
-    return ['design', '2', k.level.toString(36), mask.toString(36), edits, t].join('-');
+    const version = d.legacyStationOrder || d.hidden.length === k.stations.length ? '2' : '3';
+    return ['design', version, k.level.toString(36), mask.toString(36), edits, t].join('-');
   }
   return ['design', '1', d.kit.toString(36), d.missing.toString(36), edits, t].join('-');
 }
 export function readDesign(id) {
   if (typeof id !== 'string' || id.length > 52) return null;
-  const match = /^design-([12])-([0-9a-z]{1,2})-([0-9])-([0-9]+)-(s|[0-9a-z]{1,2}\.[0-9a-z]{1,2})$/.exec(
+  const match = /^design-([123])-([0-9a-z]{1,2})-([0-9])-([0-9]+)-(s|[0-9a-z]{1,2}\.[0-9a-z]{1,2})$/.exec(
     id,
   );
   if (!match) return null;
-  const compound = match[1] === '2',
+  const compound = match[1] !== '1',
     code = parseInt(match[2], 36),
     kit = compound ? 1000 + code : code;
   const k = getDesignKit(kit);
@@ -97,6 +98,7 @@ export function readDesign(id) {
   }
   const target = match[5] === 's' ? null : match[5].split('.').map((x) => parseInt(x, 36));
   const d = { kit, missing, edits, target, ...(compound ? { hidden } : {}) };
+  if (match[1] === '2' && hidden.length < k.stations.length) d.legacyStationOrder = true;
   if (
     target &&
     (!targetInside(k.base.goals.at(-1), target) ||
@@ -208,14 +210,18 @@ export function proveDesign(M, d) {
   const layout = buildDesign(d);
   if (d.hidden) return proveCompound(M, layout, designOffsets);
   const { machine, intended } = layout;
-  if (designOffsets.some((n) => trial(M, machine, null, n).state === 'won'))
+  const emptyWin = designOffsets.find((n) => trial(M, machine, null, n).state === 'won');
+  if (emptyWin !== undefined)
     return {
+      witness: { view: 'empty', offset: emptyWin },
       reason:
         'The machine delivers with the station missing. Choose a station the load needs or move the target.',
     };
-  const passed = designOffsets.filter((n) => trial(M, machine, intended, n).state === 'won').length;
-  if (passed !== designOffsets.length)
+  const misses = designOffsets.filter((n) => trial(M, machine, intended, n).state !== 'won');
+  const passed = designOffsets.length - misses.length;
+  if (misses.length)
     return {
+      witness: { view: 'complete', offset: misses[0] },
       reason:
         'The complete machine delivered at ' +
         passed +
@@ -225,9 +231,15 @@ export function proveDesign(M, d) {
   if (!repairs) return { reason: 'The drawer has no reliable repair. Try another station.' };
   return { machine: { ...machine, verifiedRepairs: repairs.length }, intended };
 }
-export function designFilm(M, d, intact) {
+export function releaseTrials(M, d) {
+  const { machine, intended } = buildDesign(d);
+  return designOffsets.map(offset => ({
+    offset, complete: trial(M, machine, intended, offset), empty: trial(M, machine, null, offset),
+  }));
+}
+export function designFilm(M, d, intact, offset = 0, trialMove) {
   const { machine, intended } = buildDesign(d),
-    run = createRun(M, machine, intact ? intended : null),
+    run = createRun(M, machine, trialMove === undefined ? (intact ? intended : null) : trialMove, offset),
     tape = [snapshot(run)];
   const last = machine.goals.at(-1),
     kind = last.striker || machine.striker || 'marble';

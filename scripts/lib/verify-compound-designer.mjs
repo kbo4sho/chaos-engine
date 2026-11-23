@@ -1,5 +1,11 @@
 import { compoundById, compoundKits } from '../../one-part-missing/compound-design.js';
-import { buildDesign, encodeDesign, freshDesign, draftKey } from '../../one-part-missing/blueprints.js';
+import {
+  buildDesign,
+  encodeDesign,
+  freshDesign,
+  draftKey,
+  readDesign,
+} from '../../one-part-missing/blueprints.js';
 import { fittings } from '../../one-part-missing/machines.js';
 import { repairPrefix } from '../../one-part-missing/repairs.js';
 import { saveBrowserFile } from './save-browser-file.mjs';
@@ -139,8 +145,8 @@ export async function verifyCompoundDesigner(home, { url, record, shot, outDir }
   await q.waitForSelector('#parts [data-part]', { visible: true });
   record(
     'invitation-starts-with-empty-sockets',
-    (await q.$eval('#pair-count', e => e.textContent))==='0 of 2 parts fitted' &&
-      (await q.$$eval('[data-socket].fitted', es=>!es.length)),
+    (await q.$eval('#pair-count', (e) => e.textContent)) === '0 of 2 parts fitted' &&
+      (await q.$$eval('[data-socket].fitted', (es) => !es.length)),
   );
   await solve(q, layout.machine, moves);
   await panel(q);
@@ -164,11 +170,48 @@ export async function verifyCompoundDesigner(home, { url, record, shot, outDir }
     document.querySelector('#design-status').textContent.includes('different spares'),
   );
   record('duplicate-removable-stations-explained', p.url().endsWith(id), { stock: duplicate.level });
+  for (const [level, hidden] of [
+    [431, [0]],
+    [431, [0, 2]],
+    [513, [0]],
+  ]) {
+    const k = compoundById.get(1000 + level);
+    await selectStock(p, k);
+    const next = freshDesign(k.id);
+    next.hidden = hidden;
+    next.missing = hidden[0];
+    for (const i of k.stations.keys())
+      if (!hidden.includes(i)) await p.click('#design-hidden-stations input[value="' + i + '"]');
+    await issue(p, next);
+    const restored = buildDesign(next);
+    const earned = await solve(p, restored.machine, fittings(restored.machine, restored.intended));
+    record('mounted-stations-' + level + '-' + hidden.join('-'), true, {
+      issued: restored.machine.id,
+      frame: earned.tick,
+    });
+  }
+  const published = 'design-2-eg-5-044304420442-s',
+    prior = buildDesign(readDesign(published));
+  await p.goto(address + '#' + published);
+  await p.waitForFunction(
+    (t) => document.querySelector('#machine-title').textContent === t,
+    {},
+    prior.machine.title,
+  );
+  const oldRepair = await solve(p, prior.machine, fittings(prior.machine, prior.intended));
+  record('published-two-spare-drawing', oldRepair.tick > 0, {
+    address: published,
+    frame: oldRepair.tick,
+  });
   const seen = new Set();
   for (const [i, k] of compoundKits.entries()) {
     if (i === 4) {
       await p.setViewport({ width: 1280, height: 800, isMobile: false, hasTouch: false });
-      await p.waitForFunction(t => document.querySelector('#machine-title')?.textContent===t,{},compoundKits[i-1].name+' · custom build');
+      await p.waitForFunction(
+        (t) => document.querySelector('#machine-title')?.textContent === t,
+        {},
+        compoundKits[i - 1].name + ' · custom build',
+      );
     }
     await selectStock(p, k);
     const d = freshDesign(k.id),

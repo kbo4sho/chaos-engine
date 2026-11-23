@@ -132,3 +132,4 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Keep the workshop offline](./offline-workshop.md) covers a complete optional offline edition, verified replacements and cold offline play.
 - [Design a multi-part machine](./compound-designer.md) covers 120 editable working machines, selectable missing stations and certified custom repairs across all 54 tools.
 - [Exchange working drawings](./drawing-exchange.md) covers portable unfinished designs, independent film review and reversible adoption across browsers.
+- [Inspect the design press trials](./release-trials.md) covers seven physical release positions, fourteen films and concrete counterexamples for rejected drawings.
