@@ -123,3 +123,4 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Inspect a point on a recorded path](./path-reader.md) covers touch and keyboard spatial seeking, repeated visits and offline films.
 - [Take a discovery setup into Chaos Engine](./experiment-exchange.md) covers native shutter measurements, editable physics, save slots and exact return links.
 - [Resume an unfinished repair](./unfinished-repairs.md) covers durable partial fittings, undo, local privacy and multi-tab recovery.
+- [Your tool notebook](./tool-notebook.md) covers actual fitting activity, personalized practice and replayable contacts.

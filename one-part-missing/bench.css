@@ -1695,3 +1695,12 @@ canvas.reading-path {cursor:crosshair}
 #draft-list a { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:44px; padding:4px 8px; text-decoration:none; border-bottom:1px solid var(--line); }
 #draft-list small { flex-shrink:0; color:var(--muted); }
 #draft-list strong { font-weight:normal; }
+
+#tool-notebook { margin:12px 0 4px; padding-top:10px; border-top:1px solid var(--line); }
+#tool-notebook h3 { color:var(--text); margin:0; font:22px var(--display); }
+#tool-notebook p { margin:4px 0; }
+#tool-notebook #tool-progress { color:var(--muted); font:13px var(--mono); }
+#tool-events { display:grid; gap:4px; }
+#tool-events button { text-align:left; white-space:normal; }
+#tool-notebook :is(button,.action-link) { min-height:44px; }
+#tool-event-status:empty { display:none; }

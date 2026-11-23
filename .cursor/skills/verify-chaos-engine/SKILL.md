@@ -193,6 +193,7 @@ All helpers are executable. Invoke them from the repo root.
 | `./scripts/verify-chaos-engine drive ui-layout` | Standard 390 / 1280 layout proof for [features/ui-layout.md](../../features/ui-layout.md) |
 | `./scripts/verify-chaos-engine drive deflect` | Touch and desktop quarter-turn travel proof for [features/deflect.md](features/deflect.md) |
 | `./scripts/verify-chaos-engine drive unfinished-repairs` | [Resume an unfinished repair](features/unfinished-repairs.md), durable partial fittings, undo, local privacy and multi-tab recovery |
+| `./scripts/verify-chaos-engine drive tool-notebook` | [Your tool notebook](features/tool-notebook.md), actual fitting activity, personalized practice and replayable contacts |
 | `./scripts/verify-chaos-engine cleanup` | Tear down this run; keep evidence |
 
 Drive needs `puppeteer-core` (devDependency) and system Chrome. If the module is missing: `npm install`.

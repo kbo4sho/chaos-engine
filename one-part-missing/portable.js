@@ -88,6 +88,9 @@ const modules = [
   'asset-source',
   'portable',
   'learning',
+  'practice-targets',
+  'tool-evidence',
+  'tool-notebook',
   'play',
 ];
 // This snapshot is taken before the offline bench renders any local records.

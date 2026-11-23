@@ -12,6 +12,7 @@ import { chooseStart, rememberRoute, setupFinder } from './library.js';
 import { orders, readOrderLink, fitCode, orderPrefix } from './work-orders.js';
 import { setupOrders } from './order-desk.js';
 import { receiverOpen } from './transmissions.js';
+import { toolNotebook } from './tool-notebook.js';
 import { draftDesk } from './draft-desk.js';
 import { editHistory } from './bench-edits.js';
 import { setupRace, readRace } from './friend-race.js';
@@ -144,6 +145,10 @@ $('open-lab').addEventListener('click', () => {
   lab.open(kind, $('open-lab'));
 });
 const book = repairBook(() => localStorage);
+const notebook = toolNotebook(M,$,{ campaign:machines,book,films,source:async(id,signal)=>
+  campaignById.get(id)||orders.find(m=>m.id===id)||(decodePrint(id)?await usePress(M,{id},signal):null)
+});
+let personalRepair=false;
 function savedMove() {
   const saved = book.read()[machine.id];
   return validMove(machine, saved) ? packFittings(fittings(machine, saved)) : null;
@@ -969,7 +974,8 @@ function tickMachine() {
   }
   if (run.state === 'won') {
     if (!replaying && !matches.viewing && validMove(machine, move)) {
-      book.save(machine.id, move, run.tick);
+      book.save(machine.id, move, run.tick, personalRepair);
+      notebook.delivered(machine,move,run);
       drafts.delivered();
       if (machine.contract) desk.save(machine, move, run.tick);
     }
@@ -1176,6 +1182,8 @@ function navigate(resolved, id, announce = false, sharedFit = null, race = null,
   matches.navigate(match);
   raceDesk.navigate(match ? null : machine, race, desk.fastest);
   const personal=resolved && id===machine.id && !race && !match && !sharedFit && !document.body.dataset.portable;
+  personalRepair=Boolean(personal);
+  notebook.enter(personalRepair);
   if (personal) rememberRoute(machine, learningActive);
   edits.clear();
   waitingSocket = null;

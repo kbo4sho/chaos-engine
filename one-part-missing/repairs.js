@@ -36,10 +36,11 @@ export function repairBook(getStorage) {
     }
     return { ...result, ...Object.fromEntries(session) };
   }
-  function save(id, move, tick) {
+  function save(id, move, tick, eligible = true) {
     const record = {
       ...packFittings(packedParts(move)),
       tick,
+      ...(eligible ? {} : { evidenceEligible: false }),
       savedAt: Date.now(),
     };
     session.set(id, record);

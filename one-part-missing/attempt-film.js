@@ -1,3 +1,4 @@
+import { eventLine } from './tool-evidence.js';
 import { pathReader, filmPaths } from './path-reader.js';
 import { clipControls } from './clip-controls.js';
 import { atFrame, draw, drawActors, snapshot } from './drawing.js';
@@ -184,7 +185,7 @@ export function setupFilms(el) {
       if(first!=null && t>=first)return 'Paths separate at '+clock(first)+'.';
       return race?'Both runs share one release clock.':'Two setups on the same machine.';
     };
-    return {title:el('machine-title').textContent,label:viewing.card?'MATCH CARD':race?'FRIEND CHALLENGE':'COMPARE SETUPS',
+    return {title:viewing.observation?.machine.title||el('machine-title').textContent,label:viewing.observation?'TOOL CONTACT':viewing.card?'MATCH CARD':race?'FRIEND CHALLENGE':'COMPARE SETUPS',
       filename:race?'challenge-'+latest.machine:'comparison-'+latest.machine.split('~')[0],
       end:study.end,highlights:[first,a,b],scene:(ctx,t)=>scene(ctx,t,hardware),caption,
       legend:race?[names[0]+' '+clock(a),names[1]+' '+clock(b)]:names};
@@ -223,20 +224,21 @@ export function setupFilms(el) {
     if (t < study.end) raf = requestAnimationFrame(animate);
     else stop();
   }
-  function comparePair(latest, previous, race = false, card = null) {
+  function comparePair(latest, previous, race = false, card = null, observation = null) {
     if (!latest || !previous) return;
     clips.clear();
-    const names = card?.names || (race ? ['Reply','Challenger'] : ['Latest','Previous']);
+    const names = observation ? ['Your repair','Empty bench'] : card?.names || (race ? ['Reply','Challenger'] : ['Latest','Previous']);
     const [latestName,previousName] = names;
-    viewing = { latest, previous, race, names, card };
+    viewing = { latest, previous, race, names, card, observation };
     path.ready(()=>[...filmPaths(latest,names[0]),...filmPaths(previous,names[1],true)].map(trace=>({...trace,points:trace.points.slice(0,study.end+1)})));
-    el('compare-title').textContent = card ? card.title : race ? 'Challenge replay' : 'Compare setups';
+    el('compare-title').textContent = observation ? parts[observation.row.kind].name+' · '+observation.machine.title : card ? card.title : race ? 'Challenge replay' : 'Compare setups';
     el('compare-finishes').hidden = !race;
     const options = el('compare-hardware').options;
     options[0].textContent = latestName + ' setup';
     options[1].textContent = previousName + ' setup';
     study = compareAttempts(latest, previous);
-    if (race) study.end = Math.max(latest.frames.length, previous.frames.length) - 1;
+    if (observation) study.contact={whose:'Latest',kind:observation.row.kind,tick:observation.row.tick};
+    if (race || observation) study.end = Math.max(latest.frames.length, previous.frames.length) - 1;
     const { first, end } = study;
     range.max = end;
     el('compare-change').disabled = !first;
@@ -247,6 +249,7 @@ export function setupFilms(el) {
         clock(first.tick) +
         '.'
       : 'The paths stay within one radius for the shared recording.';
+    if(observation)el('compare-findings').textContent=eventLine(observation.row);
     if(card)el('compare-findings').textContent += ' ' + card.verdict + '.';
     el('compare-contact').hidden = !study.contact;
     if (study.contact) {
@@ -254,7 +257,7 @@ export function setupFilms(el) {
       el('compare-contact').textContent =
         (u.whose === 'Latest' ? latestName : previousName) + ' tool contact · ' + parts[u.kind].name + ' · ' + clock(u.tick);
     }
-    el('compare-overlap').textContent = (race ? 'Both deliveries · ' : 'Shared recording · ') + clock(end);
+    el('compare-overlap').textContent = (observation ? 'Recorded interval · ' : race ? 'Both deliveries · ' : 'Shared recording · ') + clock(end);
     if (race) {
       el('compare-reply-arrival').textContent = latestName + ' arrival · ' + clock(latest.frames.length - 1);
       el('compare-host-arrival').textContent = previousName + ' arrival · ' + clock(previous.frames.length - 1);
@@ -265,7 +268,7 @@ export function setupFilms(el) {
       previousName + ' · ' + previous.label + ' · ' + previous.outcome;
     el('compare-hardware').value = 'latest';
     modal.showModal();
-    go(first?.tick || 0);
+    go(observation?.row.tick ?? first?.tick ?? 0);
     el('compare-close').focus({ preventScroll: true });
   }
   open.addEventListener('click', () => comparePair(history?.latest, history?.previous));
@@ -291,8 +294,10 @@ export function setupFilms(el) {
     path.clear();
     clips.clear();
     stop();
+    const opener=viewing?.observation?.opener;
     study = null;
     viewing = null;
+    if(opener?.isConnected)opener.focus({preventScroll:true});
   });
   return {
     comparePair,
