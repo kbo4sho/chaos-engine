@@ -1,3 +1,5 @@
+import { sortIcons, drawSortTool, drawBin } from './sort-art.js';
+import { sortingParts } from './sorting.js';
 import { drawDriveBench, flywheel, driveIcons, receiverDial } from './drive-art.js';
 import { drawBenchRig, eyelet, rigIcons } from './rig-art.js';
 import { mechanisms } from './mechanisms.js';
@@ -446,12 +448,19 @@ function body(c, item, run) {
   c.rotate(b.angle);
   if (s.sensor) {
     const idx = run.goals.indexOf(item),
-      hit = run.hits[idx];
-    target(c, s, hit !== undefined, hit === undefined ? 0 : run.tick - hit, idx, run.goals.length);
+      hit = run.binTicks ? (run.binTicks[idx] ?? undefined) : run.hits[idx];
+    if (s.bin) drawBin(c, s, hit !== undefined, b.render?.binHold);
+    else target(c, s, hit !== undefined, hit === undefined ? 0 : run.tick - hit, idx, run.goals.length);
     receiverDial(c, s, run.tick);
   } else if (s.flywheel) flywheel(c, s);
   else if (s.kind === 'eyelet') eyelet(c);
   else if (s.kind === 'cargo') parcel(c, s.r);
+  else if (sortingParts[s.kind])
+    drawSortTool(
+      c,
+      s,
+      run.uses.some((u) => u.item === run.items.indexOf(item) && run.tick - u.tick < 14),
+    );
   else if (mechanisms[s.kind]) {
     const events = run.uses.filter((u) => u.item === run.items.indexOf(item));
     drawMechanism(
@@ -497,15 +506,17 @@ export function draw(
     for (const item of run.items) stand(c, item.shape);
     drawMachineGuides(c, run.items, run.uses);
     const cargo = run.items.find((i) => i.shape.kind === 'cargo');
-    if (cargo) caption(c, 'PARCEL', cargo.shape.x, Math.max(16, cargo.shape.y - 18), 'center');
+    if (cargo && !run.binTicks)
+      caption(c, 'PARCEL', cargo.shape.x, Math.max(16, cargo.shape.y - 18), 'center');
     const start = run.items.find((i) => i.shape.kind === 'marble').shape;
-    caption(
-      c,
-      start.flywheel ? 'INPUT' : 'RELEASE',
-      Math.min(start.x, WIDTH - 70),
-      Math.max(16, start.y - (start.flywheel ? start.r + 12 : 24)),
-      'center',
-    );
+    if (!run.binTicks)
+      caption(
+        c,
+        start.flywheel ? 'INPUT' : 'RELEASE',
+        Math.min(start.x, WIDTH - 70),
+        Math.max(16, start.y - (start.flywheel ? start.r + 12 : 24)),
+        'center',
+      );
     if (ghost.length > 1) {
       c.setLineDash([3, 7]);
       tracePath(c, ghost, '#80948b');
@@ -545,7 +556,12 @@ const icons = {
 export function partIcon(id) {
   return (
     '<svg viewBox="0 0 60 40" fill="none" stroke="#73e2e3" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">' +
-    (icons[id] || toolIcons[id] || mechanicalIcons[id] || rigIcons[id] || driveIcons[id]) +
+    (icons[id] ||
+      toolIcons[id] ||
+      mechanicalIcons[id] ||
+      rigIcons[id] ||
+      driveIcons[id] ||
+      sortIcons[id]) +
     '</svg>'
   );
 }
@@ -562,11 +578,13 @@ export function drawSandboxPart(c, render, timestamp) {
     const age = Number.isFinite(render.struckAt)
       ? Math.max(0, (timestamp - render.struckAt) / 16.67)
       : Infinity;
-    target(c, s, age !== Infinity, age, render.noteIndex || 0, render.noteCount || 1);
+    if (s.bin) drawBin(c, s, Boolean(render.binDelivered), render.binHold);
+    else target(c, s, age !== Infinity, age, render.noteIndex || 0, render.noteCount || 1);
     receiverDial(c, s, render.windowTick || 0);
   } else if (s.flywheel) flywheel(c, s);
   else if (s.kind === 'eyelet') eyelet(c);
   else if (s.kind === 'cargo') parcel(c, s.r);
+  else if (sortingParts[s.kind]) drawSortTool(c, s, timestamp - render.poweredAt < 220);
   else if (mechanisms[s.kind]) {
     drawMechanism(c, s, timestamp - render.poweredAt < 360, Boolean(render.gateOpen || render.switchOn));
   } else if (poweredColors[s.kind]) {
@@ -583,6 +601,8 @@ export function snapshot(run) {
   return {
     tick: run.tick,
     hits: [...run.hits],
+    binTicks: run.binTicks ? [...run.binTicks] : null,
+    binHolds: run.binTicks ? run.goals.map((g) => g.body.render.binHold || 0) : null,
     poses: run.items.map(({ body, shape }) =>
       shape.wire
         ? [
@@ -606,7 +626,11 @@ export function atFrame(run, sample) {
       body: {
         position: { x, y },
         angle,
-        render: item.shape.wire ? { cableLength, cableBroken } : undefined,
+        render: item.shape.bin
+          ? { binHold: sample.binHolds?.[item.shape.bin === 'blue' ? 1 : 0] }
+          : item.shape.wire
+            ? { cableLength, cableBroken }
+            : undefined,
       },
     };
   });
@@ -616,6 +640,7 @@ export function atFrame(run, sample) {
     goals: items.filter((i) => i.shape.sensor),
     tick: sample.tick,
     hits: sample.hits,
+    binTicks: sample.binTicks,
     uses: run.uses.filter((u) => u.tick <= sample.tick),
   };
 }

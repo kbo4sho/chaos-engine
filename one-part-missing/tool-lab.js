@@ -73,7 +73,36 @@ function driveExperiment(kind, offset) {
     0,
   );
 }
+const sortQuestions = {
+  sieve: 'Which load diameters pass through the 30-unit opening?',
+  funnel: 'Which part of the load meets a sloping side before the throat?',
+  basket: 'Where does a load settle when a raised side catches it?',
+  ice: 'Where does the load leave a low-friction rail?',
+  oneway: 'Can the same gate pass a load on the way up and hold it on the way down?',
+  zipline: 'Which direction does a rider travel just after leaving the cable?',
+};
+function handlingExperiment(kind, offset) {
+  const r = [7, 13, 21][offset / 24 + 1],
+    x = 310,
+    y = 177;
+  const release = {
+    sieve: [310, 59, 0],
+    funnel: [273, 62, 0.45],
+    basket: [291, 47, 0.8],
+    ice: [274, 45, 1.7],
+    oneway: [301, 263, 0.2, -9],
+    zipline: [269, 57, 1.6],
+  }[kind];
+  return {
+    sockets: [],
+    tray: [],
+    ball: { kind: 'marble', r, x: release[0], y: release[1], vx: release[2], vy: release[3] || 0 },
+    fixtures: [{ ...parts[kind].shape, x, y, dir: kind === 'oneway' ? -1 : 1, gap: 30, labPiece: true }],
+    goals: [{ kind: 'flag', x: 1800, y: 1800, w: 20, h: 20, sensor: true }],
+  };
+}
 const experiments = {
+  ...Object.fromEntries(Object.entries(sortQuestions).map(([k, question]) => [k, { question }])),
   ...Object.fromEntries(Object.entries(driveQuestions).map(([k, question]) => [k, { question }])),
   ...Object.fromEntries(
     Object.entries(rigExperiments).map(([kind, [question]]) => [
@@ -188,7 +217,8 @@ export function experiment(M, kind, offset = 0) {
   const gate = kind === 'switch' || kind === 'hatch';
   const driven = Object.hasOwn(transmissions, kind);
   const delivery = driven || gate || kind === 'pulley';
-  const unpowered = !Object.hasOwn(instruments, kind);
+  const handling = Object.hasOwn(sortQuestions, kind);
+  const unpowered = handling || !Object.hasOwn(instruments, kind);
   const apparatus =
     kind === 'weight'
       ? [
@@ -209,63 +239,65 @@ export function experiment(M, kind, offset = 0) {
             })),
           ]
         : [];
-  const machine = driven
-    ? driveExperiment(kind, offset)
-    : {
-        fixtures: [
-          ...apparatus,
-          ...(wired
-            ? [{ kind: 'eyelet', node: 'peg', r: 6, field: true, x: mount[0], y: mount[1] }]
-            : []),
-          ...(kind === 'pulley'
-            ? [{ kind: 'cargo', node: 'parcel', r: 11, x: 412, y: 145, density: 0.001 }]
-            : []),
-          {
-            ...parts[kind].shape,
-            x: mount[0],
-            y: mount[1],
-            labPiece: true,
+  const machine = handling
+    ? handlingExperiment(kind, offset)
+    : driven
+      ? driveExperiment(kind, offset)
+      : {
+          fixtures: [
+            ...apparatus,
             ...(wired
-              ? {
-                  from: kind === 'pulley' ? 'runner' : 'peg',
-                  to: kind === 'pulley' ? 'parcel' : 'runner',
-                  rest: rigExperiments[kind][1],
-                }
-              : {}),
+              ? [{ kind: 'eyelet', node: 'peg', r: 6, field: true, x: mount[0], y: mount[1] }]
+              : []),
+            ...(kind === 'pulley'
+              ? [{ kind: 'cargo', node: 'parcel', r: 11, x: 412, y: 145, density: 0.001 }]
+              : []),
+            {
+              ...parts[kind].shape,
+              x: mount[0],
+              y: mount[1],
+              labPiece: true,
+              ...(wired
+                ? {
+                    from: kind === 'pulley' ? 'runner' : 'peg',
+                    to: kind === 'pulley' ? 'parcel' : 'runner',
+                    rest: rigExperiments[kind][1],
+                  }
+                : {}),
+            },
+            ...(gate
+              ? [
+                  kind === 'switch'
+                    ? { ...instruments.hatch.shape, x: 460, y: 135 }
+                    : { ...instruments.switch.shape, x: 205, y: 151 },
+                  { kind: 'cargo', x: 471, y: 113, r: 11 },
+                ]
+              : []),
+            ...(kind === 'portal' ? [{ ...outlet, x: 423, y: 100 }] : []),
+          ],
+          ball: {
+            kind: 'marble',
+            node: 'runner',
+            ...(kind === 'pulley' ? { density: 0.006 } : {}),
+            r: 12,
+            x: release[0] + offset,
+            y: release[1],
+            vx: release[2],
           },
-          ...(gate
-            ? [
-                kind === 'switch'
-                  ? { ...instruments.hatch.shape, x: 460, y: 135 }
-                  : { ...instruments.switch.shape, x: 205, y: 151 },
-                { kind: 'cargo', x: 471, y: 113, r: 11 },
-              ]
-            : []),
-          ...(kind === 'portal' ? [{ ...outlet, x: 423, y: 100 }] : []),
-        ],
-        ball: {
-          kind: 'marble',
-          node: 'runner',
-          ...(kind === 'pulley' ? { density: 0.006 } : {}),
-          r: 12,
-          x: release[0] + offset,
-          y: release[1],
-          vx: release[2],
-        },
-        goals: [
-          {
-            kind: 'chime',
-            x: 2000,
-            y: 2000,
-            w: 22,
-            h: 28,
-            sensor: true,
-            striker: delivery ? 'cargo' : kind === 'domino' ? 'tile' : 'marble',
-          },
-        ],
-        sockets: [],
-        tray: [],
-      };
+          goals: [
+            {
+              kind: 'chime',
+              x: 2000,
+              y: 2000,
+              w: 22,
+              h: 28,
+              sensor: true,
+              striker: delivery ? 'cargo' : kind === 'domino' ? 'tile' : 'marble',
+            },
+          ],
+          sockets: [],
+          tray: [],
+        };
   const simulate = (disabled) => {
     const run = createRun(M, {
       ...machine,
@@ -335,10 +367,19 @@ export function setupLab(M, { onOpen, onClose } = {}) {
   function reset() {
     stop();
     const driven = Object.hasOwn(transmissions, menu.value);
-    el('lab-release-label').textContent = driven ? 'Input speed' : 'Release';
+    const handling = Object.hasOwn(sortQuestions, menu.value);
+    el('lab-release-label').textContent = handling
+      ? 'Load diameter'
+      : driven
+        ? 'Input speed'
+        : 'Release';
     [...el('lab-offset').options].forEach((o, i) => {
       o.textContent = (
-        driven ? ['Slower', 'Nominal', 'Faster'] : ['24 units left', 'Center', '24 units right']
+        handling
+          ? ['14 units', '26 units', '42 units']
+          : driven
+            ? ['Slower', 'Nominal', 'Faster']
+            : ['24 units left', 'Center', '24 units right']
       )[i];
     });
     data = experiment(M, menu.value, Number(el('lab-offset').value));

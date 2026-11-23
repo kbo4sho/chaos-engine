@@ -22,7 +22,7 @@
       <div class="bench">
         <div class="instrument-head">
           <div>
-            <p class="eyeline" id="machine-no">Level 001 / 320 · First shift</p>
+            <p class="eyeline" id="machine-no">Level 001 / 360 · First shift</p>
             <h2 id="machine-title">The last bell</h2>
             <p id="goal">Ring the brass bell.</p>
           </div>
@@ -72,6 +72,9 @@
             <button id="frame-step" class="quiet" hidden type="button">Step 1 frame</button>
             <button id="reset" class="quiet" disabled>Reset</button>
             <span id="signal" aria-hidden="true"></span><output id="receiver-clock" hidden></output>
+          </div>
+          <div id="delivery-board" aria-label="Receiving bins" hidden>
+            <output id="gold-bin"></output><output id="blue-bin"></output>
           </div>
           <div class="film" id="film" hidden>
             <label for="scrubber">Inspect run</label
@@ -134,7 +137,7 @@
       <section class="library" aria-labelledby="library-title">
         <div class="library-head">
           <h2 id="library-title">Level map</h2>
-          <span id="progress">0 of 320 repaired</span>
+          <span id="progress">0 of 360 repaired</span>
         </div>
         <details id="finder" class="study">
           <summary>Find a machine</summary>
@@ -169,6 +172,7 @@
             <a id="rig-entry" href="#rig-first-tether">Play the cable rigs →</a>
             <a id="pair-entry" href="#pair-carry-then-catch">Play two-part repairs →</a>
             <a id="drive-entry" href="#drive-spin-into-slide">Play the drive table →</a>
+            <a id="sort-entry" href="#sort-through-the-grating">Play the sorting room →</a>
           </nav>
         </details>
         <p id="chapter-hint"></p>

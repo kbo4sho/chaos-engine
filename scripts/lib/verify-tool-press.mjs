@@ -19,14 +19,22 @@ export async function verifyToolPress(home, { url, record, shot, outDir }) {
   p.on('pageerror', (e) => errors.push(e.message));
   const solve = async (page, m) => {
     const fit = certify(M, m)[0];
-    await page.waitForFunction((name) => document.querySelector('#machine-title').textContent === name, {}, m.title);
+    await page.waitForFunction(
+      (name) => document.querySelector('#machine-title').textContent === name,
+      {},
+      m.title,
+    );
     await page.select('#playback-rate', '4');
     await page.click('[data-part="' + fit.part + '"]');
     if (fit.flipped) await page.click('#flip');
     await page.click('[data-socket="' + fit.socket + '"]');
-    const actual = await page.$eval('#open-sandbox', a => a.hash);
+    const actual = await page.$eval('#open-sandbox', (a) => a.hash);
     const fitted = new URLSearchParams(actual.slice(1));
-    record('fitted-'+m.id,fitted.get('part')===fit.part && Number(fitted.get('socket'))===fit.socket,{actual,fit});
+    record(
+      'fitted-' + m.id,
+      fitted.get('part') === fit.part && Number(fitted.get('socket')) === fit.socket,
+      { actual, fit },
+    );
     await page.click('#run');
     await page.waitForFunction(() => document.querySelector('#pilot').dataset.state === 'won', {
       timeout: 18000,
@@ -107,6 +115,16 @@ export async function verifyToolPress(home, { url, record, shot, outDir }) {
     'printed-power-transmission',
     ['Gearbox meshed', 'Rack and pinion engaged'].every((k) => driveEvents.some((t) => t.includes(k))),
     driveEvents,
+  );
+  const sorting = await print('sort', 'sieve', 'basket');
+  await solve(p, sorting);
+  const sortingEvents = await p.$$eval('#cues button', (bs) => bs.map((b) => b.textContent));
+  record(
+    'printed-double-sort',
+    ['Basket', 'Sieve', 'Blue received', 'Gold received'].every((t) =>
+      sortingEvents.some((s) => s.includes(t)),
+    ),
+    sortingEvents,
   );
   const parcel = await print('parcel', 'switch', 'hatch');
   const move = await solve(p, parcel);

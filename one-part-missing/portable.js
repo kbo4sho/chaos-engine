@@ -2,6 +2,10 @@ import { packFittings } from './machines.js';
 // Package only the published application assets. Start from the empty HTML
 // shell, so player records, clipboard values and in-progress runs stay local.
 const modules = [
+  'sorting',
+  'sort-art',
+  'sort-course',
+  'sort-boards',
   'mechanisms',
   'devices',
   'transmissions',

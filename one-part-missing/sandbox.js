@@ -2,6 +2,7 @@ import { addTransmissions, installTransmissions, acceptsReceiver } from './trans
 import { makeLinks, installRigging } from './rigging.js';
 import { instruments, installDevices } from './devices.js';
 import { WIDTH, HEIGHT, assembly, makeBody } from './machines.js';
+import { installReceivingBins } from './sorting.js';
 import { orderById } from './work-orders.js';
 import { resolveMachine } from './workshop.js';
 import { driveConnection } from './drive-art.js';
@@ -72,6 +73,28 @@ export function installBench(api) {
     if (l.rig) drawSandboxRig(c, l);
     else driveConnection(c, l);
   });
+  let binBodies, binScene;
+  installReceivingBins(
+    M,
+    engine,
+    () => {
+      const bodies = M.Composite.allBodies(world);
+      if (bodies !== binBodies) {
+        binBodies = bodies;
+        binScene = {
+          bins: bodies
+            .filter((b) => b.render.machineShape?.bin)
+            .map((body) => ({ body, shape: body.render.machineShape })),
+          actors: bodies.filter((b) => ['cargo', 'marble'].includes(b.label)),
+        };
+      }
+      return binScene;
+    },
+    (bin) => {
+      bin.body.render.struckAt = engine.timing.timestamp;
+      api.chime(bin.shape.striker === 'cargo' ? 783.99 : 523.25);
+    },
+  );
   M.Events.on(engine, 'collisionStart', ({ pairs }) => {
     for (const { bodyA, bodyB } of pairs) {
       const target = bodyA.render.machineShape?.sensor
@@ -79,7 +102,7 @@ export function installBench(api) {
         : bodyB.render.machineShape?.sensor
           ? bodyB
           : null;
-      if (!target) continue;
+      if (!target || target.render.machineShape.bin) continue;
       const other = target === bodyA ? bodyB : bodyA;
       const required = target.render.machineShape.striker;
       if (

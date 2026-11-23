@@ -14,6 +14,7 @@ export const styles = {
   direct: 'Single tool',
   rig: 'Cable rig',
   drive: 'Drive train',
+  sort: 'Sorting line',
   any: 'Any machine',
 };
 const maxSeed = 0xffffffff,
@@ -125,7 +126,7 @@ function arrange({ plate, seed, pass }) {
     id: 'pending',
     title: source.title + ' · ' + base36(seed).toUpperCase(),
     lesson:
-      source.rigging || source.transmission
+      source.rigging || source.transmission || source.sorting
         ? source.lesson
         : source.fixtures.some((s) => s.kind === 'cargo')
           ? 'Follow the gold marble to the switch, then trace the parcel from the hatch.'

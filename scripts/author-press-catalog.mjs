@@ -12,15 +12,17 @@ const rows = campaign
       run = createRun(M, m, move);
     while (run.state === 'running') advance(M, run);
     const used = [...new Set([move.part, ...run.uses.map((u) => u.kind)])];
-    const form = m.transmission
-      ? 'drive'
-      : m.rigging
-        ? 'rig'
-        : run.cargo
-          ? 'parcel'
-          : used.length > 1 || m.goals.length > 1
-            ? 'chain'
-            : 'direct';
+    const form = m.sorting
+      ? 'sort'
+      : m.transmission
+        ? 'drive'
+        : m.rigging
+          ? 'rig'
+          : run.cargo
+            ? 'parcel'
+            : used.length > 1 || m.goals.length > 1
+              ? 'chain'
+              : 'direct';
     return [campaign.indexOf(m) + 1, form, ...used];
   });
 fs.writeFileSync(

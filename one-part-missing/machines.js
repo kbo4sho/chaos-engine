@@ -6,6 +6,7 @@ import {
   receiverOpen,
 } from './transmissions.js';
 import { links, makeLinks, installRigging } from './rigging.js';
+import { sortingParts, sortBody, installReceivingBins } from './sorting.js';
 import { rotorBody } from './mechanisms.js';
 import { instruments, installDevices } from './devices.js';
 
@@ -221,11 +222,12 @@ export function makeBody(M, shape) {
   };
   const { x, y } = shape;
   const body =
-    kind === 'pinwheel'
+    (sortingParts[kind] && sortBody(M, shape, options)) ||
+    (kind === 'pinwheel'
       ? rotorBody(M, shape, options)
       : shape.r
         ? M.Bodies.polygon(x, y, 40, shape.r, options)
-        : M.Bodies.rectangle(x, y, shape.w, shape.h, options);
+        : M.Bodies.rectangle(x, y, shape.w, shape.h, options));
   if (shape.bounce) body.restitution = shape.bounce;
   if (shape.r) body.circleRadius = shape.r;
   if (shape.guide) {
@@ -233,7 +235,7 @@ export function makeBody(M, shape) {
     M.Body.setInertia(body, Infinity);
   }
   if (shape.spin) M.Body.setAngularVelocity(body, shape.spin);
-  if (shape.vx) M.Body.setVelocity(body, { x: shape.vx, y: 0 });
+  if (shape.vx || shape.vy) M.Body.setVelocity(body, { x: shape.vx || 0, y: shape.vy || 0 });
   let pivot;
   if (shape.axle) {
     const [cx, cy] = shape.axle,
@@ -277,6 +279,7 @@ export function createRun(M, machine, move = null, offset = 0) {
     cargo: items.find((i) => i.shape.kind === 'cargo')?.body,
     striker: machine.striker || 'marble',
     hits: [],
+    binTicks: machine.sorting ? goals.map(() => null) : null,
     passes: [],
     uses: [],
     tick: 0,
@@ -292,12 +295,13 @@ export function createRun(M, machine, move = null, offset = 0) {
       M,
       engine,
       () => scene,
-      (tool, actor) => {
+      (tool, actor, action) => {
         run.uses.push({
           kind: tool.shape.kind,
           item: items.indexOf(tool),
           tick: run.tick,
           actor: actor.label,
+          ...(action ? { action } : {}),
         });
       },
     );
@@ -333,6 +337,18 @@ export function createRun(M, machine, move = null, offset = 0) {
       },
     );
   // Read passive fittings at the physical collision as well as the powered tools at activation.
+  if (run.binTicks) {
+    const bins = { bins: goals, actors: [ball, run.cargo] };
+    installReceivingBins(
+      M,
+      engine,
+      () => bins,
+      (g) => {
+        run.binTicks[goals.indexOf(g)] = run.tick;
+        run.hits.push(run.tick);
+      },
+    );
+  }
   const passive = new Map();
   for (const [item, { shape, body }] of items.entries()) {
     if (!shape.fitted && !shape.labPiece) continue;
@@ -363,6 +379,7 @@ export function createRun(M, machine, move = null, offset = 0) {
           }
         }
       }
+      if (run.binTicks) continue;
       const goal = goals[run.hits.length];
       const target = goal?.body;
       const striker = bodyA === target ? bodyB : bodyB === target ? bodyA : null;
@@ -391,7 +408,16 @@ export function advance(M, run) {
   run.tick++;
   M.Engine.update(run.engine, STEP);
   if (run.hits.length === run.goals.length) run.state = 'won';
-  else {
+  else if (run.binTicks) {
+    const lost = (b) => b.position.y > HEIGHT + 70 || b.position.x < -65 || b.position.x > WIDTH + 65;
+    if (
+      run.tick >= LIMIT ||
+      run.goals.some(
+        (g, i) => run.binTicks[i] === null && lost(g.shape.striker === 'cargo' ? run.cargo : run.ball),
+      )
+    )
+      run.state = 'miss';
+  } else {
     const { x, y } = run.ball.position;
     const outside = y > HEIGHT + 70 || x > WIDTH + 65 || x < -65;
     const nextStriker = run.goals[run.hits.length]?.shape.striker || run.striker;

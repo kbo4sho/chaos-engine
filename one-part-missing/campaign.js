@@ -7,6 +7,7 @@ import { toolChapters, toolCourse, clockChapters, clockCourse } from './tool-cou
 import { rigChapters, rigCourse } from './rig-course.js';
 import { pairCourse, pairChapters } from './pair-course.js';
 import { driveChapters, driveCourse } from './drive-course.js';
+import { sortCourse, sortChapters } from './sort-course.js';
 export const chapters = [
   ...classicChapters,
   ...toolChapters,
@@ -14,6 +15,7 @@ export const chapters = [
   ...rigChapters,
   ...pairChapters,
   ...driveChapters,
+  ...sortChapters,
 ];
 const classicCampaign = scores.map((entry, index) => {
   const number = index + 1;
@@ -31,5 +33,6 @@ export const campaign = [
   ...rigCourse,
   ...pairCourse,
   ...driveCourse,
+  ...sortCourse,
 ];
 export const campaignById = new Map(campaign.map((machine) => [machine.id, machine]));

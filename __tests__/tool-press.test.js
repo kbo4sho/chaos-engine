@@ -11,7 +11,7 @@ import {
 } from '../one-part-missing/workshop.js';
 import { reserves } from '../one-part-missing/press-reserves.js';
 describe('Tool-aware machine press', () => {
-  it('offers all thirty-three tools and only partners with working stock', () => {
+  it('offers all thirty-nine tools and only partners with working stock', () => {
     expect(availableTools('any').sort()).toEqual(Object.keys(parts).sort());
     expect(availableTools('parcel', 'portal')).toContain('hatch');
     expect(availableTools('direct', 'fan')).toEqual([]);
@@ -28,6 +28,7 @@ describe('Tool-aware machine press', () => {
     ['chain', 'domino', 'any', 1953],
     ['rig', 'pulley', 'damper', 233],
     ['drive', 'gearbox', 'rack', 311],
+    ['sort', 'sieve', 'basket', 337],
   ])('%s prints and reopens the exact working %s/%s machine', (style, focus, partner, seed) => {
     const req = { style, focus, partner, seed },
       m = printTools(M, req);

@@ -7,9 +7,9 @@ import { certify, resolveMachine } from '../one-part-missing/workshop.js';
 import { repairBook } from '../one-part-missing/repairs.js';
 
 describe('Numbered puzzle campaign', () => {
-  it('offers thirty-two chapters of distinct, deep-linkable machines and preserves original IDs', () => {
-    expect(chapters).toHaveLength(32);
-    expect(campaign).toHaveLength(320);
+  it('offers thirty-six chapters of distinct, deep-linkable machines and preserves original IDs', () => {
+    expect(chapters).toHaveLength(36);
+    expect(campaign).toHaveLength(360);
     expect(campaign).toEqual(expect.arrayContaining(machines));
     for (const machine of campaign) expect(resolveMachine(Matter, machine.id)).toBe(machine);
     for (const values of [
@@ -17,7 +17,7 @@ describe('Numbered puzzle campaign', () => {
       campaign.map((m) => m.title),
       campaign.map((m) => JSON.stringify([m.ball, m.sockets, m.fixtures, m.goals])),
     ]) {
-      expect(new Set(values).size).toBe(320);
+      expect(new Set(values).size).toBe(360);
     }
     for (const id of ['station-000', 'station-001', 'station-101', 'station-02', 'station-005~-0.0']) {
       expect(resolveMachine(Matter, id)).toBeNull();
@@ -68,7 +68,7 @@ describe('Numbered puzzle campaign', () => {
         );
       for (let i = 0; i < 40; i++) book.save('press-1-' + i, { part: 'bridge', socket: 0 }, 88);
       const after = repairBook(() => dom.window.localStorage).read();
-      expect(campaign.filter((m) => validMove(m, after[m.id]))).toHaveLength(320);
+      expect(campaign.filter((m) => validMove(m, after[m.id]))).toHaveLength(360);
       expect(Object.keys(after).filter((id) => id.startsWith('press-'))).toHaveLength(32);
     } finally {
       dom.window.close();

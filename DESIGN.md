@@ -133,6 +133,8 @@ Work orders show two comparable records in the parts drawer. Each row names the 
 
 The level map keeps the chapter selector and numbered continuation visible. Course shortcuts and the searchable machine list expand on demand. Search rows show the title, route reference and tools observed in a successful run.
 
+Sorting bins pair a gold circle and blue diamond with written labels. A HOLD bin shows its dwell progress. Each recorded bin displays its own arrival time, including when the film is paused between the two deliveries.
+
 ## Do's and Don'ts
 
 - **Do:** Extend the existing tool-button, status, particle, audio, haptic, cleanup, and custom-rendering conventions end to end.

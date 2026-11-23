@@ -665,7 +665,8 @@ summary {
 #clock-entry,
 #rig-entry,
 #pair-entry,
-#drive-entry {
+#drive-entry,
+#sort-entry {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
@@ -1326,4 +1327,26 @@ summary {
 }
 #finder[open] {
   padding-bottom: 9px;
+}
+
+#delivery-board {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 5px 0 8px;
+}
+#delivery-board[hidden] {
+  display: none;
+}
+#delivery-board output {
+  color: var(--muted);
+  border: 1px solid var(--line);
+  padding: 4px 7px;
+  font: 12px var(--mono);
+}
+#gold-bin[data-received='true'] {
+  color: #ffd074;
+}
+#blue-bin[data-received='true'] {
+  color: #99d9fb;
 }

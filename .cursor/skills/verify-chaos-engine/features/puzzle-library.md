@@ -8,7 +8,7 @@ New players begin on the mixed-tool lesson path. The launcher remembers the last
 - Reopening PUZZLES resumes an unfinished job or advances within the same route. Pre-existing numbered progress opens a numbered job. Direct level and workshop links keep their destinations.
 - Find a machine searches the campaign, lessons and work orders. Several terms narrow the matches. A tool in the index took part in at least one recorded successful arrangement.
 - Search can hide finished jobs and show more than twelve results. The lesson-number filter links directly to the guided route.
-- Jump to a tool course expands a compact list of the powered, clockwork, rigging, paired and drivetrain course starts.
+- Jump to a tool course expands a compact list of the powered, clockwork, rigging, paired, drivetrain and sorting course starts.
 
 ## How to get to it (user POV)
 

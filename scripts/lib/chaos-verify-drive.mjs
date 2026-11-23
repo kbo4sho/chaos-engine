@@ -701,6 +701,11 @@ async function driveBank(page) {
 }
 
 const journeys = {
+  'sorting-course': async page => {
+    const {verifySorting} = await import('./verify-sorting-course.mjs');
+    await verifySorting(page,{url,record,shot,outDir});
+    result.passed = result.failures.length === 0;
+  },
   'puzzle-library': async page => {
     const {verifyLibrary} = await import('./verify-puzzle-library.mjs');
     await verifyLibrary(page,{url,record,shot});

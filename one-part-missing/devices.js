@@ -1,4 +1,5 @@
 // Powered workshop parts. The bench, exported game and sandbox step these same rules.
+import { sortingParts, installSorting } from './sorting.js';
 import { mechanisms, installMechanisms } from './mechanisms.js';
 export const devices = {
   conveyor: { name: 'Conveyor', description: 'Carry along the belt', shape: { w: 104, h: 14 } },
@@ -22,6 +23,7 @@ export const POLE_REACH = 85;
 
 export function installDevices(M, engine, getScene, onUse) {
   installMechanisms(M, engine, getScene, onUse);
+  installSorting(M, engine, getScene, onUse);
   const contact = new WeakMap();
   M.Events.on(engine, 'beforeUpdate', () => {
     const { tools, marbles } = getScene();
@@ -104,4 +106,4 @@ export function installDevices(M, engine, getScene, onUse) {
   });
 }
 
-export const instruments = { ...devices, ...mechanisms };
+export const instruments = { ...devices, ...mechanisms, ...sortingParts };

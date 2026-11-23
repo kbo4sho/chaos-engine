@@ -126,6 +126,26 @@ function startAudio() {
 }
 function drawBench() {
   if (!run) return;
+  $('delivery-board').hidden = !run.binTicks;
+  if (run.binTicks) {
+    const ticks = inspection === null ? run.binTicks : tape[inspection].binTicks;
+    const holds =
+      inspection === null ? run.goals.map((g) => g.body.render.binHold || 0) : tape[inspection].binHolds;
+    for (const [i, g] of run.goals.entries()) {
+      const out = $(g.shape.bin + '-bin'),
+        arrived = ticks[i] != null;
+      const label =
+        (g.shape.bin === 'blue' ? '◇ Blue' : '○ Gold') +
+        ' · ' +
+        (arrived
+          ? (ticks[i] / 60).toFixed(2) + ' s'
+          : g.shape.hold
+            ? 'Hold ' + holds[i] + '/' + g.shape.hold
+            : 'In transit');
+      if (out.textContent !== label) out.textContent = label;
+      out.dataset.received = String(arrived);
+    }
+  }
   const gate = machine.goals.find((g) => g.window || g.turn || g.travel);
   const tick = inspection === null ? run.tick : tape[inspection].tick;
   $('receiver-clock').hidden = !gate;
@@ -179,7 +199,9 @@ $('scrubber').addEventListener('input', () => {
   $('counter').textContent = seconds;
   $('pilot').textContent = 'Inspecting';
   $('sockets').hidden = true;
-  if (run.cargo) {
+  if (run.binTicks)
+    $('signal').textContent = tape[inspection].binTicks.filter((t) => t != null).length + ' / 2 sorted';
+  else if (run.cargo) {
     const tick = tape[inspection].tick;
     $('signal').textContent =
       run.hits.at(-1) <= tick
@@ -249,6 +271,11 @@ function updateShelf() {
   $('drive-entry').href = '#' + (nextDrive || driveStart).id;
   $('drive-entry').textContent =
     nextDrive && nextDrive !== driveStart ? 'Resume the drive table →' : 'Play the drive table →';
+  const firstSort = machines.find((m) => m.sorting),
+    nextSort = unfinished.find((m) => m.sorting);
+  $('sort-entry').href = '#' + (nextSort || firstSort).id;
+  $('sort-entry').textContent =
+    nextSort && nextSort !== firstSort ? 'Resume the sorting room →' : 'Play the sorting room →';
   $('chapter').value = activeChapter;
   $('chapter-hint').textContent = chapters[activeChapter][1];
   const links = machines.slice(activeChapter * 10, activeChapter * 10 + 10).map((m, i) => {
@@ -375,7 +402,8 @@ function controls() {
         machine.goals.length +
         (machine.goals.every((g) => g.kind === 'chime') ? ' notes' : ' contacts')
       : '';
-  if (run.cargo)
+  if (run.binTicks) $('signal').textContent = run.hits.length + ' / 2 sorted';
+  else if (run.cargo)
     $('signal').textContent =
       phase === 'won'
         ? 'Parcel delivered'
@@ -678,6 +706,9 @@ function finish() {
     seen.add(pass.reason);
     contacts.push({ tick: pass.tick, label: pass.reason });
   }
+  if (run.binTicks)
+    for (const [i, t] of run.binTicks.entries())
+      if (t != null) contacts.push({ tick: t, label: i ? 'Blue received' : 'Gold received' });
   const cues = contacts
     .sort((a, b) => a.tick - b.tick)
     .map(({ tick, label }) => {
@@ -738,6 +769,10 @@ function finish() {
         ? 'The hatch opened. Inspect the blue parcel’s path to the receiver.'
         : 'The parcel is waiting. Trace the gold marble to the trip switch.',
     );
+  if (!win && run.binTicks && run.hits.length) {
+    const missing = run.binTicks[0] == null ? 'gold marble' : 'blue parcel';
+    message('One load arrived. Follow the ' + missing + ' to its receiver.');
+  }
   if (!win && run.passes.length) {
     const pass = run.passes.at(-1);
     message(
@@ -1031,7 +1066,8 @@ function navigate(resolved, id, announce = false, sharedFit = null) {
       machine.clockwork ||
       machine.rigging ||
       machine.capacity === 2 ||
-      machine.transmission),
+      machine.transmission ||
+      machine.sorting),
   );
   $('lesson-text').textContent = machine.lesson || '';
   document.title = machine.title + ' · One Part Missing';
