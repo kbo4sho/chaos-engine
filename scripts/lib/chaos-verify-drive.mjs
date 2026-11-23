@@ -701,6 +701,11 @@ async function driveBank(page) {
 }
 
 const journeys = {
+  'fault-desk': async page => {
+    const {verifyFaultDesk} = await import('./verify-fault-desk.mjs');
+    await verifyFaultDesk(page,{url,record,shot,outDir});
+    result.passed = result.failures.length === 0;
+  },
   'grand-relays': async page => {
     const {verifyGrandRelays} = await import('./verify-grand-relays.mjs');
     await verifyGrandRelays(page,{url,record,shot,outDir});

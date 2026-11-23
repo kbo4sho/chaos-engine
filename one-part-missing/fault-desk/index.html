@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#080c10" />
+    <title>Fault desk · One Part Missing</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="../bench.css" />
+    <link rel="stylesheet" href="desk.css" />
+    <script src="../../vendor/matter-0.20.0.min.js"></script>
+    <script type="module" src="desk.js"></script>
+  </head>
+  <body>
+    <header class="mast">
+      <div class="mast-inner">
+        <a class="brand" href="../">← One Part Missing</a>
+        <h1>Fault desk</h1>
+      </div>
+    </header>
+    <main>
+      <header class="instrument-head">
+        <div>
+          <p class="eyeline" id="case-number"></p>
+          <h2 id="case-title" tabindex="-1"></h2>
+          <p id="case-brief"></p>
+        </div>
+      </header>
+      <div class="case-layout">
+        <section aria-label="Inspection film">
+          <div class="case-line">
+            <strong id="case-film-label">Failed run</strong
+            ><output id="case-clock">0.00 s</output>
+          </div>
+          <div class="case-stage">
+            <canvas
+              id="case-diagram"
+              width="720"
+              height="400"
+              role="img"
+              aria-label="Machine under inspection"
+            ></canvas>
+          </div>
+          <div class="case-controls">
+            <button id="case-play" class="quiet">Play film</button
+            ><button id="case-split" class="quiet">
+              First visible difference</button
+            ><label
+              >Speed
+              <select id="case-rate">
+                <option value="0.5">½×</option>
+                <option selected value="1">1×</option>
+                <option value="2">2×</option>
+                <option value="4">4×</option>
+              </select></label
+            >
+          </div>
+          <div class="film">
+            <label for="case-frame">Inspect</label
+            ><input
+              id="case-frame"
+              type="range"
+              min="0"
+              max="0"
+              value="0"
+            /><output id="case-end" for="case-frame"></output>
+          </div>
+          <label class="overlay"
+            ><input type="checkbox" id="case-overlay" checked /> Show working
+            reference <span class="reference-sample" aria-hidden="true"></span
+          ></label>
+          <p class="reading" id="case-measure"></p>
+        </section>
+        <aside aria-labelledby="case-stations">
+          <h3 id="case-stations">Inspect a station</h3>
+          <div
+            id="case-list"
+            role="group"
+            aria-label="Inspection stations"
+          ></div>
+          <div id="case-probe" hidden>
+            <p id="case-scope"></p>
+            <button type="button" class="primary" id="case-service">
+              Service and test
+            </button>
+          </div>
+          <p id="case-result" role="status" aria-live="polite"></p>
+          <div class="case-controls">
+            <button id="case-stop" hidden class="quiet">Cancel test</button
+            ><button id="case-next" hidden class="quiet">Next case →</button
+            ><button id="case-reset" hidden class="quiet">Reopen case</button>
+          </div>
+        </aside>
+      </div>
+      <section id="case-directory" class="library">
+        <div class="library-head">
+          <h2>Case files</h2>
+          <output id="case-progress"></output>
+        </div>
+        <label
+          >Open case
+          <select id="case-select"></select
+        ></label>
+      </section>
+      <button class="quiet" id="case-download" type="button">
+        Save playable case
+      </button>
+    </main>
+  </body>
+</html>
