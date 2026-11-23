@@ -51,6 +51,6 @@ export function installBench(api) {
     M.Composite.add(world, pivot ? [body, pivot] : body);
   }
   const launcher = document.getElementById('puzzle-launcher');
-  launcher.href = 'one-part-missing.html#' + machine.id;
+  launcher.href = 'one-part-missing/#' + machine.id;
   api.status(machine.title.toUpperCase() + ' · PAUSED · PRESS PLAY TO EXPERIMENT');
 }

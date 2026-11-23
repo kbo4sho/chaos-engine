@@ -217,7 +217,7 @@ function controls() {
     hash.set('socket', String(move.socket));
     if (move.flipped) hash.set('flip', '1');
   }
-  $('open-sandbox').href = 'index.html#' + hash;
+  $('open-sandbox').href = '../#' + hash;
 }
 function resetRun(keepGhost = false) {
   cancelAnimationFrame(raf);

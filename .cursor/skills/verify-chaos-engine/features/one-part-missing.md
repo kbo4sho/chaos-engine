@@ -13,7 +13,7 @@ Players fit one spare part to a broken machine, test the repair, inspect the run
 
 ## How to get to it (user POV)
 
-Choose PUZZLES in the sandbox or open `one-part-missing.html`. Press Run machine, pick a drawer part, select a lettered socket and press Test repair. The shelf, machine press and Open in sandbox link are available on the same page.
+Choose PUZZLES in the sandbox or open `one-part-missing/`. Older `one-part-missing.html` links forward to the same level. Press Run machine, pick a drawer part, select a lettered socket and press Test repair. The shelf, machine press and Open in sandbox link are available on the same page.
 
 ## Driving it with verify-chaos-engine
 

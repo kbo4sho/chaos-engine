@@ -5225,8 +5225,8 @@ describe('CSS Styles', () => {
 describe('Matter.js Integration', () => {
   it('loads the same pinned physics engine for both the sandbox and the puzzle bench', () => {
     const src = document.querySelector('script[src*="matter-"]').getAttribute('src');
-    const bench = fs.readFileSync(path.resolve('one-part-missing.html'), 'utf8');
-    expect(bench).toContain(`src="${src}"`);
+    const bench = fs.readFileSync(path.resolve('one-part-missing/index.html'), 'utf8');
+    expect(bench).toContain(`src="../${src}"`);
     expect(fs.readFileSync(path.resolve(src)).equals(
       fs.readFileSync(require.resolve('matter-js/build/matter.min.js'))
     )).toBe(true);

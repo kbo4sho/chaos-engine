@@ -19,7 +19,21 @@ const MIME_TYPES = {
 };
 
 const server = http.createServer((req, res) => {
-  let filePath = path.join(__dirname, req.url === '/' ? 'index.html' : req.url);
+  let requestUrl;
+  try {
+    requestUrl = new URL(req.url, 'http://localhost');
+  } catch {
+    res.writeHead(400);
+    res.end();
+    return;
+  }
+  const { pathname, search } = requestUrl;
+  if (pathname === '/one-part-missing') {
+    res.writeHead(308, { Location: '/one-part-missing/' + search });
+    res.end();
+    return;
+  }
+  const filePath = path.join(__dirname, pathname.endsWith('/') ? pathname + 'index.html' : pathname);
   const ext = path.extname(filePath);
   const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 

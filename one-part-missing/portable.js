@@ -39,16 +39,16 @@ function base64(bytes) {
 
 export async function portableFile(machine, replay = null) {
   const [shell, css, engine, license, fontLicense, font, ...sources] = await Promise.all([
-    readAsset('one-part-missing.html'),
-    readAsset('one-part-missing/bench.css'),
-    readAsset('vendor/matter-0.20.0.min.js'),
-    readAsset('vendor/MATTER-LICENSE'),
-    readAsset('vendor/VT323-OFL.txt'),
-    fetch(new URL('vendor/VT323-Regular.ttf', document.baseURI)).then((response) => {
+    readAsset('index.html'),
+    readAsset('bench.css'),
+    readAsset('../vendor/matter-0.20.0.min.js'),
+    readAsset('../vendor/MATTER-LICENSE'),
+    readAsset('../vendor/VT323-OFL.txt'),
+    fetch(new URL('../vendor/VT323-Regular.ttf', document.baseURI)).then((response) => {
       if (!response.ok) throw new Error('Font unavailable');
       return response.arrayBuffer();
     }),
-    ...modules.map((name) => readAsset('one-part-missing/' + name + '.js')),
+    ...modules.map((name) => readAsset(name + '.js')),
   ]);
   const doc = new DOMParser().parseFromString(shell, 'text/html');
   const style = doc.createElement('style');

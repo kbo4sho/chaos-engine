@@ -34,6 +34,19 @@ export async function verifyPuzzles(home, { url, record, shot, outDir }) {
     await page.setViewport(view);
     await page.bringToFront();
     await page.waitForSelector('.socket');
+    const publicPath = new URL('one-part-missing/', url + '/').pathname;
+    record(device + '-campaign-directory', new URL(page.url()).pathname === publicPath, page.url());
+    const legacy = new URL('one-part-missing.html', url + '/');
+    legacy.hash = 'station-100';
+    await page.goto(legacy.href);
+    await page.waitForFunction(
+      () => document.querySelector('#machine-title')?.textContent === 'The hundredth signal',
+    );
+    const redirected = new URL(page.url());
+    record(device + '-legacy-level-link', redirected.pathname === publicPath &&
+      redirected.hash === legacy.hash, redirected.href);
+    await page.goto(new URL('one-part-missing/', url + '/').href);
+    await page.waitForSelector('.socket');
     const press = async (selector) => {
       await page.$eval(selector, (e) => e.scrollIntoView({ block: 'nearest', inline: 'center' }));
       if (mobile) await page.tap(selector);
