@@ -20,8 +20,13 @@ export async function verifyShutterSheets(home, { url, record, shot, outDir }) {
   await p.bringToFront();
   await p.waitForSelector('#map-link');
   await p.click('#map-link');
-  await p.click('#discovery-entry');
-  await p.click('#double-entry');
+  await p.waitForSelector('#parts [data-part]');
+  await p.evaluate(() => document.fonts.ready);
+  await Promise.all([p.waitForNavigation({waitUntil:'domcontentloaded'}),p.click('#discovery-entry')]);
+  await p.waitForSelector('#double-entry',{visible:true});
+  await p.evaluate(() => document.fonts.ready);
+  await Promise.all([p.waitForNavigation({waitUntil:'domcontentloaded'}),p.click('#double-entry')]);
+  await p.waitForSelector('#double-title');
   const browser = p.browser(),
     guestCtx = await browser.createBrowserContext(),
     viewerCtx = await browser.createBrowserContext();
