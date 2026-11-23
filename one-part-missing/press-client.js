@@ -1,8 +1,8 @@
-import { resolveMachine, proveTarget } from './workshop.js';
+import { pressRequest } from './workshop.js';
 
 // Generation and the exhaustive repair trials can take longer on phones.
 export function usePress(M, request, signal) {
-  const local = () => (request.draft ? proveTarget(M, request.draft) : resolveMachine(M, request.id));
+  const local = () => pressRequest(M, request);
   if (document.body.dataset.portable) return Promise.resolve(local());
   if (signal.aborted) return Promise.reject(signal.reason);
   return new Promise((resolve, reject) => {

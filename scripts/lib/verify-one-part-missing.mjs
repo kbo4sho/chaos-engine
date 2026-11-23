@@ -43,8 +43,11 @@ export async function verifyPuzzles(home, { url, record, shot, outDir }) {
       () => document.querySelector('#machine-title')?.textContent === 'The hundredth signal',
     );
     const redirected = new URL(page.url());
-    record(device + '-legacy-level-link', redirected.pathname === publicPath &&
-      redirected.hash === legacy.hash, redirected.href);
+    record(
+      device + '-legacy-level-link',
+      redirected.pathname === publicPath && redirected.hash === legacy.hash,
+      redirected.href,
+    );
     await page.goto(new URL('one-part-missing/', url + '/').href);
     await page.waitForSelector('.socket');
     const press = async (selector) => {
@@ -228,11 +231,13 @@ export async function verifyPuzzles(home, { url, record, shot, outDir }) {
       }
       record(
         'desktop-six-repaired',
-        (await page.$eval('#progress', (el) => el.textContent)) === '6 of ' + campaign.length + ' repaired',
+        (await page.$eval('#progress', (el) => el.textContent)) ===
+          '6 of ' + campaign.length + ' repaired',
         await page.$eval('#progress', (el) => el.textContent),
       );
       await shot(page, 'desktop-04-six-repaired.png');
     }
+    await page.select('#press-style', 'classic');
     await press('#generate');
     await page.waitForSelector('#proof:not([hidden])');
     const printed = page.url(),

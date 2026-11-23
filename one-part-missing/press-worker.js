@@ -2,10 +2,8 @@
 importScripts('../vendor/matter-0.20.0.min.js');
 self.onmessage = async ({ data }) => {
   try {
-    const { resolveMachine, proveTarget } = await import('./workshop.js');
-    const value = data.draft
-      ? proveTarget(self.Matter, data.draft)
-      : resolveMachine(self.Matter, data.id);
+    const { pressRequest } = await import('./workshop.js');
+    const value = pressRequest(self.Matter, data);
     self.postMessage({ value });
   } catch {
     self.postMessage({ error: true });

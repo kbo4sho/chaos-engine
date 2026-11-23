@@ -154,6 +154,7 @@ export function assembly(machine, move) {
   const shapes = [...machine.fixtures];
   if (validMove(machine, move)) {
     const shape = { ...parts[move.part].shape, ...machine.sockets[move.socket], fitted: true };
+    if (shape.mirror && shape.a) shape.a = -shape.a;
     if (move.flipped) shape.a = -shape.a;
     shapes.push(shape);
   }

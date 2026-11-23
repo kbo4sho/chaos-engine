@@ -1,27 +1,12 @@
+import { openTicket, readTicket, printTools } from './tool-press.js';
 // Generate a complete delivery line, remove a working part, then test the
 // incomplete machine and candidate repairs in the very same engine as play.
-import { machines, canFlip, createRun, advance, trial } from './machines.js';
+import { machines, createRun, advance, trial } from './machines.js';
 
 import { campaignById } from './campaign.js';
 
-const offsets = [-2, 0, 2];
-export function certify(M, machine) {
-  if (!offsets.every((n) => trial(M, machine, null, n).state === 'miss')) return null;
-  const repairs = [];
-  for (const part of machine.tray) {
-    for (let socket = 0; socket < machine.sockets.length; socket++) {
-      for (const move of canFlip(machine, part)
-        ? [
-            { part, socket },
-            { part, socket, flipped: true },
-          ]
-        : [{ part, socket }]) {
-        if (offsets.every((n) => trial(M, machine, move, n).state === 'won')) repairs.push(move);
-      }
-    }
-  }
-  return repairs.length ? repairs : null;
-}
+import { certify, offsets } from './certify.js';
+export { certify } from './certify.js';
 
 function randomStream(seed) {
   let v = seed >>> 0;
@@ -127,6 +112,8 @@ export function generate(M, seed) {
 function resolveBase(M, id) {
   const authored = campaignById.get(id);
   if (authored) return authored;
+  const ticket = readTicket(id);
+  if (ticket) return openTicket(M, ticket);
   const match = /^press-1-(0|[1-9]\d{0,9})$/.exec(id);
   return match && Number(match[1]) <= 0xffffffff ? generate(M, Number(match[1])) : null;
 }
@@ -137,11 +124,10 @@ const ID_PATTERN = /^([a-z][a-z0-9-]*)(?:~(-?[0-8])\.(-?[0-8]))?$/;
 // A second edit always revises those same offsets, so links never accumulate edits.
 export function decodePrint(id) {
   const match = ID_PATTERN.exec(id);
-  if (
-    !match ||
-    (!campaignById.has(match[1]) && !/^press-1-(?:0|[1-9]\d{0,9})$/.test(match[1])) ||
-    (match[1].startsWith('press-') && Number(match[1].slice('press-1-'.length)) > 0xffffffff)
-  )
+  if (!match) return null;
+  const base = match[1],
+    classic = /^press-1-(0|[1-9]\d{0,9})$/.exec(base);
+  if (!campaignById.has(base) && !(classic && Number(classic[1]) <= 0xffffffff) && !readTicket(base))
     return null;
   const x = Number(match[2] || 0),
     y = Number(match[3] || 0);
@@ -192,4 +178,10 @@ export function resolveMachine(M, id) {
   const base = resolveBase(M, code.base);
   if (!base || (!code.x && !code.y)) return base;
   return proveTarget(M, tuneTarget(base, code.x, code.y)).machine || null;
+}
+
+export function pressRequest(M, request) {
+  if (request.press) return printTools(M, request.press);
+  if (request.draft) return proveTarget(M, request.draft);
+  return resolveMachine(M, request.id);
 }

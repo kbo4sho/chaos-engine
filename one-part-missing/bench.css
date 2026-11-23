@@ -902,3 +902,35 @@ summary {
   min-width: 49px;
   min-height: 30px;
 }
+
+.press-panel {
+  max-width: 100%;
+  min-width: 0;
+}
+.press-settings {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 8px;
+}
+.press-settings label {
+  display: grid;
+  gap: 3px;
+  font: 12px var(--mono);
+  color: var(--muted);
+}
+.press-settings select {
+  min-height: 40px;
+  max-width: 100%;
+  padding: 3px 6px;
+  font: 14px var(--mono);
+}
+#press-feedback:not(:empty) {
+  margin: 5px 0 8px;
+  color: var(--gold);
+  font: 13px var(--mono);
+}
+#print-practice {
+  margin: 4px 0;
+}

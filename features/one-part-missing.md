@@ -1,6 +1,6 @@
 # One Part Missing
 
-Players fit one spare part to a broken machine, test the repair, inspect the run and open the assembly in the sandbox. The machine press prints shareable seed-based puzzles.
+Players fit one spare part to a broken machine, test the repair, inspect the run and open the assembly in the sandbox. The machine press prints shareable puzzles. Its Original track press option preserves seed-based track machines.
 
 ## Sub-features
 

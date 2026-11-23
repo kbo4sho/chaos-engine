@@ -67,3 +67,5 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Clockwork and cargo](./clockwork-course.md) covers moving machinery, the two-marble signal and delivery, and saved mechanical assemblies.
 
 - [Guided lessons](./tool-lessons.md) covers the twenty-tool path, practice index, classic experiments, slow motion and single-frame stepping.
+
+- [Tool-aware machine press](./tool-press.md) covers themed prints, compatible tool pairs, precise shared layouts and standalone parcel replays.

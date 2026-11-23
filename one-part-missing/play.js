@@ -1,3 +1,4 @@
+import { styles as pressStyles, availableTools } from './tool-press.js';
 import { lessons, lessonById, lessonLink, setupLearning } from './learning.js';
 import { WIDTH, HEIGHT, STEP, canFlip, parts, validMove, createRun, advance } from './machines.js';
 import { instruments as deviceParts } from './devices.js';
@@ -273,8 +274,15 @@ function controls() {
     b.setAttribute('aria-pressed', String(selected === b.dataset.part));
     const reversed = selected === b.dataset.part && flipped;
     const part = parts[b.dataset.part];
-    const hint = b.dataset.part === 'chute' && reversed ? 'Roll to the right' : part.description;
-    b.classList.toggle('reversed', reversed);
+    const mirrored = machine.sockets.every((mount) => mount.mirror);
+    const reversedRail = Boolean(reversed) !== mirrored;
+    const hint =
+      b.dataset.part === 'chute'
+        ? reversedRail
+          ? 'Roll to the right'
+          : 'Roll to the left'
+        : part.description;
+    b.classList.toggle('reversed', ['chute', 'bridge'].includes(b.dataset.part) && reversedRail);
     b.querySelector('small').textContent = hint;
     b.setAttribute('aria-label', part.name + (reversed ? ', reversed' : '') + ' — ' + hint);
   }
@@ -739,6 +747,7 @@ function navigate(resolved, id, announce = false) {
       machine.verifiedRepairs +
       (machine.verifiedRepairs === 1 ? ' fitting worked' : ' fittings worked') +
       ' at all three. Every available fitting was tested.';
+  if (machine.pressPlate) $('proof-text').textContent += ' Press plate: ' + machine.pressPlate + '.';
   const index = machines.indexOf(machine),
     seq = index < 0 ? 'W' : number(index + 1);
   if (index >= 0) activeChapter = Math.floor(index / 10);
@@ -787,17 +796,89 @@ function navigate(resolved, id, announce = false) {
     $('machine-title').scrollIntoView({ block: 'nearest' });
   }
 }
-$('generate').addEventListener('click', () => {
-  const seed = crypto.getRandomValues(new Uint32Array(1))[0];
-  $('generate').disabled = true;
-  $('generate').textContent = 'Testing the machine…';
-  requestAnimationFrame(() =>
-    requestAnimationFrame(() => {
-      location.hash = 'press-1-' + seed;
-    }),
+for (const [id, label] of Object.entries({ ...pressStyles, classic: 'Original track press' }))
+  $('press-style').add(new Option(label, id));
+function updatePressSettings() {
+  const style = $('press-style').value,
+    old = $('press-focus').value;
+  const available = availableTools(style);
+  $('press-focus-label').hidden = style === 'classic';
+  $('press-focus').replaceChildren(
+    new Option('Any tool', 'any'),
+    ...available.map((k) => new Option(parts[k].name, k)),
   );
+  if (available.includes(old)) $('press-focus').value = old;
+  updatePartners();
+}
+function updatePartners() {
+  const style = $('press-style').value,
+    first = $('press-focus').value,
+    old = $('press-partner').value;
+  const partners = first !== 'any' && style !== 'direct' ? availableTools(style, first) : [];
+  $('press-partner-label').hidden = !partners.length;
+  $('press-partner').replaceChildren(
+    new Option('Any partner', 'any'),
+    ...partners.map((k) => new Option(parts[k].name, k)),
+  );
+  if (partners.includes(old)) $('press-partner').value = old;
+}
+updatePressSettings();
+$('press-focus').addEventListener('change', updatePartners);
+$('press-style').addEventListener('change', updatePressSettings);
+let pressController = null,
+  freshPrint = null;
+function pressBusy(busy) {
+  $('generate').disabled = busy;
+  $('print-practice').disabled = busy;
+  $('generate').textContent = busy ? 'Testing repairs…' : 'Generate a machine ↗';
+}
+async function printMachine(style, focus, partner = 'any') {
+  pressController?.abort();
+  const controller = new AbortController();
+  pressController = controller;
+  const seed = crypto.getRandomValues(new Uint32Array(1))[0];
+  if (style === 'classic') {
+    pressController = null;
+    location.hash = 'press-1-' + seed;
+    return;
+  }
+  pressBusy(true);
+  $('press-feedback').textContent = 'Checking the empty machine and every fitting…';
+  try {
+    const result = await usePress(M, { press: { style, focus, partner, seed } }, controller.signal);
+    if (controller.signal.aborted) return;
+    if (!result) {
+      $('press-feedback').textContent = 'This setup missed its trials. Generate another machine.';
+      return;
+    }
+    freshPrint = result;
+    $('press-feedback').textContent = '';
+    location.hash = result.id;
+  } catch {
+    if (!controller.signal.aborted)
+      $('press-feedback').textContent = 'The press could not finish this run. Try again.';
+  } finally {
+    if (pressController === controller) {
+      pressController = null;
+      pressBusy(false);
+    }
+  }
+}
+$('generate').addEventListener('click', () =>
+  printMachine($('press-style').value, $('press-focus').value, $('press-partner').value),
+);
+$('print-practice').addEventListener('click', () => {
+  $('press-style').value = 'any';
+  updatePressSettings();
+  $('press-focus').value = $('practice-tool').value;
+  updatePartners();
+  $('press-partner').value = 'any';
+  $('workshop-title').scrollIntoView({ block: 'start' });
+  printMachine('any', $('practice-tool').value);
 });
 async function route(announce) {
+  pressController?.abort();
+  $('press-feedback').textContent = '';
   routing?.abort();
   const controller = new AbortController();
   routing = controller;
@@ -807,12 +888,12 @@ async function route(announce) {
   const id = learningActive ? guidedId : requested;
   const bench = document.querySelector('.bench');
   try {
-    let resolved = campaignById.get(id);
+    let resolved = freshPrint?.id === id ? freshPrint : campaignById.get(id);
+    freshPrint = null;
     if (!resolved && decodePrint(id)) {
       bench.inert = true;
       bench.setAttribute('aria-busy', 'true');
-      $('generate').disabled = true;
-      $('generate').textContent = 'Testing the machine…';
+      pressBusy(true);
       resolved = await usePress(M, { id }, controller.signal);
     }
     if (!controller.signal.aborted) navigate(resolved, id, announce);
@@ -825,8 +906,7 @@ async function route(announce) {
     if (!controller.signal.aborted) {
       bench.inert = false;
       bench.removeAttribute('aria-busy');
-      $('generate').disabled = false;
-      $('generate').textContent = 'Generate a machine ↗';
+      pressBusy(false);
     }
   }
 }

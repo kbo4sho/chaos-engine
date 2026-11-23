@@ -133,6 +133,7 @@
             ><button type="button" id="practice-demo" class="quiet">Try in lab ↗</button>
           </div>
           <p id="practice-note"></p>
+          <button class="quiet" type="button" id="print-practice">Print a practice machine</button>
           <div id="practice-links"></div>
         </details>
       </section>
@@ -141,9 +142,26 @@
           <h2 id="workshop-title">Machine press</h2>
           <p>Print a new puzzle with a physics-tested repair.</p>
         </div>
-        <div class="press-actions">
-          <a id="last-print" hidden>Last print ↗</a
-          ><button id="generate">Generate a machine <span aria-hidden="true">↗</span></button>
+        <div class="press-panel">
+          <div class="press-settings">
+            <label
+              >Machine
+              <select id="press-style"></select
+            ></label>
+            <label id="press-focus-label"
+              >Featured tool
+              <select id="press-focus"></select
+            ></label>
+            <label id="press-partner-label" hidden
+              >Also use
+              <select id="press-partner"></select
+            ></label>
+          </div>
+          <p id="press-feedback" role="status" aria-live="polite"></p>
+          <div class="press-actions">
+            <a id="last-print" hidden>Last print ↗</a
+            ><button id="generate">Generate a machine <span aria-hidden="true">↗</span></button>
+          </div>
         </div>
       </section>
       <details class="maker" id="maker">
