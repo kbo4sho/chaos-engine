@@ -1213,7 +1213,7 @@ async function printMachine(style, focus, partner = 'any') {
   const seed = crypto.getRandomValues(new Uint32Array(1))[0];
   if (style === 'classic') {
     pressController = null;
-    location.hash = 'press-1-' + seed;
+    location.hash = 'press-3-' + seed;
     return;
   }
   pressBusy(true);

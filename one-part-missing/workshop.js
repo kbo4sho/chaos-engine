@@ -5,7 +5,7 @@ import { openTicket, readTicket, printTools } from './tool-press.js';
 // incomplete machine and candidate repairs in the very same engine as play.
 import { machines, createRun, advance, trial } from './machines.js';
 
-import { campaignById } from './campaign.js';
+import { campaign, campaignById } from './campaign.js';
 
 import { certify, offsets } from './certify.js';
 export { certify } from './certify.js';
@@ -111,13 +111,34 @@ export function generate(M, seed) {
   return { ...fallback, verifiedRepairs: verified.length };
 }
 
+// A shared classic print must describe one drawing on every JS engine. Choose
+// an authored plate and integer registration offsets before running the proof.
+export function drawClassic(M, seed) {
+  const random = randomStream(seed);
+  const pick = (count) => Math.floor(random() * count);
+  const plate = campaign[pick(29)];
+  const dx = pick(21) - 10, dy = pick(11) - 5;
+  const shift = (p) => ({ ...p, x: p.x + dx, y: p.y + dy });
+  const sockets = plate.sockets.map(shift);
+  const tray = [...plate.tray];
+  if (pick(2)) sockets.reverse();
+  if (pick(2)) tray.reverse();
+  const machine = { ...plate, id: 'press-3-' + seed, title: 'Workshop No. ' + seed,
+    field: 'Machine press', fixtures: plate.fixtures.map(shift), ball: shift(plate.ball),
+    goals: plate.goals.map(shift), sockets, tray };
+  const repairs = certify(M, machine);
+  if (!repairs) throw Error('The machine did not pass its trials');
+  return { ...machine, verifiedRepairs: repairs.length };
+}
+
 function resolveBase(M, id) {
   const authored = campaignById.get(id);
   if (authored) return authored;
   const ticket = readTicket(id);
   if (ticket) return openTicket(M, ticket);
-  const match = /^press-1-(0|[1-9]\d{0,9})$/.exec(id);
-  return match && Number(match[1]) <= 0xffffffff ? generate(M, Number(match[1])) : null;
+  const match = /^press-([13])-(0|[1-9]\d{0,9})$/.exec(id);
+  if (!match || Number(match[2]) > 0xffffffff) return null;
+  return (match[1] === '3' ? drawClassic : generate)(M, Number(match[2]));
 }
 
 const ID_PATTERN = /^([a-z][a-z0-9-]*)(?:~(-?[0-8])\.(-?[0-8]))?$/;
@@ -129,7 +150,7 @@ export function decodePrint(id) {
   const match = ID_PATTERN.exec(id);
   if (!match) return null;
   const base = match[1],
-    classic = /^press-1-(0|[1-9]\d{0,9})$/.exec(base);
+    classic = /^press-[13]-(0|[1-9]\d{0,9})$/.exec(base);
   if (!campaignById.has(base) && !(classic && Number(classic[1]) <= 0xffffffff) && !readTicket(base))
     return null;
   const x = Number(match[2] || 0),

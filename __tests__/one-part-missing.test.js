@@ -122,3 +122,11 @@ describe('One Part Missing', () => {
     expect(layouts.size).toBe(7);
   });
 });
+
+it('reopens a classic share as the same drawing after other prints are made', () => {
+  const id = 'press-3-4067402332';
+  const first = resolveMachine(Matter, id);
+  expect(first.verifiedRepairs).toBeGreaterThan(0);
+  resolveMachine(Matter, 'press-3-381');
+  expect(resolveMachine(Matter, id)).toEqual(first);
+});

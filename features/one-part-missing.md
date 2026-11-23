@@ -35,3 +35,5 @@ Preconditions: isolated launch and doctor pass, fresh browser profile, system Ch
 - A share link opens the unsolved machine. The local replay uses the recorded part and socket. Clearing local browser data removes saved replays.
 - Simulation outcomes depend on actual contacts. A failed repair is an expected, inspectable outcome.
 - The sandbox tab contains editable parts and its own controls. It writes a slot only when the player saves.
+
+New classic shared prints use an authored plate, integer registration offsets and a seeded drawer order. The same URL reconstructs the same drawing across browsers. Original workshop links retain their original generator.
