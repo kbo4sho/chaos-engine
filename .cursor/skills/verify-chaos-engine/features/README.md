@@ -91,3 +91,5 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Flight school](./flight-course.md) covers gear carried by moving loads, pickup and release, timed parcel flights and saved in-flight equipment.
 
 - [Inspect a missed repair](./repair-coach.md) covers measured approach, hold and timing evidence, working-path comparisons and progressive hints.
+
+- [Operate a machine](./operator-room.md) covers live signals, cue sheets, shift records, recorded motion and portable replay.

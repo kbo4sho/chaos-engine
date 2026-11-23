@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#080c10" />
+    <title>Control room · One Part Missing</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="../bench.css" />
+    <link rel="stylesheet" href="desk.css" />
+    <script src="../../vendor/matter-0.20.0.min.js"></script>
+    <script type="module" src="desk.js"></script>
+  </head>
+  <body>
+    <header class="mast">
+      <div class="mast-inner">
+        <a class="brand" href="../">← One Part Missing</a>
+        <h1>Control room</h1>
+        <a id="shifts-link" href="#shifts">Shift list ↓</a>
+      </div>
+    </header>
+    <main id="operator">
+      <header class="instrument-head">
+        <div>
+          <p class="eyeline" id="op-number">Shift 01</p>
+          <h2 id="op-title"></h2>
+          <p id="op-goal"></p>
+        </div>
+      </header>
+      <div class="op-layout">
+        <section class="op-bench" aria-label="Live operator bench">
+          <div class="op-display">
+            <span id="op-status">Ready</span><span id="op-delivery"></span
+            ><output id="op-time">0.00 s</output>
+          </div>
+          <canvas
+            id="op-diagram"
+            width="900"
+            height="500"
+            tabindex="0"
+            aria-label="Operator workbench. Space sends the next signal during live operation."
+          ></canvas>
+          <div class="op-transport">
+            <button class="primary" id="op-live">Run live</button
+            ><button class="quiet" id="op-pause" disabled>Pause</button
+            ><button class="quiet" id="op-step" disabled>Step 1 frame</button
+            ><label
+              >Speed<select id="op-rate">
+                <option value=".25">¼×</option>
+                <option value=".5" selected>½×</option>
+                <option value="1">1×</option>
+                <option value="2">2×</option>
+                <option value="4">4×</option>
+              </select></label
+            >
+          </div>
+          <div class="op-pulse">
+            <button id="op-send" class="quiet" disabled>Send signal</button><span id="op-window"></span>
+          </div>
+          <div class="op-track" aria-hidden="true">
+            <div id="op-windows"></div>
+            <div id="op-needles"></div>
+            <i id="op-head"></i>
+          </div>
+          <div class="film" id="op-film" hidden>
+            <label for="op-frame">Inspect</label
+            ><input type="range" min="0" max="1" step="1" value="0" id="op-frame" /><output
+              for="op-frame"
+              id="op-film-time"
+              >0.00 s</output
+            >
+          </div>
+          <div id="op-events" aria-label="Recorded signals"></div>
+          <p id="op-readout" hidden></p>
+          <p id="op-result" role="status"></p>
+        </section>
+        <aside class="op-desk" aria-labelledby="sheet-title">
+          <h2 id="sheet-title">Cue sheet</h2>
+          <p id="op-note">Send a signal during its window, or set a time below and test the sheet.</p>
+          <div id="op-slots"></div>
+          <div class="op-buttons">
+            <button class="quiet" id="op-test">Test cue sheet</button
+            ><button class="quiet" id="op-recording" hidden>Use last run</button>
+          </div>
+          <div class="op-record">
+            <span>Fastest delivery</span><output id="op-best">—</output
+            ><button class="quiet" id="op-load" hidden>Load best cues</button>
+          </div>
+          <div class="op-buttons">
+            <button class="quiet" id="op-share">Copy shift link</button
+            ><button class="quiet" id="op-download">Save playable shift</button
+            ><button class="quiet" id="op-next" hidden>Next shift →</button>
+          </div>
+          <label id="op-link-box" hidden>Shareable shift link<input id="op-link" readonly /></label>
+        </aside>
+      </div>
+      <section id="shifts" class="library" aria-labelledby="shifts-title">
+        <div class="library-head">
+          <h2 id="shifts-title">Shifts</h2>
+          <span id="op-progress"></span>
+        </div>
+        <label class="op-act">Act<select id="op-act"></select></label>
+        <div id="op-shelf"></div>
+      </section>
+    </main>
+  </body>
+</html>

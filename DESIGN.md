@@ -143,6 +143,8 @@ Flight service rings use distinct line drawings. Carried gear appears on the mov
 
 After a miss, the optional inspection dialog opens on one measured moment of the player’s own run. A dashed reference path and the exact fitting appear only when requested. Selecting a suggested spare returns focus to its real socket.
 
+The control room places the physical bench beside its cue sheet and stacks them on a phone. A cyan window marks each signal interval. Gold marks an input. Pause, frame step and scheduled cues give the player a precise alternative to live timing. Recorded inputs show measured velocity and spin.
+
 ## Do's and Don'ts
 
 - **Do:** Extend the existing tool-button, status, particle, audio, haptic, cleanup, and custom-rendering conventions end to end.

@@ -1,3 +1,4 @@
+import {readAsset,base64} from './asset-source.js';
 import { packFittings } from './machines.js';
 // Package only the published application assets. Start from the empty HTML
 // shell, so player records, clipboard values and in-progress runs stay local.
@@ -56,34 +57,11 @@ const modules = [
   'coach-desk',
   'focus',
   'mechanical-art',
+  'asset-source',
   'portable',
   'learning',
   'play',
 ];
-const sourceCache = new Map();
-async function readAsset(path) {
-  if (!sourceCache.has(path)) {
-    const result = fetch(new URL(path, document.baseURI))
-      .then((response) => {
-        if (!response.ok) throw new Error('Asset unavailable');
-        return response.text();
-      })
-      .catch((error) => {
-        sourceCache.delete(path);
-        throw error;
-      });
-    sourceCache.set(path, result);
-  }
-  return sourceCache.get(path);
-}
-
-function base64(bytes) {
-  let binary = '';
-  for (let i = 0; i < bytes.length; i += 8192)
-    binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
-  return btoa(binary);
-}
-
 export async function portableFile(machine, replay = null) {
   const [shell, css, engine, license, fontLicense, font, ...sources] = await Promise.all([
     readAsset('index.html'),
