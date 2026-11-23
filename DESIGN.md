@@ -135,6 +135,8 @@ The level map keeps the chapter selector and numbered continuation visible. Cour
 
 Sorting bins pair a gold circle and blue diamond with written labels. A HOLD bin shows its dwell progress. Each recorded bin displays its own arrival time, including when the film is paused between the two deliveries.
 
+A prediction shows the dashed reference before the player answers. The reveal overlays the active tool’s solid path, numeric readings and a labelled result. A directional arrow marks the timing line in changed-input experiments.
+
 ## Do's and Don'ts
 
 - **Do:** Extend the existing tool-button, status, particle, audio, haptic, cleanup, and custom-rendering conventions end to end.

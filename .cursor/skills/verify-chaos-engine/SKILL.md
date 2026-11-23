@@ -160,6 +160,7 @@ All helpers are executable. Invoke them from the repo root.
 | `./scripts/verify-chaos-engine drive tool-press` | [Tool-aware press](features/tool-press.md), selected tool pairs, accurate shared geometry and standalone cargo replays |
 | `./scripts/verify-chaos-engine drive tool-lessons` | [Guided lessons](features/tool-lessons.md), 63 mixed lessons, shared repairs, all-tool practice and frame stepping |
 | `./scripts/verify-chaos-engine drive attempt-film` | [Expanded bench and comparison film](features/attempt-film.md), zoom, aligned trials, one-frame stepping and independent parcel motion |
+| `./scripts/verify-chaos-engine drive prediction-lab` | [Predict a run](features/prediction-lab.md), physical comparisons, mastery persistence and offline forecasts |
 | `./scripts/verify-chaos-engine drive sorting-course` | [Sorting room](features/sorting-course.md), actual size clearance, two independent receipts, saved sorting tools and offline delivery |
 | `./scripts/verify-chaos-engine drive puzzle-library` | [Puzzle library](features/puzzle-library.md), guided first entry, route resumption, search, filters and course entry |
 | `./scripts/verify-chaos-engine drive work-orders` | [Work orders](features/work-orders.md), 24 one- and two-spare deliveries, separate records and shareable setups |

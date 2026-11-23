@@ -433,6 +433,7 @@ export function setupLab(M, { onOpen, onClose } = {}) {
     el('lab-play').textContent = 'Pause comparison';
     raf = requestAnimationFrame(animate);
   });
+  el('lab-predict').addEventListener('click', stop);
   el('lab-close').addEventListener('click', () => modal.close());
   modal.addEventListener('close', () => {
     stop();

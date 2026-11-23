@@ -26,6 +26,7 @@ import { portableFile } from './portable.js';
 import { usePress } from './press-client.js';
 import { makeEditor } from './maker.js';
 import { decodePrint } from './workshop.js';
+import { setupPredictions } from './prediction-desk.js';
 import { setupLab } from './tool-lab.js';
 import { draw, partIcon, snapshot, atFrame } from './drawing.js';
 
@@ -36,7 +37,7 @@ const films = setupFilms($),
   focusBench = setupFocus($);
 const setEditorMachine = makeEditor(M);
 let resumeAfterLab = false;
-const lab = setupLab(M, {
+const studyPlayback = {
   onOpen() {
     resumeAfterLab = playing() && !runPaused;
     if (resumeAfterLab) setPaused(true);
@@ -45,7 +46,9 @@ const lab = setupLab(M, {
     if (resumeAfterLab && playing() && runPaused) setPaused(false);
     resumeAfterLab = false;
   },
-});
+};
+const lab = setupLab(M, studyPlayback);
+const forecasts = setupPredictions(M, studyPlayback);
 const finder = setupFinder($);
 const desk = setupOrders($, (fit) => {
   if (playing()) return;
@@ -993,6 +996,7 @@ $('save-replay').addEventListener('click', (event) => {
   if (replay) downloadMachine(event.currentTarget, replay);
 });
 function navigate(resolved, id, announce = false, sharedFit = null) {
+  forecasts.close();
   lab.close();
   films.clear();
   focusBench.close();

@@ -199,6 +199,9 @@
               <select id="practice-tool"></select></label
             ><button type="button" id="practice-demo" class="quiet">Try in lab ↗</button>
           </div>
+          <button id="practice-predict" class="quiet" type="button" aria-haspopup="dialog">
+            Predict a run
+          </button>
           <p id="practice-note"></p>
           <button class="quiet" type="button" id="print-practice">Print a practice machine</button>
           <div id="practice-links"></div>
@@ -311,6 +314,7 @@
       <dialog id="tool-lab" aria-labelledby="lab-title">
         <div class="lab-head">
           <h2 id="lab-title">Tool lab</h2>
+          <button class="quiet" id="lab-predict" aria-haspopup="dialog">Predict a run</button>
           <button id="lab-close" class="quiet">Close</button>
         </div>
         <div class="lab-selects">
@@ -347,6 +351,52 @@
             >0.00 s</output
           >
         </div>
+      </dialog>
+      <dialog id="prediction-lab" aria-labelledby="predict-title">
+        <header class="lab-head">
+          <h2 id="predict-title">Predict a run</h2>
+          <button id="predict-close" class="quiet" type="button">Close</button>
+        </header>
+        <div class="lab-selects">
+          <label>Tool<select id="predict-tool"></select></label>
+          <label
+            >Experiment<select id="predict-mode">
+              <option value="effect">Tool effect</option>
+              <option value="input">Change input</option>
+            </select></label
+          >
+        </div>
+        <p id="predict-question" tabindex="-1"></p>
+        <canvas
+          id="predict-diagram"
+          width="720"
+          height="400"
+          role="img"
+          aria-label="Prediction experiment"
+        ></canvas>
+        <div class="lab-legend">
+          <span id="predict-primary"></span><span id="predict-reference"></span>
+        </div>
+        <div class="predict-transport">
+          <button id="predict-play" type="button" class="quiet">Watch reference</button
+          ><output id="predict-live"></output>
+        </div>
+        <div class="film">
+          <label for="predict-frame">Inspect</label
+          ><input type="range" id="predict-frame" min="0" max="1" step="1" value="0" /><output
+            id="predict-time"
+            for="predict-frame"
+            >0.00 s</output
+          >
+        </div>
+        <p id="predict-instruction"></p>
+        <div id="predict-choices" role="group" aria-labelledby="predict-question"></div>
+        <p id="predict-result" tabindex="-1" role="status" aria-live="polite"></p>
+        <div id="predict-actions" hidden>
+          <button class="quiet" type="button" id="predict-again">Try again</button
+          ><button class="quiet" type="button" id="predict-next">Next prediction →</button>
+        </div>
+        <small id="predict-progress"></small>
       </dialog>
       <noscript>Enable JavaScript to play the physics machines.</noscript>
     </main>

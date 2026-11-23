@@ -7,6 +7,7 @@ Learn the tools is a 63-level path through all thirty-nine puzzle parts. It star
 - `guided-route` mixes classic, powered and clockwork machines into eleven lesson groups. Next lesson advances on this route.
 - `shared-progress` uses each level’s existing repair. A repair earned in either route also counts in the other.
 - `practice-index` offers Meet, Practice and Combine levels for every part. Checkmarks identify repaired practice levels.
+- Predict a run opens a [two-experiment practice](./prediction-lab.md) for the selected tool.
 - `classic-lab` compares a fitted part with an empty mounting point. The domino experiment traces the final tile.
 - `playback-controls` offers half, normal, double and quadruple speed. Pause freezes a live run. Step 1 frame advances one physics step.
 

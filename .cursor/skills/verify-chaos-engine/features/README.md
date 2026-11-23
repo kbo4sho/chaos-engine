@@ -83,3 +83,5 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Puzzle library](./puzzle-library.md) covers first-time lessons, route-aware return visits, machine search, working parts and compact course navigation.
 
 - [Sorting room](./sorting-course.md) covers six material-handling parts, size clearance, hold times, two independent receipts and native sandbox transfer.
+
+- [Predict a run](./prediction-lab.md) covers 78 physical predictions, direction-aware timing gates, retries, saved mastery and offline experiments.
