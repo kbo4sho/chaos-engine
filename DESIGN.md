@@ -155,6 +155,8 @@ The test bay pairs each adjustment with its physical unit. Matching letters mark
 
 On small phones the spare tray and run controls precede secondary film tools. A gold rewind ring marks an observed miss. Friend race films distinguish the solid reply from the dashed challenger and label each arrival. Discovery exposures mark the gold marble with a ring and the blue parcel with a diamond. Time, position and result also appear as text.
 
+The match receipt keeps the earned result and next-round control beneath the machine. Economy, speed and a called arrival time share the same clock. Replay legends name both competitors. Double exposures pair numbered shutter marks with a timestamp and a named load, with a text reading for each mark.
+
 ## Do's and Don'ts
 
 - **Do:** Extend the existing tool-button, status, particle, audio, haptic, cleanup, and custom-rendering conventions end to end.

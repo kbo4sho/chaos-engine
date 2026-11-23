@@ -1,35 +1,10 @@
+import { challengeFile } from './challenge-file.js';
 import { portableFile } from './portable.js';
-import { fitCode, decodeFitting, orderById } from './work-orders.js';
+import { orderById } from './work-orders.js';
+import { stamp, readStamp } from './fit-stamp.js';
 import { recordSimulation } from './attempt-film.js';
 import { raceBook, racePrefix } from './race-book.js';
 
-// Published v1 part numbers stay stable if the drawer is reordered. The
-// low two bits name the socket. An address carries no player data or score.
-const raceParts = (
-  'conveyor trampoline fan magnet syrup deflector portal repulsor cam elevator piston pinwheel tripwire switch hatch ' +
-  'sieve funnel basket ice oneway zipline float parachute thruster keel hopper bank unload pulse swirl lift gyro phase positive negative ground ' +
-  'motor gearbox clutch torsion ratchet rack tether spring strut winch pulley breaklink damper bridge chute bumper weight domino'
-).split(' ');
-function stamp(machine, move) {
-  if (!fitCode(machine, move) || [move, move.second].some((f) => f && !raceParts.includes(f.part)))
-    return null;
-  return [move, move.second]
-    .filter(Boolean)
-    .map((fit) => (1 + raceParts.indexOf(fit.part) * 4 + fit.socket).toString(36))
-    .join('.');
-}
-function readStamp(machine, value) {
-  if (!/^[1-9a-z][0-9a-z]?(\.[1-9a-z][0-9a-z]?)?$/.test(value)) return null;
-  const code = value
-    .split('.')
-    .map((token) => {
-      const index = parseInt(token, 36) - 1;
-      return String.fromCharCode(97 + (index % 4)) + '-' + raceParts[Math.floor(index / 4)];
-    })
-    .join('.');
-  const move = decodeFitting(machine, code);
-  return move && stamp(machine, move) === value ? move : null;
-}
 export function raceRoute(machine, host, reply = null) {
   if (!orderById.has(machine.id)) return null;
   const first = stamp(machine, host),
@@ -71,43 +46,13 @@ export function setupRace(el, films) {
   let machine, host, reply, earned;
   const portable = document.body.dataset.portable,
     offlineRace = portable?.startsWith('race/1/');
-  let fileUrl = null,
-    fileVersion = 0;
-  function clearFile() {
-    fileVersion++;
-    if (fileUrl) URL.revokeObjectURL(fileUrl);
-    fileUrl = null;
-    el('race-file').hidden = true;
-    el('race-file').removeAttribute('href');
-    el('race-file-status').textContent = '';
-    el('race-pack').disabled = false;
-  }
-  el('race-pack').addEventListener('click', async () => {
-    const first = host?.move || earned?.move;
-    if (!first) return;
-    clearFile();
-    const version = fileVersion,
-      route = raceRoute(machine, first, reply?.move);
-    el('race-pack').disabled = true;
-    el('race-file-status').textContent = 'Packing the playable machine…';
-    try {
-      const blob = await portableFile(machine, null, route);
-      if (version !== fileVersion) return;
-      const a = el('race-file');
-      fileUrl = URL.createObjectURL(blob);
-      a.href = fileUrl;
-      a.download = (reply ? 'race-reply-' : 'race-invite-') + machine.id + '.html';
-      a.textContent = reply ? 'Save reply file' : 'Save challenge file';
-      a.hidden = false;
-      el('race-file-status').textContent = reply
-        ? 'Both runs are in the file.'
-        : 'Ready to play without a connection.';
-      a.focus({ preventScroll: true });
-    } catch {
-      if (version !== fileVersion) return;
-      el('race-pack').disabled = false;
-      el('race-file-status').textContent = 'The file could not be prepared. Try again.';
-    }
+  const file=challengeFile(el('race-pack'),el('race-file'),el('race-file-status'),async()=>{
+    const first=host?.move || earned?.move;
+    if(!first)return null;
+    const returned=Boolean(reply),name=(returned?'race-reply-':'race-invite-')+machine.id+'.html';
+    const blob=await portableFile(machine,null,raceRoute(machine,first,reply?.move));
+    return {blob,name,action:returned?'Save reply file':'Save challenge file',
+      message:returned?'Both runs are in the file.':'Ready to play without a connection.'};
   });
   const book = raceBook(() => localStorage);
   function renderBook() {
@@ -211,14 +156,14 @@ export function setupRace(el, films) {
     },
     useRecord(row) {
       if (!host && row) {
-        clearFile();
+        file.clear();
         earned = row;
         resetFeedback();
         render();
       }
     },
     navigate(next, race, record) {
-      clearFile();
+      file.clear();
       el('race-files').open = false;
       machine = next;
       host = race?.host;
@@ -230,7 +175,7 @@ export function setupRace(el, films) {
     },
     delivered(move, tick, film) {
       if (!machine?.contract || (portable && !offlineRace)) return;
-      clearFile();
+      file.clear();
       // The live bench keeps animating after receipt. A race ends at delivery.
       earned = { move, tick, film: { ...film, frames: film.frames.slice(0, tick + 1) } };
       if (host) {

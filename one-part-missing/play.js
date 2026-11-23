@@ -1,3 +1,5 @@
+import { readMatch, matchFileRoute } from './match-cards.js';
+import { setupMatches } from './match-desk.js';
 import {setupSpareStudy} from './spare-study-desk.js';
 import { setupDispatchLog } from './dispatch-log.js';
 import {mountLayout} from './mount-layout.js';
@@ -31,7 +33,7 @@ import {
 import { instruments as deviceParts } from './devices.js';
 import { campaign as machines, chapters, campaignById } from './campaign.js';
 import { repairBook, repairPrefix } from './repairs.js';
-import { portableFile, keepRaceShell } from './portable.js';
+import { portableFile, keepChallengeShell } from './portable.js';
 import { usePress } from './press-client.js';
 import { makeEditor } from './maker.js';
 import { decodePrint } from './workshop.js';
@@ -39,7 +41,7 @@ import { setupPredictions } from './prediction-desk.js';
 import { setupLab } from './tool-lab.js';
 import { draw, partIcon, snapshot, atFrame } from './drawing.js';
 
-keepRaceShell();
+keepChallengeShell();
 
 // Keep the run and parts together. The same film and lesson controls move below
 // the repair on a phone so their state, listeners and accessible labels survive.
@@ -66,6 +68,7 @@ const c = $('diagram').getContext('2d');
 const films = setupFilms($),
   focusBench = setupFocus($);
 const raceDesk = setupRace($, films);
+const matches = setupMatches($, M, films);
 const edits = editHistory();
 let waitingSocket = null;
 function inspectTick(tick) {
@@ -438,10 +441,10 @@ $('continue').addEventListener('click', focusCurrent);
 function controls() {
   $('sockets').hidden = inspection !== null;
   const busy = playing(),
-    won = !raceDesk.blind && (savedMove() || enclosedReplay);
+    won = !matches.active && !raceDesk.blind && (savedMove() || enclosedReplay);
   films.duringRun(busy);
   desk.controls(machine, move, busy);
-  $('order-card').hidden = !machine.contract || raceDesk.blind;
+  $('order-card').hidden = !machine.contract || matches.active || raceDesk.blind;
   $('undo-fitting').hidden = !edits.available;
   $('undo-fitting').disabled = busy;
   const placed = fittings(machine, move),
@@ -790,7 +793,10 @@ function finish() {
   ghost = trail.slice();
   addFrame();
   const attempt = films.add(machine, run, move, tape);
-  if (win && !replaying) raceDesk.delivered(move, run.hits.at(-1), attempt);
+  if (win && !replaying) {
+    if (matches.active) matches.deliver(move);
+    else raceDesk.delivered(move, run.hits.at(-1), attempt);
+  }
   if (!win) coach.capture(machine, move, attempt, run.passes);
   $('scrubber').max = tape.length - 1;
   $('scrubber').value = tape.length - 1;
@@ -944,7 +950,7 @@ function tickMachine() {
     controls();
   }
   if (run.state === 'won') {
-    if (!replaying && validMove(machine, move)) {
+    if (!replaying && !matches.viewing && validMove(machine, move)) {
       book.save(machine.id, move, run.tick);
       if (machine.contract) desk.save(machine, move, run.tick);
     }
@@ -961,12 +967,13 @@ function frame(now) {
     elapsed -= STEP;
     tickMachine();
   }
-  $('counter').textContent = (run.tick / 60).toFixed(2) + ' s';
+  const clockTick = machine.contract && run.state==='won' ? run.hits.at(-1) : run.tick;
+  $('counter').textContent = (clockTick / 60).toFixed(2) + ' s';
   drawBench();
   if (playing()) raf = requestAnimationFrame(frame);
 }
 function launch(replay = false) {
-  if (playing()) return;
+  if (playing() || matches.viewing) return;
   if (replay) {
     const last = enclosedReplay || savedMove();
     if (!last) return;
@@ -1006,7 +1013,8 @@ $('run').addEventListener('click', () => {
 $('frame-step').addEventListener('click', () => {
   if (!runPaused || !playing()) return;
   tickMachine();
-  $('counter').textContent = (run.tick / 60).toFixed(2) + ' s';
+  const clockTick = machine.contract && run.state==='won' ? run.hits.at(-1) : run.tick;
+  $('counter').textContent = (clockTick / 60).toFixed(2) + ' s';
   drawBench();
 });
 $('playback-rate').addEventListener('change', () => {
@@ -1128,7 +1136,7 @@ $('save-replay').addEventListener('click', (event) => {
   const replay = desk.isRecord(machine, move) ? move : savedMove();
   if (replay) downloadMachine(event.currentTarget, replay);
 });
-function navigate(resolved, id, announce = false, sharedFit = null, race = null) {
+function navigate(resolved, id, announce = false, sharedFit = null, race = null, match = null) {
   spareStudy.close();
   forecasts.close();
   lab.close();
@@ -1145,12 +1153,13 @@ function navigate(resolved, id, announce = false, sharedFit = null, race = null)
   setEditorMachine(machine);
   setDesignMachine(machine);
   desk.navigate(machine);
-  raceDesk.navigate(machine, race, desk.fastest);
-  if (resolved && !document.body.dataset.portable) rememberRoute(machine, learningActive);
+  matches.navigate(match);
+  raceDesk.navigate(match ? null : machine, race, desk.fastest);
+  if (resolved && !match && !document.body.dataset.portable) rememberRoute(machine, learningActive);
   edits.clear();
   waitingSocket = null;
-  move = sharedFit;
-  selected = sharedFit?.part || null;
+  move = match?.returned?.[match.round]?.move || sharedFit;
+  selected = move?.part || null;
   flipped = false;
   endDrag();
   $('copy-fallback').hidden = true;
@@ -1189,6 +1198,7 @@ function navigate(resolved, id, announce = false, sharedFit = null, race = null)
   if (machine.designed) $('machine-no').textContent = 'Design bench · verified';
   if (machine.contract)
     $('machine-no').textContent = 'Work order ' + number(machine.orderIndex + 1) + ' / ' + orders.length;
+  if (match) $('machine-no').textContent = match.card.title + ' · round ' + (match.round+1) + ' / 3';
   if (learningActive) {
     const n = lessonById.get(machine.id);
     $('machine-no').textContent =
@@ -1196,7 +1206,7 @@ function navigate(resolved, id, announce = false, sharedFit = null, race = null)
   }
   $('machine-title').tabIndex = -1;
   $('machine-title').textContent = machine.title;
-  $('goal').textContent = machine.goal;
+  $('goal').textContent = match ? matches.objective : machine.goal;
   $('fit-instruction').textContent = machine.contract
     ? 'Fit one spare for economy or try two for speed.'
     : machine.capacity === 3
@@ -1233,6 +1243,7 @@ function navigate(resolved, id, announce = false, sharedFit = null, race = null)
   message(
     !resolved && id
       ? 'Unknown puzzle. The first machine is ready.'
+      : match ? (match.returned ? 'Open the scorecard to watch this recorded round.' : 'Make a delivery to post your score for this round.')
       : raceDesk.blind
         ? 'A fresh bench. Make your own delivery to compare with the challenger.'
       : sharedFit
@@ -1336,7 +1347,9 @@ async function route(announce) {
   routing?.abort();
   const controller = new AbortController();
   routing = controller;
-  const explicit = document.body.dataset.portable || location.hash.slice(1);
+  const packed = document.body.dataset.portable;
+  const hash = location.hash.slice(1);
+  const explicit = packed?.startsWith('match/1/') ? matchFileRoute(packed,hash) : packed || hash;
   const requested = explicit || chooseStart(book.read());
   if (!explicit) history.replaceState(null, '', '#' + requested);
   const guidedId = requested.startsWith('learn/') ? requested.slice(6) : null;
@@ -1344,9 +1357,10 @@ async function route(announce) {
   const id = learningActive ? guidedId : requested;
   const bench = document.querySelector('.bench');
   try {
+    const match = id.startsWith('match/') ? readMatch(M,id) : null;
     const race = id.startsWith('race/') ? readRace(M, id) : null;
     const order = readOrderLink(id);
-    let resolved = race?.machine || order?.machine || (freshPrint?.id === id ? freshPrint : campaignById.get(id));
+    let resolved = match?.card.rounds[match.round] || race?.machine || order?.machine || (freshPrint?.id === id ? freshPrint : campaignById.get(id));
     freshPrint = null;
     if (!resolved && decodePrint(id)) {
       bench.inert = true;
@@ -1355,7 +1369,8 @@ async function route(announce) {
       resolved = await usePress(M, { id }, controller.signal);
     }
     if (!controller.signal.aborted) {
-      navigate(resolved, id, announce, order?.move, race);
+      navigate(resolved, id, announce, order?.move, race, match);
+      if (id.startsWith('match/') && !match) message('This card could not be replayed. Open a fresh card from the level map.');
       if (race?.reply) raceDesk.watchReturn();
       if (id.startsWith('race/') && !race) message('This challenge link could not be replayed. Ask for a new link.');
     }

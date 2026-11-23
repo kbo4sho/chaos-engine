@@ -53,6 +53,10 @@ const modules = [
   'order-plans',
   'work-orders',
   'order-desk',
+  'challenge-file',
+  'match-desk',
+  'match-cards',
+  'fit-stamp',
   'friend-race',
   'race-book',
   'bench-edits',
@@ -83,16 +87,16 @@ const modules = [
   'play',
 ];
 // This snapshot is taken before the offline bench renders any local records.
-let raceShell;
-export function keepRaceShell() {
-  if (document.body.dataset.portable?.startsWith('race/1/'))
-    raceShell = document.documentElement.cloneNode(true);
+let challengeShell;
+export function keepChallengeShell() {
+  if (/^(race|match)\/1\//.test(document.body.dataset.portable || ''))
+    challengeShell = document.documentElement.cloneNode(true);
 }
-export async function portableFile(machine, replay = null, race = null) {
-  if (race && raceShell) {
-    const shell = raceShell.cloneNode(true);
-    shell.querySelector('body').dataset.portable = race;
-    shell.querySelector('title').textContent = machine.title + ' · Friend challenge';
+export async function portableFile(machine, replay = null, challenge = null) {
+  if (challenge && challengeShell) {
+    const shell = challengeShell.cloneNode(true);
+    shell.querySelector('body').dataset.portable = challenge;
+    shell.querySelector('title').textContent = machine.title + ' · One Part Missing';
     return new Blob(['<!doctype html>\n', shell.outerHTML], { type: 'text/html;charset=utf-8' });
   }
   const [shell, css, engine, license, fontLicense, font, ...sources] = await Promise.all([
@@ -136,7 +140,7 @@ export async function portableFile(machine, replay = null, race = null) {
   entry.before(importMap);
   entry.removeAttribute('src');
   entry.textContent = "import 'missing/play';";
-  doc.body.dataset.portable = race || machine.id;
+  doc.body.dataset.portable = challenge || machine.id;
   if (replay) doc.body.dataset.repair = JSON.stringify(packFittings(packedParts(replay)));
   doc.title = machine.title + ' · One Part Missing';
   // The portable file is a single challenge that can be forwarded intact.

@@ -22,8 +22,9 @@
       <div class="bench">
         <div class="instrument-head">
           <div>
-            <p class="eyeline" id="machine-no">Level 001 / 400 · First shift</p>
+            <p class="eyeline" id="machine-no">Level 001 / 500 · First shift</p>
             <h2 id="machine-title">The last bell</h2>
+            <p id="match-target" hidden></p>
             <p id="race-target" class="eyeline" hidden></p>
             <p id="goal">Ring the brass bell.</p>
           </div>
@@ -76,6 +77,7 @@
             <button id="reset" class="quiet" disabled>Reset</button>
             <span id="signal" aria-hidden="true"></span><output id="receiver-clock" hidden></output>
           </div>
+          <div id="match-receipt" hidden><span id="match-personal"></span><a id="match-next" hidden></a></div>
           <div id="delivery-board" aria-label="Receiving bins" hidden>
             <output id="gold-bin"></output><output id="blue-bin"></output>
           </div>
@@ -132,6 +134,23 @@
             ><button id="save-replay" class="quiet">Save replay file</button
             >
           </div>
+          <section id="match-panel" aria-label="Three-round match" hidden>
+            <details id="match-sheet"><summary>Three-round scorecard</summary>
+              <p id="match-result" role="status"></p><nav id="match-rounds" aria-label="Card rounds"></nav>
+              <button id="match-watch" type="button" class="quiet" aria-haspopup="dialog" hidden>Watch this round</button>
+              <a class="action-link" id="match-try" hidden>Play this card yourself →</a>
+              <div id="match-share" hidden><button id="match-send" type="button" class="quiet">Challenge with my card</button>
+                <button id="match-return" type="button" class="quiet">Copy return card</button></div>
+              <details id="match-files"><summary>Play and share offline</summary>
+                <label>File to prepare<select id="match-file-kind"></select></label>
+                <button id="match-pack" class="quiet" type="button">Prepare card file</button>
+                <a id="match-file" class="action-link" hidden>Save card file</a>
+                <output id="match-file-status" aria-live="polite"></output>
+              </details>
+              <output id="match-feedback" aria-live="polite"></output>
+              <input id="match-url" aria-label="Three-round card link" readonly hidden>
+            </details>
+          </section>
           <section id="race-panel" aria-labelledby="race-title" hidden>
             <h3 id="race-title">Challenge a friend</h3>
             <p id="race-score"></p>
@@ -230,6 +249,12 @@
             <select id="lesson-chapter"></select
           ></label>
           <div id="lesson-list"></div>
+        </details>
+        <details class="study" id="match-map"><summary>Three-round match cards</summary>
+          <p>Play the house at three deliveries, then challenge a friend with your finished card.</p>
+          <a id="match-today" class="action-link"></a>
+          <label>Choose a card<select id="match-select"></select></label><p id="match-program"></p>
+          <a id="match-enter" class="action-link">Start this card →</a>
         </details>
         <details class="study" id="order-map">
           <summary>Work orders <span id="order-progress"></span></summary>

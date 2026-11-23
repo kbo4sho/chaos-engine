@@ -174,14 +174,15 @@ export function setupFilms(el) {
     const {latest,previous,race}=viewing, first=study.first?.tick,
       a=latest.frames.length-1,b=previous.frames.length-1;
     const hardware=el('compare-hardware').value==='previous'?previous:latest;
-    const names=race?['Reply','Challenger']:['Latest','Previous'];
+    const names=viewing.names;
     const caption=t=>{
-      if(race && t>=Math.max(a,b))return a===b?'Both deliveries arrived together.':(a<b?'Reply':'Challenger')+' arrived '+clock(Math.abs(b-a))+' earlier.';
-      if(race && t>=Math.min(a,b))return (a<b?'Reply':'Challenger')+' arrived. The other load is still in transit.';
+      if(viewing.card && t>=Math.max(a,b))return viewing.card.verdict;
+      if(race && t>=Math.max(a,b))return a===b?'Both deliveries arrived together.':names[a<b?0:1]+' arrived '+clock(Math.abs(b-a))+' earlier.';
+      if(race && t>=Math.min(a,b))return names[a<b?0:1]+' arrived. The other load is still in transit.';
       if(first!=null && t>=first)return 'Paths separate at '+clock(first)+'.';
       return race?'Both runs share one release clock.':'Two setups on the same machine.';
     };
-    return {title:el('machine-title').textContent,label:race?'FRIEND CHALLENGE':'COMPARE SETUPS',
+    return {title:el('machine-title').textContent,label:viewing.card?'MATCH CARD':race?'FRIEND CHALLENGE':'COMPARE SETUPS',
       filename:race?'challenge-'+latest.machine:'comparison-'+latest.machine.split('~')[0],
       end:study.end,highlights:[first,a,b],scene:(ctx,t)=>scene(ctx,t,hardware),caption,
       legend:race?[names[0]+' '+clock(a),names[1]+' '+clock(b)]:names};
@@ -201,7 +202,7 @@ export function setupFilms(el) {
     el('compare-distance').textContent = gaps.join(' · ');
     if (viewing.race) {
       el('compare-receipts').textContent = [latest, previous].map((film,i) =>
-        (i ? 'Challenger' : 'Reply') + (t >= film.frames.length - 1 ? ' arrived' : ' in transit'),
+        viewing.names[i] + (t >= film.frames.length - 1 ? ' arrived' : ' in transit'),
       ).join(' · ');
     }
     el('compare-back').disabled = t === 0;
@@ -219,12 +220,13 @@ export function setupFilms(el) {
     if (t < study.end) raf = requestAnimationFrame(animate);
     else stop();
   }
-  function comparePair(latest, previous, race = false) {
+  function comparePair(latest, previous, race = false, card = null) {
     if (!latest || !previous) return;
     clips.clear();
-    const latestName = race ? 'Reply' : 'Latest', previousName = race ? 'Challenger' : 'Previous';
-    viewing = { latest, previous, race };
-    el('compare-title').textContent = race ? 'Challenge replay' : 'Compare setups';
+    const names = card?.names || (race ? ['Reply','Challenger'] : ['Latest','Previous']);
+    const [latestName,previousName] = names;
+    viewing = { latest, previous, race, names, card };
+    el('compare-title').textContent = card ? card.title : race ? 'Challenge replay' : 'Compare setups';
     el('compare-finishes').hidden = !race;
     const options = el('compare-hardware').options;
     options[0].textContent = latestName + ' setup';
@@ -241,6 +243,7 @@ export function setupFilms(el) {
         clock(first.tick) +
         '.'
       : 'The paths stay within one radius for the shared recording.';
+    if(card)el('compare-findings').textContent += ' ' + card.verdict + '.';
     el('compare-contact').hidden = !study.contact;
     if (study.contact) {
       const u = study.contact;
@@ -249,8 +252,8 @@ export function setupFilms(el) {
     }
     el('compare-overlap').textContent = (race ? 'Both deliveries · ' : 'Shared recording · ') + clock(end);
     if (race) {
-      el('compare-reply-arrival').textContent = 'Reply arrival · ' + clock(latest.frames.length - 1);
-      el('compare-host-arrival').textContent = 'Challenger arrival · ' + clock(previous.frames.length - 1);
+      el('compare-reply-arrival').textContent = latestName + ' arrival · ' + clock(latest.frames.length - 1);
+      el('compare-host-arrival').textContent = previousName + ' arrival · ' + clock(previous.frames.length - 1);
     }
     el('compare-latest').textContent =
       latestName + ' · ' + latest.label + ' · ' + latest.outcome;

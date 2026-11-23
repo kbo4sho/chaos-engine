@@ -1656,3 +1656,27 @@ body[data-portable] #share-assembly{display:none!important;}
 #race-files summary {cursor:pointer;color:var(--muted);font-size:14px;padding:5px 0}
 #race-file {display:inline-flex;align-items:center;min-height:44px;color:var(--green);margin-inline-start:4px}
 #race-file-status {display:block;font:12px var(--mono);color:var(--muted)}
+
+#match-target {color:var(--cyan);font:14px var(--mono);margin:4px 0}
+#match-panel {border-top:1px solid var(--line);padding-top:8px}
+#match-panel p,#match-program {margin:5px 0;font-size:14px}
+#match-sheet summary {cursor:pointer;min-height:36px;align-content:center}
+#match-rounds {display:grid;gap:3px;margin:5px 0}
+#match-rounds a {display:block;min-height:44px;padding:5px 8px;border-inline-start:2px solid var(--line)}
+#match-rounds a[aria-current=step] {border-color:var(--cyan)}
+#match-rounds small {display:block;font:12px var(--mono);color:var(--muted)}
+#match-url {width:100%}
+#match-feedback {display:block;font:12px var(--mono);color:var(--muted)}
+#match-share {margin-top:6px}
+.returned-card :is(.cabinet .transport,#sockets,.drawer-top,#parts,#fitted-pair,#lesson,#open-lab,#focus-open,#playback-rate) {display:none}
+
+#match-receipt {display:flex;align-items:center;justify-content:space-between;gap:7px;flex-wrap:wrap;padding-top:4px}
+#match-personal {font:13px var(--mono);color:var(--green)}
+#match-next,#match-file,#match-enter,#match-today,#match-try {display:inline-flex;align-items:center;min-height:44px}
+#match-files {margin-top:8px}
+#match-file-status {display:block;color:var(--muted);font:12px var(--mono)}
+@media(max-width:640px){
+  .in-match #learn-start {display:none}
+  .in-match .instrument-head {grid-template-columns:minmax(0,1fr) auto}
+  .in-match #match-target {font-size:13px}
+}

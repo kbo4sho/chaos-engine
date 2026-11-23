@@ -18,6 +18,7 @@ Usage: ./scripts/verify-chaos-engine <command> [options]
   drive puzzle-campaign           Solve every numbered campaign machine
   drive double-exposures           Play six machines with two adjustable tools and two timed shutter marks.
   drive shutter-sheets             Use a recorded run to set two marks for someone else to match.
+  drive match-cards                Play and return all eight match cards across independent profiles
   drive offline-races              Play and return a work-order race between disconnected devices.
   drive replay-clips               Export a looping replay and verify its offline frames
   drive phone-bench                Repair three machines on a phone and inspect a missed handoff
@@ -263,7 +264,7 @@ cmd_doctor() {
 cmd_drive() {
   local journey="${1:-}"
   if [[ -z "$journey" ]]; then
-    echo "usage: ./scripts/verify-chaos-engine drive save-load|example-scenes|example-scenes-mobile|ui-layout|one-part-missing|puzzle-campaign|tool-course|clockwork-course|tool-lessons|tool-press|rigging-course|paired-repairs|attempt-film|drive-course|work-orders|puzzle-library|sorting-course|prediction-lab|design-bench|flight-course|repair-coach|operator-room|assembly-course|field-course|test-bay|grand-relays|fault-desk|spare-study|phone-bench|friend-races|discovery|replay-clips|double-exposures|shutter-sheets|offline-races" >&2
+    echo "usage: ./scripts/verify-chaos-engine drive save-load|example-scenes|example-scenes-mobile|ui-layout|one-part-missing|puzzle-campaign|tool-course|clockwork-course|tool-lessons|tool-press|rigging-course|paired-repairs|attempt-film|drive-course|work-orders|puzzle-library|sorting-course|prediction-lab|design-bench|flight-course|repair-coach|operator-room|assembly-course|field-course|test-bay|grand-relays|fault-desk|spare-study|phone-bench|friend-races|discovery|replay-clips|double-exposures|shutter-sheets|offline-races|match-cards" >&2
     exit 2
   fi
   cmd_doctor
