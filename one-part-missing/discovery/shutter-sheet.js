@@ -80,3 +80,59 @@ export function readTake(requested) {
     ? { route, settings }
     : { route, invalid: true };
 }
+
+// Photograph this run at two moments that distinguish one physical setup.
+// Simulate each knob pair once, then compare its recorded coordinates.
+export function suggestShutters(M, rig, recording) {
+  const alternatives = [];
+  for (const [a] of rig.controls[0].values.entries())
+    for (const [b] of rig.controls[1].values.entries()) alternatives.push(doubleRun(M, rig, [a, b]));
+  const last = recording.frames.at(-1).tick;
+  function candidates(i) {
+    const times = [];
+    for (let t = 1; t <= last; t++) {
+      const mark = capture(recording, rig, i, t);
+      if (
+        mark.x < tolerance ||
+        mark.x > 720 - tolerance ||
+        mark.y < tolerance ||
+        mark.y > 400 - tolerance
+      )
+        continue;
+      const hits = new Set();
+      for (const [id, tape] of alternatives.entries()) {
+        if (t >= tape.frames.length) continue;
+        const [x, y] = position(tape, mark.kind, t);
+        if (Math.hypot(x - mark.x, y - mark.y) <= tolerance) hits.add(id);
+      }
+      if (hits.size && hits.size < alternatives.length) times.push({ mark, hits });
+    }
+    return times;
+  }
+  const first = candidates(0),
+    second = candidates(1);
+  let best = null,
+    bestRank = -Infinity;
+  for (const a of first)
+    for (const b of second) {
+      const gap = b.mark.tick - a.mark.tick;
+      if (gap < 6) continue;
+      if (a.mark.kind === b.mark.kind && Math.hypot(a.mark.x - b.mark.x, a.mark.y - b.mark.y) < 25)
+        continue;
+      let common = 0;
+      for (const id of a.hits) if (b.hits.has(id)) common++;
+      if (common !== 1) continue;
+      // Prefer marks with partial successes on both sides. Give the two
+      // photographs space and keep the last one inside the useful recording.
+      const rank =
+        (a.hits.size > 1 && b.hits.size > 1 ? 100 : 0) +
+        Math.min(gap, 32) +
+        Math.min(12, a.hits.size + b.hits.size) -
+        Math.abs(b.mark.tick - last * 0.85) * 0.1;
+      if (rank > bestRank) {
+        best = [a.mark, b.mark];
+        bestRank = rank;
+      }
+    }
+  return best;
+}

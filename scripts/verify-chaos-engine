@@ -16,7 +16,7 @@ Usage: ./scripts/verify-chaos-engine <command> [options]
   drive example-scenes            Drive the built-in example scenes
   drive example-scenes-mobile     Drive examples + slots with iPhone/Android tap
   drive puzzle-campaign           Solve every numbered campaign machine
-  drive double-exposures           Play six machines with two adjustable tools and two timed shutter marks.
+  drive double-exposures           Play twelve machines with two adjustable tools and two timed shutter marks.
   drive shutter-sheets             Use a recorded run to set two marks for someone else to match.
   drive match-cards                Play and return all eight match cards across independent profiles
   drive offline-races              Play and return a work-order race between disconnected devices.

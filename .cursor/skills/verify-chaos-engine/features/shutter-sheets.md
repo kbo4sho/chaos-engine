@@ -4,7 +4,7 @@ Use a recorded run to set two marks for someone else to match.
 
 ## Sub-features
 
-Capture one frame per shutter. Test every knob pair to check whether the challenge is solvable and both controls and targets matter. A returned take verifies its two hits on the recipient’s machine. A standalone file carries the rig, physics, recording tools and GIF exporter.
+Capture one frame per shutter or choose Suggest two frames to find a unique pair on the visible path. Test every knob pair to check whether the challenge is solvable and both controls and targets matter. A returned take verifies its two hits on the recipient’s machine. A standalone file carries the rig, physics, recording tools and GIF exporter.
 
 ## How to get to it (user POV)
 
@@ -18,4 +18,4 @@ Create a fresh pair of targets on every coupled rig, reject a reversed pair, and
 
 ## Gotchas
 
-The invitation encodes the target coordinates and frames. A fair starting fit is recomputed on opening. Custom receipts are separate from the six official machines and watching a return earns no receipt.
+The invitation encodes the target coordinates and frames. A fair starting fit is recomputed on opening. Custom receipts are separate from the twelve official machines and watching a return earns no receipt.

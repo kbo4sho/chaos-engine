@@ -73,6 +73,13 @@
         <aside class="drawer" aria-labelledby="discovery-control">
           <div class="drawer-top"><h2 id="discovery-control"></h2></div>
           <div id="discovery-settings" role="group" aria-labelledby="discovery-control"></div>
+          <div id="discovery-instruments" hidden>
+            <p id="discovery-state" aria-live="off"></p>
+            <details id="discovery-changes"><summary>Inspect instrument readings</summary>
+              <p id="discovery-motion" aria-live="off"></p>
+              <div id="discovery-transitions" aria-label="Recorded changes"></div>
+            </details>
+          </div>
           <p id="discovery-receivers" hidden></p>
           <p id="discovery-result" role="status" aria-live="polite"></p>
           <p id="discovery-reading" hidden></p>
@@ -94,7 +101,7 @@
         <label for="discovery-select">Discovery puzzles</label
         ><select id="discovery-select"></select
         ><output id="discovery-progress"></output>
-        <a id="double-entry" href="double.html">Double exposures · six two-control machines →</a>
+        <a id="double-entry" href="double.html">Double exposures · 12 two-control machines →</a>
       </nav>
       <noscript>Enable JavaScript to run the machines.</noscript>
     </main>

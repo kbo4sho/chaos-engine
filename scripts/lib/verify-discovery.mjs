@@ -30,8 +30,9 @@ export async function verifyDiscovery(home, { url, record, shot, outDir }) {
   }
   await p.select('#discovery-rate', '2');
   for (const [index, l] of lessons.entries()) {
-    const phone = index < 6;
-    if (index === 6) await p.setViewport({ width: 1280, height: 800 });
+    const phone = index % 12 < 6;
+    if (index % 12 === 6) await p.setViewport({ width: 1280, height: 800 });
+    if (index === 12) await p.setViewport({ width: 390, height: 664, isMobile: true, hasTouch: true });
     await p.waitForFunction(
       (t) => document.querySelector('#discovery-title').textContent === t,
       {},
@@ -67,6 +68,20 @@ export async function verifyDiscovery(home, { url, record, shot, outDir }) {
       miss.includes('units') && !(await p.evaluate((k) => localStorage.getItem(k), key)),
       miss,
     );
+    if (l.instruments) {
+      await p.click('#discovery-changes summary');
+      const changes = await p.$$('#discovery-transitions button');
+      if (changes.length) {
+        await changes.at(-1).click();
+        record(
+          'measured-instrument-seek-' + l.id,
+          Number(await p.$eval('#discovery-frame', (e) => e.value)) ===
+            Number(await changes.at(-1).evaluate((b) => b.dataset.frame)),
+          await read('state'),
+        );
+      }
+      if (l.kind === 'phase') await shot(p, 'phase-window-reading.png');
+    }
     if (index === 9) await shot(p, 'two-load-missed-exposure.png');
     await run(win, phone);
     const stored = await p.evaluate((k) => localStorage.getItem(k), key),
@@ -83,7 +98,9 @@ export async function verifyDiscovery(home, { url, record, shot, outDir }) {
     if (index === 3) {
       await p.reload();
       await p.waitForFunction(
-        () => document.querySelector('#discovery-progress').textContent === '4 of 12 solved',
+        (n) => document.querySelector('#discovery-progress').textContent === '4 of ' + n + ' solved',
+        {},
+        lessons.length,
       );
       record('progress-survives-reload', (await read('mode')) === 'New machine');
       await p.select('#discovery-rate', '2');
@@ -92,9 +109,11 @@ export async function verifyDiscovery(home, { url, record, shot, outDir }) {
   }
   await p.reload();
   await p.waitForFunction(
-    () => document.querySelector('#discovery-progress').textContent === '12 of 12 solved',
+    (n) => document.querySelector('#discovery-progress').textContent === n + ' of ' + n + ' solved',
+    {},
+    lessons.length,
   );
-  record('all-twelve-survive-reload', true);
+  record('all-exposures-survive-reload', true);
   await p.click('#discovery-back');
   await p.select('#discovery-select', lessons[2].id);
   await p.waitForFunction(
@@ -105,6 +124,19 @@ export async function verifyDiscovery(home, { url, record, shot, outDir }) {
   await p.waitForFunction(() => document.querySelector('#discovery-run').textContent === 'Pause');
   await p.keyboard.press('Space');
   record('keyboard-pauses-film', (await read('run')) !== 'Pause');
+  await p.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
+  await p.select('#discovery-select', 'phase-clearance');
+  await p.waitForFunction(
+    () => document.querySelector('#discovery-title').textContent === 'Cross before the gate closes',
+  );
+  await p.click('#discovery-run');
+  await p.waitForFunction(() => document.querySelector('#discovery-run').textContent === 'Run again');
+  await p.click('#discovery-changes summary');
+  await p.click('#discovery-transitions button:last-child');
+  record(
+    'reduced-motion-real-phase-expiry',
+    (await read('state')).startsWith('Solid') && (await read('transitions')).includes('Solid again'),
+  );
   fs.writeFileSync(path.join(outDir, 'exposure-receipts.json'), JSON.stringify(receipts, null, 2));
   record('no-page-errors', errors.length === 0, errors);
   await p.close();

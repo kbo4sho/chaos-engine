@@ -77,3 +77,16 @@ describe('player-authored shutter marks', () => {
     expect(book.best(custom)?.count).toBe(2);
   });
 });
+
+it('finds two on-board moments in a charge exchange after an alternative load has left the frame', async () => {
+  const { suggestShutters } = await import('../one-part-missing/discovery/shutter-sheet.js');
+  const rig = rigs.find((r) => r.id === 'charge-exchange');
+  expect(suggestShutters(M,rig,doubleRun(M,rig,[0,0]))).toBeNull();
+  const tape = doubleRun(M, rig, [1, 1]),
+    marks = suggestShutters(M, rig, tape);
+  expect(marks).toHaveLength(2);
+  expect(marks[0].tick).toBeLessThan(marks[1].tick);
+  const proof = certifySheet(M, rig, marks);
+  expect(proof.ways).toBe(1);
+  expect(doubleRun(M, readSheet(proof.route).rig, [1, 1]).count).toBe(2);
+});

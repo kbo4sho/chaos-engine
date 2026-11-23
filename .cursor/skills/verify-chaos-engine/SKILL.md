@@ -159,14 +159,14 @@ All helpers are executable. Invoke them from the repo root.
 | `./scripts/verify-chaos-engine drive puzzle-campaign` | [Full campaign](features/puzzle-campaign.md), all 500 repairs, chapter progress, rail orientation and portable replay |
 | `./scripts/verify-chaos-engine drive tool-press` | [Tool-aware press](features/tool-press.md), selected tool pairs, accurate shared geometry and standalone cargo replays |
 | `./scripts/verify-chaos-engine drive tool-lessons` | [Guided lessons](features/tool-lessons.md), 95 mixed lessons, shared repairs, all-tool practice and frame stepping |
-| `./scripts/verify-chaos-engine drive double-exposures` | [Double exposures](features/double-exposures.md). Play six machines with two adjustable tools and two timed shutter marks. |
+| `./scripts/verify-chaos-engine drive double-exposures` | [Double exposures](features/double-exposures.md). Play twelve machines with two adjustable tools and two timed shutter marks. |
 | `./scripts/verify-chaos-engine drive shutter-sheets` | [Player shutter puzzles](features/shutter-sheets.md). Use a recorded run to set two marks for someone else to match. |
 | `./scripts/verify-chaos-engine drive match-cards` | [Three-round match cards](features/match-cards.md), all 24 scored rounds, eight returns and offline card exchange |
 | `./scripts/verify-chaos-engine drive offline-races` | [Offline friend races](features/offline-races.md). Play and return a work-order race between disconnected devices. |
 | `./scripts/verify-chaos-engine drive replay-clips` | [Replay GIFs](features/replay-clips.md), cancellation, local download and offline decoding |
 | `./scripts/verify-chaos-engine drive phone-bench` | [Phone bench](features/phone-bench.md), no-scroll touch repairs and quarter-speed measured misses |
 | `./scripts/verify-chaos-engine drive friend-races` | [Friend challenges](features/friend-races.md), 24 cross-browser invitations and returned race films |
-| `./scripts/verify-chaos-engine drive discovery` | [Change one thing](features/discovery.md), compare twelve teaching rigs and solve all twelve fresh machines |
+| `./scripts/verify-chaos-engine drive discovery` | [Change one thing](features/discovery.md), compare 24 teaching rigs, inspect recorded gear and charge changes, and solve all 24 fresh machines |
 | `./scripts/verify-chaos-engine drive attempt-film` | [Expanded bench and comparison film](features/attempt-film.md), zoom, aligned trials, one-frame stepping and independent parcel motion |
 | `./scripts/verify-chaos-engine drive spare-study` | [Remove a spare](features/spare-study.md), in-context predictions, retention of partner spares, measured outcomes and offline comparison |
 | `./scripts/verify-chaos-engine drive fault-desk` | [Fault desk](features/fault-desk.md), eighteen physical service repairs, instrument readings, best results and offline cases |

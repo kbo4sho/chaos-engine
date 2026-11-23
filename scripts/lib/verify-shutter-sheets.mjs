@@ -4,7 +4,12 @@ import { pathToFileURL } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import M from 'matter-js';
 import { rigs, doubleRun } from '../../one-part-missing/discovery/double-rigs.js';
-import { readSheet, certifySheet, capture } from '../../one-part-missing/discovery/shutter-sheet.js';
+import {
+  readSheet,
+  certifySheet,
+  capture,
+  suggestShutters,
+} from '../../one-part-missing/discovery/shutter-sheet.js';
 import { doublePrefix } from '../../one-part-missing/discovery/double-records.js';
 
 export async function verifyShutterSheets(home, { url, record, shot, outDir }) {
@@ -13,6 +18,7 @@ export async function verifyShutterSheets(home, { url, record, shot, outDir }) {
   await home.click('#puzzle-launcher');
   const p = await opened;
   await p.bringToFront();
+  await p.waitForSelector('#map-link');
   await p.click('#map-link');
   await p.click('#discovery-entry');
   await p.click('#double-entry');
@@ -52,12 +58,20 @@ export async function verifyShutterSheets(home, { url, record, shot, outDir }) {
       {},
       rig.title,
     );
-    let design;
+    let design, expectedMarks;
     for (const [a] of rig.controls[0].values.entries())
       for (const [b] of rig.controls[1].values.entries()) {
-        const tape = doubleRun(M, rig, [a, b]),
-          marks = rig.shots.map((s, j) => capture(tape, rig, j, s.tick - (j === 0 ? 1 : 0)));
-        if (!design && certifySheet(M, rig, marks).route && tape.count !== 2) design = [a, b];
+        if (design) continue;
+        const tape = doubleRun(M, rig, [a, b]);
+        if (tape.count === 2) continue;
+        const marks =
+          i < 6
+            ? rig.shots.map((s, j) => capture(tape, rig, j, s.tick - (j === 0 ? 1 : 0)))
+            : suggestShutters(M, rig, tape);
+        if (marks && certifySheet(M, rig, marks).route) {
+          design = [a, b];
+          expectedMarks = marks;
+        }
       }
     if (!design) throw Error('No authorable alternate setup: ' + rig.id);
     await run(p, design);
@@ -76,8 +90,10 @@ export async function verifyShutterSheets(home, { url, record, shot, outDir }) {
       await p.keyboard.press('Home');
       for (let j = 0; j < rig.shots[0].tick; j++) await p.keyboard.press('ArrowRight');
     }
-    await p.focus('#double-mark-1');
-    await p.keyboard.press('ArrowLeft');
+    if (i < 6) {
+      await p.focus('#double-mark-1');
+      await p.keyboard.press('ArrowLeft');
+    } else await p.click('#double-suggest');
     await p.click('#double-test-sheet');
     await p.waitForSelector('#double-copy-sheet:not([hidden])');
     await p.click('#double-copy-sheet');
@@ -86,8 +102,10 @@ export async function verifyShutterSheets(home, { url, record, shot, outDir }) {
       src = readSheet(new URL(invite).hash.slice(1));
     record(
       'custom-exposures-' + rig.id,
-      src.rig.shots[0].tick === rig.shots[0].tick - 1 &&
-        src.rig.shots.some((s, i) => s.x !== rig.shots[i].x || s.y !== rig.shots[i].y),
+      src.rig.shots.every(
+        (s, j) =>
+          s.tick === expectedMarks[j].tick && s.x === expectedMarks[j].x && s.y === expectedMarks[j].y,
+      ) && src.rig.shots.some((s, i) => s.x !== rig.shots[i].x || s.y !== rig.shots[i].y),
       src.rig.shots,
     );
     if (!i) await shot(p, 'author-stamped-exposures.png');

@@ -1,5 +1,5 @@
 import { actorNames } from './double-rigs.js';
-import { capture, certifySheet } from './shutter-sheet.js';
+import { capture, certifySheet, suggestShutters } from './shutter-sheet.js';
 
 export async function copySheetLink(route, input, status, success, isCurrent) {
   const url = new URL(location.href);
@@ -64,6 +64,23 @@ export function sheetMaker(el, inspect, repaint) {
   );
   panel.addEventListener('toggle', () => {
     if (recording) repaint();
+  });
+  el('suggest').addEventListener('click', () => {
+    clearResult();
+    const suggested = suggestShutters(window.Matter, machine, recording);
+    if (!suggested) {
+      result.textContent =
+        'This recording has no unique pair of visible marks. Choose your own frames or record another setup.';
+      return;
+    }
+    targets = suggested;
+    ranges.forEach((range, i) => {
+      range.value = targets[i].tick;
+    });
+    refresh();
+    inspect(targets[0].tick);
+    result.textContent =
+      'These frames separate one setup from the others. Adjust either shutter or test this pair.';
   });
   el('test-sheet').addEventListener('click', () => {
     clearResult();

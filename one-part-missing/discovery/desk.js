@@ -1,3 +1,4 @@
+import { instrumentReading, instrumentEvents } from './instruments.js';
 import {
   lessons,
   exposures,
@@ -83,6 +84,7 @@ function updateControls() {
         ? 'Run again'
         : 'Run machine';
   el('film').hidden = !attempted;
+  el('changes').hidden = lastExposure?.tape !== tape;
   el('events').hidden = !attempted || (eventTick == null && !divergence);
   el('contact').hidden = eventTick == null;
   el('first').hidden = !divergence;
@@ -133,6 +135,11 @@ function trace(t, dashed) {
 }
 function paint() {
   const f = tape.frames[frame];
+  if (lesson.instruments) {
+    const current=instrumentReading(lesson,tape,frame);
+    el('state').textContent=current.state;el('motion').textContent=current.motion;
+    for(const link of el('transitions').children)link.setAttribute('aria-current',String(Number(link.dataset.frame)===frame));
+  }
   draw(ctx, atFrame(tape.run, f));
   ctx.save();
   ctx.setTransform(2, 0, 0, 2, 0, 0);
@@ -276,9 +283,18 @@ function prepare(i, navigating = false) {
   attempted = false;
   frame = 0;
   tape = simulate(window.Matter, lesson, transfer, setting, exposures[lesson.id][transfer ? 1 : 0]);
-  const event = tape.run.uses.find((e) => e.kind === lesson.kind);
+  const focus=lesson.contactKind?.(lesson.values[i])||lesson.kind;
+  const event = tape.run.uses.find((e) => e.kind === focus);
+  el('instruments').hidden=!lesson.instruments;
+  el('changes').open=false;
+  el('transitions').replaceChildren(...(lesson.instruments?instrumentEvents(tape):[]).map(({tick,name})=>{
+    const button=document.createElement('button');button.type='button';button.className='quiet';
+    button.textContent=name+' · '+seconds(tick);button.dataset.frame=tick;
+    button.addEventListener('click',()=>inspect(tick));return button;
+  }));
+  el('changes').hidden=true;
   eventTick = event?.tick;
-  if (event) el('contact').textContent = 'First ' + lesson.kind + ' contact · ' + seconds(eventTick);
+  if (event) el('contact').textContent = 'First ' + focus + ' contact · ' + seconds(eventTick);
   divergence = separation(tape, reference);
   if (divergence) el('first').textContent = 'Paths separate · ' + seconds(divergence.t);
   el('frame').max = tape.frames.length - 1;
@@ -300,6 +316,9 @@ function start() {
   }
   if (frame === tape.frames.length - 1) frame = 0;
   attempted = true;
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches){
+    frame=tape.frames.length-1;paint();finish();return;
+  }
   clockStart = performance.now();
   anchorFrame = frame;
   result('Running at ' + lesson.labels[setting] + '.');

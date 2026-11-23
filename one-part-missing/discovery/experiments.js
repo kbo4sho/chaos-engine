@@ -1,3 +1,4 @@
+import {advancedLessons,advancedFraming,advancedExposures} from './advanced-experiments.js';
 import { parts, createRun, advance } from '../machines.js';
 import { driveMachine } from '../drive-course.js';
 import { snapshot } from '../drawing.js';
@@ -304,6 +305,7 @@ export const lessons = [
     cue: 'Watch the last length of cable. Its direction carries into the flight after release.',
     transfer: 'The shorter cable runs the other way. Set its drop to put the rider inside the ring.',
   },
+  ...advancedLessons,
 ];
 
 export function simulate(M, lesson, transfer, setting, ticks) {
@@ -320,9 +322,10 @@ export function simulate(M, lesson, transfer, setting, ticks) {
   return { run, frames, actors };
 }
 
-// Measured exposure marks on the twelve transfer rigs, in 720 × 400 bench units.
+// Measured exposure marks on the transfer rigs, in 720 × 400 bench units.
 // Targets stay fixed when the player changes an input.
 export const exposures = {
+  ...advancedExposures,
   'slack-line': [95, 91, [[336, 236]]],
   'loaded-coil': [92, 91, [[401, 110]]],
   'shared-rope': [68, 58, [[346, 59]]],
@@ -375,6 +378,7 @@ export function displacement(dx, dy) {
 // Both settings share the same lens. These crops include every path and target
 // up to the exposure, so changing a physical setting never moves the camera.
 export const framing = {
+  ...advancedFraming,
   'slack-line': [
     [97, 55, 393],
     [148, 54, 393],

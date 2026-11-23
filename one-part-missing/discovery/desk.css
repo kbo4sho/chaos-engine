@@ -143,3 +143,10 @@
 #discovery-phone-notes:empty {
   display: none;
 }
+
+#discovery-state {font:14px var(--mono);margin:6px 0;color:var(--cyan)}
+#discovery-changes {margin:3px 0 8px}
+#discovery-changes summary {cursor:pointer;font-size:13px;color:var(--muted);padding-block:4px}
+#discovery-motion {font:13px var(--mono);color:var(--muted)}
+#discovery-transitions {display:flex;flex-wrap:wrap;gap:4px}
+#discovery-transitions [aria-current=true] {border-color:var(--cyan)}

@@ -11,6 +11,7 @@ export async function verifyDoubleExposures(home, { url, record, shot, outDir })
   const p = await opened;
   await p.setViewport({ width: 390, height: 664, isMobile: true, hasTouch: true });
   await p.bringToFront();
+  await p.waitForSelector('#map-link');
   await p.click('#map-link');
   await p.click('#discovery-entry');
   await p.click('#double-entry');
@@ -18,8 +19,9 @@ export async function verifyDoubleExposures(home, { url, record, shot, outDir })
     receipts = [];
   p.on('pageerror', (e) => errors.push(e.message));
   for (const [i, rig] of rigs.entries()) {
-    if (i === 3) await p.setViewport({ width: 1280, height: 800 });
-    const use = (s) => (i < 3 ? p.tap(s) : p.click(s));
+    if (i===6) await p.setViewport({width:390,height:664,isMobile:true,hasTouch:true});
+    if (i % 6 === 3) await p.setViewport({ width: 1280, height: 800 });
+    const use = (s) => (i % 6 < 3 ? p.tap(s) : p.click(s));
     await p.waitForFunction(
       (title) => document.querySelector('#double-title').textContent === title,
       {},
@@ -95,11 +97,16 @@ export async function verifyDoubleExposures(home, { url, record, shot, outDir })
       );
     }
     if (i === 4) await shot(p, 'rim-and-output-dial.png');
+    if(rig.id==='rack-hoist'){
+      await p.click('#double-help summary');await p.click('#double-practice a');await p.waitForFunction(()=>document.querySelector('#discovery-title')?.textContent==='Bring the carriage in');
+      record('rack-hoist-opens-motor-practice',true);
+      await p.goBack();await p.waitForSelector('#double-next:not([hidden])');
+    }
     if (i < rigs.length - 1) await use('#double-next');
   }
   await p.reload();
   await p.waitForFunction(
-    () => document.querySelector('#double-progress').textContent === '6 of 6 developed',
+    n => document.querySelector('#double-progress').textContent === n+' of '+n+' developed', {}, rigs.length,
   );
   await p.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
   await p.click('#double-refit');
@@ -114,7 +121,7 @@ export async function verifyDoubleExposures(home, { url, record, shot, outDir })
   await p.waitForSelector('#discovery-title');
   record(
     'practice-returns-to-specific-control',
-    await p.$eval('#discovery-title', (e) => e.textContent === 'Bring the carriage in'),
+    await p.$eval('#discovery-title', (e) => e.textContent === 'Share the input spin'),
   );
   fs.writeFileSync(path.join(outDir, 'paired-receipts.json'), JSON.stringify(receipts, null, 2));
   record('no-page-errors', !errors.length, errors);
