@@ -1,3 +1,4 @@
+import {qualificationCourse,qualificationChapters} from './qualification-course.js';
 import { relayCourse, relayChapters } from './relay-course.js';
 import {fieldCourse,fieldChapters} from './field-course.js';
 import {assemblyCourse,assemblyChapters} from './assembly-course.js';
@@ -24,6 +25,7 @@ export const chapters = [
   ...assemblyChapters,
   ...fieldChapters,
   ...relayChapters,
+  ...qualificationChapters,
 ];
 const classicCampaign = scores.map((entry, index) => {
   const number = index + 1;
@@ -46,5 +48,6 @@ export const campaign = [
   ...assemblyCourse,
   ...fieldCourse,
   ...relayCourse,
+  ...qualificationCourse,
 ];
 export const campaignById = new Map(campaign.map((machine) => [machine.id, machine]));

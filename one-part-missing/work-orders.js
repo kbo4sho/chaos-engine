@@ -42,7 +42,7 @@ export function decodeFitting(m, code) {
 export function readOrderLink(id) {
   const [base, code, ...rest] = id.split('/build/');
   const assembly = code !== undefined ? campaignById.get(base) : null;
-  const m = orderById.get(base) || ((assembly?.capacity === 3 || assembly?.grand) && assembly);
+  const m = orderById.get(base) || ((assembly?.capacity === 3 || assembly?.grand || assembly?.qualification) && assembly);
   if (!m || rest.length) return null;
   if (code === undefined) return { machine: m, move: null };
   const move = decodeFitting(m, code);

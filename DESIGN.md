@@ -159,6 +159,8 @@ The match receipt keeps the earned result and next-round control beneath the mac
 
 The native sandbox draws exposure marks on the physical bench. A leader points to the load’s observed position after the shutter fires. The puzzle link restores the originating study and selected controls.
 
+Cross training uses the existing fitting activity list for both two- and three-part machines. The chime and final flag name their required loads. On a qualification replay, each working spare has a contact time that can be inspected independently.
+
 ## Do's and Don'ts
 
 - **Do:** Extend the existing tool-button, status, particle, audio, haptic, cleanup, and custom-rendering conventions end to end.

@@ -6,6 +6,8 @@ const modules = [
   'spare-study',
   'spare-study-desk',
   'dispatch-log',
+  'qualification-boards',
+  'qualification-course',
   'relay-course',
   'relay-boards',
   'assembly-course',

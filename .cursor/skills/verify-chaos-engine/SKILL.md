@@ -156,7 +156,7 @@ All helpers are executable. Invoke them from the repo root.
 | `./scripts/verify-chaos-engine drive save-load` | Browser journey for [features/save-load.md](../../features/save-load.md) |
 | `./scripts/verify-chaos-engine drive example-scenes` | Browser journey for [features/example-scenes.md](../../features/example-scenes.md) |
 | `./scripts/verify-chaos-engine drive example-scenes-mobile` | iPhone 13 + Pixel 5 tap journey for [features/example-scenes-mobile.md](../../features/example-scenes-mobile.md) |
-| `./scripts/verify-chaos-engine drive puzzle-campaign` | [Full campaign](features/puzzle-campaign.md), all 500 repairs, chapter progress, rail orientation and portable replay |
+| `./scripts/verify-chaos-engine drive puzzle-campaign` | [Full campaign](features/puzzle-campaign.md), all 520 repairs, chapter progress, rail orientation and portable replay |
 | `./scripts/verify-chaos-engine drive tool-press` | [Tool-aware press](features/tool-press.md), selected tool pairs, accurate shared geometry and standalone cargo replays |
 | `./scripts/verify-chaos-engine drive tool-lessons` | [Guided lessons](features/tool-lessons.md), 95 mixed lessons, shared repairs, all-tool practice and frame stepping |
 | `./scripts/verify-chaos-engine drive double-exposures` | [Double exposures](features/double-exposures.md). Play twelve machines with two adjustable tools and two timed shutter marks. |
@@ -194,6 +194,7 @@ All helpers are executable. Invoke them from the repo root.
 | `./scripts/verify-chaos-engine drive deflect` | Touch and desktop quarter-turn travel proof for [features/deflect.md](features/deflect.md) |
 | `./scripts/verify-chaos-engine drive unfinished-repairs` | [Resume an unfinished repair](features/unfinished-repairs.md), durable partial fittings, undo, local privacy and multi-tab recovery |
 | `./scripts/verify-chaos-engine drive tool-notebook` | [Your tool notebook](features/tool-notebook.md), actual fitting activity, personalized practice and replayable contacts |
+| `./scripts/verify-chaos-engine drive qualification-course` | [Cross training and qualification finals](features/qualification-course.md), 20 numbered repairs, all 54 compound fittings and the three-spare finals |
 | `./scripts/verify-chaos-engine cleanup` | Tear down this run; keep evidence |
 
 Drive needs `puppeteer-core` (devDependency) and system Chrome. If the module is missing: `npm install`.

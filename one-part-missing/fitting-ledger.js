@@ -14,8 +14,8 @@ export function setupFittingLedger(el, getFittings, inspect) {
         shown = '';
         const fits = getFittings();
         entries = run.items
-          .flatMap((it, i) => (it.shape.fitted ? [{ kind: it.shape.kind, item: i }] : []))
-          .map((row, k) => ({ ...row, socket: fits[k].socket }));
+          .flatMap((it, i) => (it.shape.fitted ? [{ item: i }] : []))
+          .map((row, k) => ({ ...row, kind: fits[k].part, socket: fits[k].socket }));
       }
       const contacts = entries.map((row) => run.uses.find((e) => e.item === row.item && e.tick <= tick));
       const key = String(finished) + '/' + contacts.map((e) => (e ? e.tick : '-')).join(',');

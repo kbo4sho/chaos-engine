@@ -11,7 +11,7 @@ See which tools acted during your own deliveries. Replay the first contact besid
 
 ## How to get to it (user POV)
 
-Open Level map, then Practice by tool. Select a tool, follow its fitting recommendation, install the spare and make a delivery. Reopen practice, choose a recorded contact and step through the film. Use the hardware menu to inspect the working or empty bench.
+Open Level map, then Practice by tool. Select a tool, follow its fitting recommendation, install the spare and make a delivery. Reopen practice, choose a recorded contact and step through the film. For a combined entry, select the partner contact to inspect the other fitting on its own frame. Use the hardware menu to inspect the working or empty bench.
 
 ## Driving it with verify-chaos-engine
 

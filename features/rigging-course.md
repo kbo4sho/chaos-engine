@@ -19,7 +19,7 @@ Open PUZZLES, choose Level map, then Play the cable rigs. Run the first machine 
 
 Run `./scripts/verify-chaos-engine drive rigging-course` after launch and doctor. On a phone the journey enters through the map, opens all seven experiments, observes an empty miss and repairs three machines. It checks the tension and break timestamps, jumps to the broken frame, and records both cable and field effects in the finale. On desktop it replays the repair, imports it into the sandbox, saves and loads it, and watches the restored parcel reach the receiver. It downloads the final replay and verifies the same sequence without a network connection.
 
-Drive `puzzle-campaign` for all 500 numbered repairs and `tool-lessons` for the shorter 103-lesson route. Drive `tool-press` for choosing two compatible tools and sharing the resulting machine.
+Drive `puzzle-campaign` for all 520 numbered repairs and `tool-lessons` for the shorter 103-lesson route. Drive `tool-press` for choosing two compatible tools and sharing the resulting machine.
 
 ## Gotchas
 

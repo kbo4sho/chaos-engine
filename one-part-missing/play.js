@@ -258,7 +258,7 @@ function drawBench() {
   }
   const cargoIndex = run.cargo ? run.items.findIndex((item) => item.body === run.cargo) : -1;
   const cursor = inspection === null ? tape.length - 1 : inspection;
-  if(machine.capacity===3 || machine.grand)fittingLedger.draw(run, inspection===null?run.tick:tape[inspection].tick, phase==='won'||phase==='miss');
+  if(machine.capacity===3 || machine.grand || machine.qualification)fittingLedger.draw(run, inspection===null?run.tick:tape[inspection].tick, phase==='won'||phase==='miss');
   const fieldReadout=$('field-display');
   fieldReadout.hidden=!(machine.fieldwork || machine.fieldReadout);
   if(!fieldReadout.hidden){
@@ -393,6 +393,10 @@ function updateShelf() {
   $('pair-entry').href = '#' + (nextPair || pairStart).id;
   $('pair-entry').textContent =
     nextPair && nextPair !== pairStart ? 'Resume two-part repairs →' : 'Play two-part repairs →';
+  const firstQualification=machines.find(m=>m.qualification);
+  const nextQualification=unfinished.find(m=>m.qualification);
+  $('qualification-entry').href='#'+(nextQualification||firstQualification).id;
+  $('qualification-entry').textContent=nextQualification&&nextQualification!==firstQualification?'Resume cross training →':'Play cross training →';
   const relayStart = machines.find(m => m.grand), nextRelay = unfinished.find(m => m.grand);
   $('grand-entry').href = '#' + (nextRelay || relayStart).id;
   $('grand-entry').textContent = nextRelay && nextRelay !== relayStart ? 'Resume grand relays →' : 'Play grand relays →';
@@ -469,7 +473,7 @@ function controls() {
   $('undo-fitting').disabled = busy;
   const placed = fittings(machine, move),
     paired = machine.capacity > 1;
-  $('fitting-ledger').hidden=machine.capacity!==3 && !machine.grand;
+  $('fitting-ledger').hidden=machine.capacity!==3 && !machine.grand && !machine.qualification;
   $('share-assembly').disabled=busy||!validMove(machine,move);
   $('fitted-pair').hidden = !paired;
   if (paired) {
@@ -947,6 +951,17 @@ function finish() {
               ? used[0] + ' acted. Inspect its exit toward the idle fitting.'
               : 'Neither fitting took a load. Trace the first gap.',
     );
+  }
+  if(!win && machine.qualification && move){
+    const fitted=fittings(machine,move);
+    const working=new Set(run.uses.filter(e=>run.items[e.item]?.shape.fitted).map(e=>e.item));
+    const next=machine.goals[run.hits.length];
+    const actor=next.striker==='cargo'?'blue parcel':next.striker==='tile'?'falling domino':'gold marble';
+    const progress=working.size+' of '+machine.capacity+' fitted stations acted. ';
+    if(run.passes.at(-1)?.reason==='Receiver closed')message(progress+'The '+actor+' reached a closed receiver. Inspect that crossing on the film.');
+    else if(run.hits.length)message(progress+'First chime reached at '+(run.hits[0]/60).toFixed(2)+' s. Follow the '+actor+' to the flag.');
+    else if(fitted.length<machine.capacity)message(progress+'Keep the working fittings and test the next handoff.');
+    else message(progress+'Follow the '+actor+' to the '+(machine.goals.length>1?'first chime.':'marked receiver.'));
   }
   if (!win) tone(128, 0.14, 0.025, 'triangle');
 }

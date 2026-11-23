@@ -124,3 +124,4 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Take a discovery setup into Chaos Engine](./experiment-exchange.md) covers native shutter measurements, editable physics, save slots and exact return links.
 - [Resume an unfinished repair](./unfinished-repairs.md) covers durable partial fittings, undo, local privacy and multi-tab recovery.
 - [Your tool notebook](./tool-notebook.md) covers actual fitting activity, personalized practice and replayable contacts.
+- [Cross training and qualification finals](./qualification-course.md) covers 20 numbered repairs, all 54 compound fittings and the three-spare finals.

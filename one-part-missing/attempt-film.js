@@ -179,6 +179,12 @@ export function setupFilms(el) {
     const hardware=el('compare-hardware').value==='previous'?previous:latest;
     const names=viewing.names;
     const caption=t=>{
+      if(viewing.observation){
+        const row=viewing.observation.row;
+        const events=[{kind:row.kind,tick:row.tick},...(row.partner?[{kind:row.partner,tick:row.partnerTick}]:[])];
+        const active=events.filter(e=>t>=e.tick).sort((a,b)=>b.tick-a.tick)[0];
+        return active?parts[active.kind].name+' acted at '+clock(active.tick)+'.':'Watch for the first working spare.';
+      }
       if(viewing.card && t>=Math.max(a,b))return viewing.card.verdict;
       if(race && t>=Math.max(a,b))return a===b?'Both deliveries arrived together.':names[a<b?0:1]+' arrived '+clock(Math.abs(b-a))+' earlier.';
       if(race && t>=Math.min(a,b))return names[a<b?0:1]+' arrived. The other load is still in transit.';
@@ -251,6 +257,9 @@ export function setupFilms(el) {
       : 'The paths stay within one radius for the shared recording.';
     if(observation)el('compare-findings').textContent=eventLine(observation.row);
     if(card)el('compare-findings').textContent += ' ' + card.verdict + '.';
+    const partner=observation?.row.partner;
+    el('compare-partner').hidden=!partner;
+    if(partner)el('compare-partner').textContent=parts[partner].name+' contact · '+clock(observation.row.partnerTick);
     el('compare-contact').hidden = !study.contact;
     if (study.contact) {
       const u = study.contact;
@@ -279,6 +288,7 @@ export function setupFilms(el) {
   el('compare-back').addEventListener('click', () => go(t - 1));
   el('compare-forward').addEventListener('click', () => go(t + 1));
   el('compare-contact').addEventListener('click', () => go(study.contact.tick));
+  el('compare-partner').addEventListener('click',()=>go(viewing.observation.row.partnerTick));
   el('compare-change').addEventListener('click', () => go(study.first.tick));
   el('compare-play').addEventListener('click', () => {
     if (raf) {
