@@ -8,7 +8,7 @@ import { experiment } from '../one-part-missing/tool-lab.js';
 
 describe('Learning routes', () => {
   it('places all forty-six tools in actual repairs and teaches distinct starting mechanics', () => {
-    expect(lessons).toHaveLength(75);
+    expect(lessons).toHaveLength(83);
     expect(lessonById.size).toBe(lessons.length);
     expect(Object.keys(practice).sort()).toEqual(Object.keys(parts).sort());
     const used = (m) => assembly(m, certify(M, m)[0]).map((s) => s.kind);

@@ -1,6 +1,6 @@
 # Guided lessons and practice
 
-Learn the tools is a 75-level path through all forty-six puzzle parts. It starts with a bridge, a conveyor and a trampoline. Practice by tool lets a player compare a part in the lab, then open one of three levels that use it.
+Learn the tools is a 83-level path through all forty-six puzzle parts. It starts with a bridge, a conveyor and a trampoline. Practice by tool lets a player compare a part in the lab, then open one of three levels that use it.
 
 ## Sub-features
 
@@ -19,10 +19,10 @@ A new player starts in guided lessons. From a numbered machine, choose Learn the
 
 Preconditions: isolated launch and passing doctor, fresh Chrome profile.
 
-- **Lesson sequence.** Run `./scripts/verify-chaos-engine drive tool-lessons`. The journey enters from the bench, fits and plays all 75 lessons on a phone and reads the recorded fitting and lesson counts.
+- **Lesson sequence.** Run `./scripts/verify-chaos-engine drive tool-lessons`. The journey enters from the bench, fits and plays all 83 lessons on a phone and reads the recorded fitting and lesson counts.
 - **Timing.** The first run starts at half speed, pauses with its clock fixed, advances exactly one frame and finishes at quadruple speed. A double-speed replay after reload must contact the goal at the same simulation tick.
 - **Practice.** The driver visits every tool in Practice by tool, compares fitted and missing dominoes in the lab and returns to a numbered practice level. It then opens the completed guided map on desktop.
-- **Numbered progression.** Run `./scripts/verify-chaos-engine drive puzzle-campaign` to verify all 400 numbered machines. The driver plays the opening levels at their default rate and uses the player’s 4× control for the rest.
+- **Numbered progression.** Run `./scripts/verify-chaos-engine drive puzzle-campaign` to verify all 440 numbered machines. The driver plays the opening levels at their default rate and uses the player’s 4× control for the rest.
 
 ## Gotchas
 

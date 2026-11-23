@@ -93,3 +93,5 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Inspect a missed repair](./repair-coach.md) covers measured approach, hold and timing evidence, working-path comparisons and progressive hints.
 
 - [Operate a machine](./operator-room.md) covers live signals, cue sheets, shift records, recorded motion and portable replay.
+
+- [Three-part repairs](./assembly-course.md) covers forty multi-station machines, partial fitting activity, shared setups and portable triple replays.

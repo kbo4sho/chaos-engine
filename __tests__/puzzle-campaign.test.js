@@ -7,9 +7,9 @@ import { certify, resolveMachine } from '../one-part-missing/workshop.js';
 import { repairBook } from '../one-part-missing/repairs.js';
 
 describe('Numbered puzzle campaign', () => {
-  it('offers forty chapters of distinct, deep-linkable machines and preserves original IDs', () => {
-    expect(chapters).toHaveLength(40);
-    expect(campaign).toHaveLength(400);
+  it('offers forty-four chapters of distinct, deep-linkable machines and preserves original IDs', () => {
+    expect(chapters).toHaveLength(44);
+    expect(campaign).toHaveLength(440);
     expect(campaign).toEqual(expect.arrayContaining(machines));
     for (const machine of campaign) expect(resolveMachine(Matter, machine.id)).toBe(machine);
     for (const values of [
@@ -17,7 +17,7 @@ describe('Numbered puzzle campaign', () => {
       campaign.map((m) => m.title),
       campaign.map((m) => JSON.stringify([m.ball, m.sockets, m.fixtures, m.goals])),
     ]) {
-      expect(new Set(values).size).toBe(400);
+      expect(new Set(values).size).toBe(440);
     }
     for (const id of ['station-000', 'station-001', 'station-101', 'station-02', 'station-005~-0.0']) {
       expect(resolveMachine(Matter, id)).toBeNull();
@@ -62,13 +62,14 @@ describe('Numbered puzzle campaign', () => {
           {
             part: m.tray[0],
             socket: 0,
-            ...(m.capacity === 2 ? { second: { part: m.tray[1], socket: 1 } } : {}),
+            ...(m.capacity > 1 ? { second: { part: m.tray[1], socket: 1 } } : {}),
+            ...(m.capacity === 3 ? { third: { part: m.tray[2], socket: 2 } } : {}),
           },
           123,
         );
       for (let i = 0; i < 40; i++) book.save('press-1-' + i, { part: 'bridge', socket: 0 }, 88);
       const after = repairBook(() => dom.window.localStorage).read();
-      expect(campaign.filter((m) => validMove(m, after[m.id]))).toHaveLength(400);
+      expect(campaign.filter((m) => validMove(m, after[m.id]))).toHaveLength(440);
       expect(Object.keys(after).filter((id) => id.startsWith('press-'))).toHaveLength(32);
     } finally {
       dom.window.close();

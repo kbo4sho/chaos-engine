@@ -21,7 +21,7 @@ export async function verifyLibrary(home, { url, record, shot }) {
     p.waitForFunction((s) => document.querySelector('#machine-title').textContent === s, {}, t);
   const repair = async (p, fit) => {
     await p.select('#playback-rate', '4');
-    for (const f of [fit, fit.second].filter(Boolean)) {
+    for (const f of [fit, fit.second, fit.third].filter(Boolean)) {
       await p.click('[data-part="' + f.part + '"]');
       await p.click('[data-socket="' + f.socket + '"]');
     }

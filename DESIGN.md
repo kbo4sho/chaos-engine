@@ -147,6 +147,8 @@ Nearby mounting buttons keep separate touch targets. A dotted leader identifies 
 
 The control room places the physical bench beside its cue sheet and stacks them on a phone. A cyan window marks each signal interval. Gold marks an input. Pause, frame step and scheduled cues give the player a precise alternative to live timing. Recorded inputs show measured velocity and spin.
 
+Three-part machines show the first actual contact of each installed spare beside its socket letter. The strip uses the run’s recorded time. Waiting and acted states follow the film cursor, and each completed contact can be opened directly.
+
 ## Do's and Don'ts
 
 - **Do:** Extend the existing tool-button, status, particle, audio, haptic, cleanup, and custom-rendering conventions end to end.

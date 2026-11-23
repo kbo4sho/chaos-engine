@@ -20,7 +20,7 @@ Preconditions: isolated launch, passing doctor and a fresh Chrome profile.
 - Run `./scripts/verify-chaos-engine drive drive-course`. On a phone, try each transmission at the faster input setting. Run the first bench empty, fit its rack and deliver the carriage.
 - On Early return, inspect a closed passage and the later successful one. Check the indicated approach and the clock at each selected frame.
 - On desktop, solve The master shaft. Check all five tools, save and reload the fitted sandbox assembly, then play it and observe its receiver register the parcel. Download the repair and watch the same contacts offline.
-- Drive `puzzle-campaign` for all 400 levels, `tool-lessons` for the 75 guided jobs and `tool-press` for a shared gearbox and rack print. Drive `save-load` and `ui-layout` for persistence and layout.
+- Drive `puzzle-campaign` for all 440 levels, `tool-lessons` for the 83 guided jobs and `tool-press` for a shared gearbox and rack print. Drive `save-load` and `ui-layout` for persistence and layout.
 
 ## Gotchas
 

@@ -169,15 +169,18 @@ export function packedParts(move) {
 export function fittings(machine, move) {
   if (!move || (move.third && !move.second)) return [];
   const placed = packedParts(move);
-  if (placed.length > (machine.capacity || 1) ||
-      placed.some((f,i) => !validPlacement(machine,f) || (i>0&&(f.second||f.third))) ||
-      new Set(placed.map(f=>f.part)).size !== placed.length ||
-      new Set(placed.map(f=>f.socket)).size !== placed.length) return [];
-  return placed.map(cleanFit).sort((a,b)=>a.socket-b.socket);
+  if (
+    placed.length > (machine.capacity || 1) ||
+    placed.some((f, i) => !validPlacement(machine, f) || (i > 0 && (f.second || f.third))) ||
+    new Set(placed.map((f) => f.part)).size !== placed.length ||
+    new Set(placed.map((f) => f.socket)).size !== placed.length
+  )
+    return [];
+  return placed.map(cleanFit).sort((a, b) => a.socket - b.socket);
 }
 export function packFittings(placed) {
-  const [first, second, third] = placed.map(cleanFit).sort((a,b)=>a.socket-b.socket);
-  return first ? {...first,...(second && {second}),...(third && {third})} : null;
+  const [first, second, third] = placed.map(cleanFit).sort((a, b) => a.socket - b.socket);
+  return first ? { ...first, ...(second && { second }), ...(third && { third }) } : null;
 }
 export function validMove(machine, move) {
   return fittings(machine, move).length >= (machine.minimum || machine.capacity || 1);

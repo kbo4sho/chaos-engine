@@ -40,7 +40,7 @@ const $ = (id) => document.getElementById(id);
 const c = $('diagram').getContext('2d');
 const films = setupFilms($),
   focusBench = setupFocus($);
-const fittingLedger = setupFittingLedger($, tick => {
+const fittingLedger = setupFittingLedger($, () => fittings(machine,move), tick => {
   const frame = tape.findIndex(sample=>sample.tick >= tick);
   if(frame >= 0){$('scrubber').value=frame;$('scrubber').dispatchEvent(new Event('input'));}
 });
@@ -204,8 +204,8 @@ function drawBench() {
   const cursor = inspection === null ? tape.length - 1 : inspection;
   if(machine.capacity===3)fittingLedger.draw(run, inspection===null?run.tick:tape[inspection].tick, phase==='won'||phase==='miss');
   const gearPanel = $('flight-gear');
-  gearPanel.hidden = !machine.flight;
-  if (machine.flight) {
+  gearPanel.hidden = !(machine.flight || machine.flightEquipment);
+  if (!gearPanel.hidden) {
     const idx = run.items.findIndex((it) => it.body === run.ball);
     const equipment = (actor, i) =>
       flightNames(inspection === null ? actor.render.gearMask : tape[inspection].poses[i][3] || 0).join(
@@ -645,8 +645,8 @@ function buildDrawer() {
         name(s.from) +
         ' to ' +
         name(s.to) +
-        (machine.transmission
-          ? ', drive ' + (s.dir === -1 ? 'counterclockwise' : 'clockwise') + ', gear ratio ' + s.ratio
+        ((machine.transmission || machine.shaftMounts)
+          ? ', drive ' + (s.dir === -1 ? 'counterclockwise' : 'clockwise') + ', gear ratio ' + (s.ratio || 1)
           : ', ' + span + '% starting span');
       b.title = endpoints;
       b.setAttribute('aria-label', b.getAttribute('aria-label') + ', ' + endpoints);

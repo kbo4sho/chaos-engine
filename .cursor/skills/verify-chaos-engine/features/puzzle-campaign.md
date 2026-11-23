@@ -1,8 +1,10 @@
 # One Part Missing campaign
 
-Four hundred permanent machines form forty chapters. Each chapter contains ten playable levels. The six original puzzle links still open their original mechanisms and repair records.
+Four hundred and forty permanent machines form forty-four chapters. Each chapter contains ten playable levels. The six original puzzle links still open their original mechanisms and repair records.
 
 ## Sub-features
+
+- Jobs 401–440 require three independent working spares. See [Three-part repairs](./assembly-course.md).
 
 - Jobs 361–400 in [Flight school](./flight-course.md) attach equipment to moving loads and combine it with parcel dispatch and timed arrivals.
 
@@ -22,10 +24,10 @@ Choose PUZZLES in the sandbox, then Level map and Continue to enter the numbered
 
 Preconditions: isolated launch and passing doctor.
 
-- Run `./scripts/verify-chaos-engine drive puzzle-campaign`. The journey enters through PUZZLES, fits and runs all 400 levels through visible controls, and checks the contact count, elapsed time, repair record and map progress. It checks the chapter boundary at each tenth win, uses touch in chapters seven and eight, reverses an installed rail after a miss, checks its sandbox geometry, and opens the downloaded replay offline. It reloads the completed campaign and checks that all 400 repairs survived. Screenshots and the observed actions, messages and records live in the run's evidence directory.
+- Run `./scripts/verify-chaos-engine drive puzzle-campaign`. The journey enters through PUZZLES, fits and runs all 440 levels through visible controls, and checks the contact count, elapsed time, repair record and map progress. It checks the chapter boundary at each tenth win, uses touch in chapters seven and eight, reverses an installed rail after a miss, checks its sandbox geometry, and opens the downloaded replay offline. It reloads the completed campaign and checks that all 440 repairs survived. Screenshots and the observed actions, messages and records live in the run's evidence directory.
 
 ## Gotchas
 
 - The campaign and workshop share the same physics. A physical contact must come from the correct body in the correct sequence.
-- Workshop prints have a separate storage limit. All 400 campaign records can coexist with those prints.
+- Workshop prints have a separate storage limit. All 440 campaign records can coexist with those prints.
 - The authoring script freezes the campaign's launch seeds and targets. To rebuild the score, use `node scripts/author-puzzle-campaign.mjs` with system Chrome installed. It checks the empty machine and intended repair at five launch positions in Node and Chrome, and tries every alternative at the center release.
