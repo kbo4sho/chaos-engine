@@ -93,6 +93,8 @@ const modules = [
   'practice-targets',
   'tool-evidence',
   'tool-notebook',
+  'repair-notebook-file',
+  'repair-notebook-desk',
   'play',
 ];
 // This snapshot is taken before the offline bench renders any local records.

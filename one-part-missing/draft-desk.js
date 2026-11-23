@@ -103,6 +103,8 @@ export function draftDesk(el, { campaign, orders, decodePrint, restore }) {
     }
   });
   return {
+    store,
+    refresh() { library(); offer(); },
     enter(machine, isGuided, auto) {
       active = machine;
       guided = isGuided;

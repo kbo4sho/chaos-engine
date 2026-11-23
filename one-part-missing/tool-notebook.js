@@ -1,6 +1,6 @@
 import { parts, validMove, createRun, advance } from './machines.js';
 import { practiceTargets } from './practice-targets.js';
-import { toolEvidence, toolEvents, grades, eventLine, evidencePrefix } from './tool-evidence.js';
+import { toolEvents, grades, eventLine, evidencePrefix } from './tool-evidence.js';
 import { recordSimulation } from './attempt-film.js';
 
 const headings = {
@@ -9,9 +9,8 @@ const headings = {
   combined: 'Combined with another spare',
 };
 const later = (ms) => new Promise((done) => setTimeout(done, ms));
-export function toolNotebook(M, el, { campaign, book, source, films }) {
-  const log = toolEvidence(() => localStorage),
-    panel = el('practice'),
+export function toolNotebook(M, el, { campaign, book, source, films, evidence: log }) {
+  const panel = el('practice'),
     menu = el('practice-tool'),
     section = el('tool-notebook');
   let personal = false,
@@ -176,6 +175,7 @@ export function toolNotebook(M, el, { campaign, book, source, films }) {
     if (e.key === null || e.key.startsWith(evidencePrefix)) draw();
   });
   return {
+    refresh: draw,
     enter(enabled) {
       cancel();
       personal = Boolean(enabled);

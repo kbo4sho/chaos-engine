@@ -63,6 +63,7 @@ export async function verifyOfflineRaces(home, { url, record, shot, outDir }) {
   const m = orders[0],
     [first, second] = benchmarks[0];
   try {
+    await sender.waitForSelector('#parts [data-part]', {visible:true});
     await sender.click('#map-link');
     await sender.click('#order-map summary');
     await sender.click('#order-list a[href="#' + m.id + '"]');

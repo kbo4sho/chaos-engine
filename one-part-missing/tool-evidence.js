@@ -83,13 +83,20 @@ export function toolEvidence(getStorage) {
   function mark(machine, move) {
     write(reviewedPrefix + machine.id, signature(move));
   }
+  function remember(rows) {
+    let added = 0;
+    for (const row of rows) {
+      if (get(row.kind, row.grade)) continue;
+      write(evidencePrefix + row.kind + '.' + row.grade, JSON.stringify(row));
+      added++;
+    }
+    return added;
+  }
   function record(machine, move, run) {
-    for (const row of toolEvents(machine, move, run))
-      if (!get(row.kind, row.grade))
-        write(evidencePrefix + row.kind + '.' + row.grade, JSON.stringify(row));
+    remember(toolEvents(machine, move, run));
     mark(machine, move);
   }
-  return { get, record, processed, mark };
+  return { get, record, processed, mark, remember };
 }
 
 const subjects = {

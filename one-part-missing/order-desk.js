@@ -72,6 +72,7 @@ export function setupOrders(el, load) {
     }
   }
   return {
+    log,
     showMap,
     get fastest() { return scores.speed; },
     refresh,

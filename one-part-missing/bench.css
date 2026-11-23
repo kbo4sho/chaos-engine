@@ -1704,3 +1704,10 @@ canvas.reading-path {cursor:crosshair}
 #tool-events button { text-align:left; white-space:normal; }
 #tool-notebook :is(button,.action-link) { min-height:44px; }
 #tool-event-status:empty { display:none; }
+
+#repair-transfer p { font: 12px/1.5 var(--mono); color: var(--muted); }
+#repair-transfer label { display: grid; gap: 6px; margin-top: 12px; }
+#notebook-file { width: 100%; min-width: 0; max-width: 100%; font: inherit; }
+#notebook-file::file-selector-button { min-height: 44px; color: var(--text); background: var(--panel); border: 1px solid var(--line); font: inherit; }
+.notebook-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+#notebook-file-status:not(:empty) { color: var(--cyan); }

@@ -8,7 +8,7 @@
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="bench.css" />
     <script src="../vendor/matter-0.20.0.min.js"></script>
-    <script type="module" src="bench-release.js?v=60e450eac45f"></script>
+    <script type="module" src="bench-release.js?v=d62acc54a1d0"></script>
   </head>
   <body>
     <header class="mast">
@@ -196,7 +196,7 @@
       <section class="library" aria-labelledby="library-title">
         <div class="library-head">
           <h2 id="library-title">Level map</h2>
-          <span id="progress">0 of 400 repaired</span>
+          <span id="progress">0 of 520 repaired</span>
         </div>
         <details id="finder" class="study">
           <summary>Find a machine</summary>
@@ -296,6 +296,16 @@
             <button id="tool-next-untried" type="button" class="quiet">Choose an unfitted tool</button>
             <p id="tool-event-status" role="status"></p>
           </section>
+        </details>
+        <details class="study" id="repair-transfer" hidden>
+          <summary>Move repairs to another device</summary>
+          <p>Take your working repairs, unfinished fittings, tool marks and work-order records with you.</p>
+          <button type="button" class="quiet" id="notebook-export">Download repair notebook</button>
+          <label for="notebook-file">Open a repair notebook <input id="notebook-file" type="file" accept=".json,application/json" /></label>
+          <p>Review the file before merging. Your existing repairs and unfinished builds take priority.</p>
+          <div class="notebook-actions"><button type="button" id="notebook-merge" hidden>Merge into this bench</button>
+            <button type="button" class="quiet" id="notebook-cancel" hidden>Cancel import</button></div>
+          <p id="notebook-file-status" role="status"></p>
         </details>
       </section>
       <section class="workshop" aria-labelledby="workshop-title">

@@ -9,9 +9,11 @@ import { setupCoach } from './coach-desk.js';
 import { flightNames } from './flight.js';
 import { setupDesignBench } from './design-bench.js';
 import { chooseStart, rememberRoute, setupFinder } from './library.js';
-import { orders, readOrderLink, fitCode, orderPrefix } from './work-orders.js';
+import { orders, orderById, readOrderLink, fitCode, orderPrefix } from './work-orders.js';
 import { setupOrders } from './order-desk.js';
 import { receiverOpen } from './transmissions.js';
+import { toolEvidence } from './tool-evidence.js';
+import { notebookTransfer } from './repair-notebook-desk.js';
 import { toolNotebook } from './tool-notebook.js';
 import { draftDesk } from './draft-desk.js';
 import { editHistory } from './bench-edits.js';
@@ -145,8 +147,18 @@ $('open-lab').addEventListener('click', () => {
   lab.open(kind, $('open-lab'));
 });
 const book = repairBook(() => localStorage);
-const notebook = toolNotebook(M,$,{ campaign:machines,book,films,source:async(id,signal)=>
-  campaignById.get(id)||orders.find(m=>m.id===id)||(decodePrint(id)?await usePress(M,{id},signal):null)
+const evidence = toolEvidence(() => localStorage);
+const knownMachine = (id) => campaignById.has(id) || orderById.has(id) || Boolean(decodePrint(id));
+const sourceMachine = async (id, signal) => campaignById.get(id) || orderById.get(id) ||
+  (decodePrint(id) ? await usePress(M, {id}, signal) : null);
+const notebook = toolNotebook(M,$,{ campaign:machines,book,films,evidence,source:sourceMachine });
+const transfer = notebookTransfer($, {
+  book, drafts:drafts.store, evidence, orderBook:desk.log, orders, orderById, M,
+  known: knownMachine, source: sourceMachine,
+  printed: id => !campaignById.has(id) && !orderById.has(id) && Boolean(decodePrint(id)),
+  lesson: id => lessonById.has(id)
+}, () => {
+  updateShelf(); drafts.refresh(); notebook.refresh(); desk.refresh(machine); controls();
 });
 let personalRepair=false;
 function savedMove() {
@@ -1199,6 +1211,7 @@ function navigate(resolved, id, announce = false, sharedFit = null, race = null,
   const personal=resolved && id===machine.id && !race && !match && !sharedFit && !document.body.dataset.portable;
   personalRepair=Boolean(personal);
   notebook.enter(personalRepair);
+  transfer.enter(personalRepair);
   if (personal) rememberRoute(machine, learningActive);
   edits.clear();
   waitingSocket = null;
