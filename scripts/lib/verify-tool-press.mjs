@@ -57,6 +57,29 @@ export async function verifyToolPress(home, { url, record, shot, outDir }) {
     );
     return resolveMachine(M, new URL(p.url()).hash.slice(1));
   };
+  // A shared rack print with two shafts just 35 bench units apart.
+  const dense = resolveMachine(M, 'press-2-8w-1y3y9w6-0-79-6d');
+  const denseUrl = new URL(p.url());
+  denseUrl.hash = dense.id;
+  await p.goto(denseUrl.href);
+  await solve(p, dense);
+  await p.click('#reset');
+  const targets = await p.$$eval('#sockets button', (bs) =>
+    bs.map((b) => {
+      const r = b.getBoundingClientRect();
+      return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+    }),
+  );
+  record(
+    'separate-phone-hit-targets',
+    targets.every((a, i) =>
+      targets
+        .slice(i + 1)
+        .every((b) => a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top),
+    ),
+    targets,
+  );
+  await shot(p, 'separate-rack-sockets-phone.png');
   const first = await print('chain', 'fan', 'magnet');
   await solve(p, first);
   const events = await p.$$eval('#cues button', (buttons) => buttons.map((b) => b.textContent));

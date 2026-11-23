@@ -285,26 +285,10 @@ main {
   color: var(--bg);
   border-style: solid;
 }
-.socket.fitted span {
-  transform: translateY(-16px);
-}
-.socket.beside-target span {
-  transform: translateY(24px);
-}
-.socket.beside-target::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  height: 14px;
-  border-left: 1px dotted var(--cyan);
-}
-.socket.beside-target::after {
-  content: '';
-  position: absolute;
-  width: 4px;
-  height: 4px;
-  border: 1px solid var(--cyan);
-}
+.socket span {position:relative;z-index:1;}
+.socket.leader::before,.socket.leader::after{content:'';position:absolute;top:50%;left:50%;pointer-events:none;}
+.socket.leader::before{width:var(--mount-length);border-top:1px dotted var(--cyan);transform:rotate(var(--mount-angle));transform-origin:left center;}
+.socket.leader::after{width:4px;height:4px;border:1px solid var(--cyan);border-radius:50%;transform:translate(calc(var(--mount-x) - 50%),calc(var(--mount-y) - 50%));}
 .socket:disabled {
   visibility: hidden;
 }

@@ -1,3 +1,4 @@
+import {mountLayout} from './mount-layout.js';
 import { setupCoach } from './coach-desk.js';
 import { flightNames } from './flight.js';
 import { setupDesignBench } from './design-bench.js';
@@ -267,6 +268,7 @@ new ResizeObserver(() => {
   const rect = $('stage').getBoundingClientRect(),
     scale = Math.min(2, window.devicePixelRatio || 1, 2160 / Math.max(1, rect.width));
   if (rect.width) {
+    if(machine)mountLayout($('sockets'),machine,fittings(machine,move).map(f=>f.socket));
     $('diagram').width = Math.round(rect.width * scale);
     $('diagram').height = Math.round(rect.height * scale);
     drawBench();
@@ -497,6 +499,7 @@ function controls() {
     );
     b.setAttribute('aria-pressed', String(placed.some((f) => f.socket === i)));
   }
+  mountLayout($('sockets'),machine,placed.map(f=>f.socket));
   const hash = new URLSearchParams({ machine: machine.id });
   if (move) {
     hash.set('part', move.part);
@@ -604,14 +607,10 @@ function buildDrawer() {
     });
     $('parts').append(b);
   }
+  delete $('sockets').dataset.mounts;
   machine.sockets.forEach((s, i) => {
     const b = document.createElement('button');
     b.className = 'socket';
-    // Leave the target and its sequence number visible when a mount is adjacent.
-    b.classList.toggle(
-      'beside-target',
-      machine.goals.some((g) => Math.hypot(g.x - s.x, g.y - s.y) < 42),
-    );
     b.type = 'button';
     b.dataset.socket = i;
     b.style.left = (s.x / WIDTH) * 100 + '%';

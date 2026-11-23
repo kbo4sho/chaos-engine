@@ -33,3 +33,4 @@ Preconditions: isolated launch, passing doctor and a fresh Chrome profile.
 - A featured tool can already be installed. The missing fitting is still for the player to discover.
 - The press uses a tested reserve print matching the requested tools when its new variations miss their trials.
 - The final target position is part of the print link. Changing the target in the maker creates a separate remix and preserves the source ticket.
+- A previously printed tight countershaft verifies two nearby mounts have separate 44-pixel touch targets and that tapping the rack socket delivers the parcel.

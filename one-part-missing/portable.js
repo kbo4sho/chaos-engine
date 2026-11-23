@@ -56,6 +56,7 @@ const modules = [
   'repair-coach',
   'coach-desk',
   'focus',
+  'mount-layout',
   'mechanical-art',
   'asset-source',
   'portable',
