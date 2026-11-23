@@ -156,9 +156,10 @@ All helpers are executable. Invoke them from the repo root.
 | `./scripts/verify-chaos-engine drive save-load` | Browser journey for [features/save-load.md](../../features/save-load.md) |
 | `./scripts/verify-chaos-engine drive example-scenes` | Browser journey for [features/example-scenes.md](../../features/example-scenes.md) |
 | `./scripts/verify-chaos-engine drive example-scenes-mobile` | iPhone 13 + Pixel 5 tap journey for [features/example-scenes-mobile.md](../../features/example-scenes-mobile.md) |
-| `./scripts/verify-chaos-engine drive puzzle-campaign` | [Full campaign](features/puzzle-campaign.md), all 200 repairs, chapter progress, rail orientation and portable replay |
+| `./scripts/verify-chaos-engine drive puzzle-campaign` | [Full campaign](features/puzzle-campaign.md), all 240 repairs, chapter progress, rail orientation and portable replay |
 | `./scripts/verify-chaos-engine drive tool-press` | [Tool-aware press](features/tool-press.md), selected tool pairs, accurate shared geometry and standalone cargo replays |
-| `./scripts/verify-chaos-engine drive tool-lessons` | [Guided lessons](features/tool-lessons.md), 32 mixed lessons, shared repairs, all-tool practice and frame stepping |
+| `./scripts/verify-chaos-engine drive tool-lessons` | [Guided lessons](features/tool-lessons.md), 40 mixed lessons, shared repairs, all-tool practice and frame stepping |
+| `./scripts/verify-chaos-engine drive rigging-course` | [Cable rigs](features/rigging-course.md), two-body constraints, break inspection, saved rig and offline delivery |
 | `./scripts/verify-chaos-engine drive clockwork-course` | [Clockwork and cargo](features/clockwork-course.md), moving solids, seven mechanical experiments, signal delivery and saved assemblies |
 | `./scripts/verify-chaos-engine drive tool-course` | [Powered course](features/tool-course.md), all eight experiments, contact inspection, saved sandbox delivery and offline replay |
 | `./scripts/verify-chaos-engine drive one-part-missing` | [Puzzle shelf](features/one-part-missing.md), public directory and legacy level links, real repairs, replay, workshop links and sandbox save/load |

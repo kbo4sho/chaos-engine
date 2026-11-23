@@ -1,6 +1,7 @@
 import { reserves } from './press-reserves.js';
 import { campaign } from './campaign.js';
 import { parts, createRun, advance, trial, canFlip } from './machines.js';
+import { links } from './rigging.js';
 import { instruments } from './devices.js';
 import { certify } from './certify.js';
 import { plates } from './press-catalog.js';
@@ -9,6 +10,7 @@ export const styles = {
   chain: 'Chain reaction',
   parcel: 'Parcel delivery',
   direct: 'Single tool',
+  rig: 'Cable rig',
   any: 'Any machine',
 };
 const maxSeed = 0xffffffff,
@@ -75,6 +77,7 @@ function arrange({ plate, seed, pass }) {
   const orient = (v) => (reflect ? -v : v);
   const shift = (s) => {
     const moved = { ...s, x: (reflect ? 720 - s.x : s.x) + dx, y: s.y + dy };
+    if (s.kind === 'cargo' && s.vx) moved.vx = orient(s.vx);
     if (s.a) moved.a = orient(s.a);
     if (s.dir || instruments[s.kind]) moved.dir = orient(s.dir || 1);
     return moved;
@@ -112,9 +115,11 @@ function arrange({ plate, seed, pass }) {
     ...source,
     id: 'pending',
     title: source.title + ' · ' + base36(seed).toUpperCase(),
-    lesson: source.fixtures.some((s) => s.kind === 'cargo')
-      ? 'Follow the gold marble to the switch, then trace the parcel from the hatch.'
-      : 'Watch the empty run. Where would changing the path put the receiver within reach?',
+    lesson: source.rigging
+      ? source.lesson
+      : source.fixtures.some((s) => s.kind === 'cargo')
+        ? 'Follow the gold marble to the switch, then trace the parcel from the hatch.'
+        : 'Watch the empty run. Where would changing the path put the receiver within reach?',
     pressPlate: source.title,
     printStyle: plates[plate - 1][1],
     toolCourse: false,
@@ -178,7 +183,7 @@ function provesFit(M, machine, move, requested) {
   if (
     machine.fixtures.some(
       (s) =>
-        Object.hasOwn(instruments, s.kind) &&
+        (Object.hasOwn(instruments, s.kind) || s.wire) &&
         trial(
           M,
           {
@@ -204,7 +209,15 @@ function provesFit(M, machine, move, requested) {
   const r = createRun(M, machine, move);
   while (r.state === 'running') advance(M, r);
   const used = new Set(r.uses.map((u) => u.item));
-  if (r.items.some((it, i) => instruments[it.shape.kind] && !used.has(i))) return false;
+  if (r.items.some((it, i) => (instruments[it.shape.kind] || links[it.shape.kind]) && !used.has(i)))
+    return false;
+  if (
+    r.items.some(
+      (it, i) =>
+        it.shape.kind === 'breaklink' && !r.uses.some((u) => u.item === i && u.action === 'snapped'),
+    )
+  )
+    return false;
   if (requested.some((k) => move.part !== k && !r.uses.some((u) => u.kind === k))) return false;
   const fits = certify(M, machine);
   if (fits?.length !== 1) return false;

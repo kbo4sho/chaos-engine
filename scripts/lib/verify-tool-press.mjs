@@ -87,6 +87,15 @@ export async function verifyToolPress(home, { url, record, shot, outDir }) {
   );
   await context.close();
   await p.bringToFront();
+  const rig = await print('rig', 'pulley', 'damper');
+  await solve(p, rig);
+  const rigEvents = await p.$$eval('#cues button', (bs) => bs.map((b) => b.textContent));
+  record(
+    'printed-rig-tools-carry-load',
+    rigEvents.some((t) => t.includes('Pulley taut')) &&
+      rigEvents.some((t) => t.includes('Damper damping')),
+    rigEvents,
+  );
   const parcel = await print('parcel', 'switch', 'hatch');
   const move = await solve(p, parcel);
   record(

@@ -19,6 +19,7 @@ Open PUZZLES and scroll to Machine press. Choose a machine type, an optional fea
 Preconditions: isolated launch, passing doctor and a fresh Chrome profile.
 
 - **Print and share.** Run `./scripts/verify-chaos-engine drive tool-press`. On a phone, ask for a chain using a fan and magnet. Fit the repair and inspect the recorded contacts. Copy the actual link and solve it in a new browser context with empty progress.
+- **Cable rig.** Ask for a pulley and a damper. Inspect the working print for the taut cable and the damper taking a load.
 - **Cargo and export.** Print a switch-and-hatch delivery, deliver the parcel, inspect the workshop record and import the fitted machine to the sandbox. Download its replay and verify the delivery offline.
 - **Practice.** Choose a pinwheel in Practice by tool and print another machine. The driver checks the pinwheel’s contact in the resulting run.
 - **Original and edited prints.** Run `./scripts/verify-chaos-engine drive one-part-missing` for the original track press, target edits, local repair persistence, sharing and offline files.

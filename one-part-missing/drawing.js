@@ -1,3 +1,4 @@
+import { drawBenchRig, eyelet, rigIcons } from './rig-art.js';
 import { mechanisms } from './mechanisms.js';
 import { drawMechanism, drawMachineGuides, mechanicalIcons, parcel } from './mechanical-art.js';
 import { FAN_HEIGHT, POLE_REACH } from './devices.js';
@@ -438,6 +439,7 @@ function tracePath(c, points, color) {
 
 function body(c, item, run) {
   const { shape: s, body: b } = item;
+  if (s.wire) return;
   c.save();
   c.translate(b.position.x, b.position.y);
   c.rotate(b.angle);
@@ -445,7 +447,8 @@ function body(c, item, run) {
     const idx = run.goals.indexOf(item),
       hit = run.hits[idx];
     target(c, s, hit !== undefined, hit === undefined ? 0 : run.tick - hit, idx, run.goals.length);
-  } else if (s.kind === 'cargo') parcel(c, s.r);
+  } else if (s.kind === 'eyelet') eyelet(c);
+  else if (s.kind === 'cargo') parcel(c, s.r);
   else if (mechanisms[s.kind]) {
     const events = run.uses.filter((u) => u.item === run.items.indexOf(item));
     drawMechanism(
@@ -478,7 +481,11 @@ function body(c, item, run) {
   c.restore();
 }
 
-export function draw(c, run, { trail = [], ghost = [], cargoTrail = [], small = false } = {}) {
+export function draw(
+  c,
+  run,
+  { trail = [], ghost = [], cargoTrail = [], small = false, mount = null } = {},
+) {
   c.save();
   c.setTransform(c.canvas.width / WIDTH, 0, 0, c.canvas.height / HEIGHT, 0, 0);
   c.clearRect(0, 0, WIDTH, HEIGHT);
@@ -498,6 +505,7 @@ export function draw(c, run, { trail = [], ghost = [], cargoTrail = [], small = 
     if (cargoTrail.length > 1) tracePath(c, cargoTrail, '#87c9ee');
     if (trail.length > 1) tracePath(c, trail, '#c7a569');
   }
+  drawBenchRig(c, run.items, mount);
   for (const item of run.items)
     if (item.body !== run.ball && item.shape.kind !== 'cargo') body(c, item, run);
   for (const item of run.items) if (item.shape.kind === 'cargo') body(c, item, run);
@@ -524,7 +532,7 @@ const icons = {
 export function partIcon(id) {
   return (
     '<svg viewBox="0 0 60 40" fill="none" stroke="#73e2e3" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">' +
-    (icons[id] || toolIcons[id] || mechanicalIcons[id]) +
+    (icons[id] || toolIcons[id] || mechanicalIcons[id] || rigIcons[id]) +
     '</svg>'
   );
 }
@@ -533,7 +541,7 @@ export function partIcon(id) {
 export function drawSandboxPart(c, render, timestamp) {
   const s = render.machineShape;
   const goodSize = (n) => Number.isFinite(n) && n > 0 && n <= 1000;
-  if (!s || (s.r ? !goodSize(s.r) : !goodSize(s.w) || !goodSize(s.h))) return;
+  if (!s || s.wire || (s.r ? !goodSize(s.r) : !goodSize(s.w) || !goodSize(s.h))) return;
   c.save();
   const scale = render.machineScale || 1;
   c.scale(scale, scale);
@@ -542,7 +550,8 @@ export function drawSandboxPart(c, render, timestamp) {
       ? Math.max(0, (timestamp - render.struckAt) / 16.67)
       : Infinity;
     target(c, s, age !== Infinity, age, render.noteIndex || 0, render.noteCount || 1);
-  } else if (s.kind === 'cargo') parcel(c, s.r);
+  } else if (s.kind === 'eyelet') eyelet(c);
+  else if (s.kind === 'cargo') parcel(c, s.r);
   else if (mechanisms[s.kind]) {
     drawMechanism(c, s, timestamp - render.poweredAt < 360, Boolean(render.gateOpen || render.switchOn));
   } else if (poweredColors[s.kind]) {
@@ -559,15 +568,32 @@ export function snapshot(run) {
   return {
     tick: run.tick,
     hits: [...run.hits],
-    poses: run.items.map(({ body }) => [body.position.x, body.position.y, body.angle]),
+    poses: run.items.map(({ body, shape }) =>
+      shape.wire
+        ? [
+            body.position.x,
+            body.position.y,
+            body.angle,
+            body.render.cableLength,
+            Boolean(body.render.cableBroken),
+          ]
+        : [body.position.x, body.position.y, body.angle],
+    ),
   };
 }
 
 // Build a display-only view. Scrubbing never rewinds the live Matter world.
 export function atFrame(run, sample) {
   const items = run.items.map((item, i) => {
-    const [x, y, angle] = sample.poses[i];
-    return { shape: item.shape, body: { position: { x, y }, angle } };
+    const [x, y, angle, cableLength, cableBroken] = sample.poses[i];
+    return {
+      shape: item.shape,
+      body: {
+        position: { x, y },
+        angle,
+        render: item.shape.wire ? { cableLength, cableBroken } : undefined,
+      },
+    };
   });
   return {
     items,

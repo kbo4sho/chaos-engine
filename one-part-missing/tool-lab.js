@@ -1,10 +1,26 @@
 import { createRun, advance, HEIGHT, WIDTH, parts } from './machines.js';
 import { instruments, outlet } from './devices.js';
+import { links } from './rigging.js';
 import { draw, atFrame, snapshot } from './drawing.js';
 
 // A controlled experiment for each tool keeps the release identical in both runs.
 // The reference belt/bed is an unpowered solid. Fields switch off completely.
+const rigExperiments = {
+  tether: ['When does a slack line first change the marble’s path?', 1.12],
+  strut: ['How does a rigid rod steer a marble moving toward its peg?', 1],
+  spring: ['Where does the marble turn back after stretching the coil?', 0.87],
+  winch: ['How does taking in the line change the turning radius?', 1.02],
+  breaklink: ['Where does the marble travel after the seam gives way?', 1.06],
+  damper: ['Which part of the motion does the shock absorber slow?', 1],
+  pulley: ['What happens to the blue parcel when the gold end of the cable drops?', 1],
+};
 const experiments = {
+  ...Object.fromEntries(
+    Object.entries(rigExperiments).map(([kind, [question]]) => [
+      kind,
+      { question, mount: [310, 76], release: kind === 'pulley' ? [222, 141, -3] : [220, 175, 5.5] },
+    ]),
+  ),
   bridge: {
     mount: [300, 198],
     release: [125, 48, 5],
@@ -108,7 +124,9 @@ const experiments = {
 };
 export function experiment(M, kind, offset = 0) {
   const { mount, release } = experiments[kind];
-  const delivery = kind === 'switch' || kind === 'hatch';
+  const wired = Object.hasOwn(links, kind);
+  const gate = kind === 'switch' || kind === 'hatch';
+  const delivery = gate || kind === 'pulley';
   const unpowered = !Object.hasOwn(instruments, kind);
   const apparatus =
     kind === 'weight'
@@ -133,8 +151,24 @@ export function experiment(M, kind, offset = 0) {
   const machine = {
     fixtures: [
       ...apparatus,
-      { ...parts[kind].shape, x: mount[0], y: mount[1], labPiece: true },
-      ...(delivery
+      ...(wired ? [{ kind: 'eyelet', node: 'peg', r: 6, field: true, x: mount[0], y: mount[1] }] : []),
+      ...(kind === 'pulley'
+        ? [{ kind: 'cargo', node: 'parcel', r: 11, x: 412, y: 145, density: 0.001 }]
+        : []),
+      {
+        ...parts[kind].shape,
+        x: mount[0],
+        y: mount[1],
+        labPiece: true,
+        ...(wired
+          ? {
+              from: kind === 'pulley' ? 'runner' : 'peg',
+              to: kind === 'pulley' ? 'parcel' : 'runner',
+              rest: rigExperiments[kind][1],
+            }
+          : {}),
+      },
+      ...(gate
         ? [
             kind === 'switch'
               ? { ...instruments.hatch.shape, x: 460, y: 135 }
@@ -144,7 +178,15 @@ export function experiment(M, kind, offset = 0) {
         : []),
       ...(kind === 'portal' ? [{ ...outlet, x: 423, y: 100 }] : []),
     ],
-    ball: { kind: 'marble', r: 12, x: release[0] + offset, y: release[1], vx: release[2] },
+    ball: {
+      kind: 'marble',
+      node: 'runner',
+      ...(kind === 'pulley' ? { density: 0.006 } : {}),
+      r: 12,
+      x: release[0] + offset,
+      y: release[1],
+      vx: release[2],
+    },
     goals: [
       {
         kind: 'chime',
@@ -166,7 +208,7 @@ export function experiment(M, kind, offset = 0) {
         .filter((s) => !(unpowered && disabled && s.labPiece))
         .map((s) => ({ ...s, disabled: disabled && s.kind === kind })),
     });
-    if (unpowered && !disabled) {
+    if (unpowered && !disabled && !wired) {
       const index = run.items.findIndex((it) => it.shape.labPiece);
       const part = run.items[index].body;
       M.Events.on(run.engine, 'collisionStart', ({ pairs }) => {
@@ -269,7 +311,9 @@ export function setupLab(M, { onOpen, onClose } = {}) {
         '.',
     );
     el('lab-contact').textContent = first
-      ? 'First contact at ' + (first.tick / 60).toFixed(2) + ' s'
+      ? (first.action ? parts[menu.value].name + ' ' + first.action + ' at ' : 'First contact at ') +
+        (first.tick / 60).toFixed(2) +
+        ' s'
       : 'Outside the working area';
     paint();
   }

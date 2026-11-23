@@ -662,7 +662,8 @@ summary {
 }
 
 #tool-entry,
-#clock-entry {
+#clock-entry,
+#rig-entry {
   display: inline-flex;
   align-items: center;
   min-height: 44px;

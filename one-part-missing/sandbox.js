@@ -1,6 +1,8 @@
+import { makeLinks, installRigging } from './rigging.js';
 import { instruments, installDevices } from './devices.js';
 import { WIDTH, HEIGHT, assembly, validMove, makeBody } from './machines.js';
 import { resolveMachine } from './workshop.js';
+import { drawSandboxRig } from './rig-art.js';
 import { drawSandboxPart } from './drawing.js';
 
 export function installBench(api) {
@@ -28,7 +30,15 @@ export function installBench(api) {
       tool.body.render.poweredAt = engine.timing.timestamp;
     },
   );
-  api.setRenderer(drawSandboxPart);
+  installRigging(
+    M,
+    engine,
+    () => M.Composite.allConstraints(world),
+    (l) => {
+      l.rigMarker.render.poweredAt = engine.timing.timestamp;
+    },
+  );
+  api.setRenderer(drawSandboxPart, drawSandboxRig);
   M.Events.on(engine, 'collisionStart', ({ pairs }) => {
     for (const { bodyA, bodyB } of pairs) {
       const target = bodyA.render.machineShape?.sensor
@@ -62,8 +72,10 @@ export function installBench(api) {
   // actual body changes its inertia and its ability to topple its neighbor.
   api.setMachineViewport({ width: WIDTH, height: HEIGHT });
   api.pause();
+  const items = [];
   for (const s of assembly(machine, move)) {
     const { body, pivot } = makeBody(M, s);
+    items.push({ shape: s, body });
     body.render.type = 'machine-part';
     body.render.machineShape = { ...s };
     body.render.machineUnits = true;
@@ -74,6 +86,7 @@ export function installBench(api) {
     }
     M.Composite.add(world, pivot ? [body, pivot] : body);
   }
+  makeLinks(M, world, items);
   const launcher = document.getElementById('puzzle-launcher');
   launcher.href = 'one-part-missing/#' + machine.id;
   api.status(machine.title.toUpperCase() + ' · PAUSED · PRESS PLAY TO EXPERIMENT');

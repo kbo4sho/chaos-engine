@@ -3,6 +3,10 @@
 const modules = [
   'mechanisms',
   'devices',
+  'rigging',
+  'rig-art',
+  'rig-course',
+  'rig-boards',
   'machines',
   'tool-course',
   'tool-lab',

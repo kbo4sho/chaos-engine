@@ -88,7 +88,7 @@ export async function verifyLessons(home, { url, record, shot }) {
   );
   record(
     'final-lesson-map',
-    positions.length === 1 && positions[0].endsWith('#learn/works-last-parcel'),
+    positions.length === 1 && positions[0].endsWith('#learn/' + lessons.at(-1).machine.id),
     positions,
   );
   await p.select('#lesson-chapter', '0');

@@ -43,7 +43,8 @@ function savedMove() {
     : null;
 }
 
-let enclosedReplay = null;
+let enclosedReplay = null,
+  previewSocket = null;
 let machine,
   run,
   move = null,
@@ -110,7 +111,13 @@ function drawBench() {
     const sample = tape[inspection],
       upto = Math.floor(sample.tick / 3);
     draw(c, atFrame(run, sample), { trail: trail.slice(Math.max(0, upto - 28), upto), cargoTrail });
-  } else draw(c, run, { trail: trail.slice(-28), ghost, cargoTrail });
+  } else
+    draw(c, run, {
+      trail: trail.slice(-28),
+      ghost,
+      cargoTrail,
+      mount: phase === 'ready' && previewSocket !== null ? machine.sockets[previewSocket] : null,
+    });
 }
 function addFrame() {
   if (tape.at(-1)?.tick !== run.tick) tape.push(snapshot(run));
@@ -128,9 +135,11 @@ $('scrubber').addEventListener('input', () => {
     $('signal').textContent =
       run.hits.at(-1) <= tick
         ? 'Parcel delivered'
-        : run.uses.some((u) => u.kind === 'hatch' && u.tick <= tick)
-          ? 'Hatch open'
-          : 'Hatch closed';
+        : !run.gated
+          ? 'Parcel in transit'
+          : run.uses.some((u) => u.kind === 'hatch' && u.tick <= tick)
+            ? 'Hatch open'
+            : 'Hatch closed';
   }
   drawBench();
 });
@@ -174,6 +183,11 @@ function updateShelf() {
   $('clock-entry').href = '#' + (nextClock || clockStart).id;
   $('clock-entry').textContent =
     nextClock && nextClock !== clockStart ? 'Resume clockwork course →' : 'Play the clockwork course →';
+  const rigStart = machines.find((m) => m.rigging);
+  const nextRig = unfinished.find((m) => m.rigging);
+  $('rig-entry').href = '#' + (nextRig || rigStart).id;
+  $('rig-entry').textContent =
+    nextRig && nextRig !== rigStart ? 'Resume cable rigs →' : 'Play the cable rigs →';
   $('chapter').value = activeChapter;
   $('chapter-hint').textContent = chapters[activeChapter][1];
   const links = machines.slice(activeChapter * 10, activeChapter * 10 + 10).map((m, i) => {
@@ -262,13 +276,17 @@ function controls() {
         machine.goals.length +
         (machine.goals.every((g) => g.kind === 'chime') ? ' notes' : ' contacts')
       : '';
-  if (machine.fixtures.some((s) => s.kind === 'cargo'))
+  if (run.cargo)
     $('signal').textContent =
       phase === 'won'
         ? 'Parcel delivered'
-        : run.uses.some((u) => u.kind === 'hatch')
-          ? 'Hatch open'
-          : 'Hatch closed';
+        : !run.gated
+          ? phase === 'ready'
+            ? 'Parcel ready'
+            : 'Parcel in transit'
+          : run.uses.some((u) => u.kind === 'hatch')
+            ? 'Hatch open'
+            : 'Hatch closed';
   for (const b of $('parts').children) {
     b.disabled = busy;
     b.setAttribute('aria-pressed', String(selected === b.dataset.part));
@@ -377,6 +395,7 @@ $('flip').addEventListener('click', () => {
 });
 function buildDrawer() {
   $('parts').replaceChildren();
+  previewSocket = null;
   $('sockets').replaceChildren();
   for (const id of machine.tray) {
     const b = document.createElement('button');
@@ -422,6 +441,32 @@ function buildDrawer() {
         ' bench',
     );
     b.innerHTML = '<span>' + socketName(i) + '</span>';
+    if (s.from) {
+      const name = (node) =>
+        node === 'runner'
+          ? 'gold marble'
+          : node === 'parcel'
+            ? 'blue parcel'
+            : 'fixed peg ' + (Number(node.slice(3)) + 1);
+      const span = Math.round((s.rest || 1) * 100);
+      const endpoints = name(s.from) + ' to ' + name(s.to) + ', ' + span + '% starting span';
+      b.title = endpoints;
+      b.setAttribute('aria-label', b.getAttribute('aria-label') + ', ' + endpoints);
+      const preview = () => {
+        previewSocket = i;
+        drawBench();
+      };
+      const clear = () => {
+        if (previewSocket === i) {
+          previewSocket = null;
+          drawBench();
+        }
+      };
+      b.addEventListener('focus', preview);
+      b.addEventListener('pointerenter', preview);
+      b.addEventListener('blur', clear);
+      b.addEventListener('pointerleave', clear);
+    }
     b.addEventListener('click', () => fit(i));
     $('sockets').append(b);
   });
@@ -486,13 +531,14 @@ function finish() {
   const seen = new Set();
   const cues = [];
   for (const use of run.uses) {
-    const contact = use.item + '/' + use.actor;
+    const contact = use.item + '/' + use.actor + '/' + (use.action || '');
     if (seen.has(contact)) continue;
     seen.add(contact);
     const cue = document.createElement('button');
     const label =
       (use.actor === 'cargo' ? 'Parcel · ' : '') +
       parts[use.kind].name +
+      (use.action ? ' ' + use.action : '') +
       ' · ' +
       (use.tick / 60).toFixed(2) +
       ' s';
@@ -524,6 +570,12 @@ function finish() {
   if (!win && machine.lesson && move) {
     const part = run.items.findIndex((item) => item.shape.fitted);
     const reached = run.uses.some((u) => u.item === part);
+    if (parts[move.part].shape.wire)
+      message(
+        reached
+          ? parts[move.part].name + ' took a load. Inspect its first pull and the path to the receiver.'
+          : 'This fitting never took a load. Try the other pair of endpoints.',
+      );
     if (parts[move.part].shape.kind in deviceParts)
       message(
         reached
@@ -533,7 +585,7 @@ function finish() {
               '. Check where the marble travels.',
       );
   }
-  if (!win && run.cargo)
+  if (!win && run.gated && run.cargo)
     message(
       run.uses.some((u) => u.kind === 'hatch')
         ? 'The hatch opened. Inspect the blue parcel’s path to the receiver.'
@@ -555,7 +607,7 @@ function tickMachine() {
   advance(M, run);
   if (run.uses.length > uses) {
     addFrame();
-    if (machine.fixtures.some((s) => s.kind === 'cargo')) controls();
+    if (run.gated && run.cargo) controls();
   }
   if (run.tick % 3 === 0) {
     addFrame();
@@ -766,7 +818,10 @@ function navigate(resolved, id, announce = false) {
   $('open-lab').hidden = false;
   $('lesson').hidden = !machine.lesson;
   $('lesson').open = Boolean(
-    machine.lesson && index >= 0 && index % 10 < 2 && (index < 140 || machine.clockwork),
+    machine.lesson &&
+    index >= 0 &&
+    index % 10 < 2 &&
+    (index < 140 || machine.clockwork || machine.rigging),
   );
   $('lesson-text').textContent = machine.lesson || '';
   document.title = machine.title + ' · One Part Missing';

@@ -15169,7 +15169,7 @@ Events.on(engine, 'collisionStart', (e) => {
 });
 
 // ── RENDERING ──
-let machinePartRenderer = null;
+let machinePartRenderer = null, machineRigRenderer = null;
 function drawBody(b) {
   const r = b.render || {};
   const type = r.type || 'default';
@@ -16890,6 +16890,7 @@ function drawConstraints() {
   const wreckingChains = new Set(wreckingBalls.map(wb => wb.chain));
   constraints.forEach(c => {
     if (!c.bodyA || !c.bodyB) return;
+    if (c.render?.type === 'machine-rig') { machineRigRenderer?.(ctx, c); return; }
     if (c.render?.type === 'flipper-pin') return;
     if (c.render?.type === 'breaklink') return; // Draw strain and weak seam above the parts.
     if (c.render?.type === 'clutch') return; // Custom friction plates and connecting shaft.
@@ -22300,7 +22301,7 @@ console.log('⚡ CHAOS ENGINE initialized');
 import {installBench} from './one-part-missing/sandbox.js';
 installBench({
   M: Matter, engine, world, setMachineViewport,
-  setRenderer(renderer) { machinePartRenderer = renderer; },
+  setRenderer(renderer, rigRenderer) { machinePartRenderer = renderer; machineRigRenderer = rigRenderer; },
   pause() { if (!paused) pauseBtn.click(); },
   chime(hz) { playSound(hz, 0.45, 'sine', 0.08); },
   status: showSaveFeedback

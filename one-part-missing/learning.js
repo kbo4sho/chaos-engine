@@ -11,6 +11,7 @@ const sequence = [
   ['Cross a gap', [131, 132, 137, 140]],
   ['Move a surface', [161, 162, 171, 172, 173, 178]],
   ['Deliver a parcel', [181, 182, 191, 195, 200]],
+  ['Connect moving bodies', [201, 202, 203, 205, 206, 207, 211, 240]],
 ];
 export const lessons = sequence.flatMap(([chapter, numbers]) =>
   numbers.map((n) => ({ chapter, machine: campaign[n - 1] })),
@@ -39,6 +40,13 @@ export const practice = {
   tripwire: [173, 176, 194],
   switch: [181, 184, 188],
   hatch: [181, 182, 200],
+  tether: [201, 204, 221],
+  strut: [202, 210, 223],
+  spring: [203, 208, 222],
+  damper: [205, 215, 225],
+  winch: [206, 209, 227],
+  breaklink: [207, 219, 226],
+  pulley: [211, 212, 240],
 };
 
 export function setupLearning({ el, lab }) {
@@ -50,6 +58,7 @@ export function setupLearning({ el, lab }) {
       'Powered tools',
       ['conveyor', 'trampoline', 'fan', 'magnet', 'deflector', 'syrup', 'portal', 'repulsor'],
     ],
+    ['Rigging', ['tether', 'strut', 'spring', 'damper', 'winch', 'breaklink', 'pulley']],
     ['Clockwork', ['elevator', 'cam', 'piston', 'pinwheel', 'tripwire', 'switch', 'hatch']],
   ]) {
     const list = document.createElement('optgroup');

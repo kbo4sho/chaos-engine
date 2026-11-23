@@ -1,3 +1,4 @@
+import { links, makeLinks, installRigging } from './rigging.js';
 import { rotorBody } from './mechanisms.js';
 import { instruments, installDevices } from './devices.js';
 
@@ -16,6 +17,7 @@ const socket = (x, y) => ({ x, y });
 
 export const parts = {
   ...instruments,
+  ...links,
   bridge: {
     name: 'Bridge',
     description: 'Span a gap',
@@ -206,6 +208,7 @@ export function createRun(M, machine, move = null, offset = 0) {
     items,
     ball,
     goals,
+    gated: items.some((i) => i.shape.kind === 'hatch'),
     cargo: items.find((i) => i.shape.kind === 'cargo')?.body,
     striker: machine.striker || 'marble',
     hits: [],
@@ -233,6 +236,17 @@ export function createRun(M, machine, move = null, offset = 0) {
       },
     );
   }
+  const wires = makeLinks(M, engine.world, items);
+  if (wires.length)
+    installRigging(
+      M,
+      engine,
+      () => wires,
+      (l, action) => {
+        const item = items.findIndex((i) => i.body === l.rigMarker);
+        run.uses.push({ kind: l.rig.kind, item, tick: run.tick, actor: 'rig', action });
+      },
+    );
   M.Events.on(engine, 'collisionStart', ({ pairs }) => {
     for (const { bodyA, bodyB } of pairs) {
       const goal = goals[run.hits.length];
@@ -259,7 +273,7 @@ export function advance(M, run) {
       (run.cargo.position.y > HEIGHT + 70 ||
         run.cargo.position.x < -65 ||
         run.cargo.position.x > WIDTH + 65 ||
-        (outside && !run.uses.some((u) => u.kind === 'switch')));
+        (run.gated && outside && !run.uses.some((u) => u.kind === 'switch')));
     // A tile can still trip the flag after the marble leaves the board.
     if (run.tick >= LIMIT || parcelLost || (outside && nextStriker === 'marble')) run.state = 'miss';
   }
