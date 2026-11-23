@@ -119,21 +119,22 @@ export async function verifySpareStudy(home, { url, shot, record, outDir }) {
     hasTouch: false,
   });
   const last = campaign.at(-1);
+  for (const machine of new Set([campaign.findLast(m => m.grand), last])) {
   await p.click('#map-link');
-  await p.select('#chapter', '49');
-  await p.click('#shelf a[href="#' + last.id + '"]');
-  await head(p, last);
-  const set = await solve(p, last),
-    before = await saved(p, last);
+  await p.select('#chapter', String(Math.floor(campaign.indexOf(machine) / 10)));
+  await p.click('#shelf a[href="#' + machine.id + '"]');
+  await head(p, machine);
+  const set = await solve(p, machine),
+    before = await saved(p, machine);
   await open(p);
-  const fits = fittings(last, set);
+  const fits = fittings(machine, set);
   record(
     'all-installed-spares-selectable',
     (await p.$$('#study-spare option')).length === fits.length,
   );
   for (const f of fits) {
     await p.select('#study-spare', String(f.socket));
-    const ref = compareSpare(M, last, set, f.socket);
+    const ref = compareSpare(M, machine, set, f.socket);
     record(
       'fresh-question-' + f.part,
       (await read(p, 'study-result')) === '' &&
@@ -146,7 +147,7 @@ export async function verifySpareStudy(home, { url, shot, record, outDir }) {
       result.startsWith('Correct.') && result.endsWith(ref.result),
       result,
     );
-    const key = studyKey(last, set, f.socket);
+    const key = studyKey(machine, set, f.socket);
     record(
       'per-spare-prediction-' + f.part,
       await p.evaluate(
@@ -158,10 +159,12 @@ export async function verifySpareStudy(home, { url, shot, record, outDir }) {
   }
   record(
     'original-three-part-stamp-unchanged',
-    (await saved(p, last)) === before,
+    (await saved(p, machine)) === before,
   );
-  await shot(p, 'three-part-study-desktop.png');
+  await shot(p, machine.id + '-three-part-study-desktop.png');
   await p.click('#study-close');
+  }
+  const set = certify(M, last)[0], fits = fittings(last, set);
   const protocol = await p.createCDPSession();
   await protocol.send('Browser.setDownloadBehavior', {
     behavior: 'allow',
