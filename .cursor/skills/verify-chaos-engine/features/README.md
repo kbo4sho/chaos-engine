@@ -128,3 +128,4 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [First repair on a phone](./phone-startup.md) covers cold touch startup, font loading, on-demand films and the machine press worker.
 - [Move repairs to another device](./repair-transfer.md) covers a verified personal notebook, unfinished fitting history and safe merges.
 - [Practice two tools together](./pair-training.md) covers verified three-machine practice courses for every tool, exact contact predictions and offline files.
+- [Read machine diagram](./machine-diagram.md) covers a keyboard and touch release diagram, actual receiver rules and a frame-accurate opening clock.

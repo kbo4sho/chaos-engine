@@ -93,6 +93,8 @@ const modules = [
   'practice-targets',
   'tool-evidence',
   'tool-notebook',
+  'machine-diagram',
+  'diagram-desk',
   'pair-training-index',
   'pair-training',
   'pair-training-desk',

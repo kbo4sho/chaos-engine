@@ -8,7 +8,7 @@
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="bench.css" />
     <script src="../vendor/matter-0.20.0.min.js"></script>
-    <script type="module" src="bench-release.js?v=10cf294cab75"></script>
+    <script type="module" src="bench-release.js?v=266781af2c49"></script>
   </head>
   <body>
     <header class="mast">
@@ -196,6 +196,7 @@
             <p id="proof-text"></p>
           </details>
           <div class="bench-links">
+            <button id="reader-open" type="button" aria-haspopup="dialog">Read machine diagram</button>
             <a id="open-sandbox" href="../" target="_blank" rel="noopener">Open in sandbox ↗</a
             ><button id="share">Copy puzzle link</button><button id="download">Download puzzle</button>
           </div>
@@ -437,6 +438,20 @@
           </div>
         </div>
       </details>
+      <dialog id="machine-reader" aria-labelledby="reader-title">
+        <header class="reader-head"><div><small id="reader-machine"></small><h2 id="reader-title">Read machine diagram</h2></div><button id="reader-close" class="quiet" type="button">Close</button></header>
+        <canvas id="reader-diagram" width="720" height="400" role="img" aria-label="Machine at release"></canvas>
+        <label for="reader-item">Parts at release</label><select id="reader-item"></select>
+        <div class="reader-controls"><button id="reader-previous" class="quiet" type="button">Previous</button><span id="reader-count"></span><button id="reader-next" class="quiet" type="button">Next</button><button id="reader-overlap" class="quiet" type="button" hidden></button></div>
+        <section id="reader-detail" aria-live="polite" aria-atomic="true"><h3 id="reader-name"></h3><p id="reader-position"></p><p id="reader-notes"></p></section>
+        <button id="reader-nearest" type="button" class="quiet"></button>
+        <button id="reader-choose" type="button" hidden></button>
+        <section id="reader-clock" hidden><h3>Receiver clock</h3>
+          <label for="reader-frame">Preview a frame</label><input id="reader-frame" type="range" min="0" max="420" step="1" value="0" />
+          <output id="reader-clock-time" for="reader-frame"></output><p id="reader-window"></p>
+          <div class="reader-controls"><button id="reader-next-window" class="quiet" type="button">Next opening</button><button id="reader-last-open" class="quiet" type="button">Last open frame</button></div>
+        </section>
+      </dialog>
       <dialog id="focus-view" aria-labelledby="focus-title">
         <header class="focus-head">
           <h2 id="focus-title"></h2>
@@ -446,6 +461,7 @@
             ><button type="button" id="focus-in" aria-label="Zoom in">+</button
             ><button type="button" id="focus-fit">Fit</button>
           </div>
+          <button type="button" class="quiet" id="focus-reader" aria-haspopup="dialog">Read diagram</button>
           <button type="button" class="quiet" id="focus-close">Close</button>
         </header>
         <div id="focus-content"></div>

@@ -1,3 +1,4 @@
+import { setupDiagram } from './diagram-desk.js';
 import { readTraining, trainingFileRoute, pairTrainingPrefix } from './pair-training.js';
 import { setupPairTraining } from './pair-training-desk.js';
 import { pathReader, filmPaths } from './path-reader.js';
@@ -127,6 +128,16 @@ const studyPlayback = {
     resumeAfterLab = false;
   },
 };
+const machineReader=setupDiagram(M,$,{
+  context:()=>({machine,move,canFit:!playing(),resume:playing()&&!runPaused}),
+  pause:setPaused,
+  chooseSocket(index){
+    if(phase!=='ready')resetRun(true);
+    selected=null;flipped=false;waitingSocket=null;fit(index);
+    const first=$('parts').querySelector('button');
+    first?.focus({preventScroll:true});first?.scrollIntoView({block:'nearest'});
+  }
+});
 const lab = setupLab(M, studyPlayback);
 const forecasts = setupPredictions(M, studyPlayback);
 const finder = setupFinder($);
@@ -1200,6 +1211,7 @@ $('save-replay').addEventListener('click', (event) => {
   if (replay) downloadMachine(event.currentTarget, replay);
 });
 function navigate(resolved, id, announce = false, sharedFit = null, race = null, match = null, resume = false, course = null) {
+  machineReader.dismiss();
   spareStudy.close();
   forecasts.close();
   lab.close();
