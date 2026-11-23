@@ -60,4 +60,6 @@ Keep implementation details out of the map. Name only user paths, stable handles
 
 - [One Part Missing](./one-part-missing.md) covers the puzzle shelf, physical repairs, inspection, replays, generated machines, sharing and sandbox editing.
 
-- [Puzzle campaign](./puzzle-campaign.md) covers 100 progressively harder machines, chapter navigation, reversible rails, multi-body contacts and permanent progress.
+- [Puzzle campaign](./puzzle-campaign.md) covers 160 progressively harder machines, chapter navigation, reversible rails, multi-body contacts and permanent progress.
+
+- [Powered tool course](./tool-course.md) covers the eight-tool lab, contact inspection, advanced machines and powered sandbox saves.

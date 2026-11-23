@@ -13,9 +13,7 @@
   <body>
     <header class="mast">
       <div class="mast-inner">
-        <a href="../" class="brand"
-          ><span class="brand-mark" aria-hidden="true">ϟ</span> Chaos Engine</a
-        >
+        <a href="../" class="brand"><span class="brand-mark" aria-hidden="true">ϟ</span> Chaos Engine</a>
         <h1>One Part Missing</h1>
         <button id="sound" type="button" aria-pressed="true">Sound on</button>
       </div>
@@ -24,11 +22,13 @@
       <div class="bench">
         <div class="instrument-head">
           <div>
-            <p class="eyeline" id="machine-no">Level 001 / 100 · First shift</p>
+            <p class="eyeline" id="machine-no">Level 001 / 160 · First shift</p>
             <h2 id="machine-title">The last bell</h2>
             <p id="goal">Ring the brass bell.</p>
           </div>
-          <button class="map-link" id="map-link" type="button" aria-controls="chapter">Level map ↓</button>
+          <button class="map-link" id="map-link" type="button" aria-controls="chapter">
+            Level map ↓
+          </button>
         </div>
         <section class="cabinet" aria-labelledby="machine-title">
           <div class="glass">
@@ -59,12 +59,18 @@
               >0.00 s</output
             >
           </div>
+          <div id="cues" aria-label="Tool contacts in this run" role="group" hidden></div>
         </section>
         <aside class="drawer" aria-labelledby="drawer-title">
           <div class="drawer-top">
             <h2 id="drawer-title">Parts drawer</h2>
             <p>Choose a part, then tap a socket.</p>
           </div>
+          <details id="lesson" hidden>
+            <summary>Bench note</summary>
+            <p id="lesson-text"></p>
+          </details>
+          <button id="open-lab" class="quiet" type="button" hidden>Try a tool in the lab ↗</button>
           <div id="parts" role="group" aria-label="Spare parts"></div>
           <button id="flip" class="quiet" type="button" aria-pressed="false" hidden>Flip rail</button>
           <p id="status" role="status" aria-live="polite">Watch a run, or pick a part to fit.</p>
@@ -87,11 +93,12 @@
       <section class="library" aria-labelledby="library-title">
         <div class="library-head">
           <h2 id="library-title">Level map</h2>
-          <span id="progress">0 of 100 repaired</span>
+          <span id="progress">0 of 160 repaired</span>
         </div>
         <div class="chapter-bar">
           <label for="chapter">Chapter</label
           ><select id="chapter"></select>
+          <a id="tool-entry" href="#tools-first-belt">Play the tool course →</a>
           <a id="continue">Continue campaign →</a>
         </div>
         <p id="chapter-hint"></p>
@@ -129,6 +136,46 @@
           </div>
         </div>
       </details>
+      <dialog id="tool-lab" aria-labelledby="lab-title">
+        <div class="lab-head">
+          <h2 id="lab-title">Tool lab</h2>
+          <button id="lab-close" class="quiet">Close</button>
+        </div>
+        <div class="lab-selects">
+          <label
+            >Tool
+            <select id="lab-tool"></select
+          ></label>
+          <label
+            >Release
+            <select id="lab-offset">
+              <option value="-24">24 units left</option>
+              <option value="0" selected>Center</option>
+              <option value="24">24 units right</option>
+            </select></label
+          >
+        </div>
+        <p id="lab-question"></p>
+        <canvas
+          id="lab-diagram"
+          width="720"
+          height="400"
+          role="img"
+          aria-label="Tool experiment"
+        ></canvas>
+        <div class="lab-legend"><span>Powered</span><span>Power off</span></div>
+        <div class="lab-transport">
+          <button id="lab-play" class="quiet">Play comparison</button><span id="lab-contact"></span>
+        </div>
+        <div class="film">
+          <label for="lab-frame">Inspect</label
+          ><input type="range" id="lab-frame" min="0" max="1" value="0" /><output
+            id="lab-time"
+            for="lab-frame"
+            >0.00 s</output
+          >
+        </div>
+      </dialog>
       <noscript>Enable JavaScript to play the physics machines.</noscript>
     </main>
   </body>

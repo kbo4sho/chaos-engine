@@ -1,3 +1,5 @@
+import { devices, installDevices } from './devices.js';
+
 // Coordinates and velocities use the same 720 × 400 workbench for every screen.
 export const WIDTH = 720;
 export const HEIGHT = 400;
@@ -12,6 +14,7 @@ const gate = (kind, x, y, w = 46, h = 42) => ({ kind, x, y, w, h, sensor: true }
 const socket = (x, y) => ({ x, y });
 
 export const parts = {
+  ...devices,
   bridge: {
     name: 'Bridge',
     description: 'Span a gap',
@@ -163,7 +166,7 @@ export function makeBody(M, shape) {
     label: kind,
     angle: shape.a || 0,
     isStatic: !moving,
-    isSensor: Boolean(shape.sensor),
+    isSensor: Boolean(shape.sensor || shape.field),
     frictionAir: 0.001,
     friction: kind === 'tile' ? 0.55 : 0.08,
     restitution: shape.bounce ?? 0.04,
@@ -200,9 +203,22 @@ export function createRun(M, machine, move = null, offset = 0) {
     goals,
     striker: machine.striker || 'marble',
     hits: [],
+    uses: [],
     tick: 0,
     state: 'running',
   };
+  const tools = items.filter(({ shape }) => devices[shape.kind] || shape.kind === 'outlet');
+  if (tools.length) {
+    const scene = { tools, marbles: [ball] };
+    installDevices(
+      M,
+      engine,
+      () => scene,
+      (tool) => {
+        run.uses.push({ kind: tool.shape.kind, item: items.indexOf(tool), tick: run.tick });
+      },
+    );
+  }
   M.Events.on(engine, 'collisionStart', ({ pairs }) => {
     for (const { bodyA, bodyB } of pairs) {
       const goal = goals[run.hits.length];

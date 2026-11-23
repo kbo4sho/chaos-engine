@@ -228,7 +228,7 @@ export async function verifyPuzzles(home, { url, record, shot, outDir }) {
       }
       record(
         'desktop-six-repaired',
-        (await page.$eval('#progress', (el) => el.textContent)) === '6 of 100 repaired',
+        (await page.$eval('#progress', (el) => el.textContent)) === '6 of ' + campaign.length + ' repaired',
         await page.$eval('#progress', (el) => el.textContent),
       );
       await shot(page, 'desktop-04-six-repaired.png');

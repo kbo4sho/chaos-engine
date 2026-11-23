@@ -1,16 +1,26 @@
 import { WIDTH, HEIGHT, STEP, canFlip, parts, validMove, createRun, advance } from './machines.js';
+import { devices as deviceParts } from './devices.js';
 import { campaign as machines, chapters, campaignById } from './campaign.js';
 import { repairBook, repairPrefix } from './repairs.js';
 import { portableFile } from './portable.js';
 import { usePress } from './press-client.js';
 import { makeEditor } from './maker.js';
 import { decodePrint } from './workshop.js';
+import { setupLab } from './tool-lab.js';
 import { draw, partIcon, snapshot, atFrame } from './drawing.js';
 
 const M = window.Matter;
 const $ = (id) => document.getElementById(id);
 const c = $('diagram').getContext('2d');
 const setEditorMachine = makeEditor(M);
+const lab = setupLab(M);
+$('open-lab').addEventListener('click', () => {
+  const kind =
+    selected && Object.hasOwn(deviceParts, selected)
+      ? selected
+      : machine.tray.find((id) => Object.hasOwn(deviceParts, id));
+  lab.open(kind, $('open-lab'));
+});
 const book = repairBook(() => localStorage);
 function savedMove() {
   const saved = book.read()[machine.id];
@@ -116,6 +126,12 @@ function updateShelf() {
     resume.href = '#' + unfinished[0].id;
     resume.textContent = 'Continue at ' + number(machines.indexOf(unfinished[0]) + 1) + ' →';
   }
+  const nextTool = unfinished.find((m) => m.toolCourse);
+  $('tool-entry').href = '#' + (nextTool || machines.find((m) => m.toolCourse)).id;
+  $('tool-entry').textContent =
+    nextTool && nextTool !== machines.find((m) => m.toolCourse)
+      ? 'Resume tool course →'
+      : 'Play the tool course →';
   $('chapter').value = activeChapter;
   $('chapter-hint').textContent = chapters[activeChapter][1];
   const links = machines.slice(activeChapter * 10, activeChapter * 10 + 10).map((m, i) => {
@@ -209,6 +225,26 @@ function controls() {
   for (const [i, b] of [...$('sockets').children].entries()) {
     b.disabled = busy;
     b.classList.toggle('fitted', move?.socket === i);
+    const dir = machine.sockets[i].dir || 1;
+    const mark =
+      selected === 'conveyor'
+        ? dir === 1
+          ? '→'
+          : '←'
+        : selected === 'deflector'
+          ? dir === 1
+            ? '↶'
+            : '↷'
+          : '';
+    b.querySelector('span').dataset.direction = mark;
+    b.setAttribute(
+      'aria-description',
+      mark
+        ? selected === 'conveyor'
+          ? 'Belt runs ' + (dir === 1 ? 'right' : 'left')
+          : 'Turns ' + (dir === 1 ? 'counterclockwise' : 'clockwise')
+        : '',
+    );
     b.setAttribute('aria-pressed', String(move?.socket === i));
   }
   const hash = new URLSearchParams({ machine: machine.id });
@@ -229,6 +265,8 @@ function resetRun(keepGhost = false) {
   replaying = false;
   tape = [];
   inspection = null;
+  $('cues').hidden = true;
+  $('cues').replaceChildren();
   $('film').hidden = true;
   run = createRun(M, machine, move);
   addFrame();
@@ -379,6 +417,23 @@ function finish() {
   $('film-time').value = seconds;
   $('scrubber').setAttribute('aria-valuetext', seconds);
   $('film').hidden = false;
+  const seen = new Set();
+  const cues = [];
+  for (const use of run.uses) {
+    if (seen.has(use.item)) continue;
+    seen.add(use.item);
+    const cue = document.createElement('button');
+    const label = parts[use.kind].name + ' · ' + (use.tick / 60).toFixed(2) + ' s';
+    cue.textContent = label;
+    cue.setAttribute('aria-label', 'Inspect ' + label);
+    cue.addEventListener('click', () => {
+      $('scrubber').value = tape.findIndex((f) => f.tick >= use.tick);
+      $('scrubber').dispatchEvent(new Event('input'));
+    });
+    cues.push(cue);
+  }
+  $('cues').replaceChildren(...cues);
+  $('cues').hidden = !cues.length;
   controls();
   updateShelf();
   drawBench();
@@ -388,12 +443,24 @@ function finish() {
           (replaying
             ? ' Replay complete.'
             : bookComplete()
-              ? ' All 100 machines repaired.'
+              ? ' All ' + machines.length + ' machines repaired.'
               : ' Repair recorded.')
       : move
         ? 'That repair missed. Try another part or socket.'
         : 'The machine missed. Pick a part, then tap a socket.',
   );
+  if (!win && machine.toolCourse && move) {
+    const part = run.items.findIndex((item) => item.shape.fitted);
+    const reached = run.uses.some((u) => u.item === part);
+    if (parts[move.part].shape.kind in deviceParts)
+      message(
+        reached
+          ? parts[move.part].name + ' activated. Inspect its exit path before moving the fitting.'
+          : 'The marble missed the working area of your ' +
+              parts[move.part].name.toLowerCase() +
+              '. Check where the marble travels.',
+      );
+  }
   if (!win) tone(128, 0.14, 0.025, 'triangle');
 }
 function frame(now) {
@@ -410,11 +477,14 @@ function frame(now) {
       if (run.tick >= finishTick) finish();
       continue;
     }
-    const before = run.hits.length;
+    const before = run.hits.length,
+      uses = run.uses.length;
     advance(M, run);
+    if (run.uses.length > uses) addFrame();
     if (run.tick % 3 === 0) {
       addFrame();
-      trail.push([run.ball.position.x, run.ball.position.y]);
+      const jumped = run.uses.some((u) => u.kind === 'portal' && u.tick > run.tick - 3);
+      trail.push([run.ball.position.x, run.ball.position.y, jumped]);
     }
     if (run.hits.length !== before) {
       tone([523.25, 659.25, 783.99, 1046.5][Math.min(before, 3)], 0.55, 0.1);
@@ -529,6 +599,7 @@ $('save-replay').addEventListener('click', (event) => {
   if (replay) downloadMachine(event.currentTarget, replay);
 });
 function navigate(resolved, id, announce = false) {
+  lab.close();
   machine = resolved || machines[0];
   enclosedReplay = null;
   if (document.body.dataset.portable === machine.id && document.body.dataset.repair) {
@@ -568,10 +639,16 @@ function navigate(resolved, id, announce = false) {
     seq = index < 0 ? 'W' : number(index + 1);
   if (index >= 0) activeChapter = Math.floor(index / 10);
   $('machine-no').textContent =
-    index < 0 ? 'Machine press · verified' : 'Level ' + seq + ' / 100 · ' + chapters[activeChapter][0];
+    index < 0
+      ? 'Machine press · verified'
+      : 'Level ' + seq + ' / ' + machines.length + ' · ' + chapters[activeChapter][0];
   $('machine-title').tabIndex = -1;
   $('machine-title').textContent = machine.title;
   $('goal').textContent = machine.goal;
+  $('open-lab').hidden = !machine.toolCourse;
+  $('lesson').hidden = !machine.lesson;
+  $('lesson').open = Boolean(machine.lesson && index >= 0 && index % 10 < 2 && index < 140);
+  $('lesson-text').textContent = machine.lesson || '';
   document.title = machine.title + ' · One Part Missing';
   $('diagram').setAttribute(
     'aria-label',

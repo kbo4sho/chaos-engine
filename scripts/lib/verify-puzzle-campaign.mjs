@@ -61,7 +61,7 @@ export async function verifyCampaign(home, { url, record, shot, outDir }) {
       if (move.flipped) await press('#flip');
       await press(socket);
     }
-    if ([1, 61, 81, 100].includes(n)) {
+    if ([1, 61, 81, 100, 101, 112, 133, campaign.length].includes(n)) {
       await page.evaluate(() => scrollTo(0, 0));
       await shot(page, 'level-' + n + '-fitted.png');
     }
@@ -82,7 +82,7 @@ export async function verifyCampaign(home, { url, record, shot, outDir }) {
     record(
       'level-' + n + '-' + machine.id,
       !state.overflows &&
-        state.progress === n + ' of 100 repaired' &&
+        state.progress === n + ' of ' + campaign.length + ' repaired' &&
         state.repair?.tick === Math.round(state.elapsed * 60) - 30 &&
         state.repair?.part === move.part &&
         state.repair.socket === move.socket &&
@@ -158,11 +158,13 @@ export async function verifyCampaign(home, { url, record, shot, outDir }) {
       await page.bringToFront();
       portableChecked = true;
     }
-    if (n < 100) await press('#next');
+    if (n < campaign.length) await press('#next');
   }
   await page.reload({ waitUntil: 'load' });
   await page.waitForFunction(
-    () => document.getElementById('progress').textContent === '100 of 100 repaired',
+    (total) => document.getElementById('progress').textContent === total + ' of ' + total + ' repaired',
+    {},
+    campaign.length,
   );
   const final = await page.evaluate(() => ({
     progress: document.getElementById('progress').textContent,
@@ -172,7 +174,7 @@ export async function verifyCampaign(home, { url, record, shot, outDir }) {
   }));
   record(
     'campaign-complete-after-reload',
-    final.resumeHidden && final.records === 100 && flipChecked && portableChecked,
+    final.resumeHidden && final.records === campaign.length && flipChecked && portableChecked,
     final,
   );
   record('campaign-runtime-errors', errors.length === 0, errors);

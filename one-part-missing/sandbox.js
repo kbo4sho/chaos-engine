@@ -1,9 +1,33 @@
+import { devices, installDevices } from './devices.js';
 import { WIDTH, HEIGHT, assembly, validMove, makeBody } from './machines.js';
 import { resolveMachine } from './workshop.js';
 import { drawSandboxPart } from './drawing.js';
 
 export function installBench(api) {
   const { M, engine, world } = api;
+  let previousBodies, scene;
+  installDevices(
+    M,
+    engine,
+    () => {
+      const bodies = M.Composite.allBodies(world);
+      if (bodies !== previousBodies) {
+        previousBodies = bodies;
+        scene = { tools: [], marbles: [] };
+        for (const body of bodies) {
+          const shape = body.render.machineShape;
+          if (shape && (devices[shape.kind] || shape.kind === 'outlet'))
+            scene.tools.push({ body, shape });
+          if (!body.isStatic && !body.isSensor && (shape?.kind === 'marble' || body.circleRadius))
+            scene.marbles.push(body);
+        }
+      }
+      return scene;
+    },
+    (tool) => {
+      tool.body.render.poweredAt = engine.timing.timestamp;
+    },
+  );
   api.setRenderer(drawSandboxPart);
   M.Events.on(engine, 'collisionStart', ({ pairs }) => {
     for (const { bodyA, bodyB } of pairs) {
