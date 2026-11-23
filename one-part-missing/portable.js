@@ -114,7 +114,7 @@ export async function portableFile(machine, replay = null, challenge = null) {
     readAsset('../vendor/matter-0.20.0.min.js'),
     readAsset('../vendor/MATTER-LICENSE'),
     readAsset('../vendor/VT323-OFL.txt'),
-    fetch(new URL('../vendor/VT323-Regular.ttf', document.baseURI)).then((response) => {
+    fetch(new URL('../vendor/VT323-Regular.woff2', document.baseURI)).then((response) => {
       if (!response.ok) throw new Error('Font unavailable');
       return response.arrayBuffer();
     }),
@@ -123,7 +123,7 @@ export async function portableFile(machine, replay = null, challenge = null) {
   const doc = new DOMParser().parseFromString(shell, 'text/html');
   const style = doc.createElement('style');
   style.textContent =
-    css.replace('../vendor/VT323-Regular.ttf', 'data:font/ttf;base64,' + base64(new Uint8Array(font))) +
+    css.replace('../vendor/VT323-Regular.woff2', 'data:font/woff2;base64,' + base64(new Uint8Array(font))) +
     '\n/*\n' +
     fontLicense +
     '\n*/';

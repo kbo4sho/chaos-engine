@@ -125,3 +125,4 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Resume an unfinished repair](./unfinished-repairs.md) covers durable partial fittings, undo, local privacy and multi-tab recovery.
 - [Your tool notebook](./tool-notebook.md) covers actual fitting activity, personalized practice and replayable contacts.
 - [Cross training and qualification finals](./qualification-course.md) covers 20 numbered repairs, all 54 compound fittings and the three-spare finals.
+- [First repair on a phone](./phone-startup.md) covers cold touch startup, font loading, on-demand films and the machine press worker.

@@ -37,7 +37,7 @@ export async function stationFile(
     readAsset('../../vendor/matter-0.20.0.min.js'),
     readAsset('../../vendor/MATTER-LICENSE'),
     readAsset('../../vendor/VT323-OFL.txt'),
-    fetch('../../vendor/VT323-Regular.ttf').then((response) => {
+    fetch('../../vendor/VT323-Regular.woff2').then((response) => {
       if (!response.ok) throw Error('Font unavailable');
       return response.arrayBuffer();
     }),
@@ -47,8 +47,8 @@ export async function stationFile(
   const css = doc.createElement('style');
   css.textContent =
     bench.replace(
-      '../vendor/VT323-Regular.ttf',
-      'data:font/ttf;base64,' + base64(new Uint8Array(font)),
+      '../vendor/VT323-Regular.woff2',
+      'data:font/woff2;base64,' + base64(new Uint8Array(font)),
     ) +
     '\n' +
     desk +
