@@ -145,6 +145,7 @@ export function installBench(api) {
     body.render.type = 'machine-part';
     body.render.machineShape = { ...s };
     body.render.machineUnits = true;
+    api.registerMachineCollision(body);
     if (s.sensor) {
       if (machine.striker && !s.striker) body.render.machineShape.striker = machine.striker;
       body.render.noteIndex = machine.goals.indexOf(s);

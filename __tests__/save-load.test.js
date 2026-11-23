@@ -2445,3 +2445,26 @@ describe('Bank local-axis reflection tool', () => {
     expect(restored.run('Composite.allBodies(world).find(b=>b.label!=="wall").velocity.y')).toBe(-4);
   });
 });
+
+describe('Imported puzzle boundaries', () => {
+  it('updates a legacy saved machine and its pending phase filter while retaining native wall collisions', () => {
+    const api = gameHarness();
+    api.run(`
+      const importedLoad = Bodies.circle(120, 80, 12, {label:'marble'});
+      importedLoad.render.machineUnits = true;
+      importedLoad.render.machineShape = {kind:'marble',x:120,y:80,r:12};
+      const nativeBlock = Bodies.rectangle(300, 40, 18, 18, {label:'sample-block'});
+      Composite.add(world, [importedLoad,nativeBlock]);
+      phaseBodies.set(importedLoad, {...importedLoad.collisionFilter});
+      importedLoad.collisionFilter.mask = 0;
+      restoreGameState(readGameSave(serializeGameState()));
+      window.oldLoad = Composite.allBodies(world).find(b=>b.label==='marble');
+      window.block = Composite.allBodies(world).find(b=>b.label==='sample-block');
+    `);
+    expect(api.run('oldLoad.collisionFilter.mask')).toBe(0);
+    expect(api.run('phaseBodies.get(oldLoad).mask')).not.toBe(0);
+    expect(api.run('Matter.Detector.canCollide(phaseBodies.get(oldLoad),walls[0].collisionFilter)')).toBe(false);
+    expect(api.run('Matter.Detector.canCollide(block.collisionFilter,walls[0].collisionFilter)')).toBe(true);
+    expect(api.run('Matter.Detector.canCollide(block.collisionFilter,phaseBodies.get(oldLoad))')).toBe(true);
+  });
+});

@@ -15,7 +15,7 @@ Open PUZZLES, Level map, Jump to a tool course and Play grand relays. Test the e
 
 ## Driving it with verify-chaos-engine
 
-Run `./scripts/verify-chaos-engine drive grand-relays`. Trace a closed door, fit both sides of the opening relay, switch lanes and inspect a frame on a phone. Run all twenty deliveries, verify each saved record and inspect the twelve-tool finale on desktop. Reopen a shared setup and replay a downloaded machine offline. Drive the numbered campaign, guided lessons, save/load and ui-layout as well.
+Run `./scripts/verify-chaos-engine drive grand-relays`. Trace a closed door, fit both sides of the opening relay, switch lanes and inspect a frame on a phone. Run all twenty deliveries, verify each saved record and inspect the twelve-tool finale on desktop. Reopen a shared setup and replay a downloaded machine offline. Save the final assembly in the editable sandbox, reload it and follow all twelve tools through the three arrivals. Drop a native block and observe its collision with the sandbox wall. Drive the numbered campaign, guided lessons, save/load and ui-layout as well.
 
 ## Gotchas
 

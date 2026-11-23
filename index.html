@@ -1370,6 +1370,14 @@ saveFeedback.setAttribute('role', 'status');
 saveFeedback.setAttribute('aria-live', 'polite');
 wrap.appendChild(saveFeedback);
 
+// An imported puzzle has an open physical bench. Its moving bodies can leave
+// the frame while a parcel is still in transit. Native sandbox pieces keep
+// their ordinary walls and still collide with imported tools and loads.
+const machineCollisionCategory = 0x0002;
+function registerMachineCollision(body, originalPhaseFilter) {
+  if (body.collisionFilter.category === 1) body.collisionFilter.category = machineCollisionCategory;
+  if (originalPhaseFilter?.category === 1) originalPhaseFilter.category = machineCollisionCategory;
+}
 let machineViewport = null;
 function resize() {
   if (machineViewport) {
@@ -2144,6 +2152,7 @@ function rebuildWalls() {
   walls.forEach(w => Composite.remove(world, w));
   const W = canvas.width, H = canvas.height, T = 40;
   const opts = { isStatic: true, restitution: 0.3, friction: 0.5, label: 'wall' };
+  if (machineViewport) opts.collisionFilter = { mask: (0xffffffff ^ machineCollisionCategory) >>> 0 };
   walls = [
     Bodies.rectangle(W/2, H + T/2, W + T*2, T, opts),   // floor
     Bodies.rectangle(W/2, -T/2, W + T*2, T, opts),        // ceiling
@@ -22054,7 +22063,11 @@ function readGameSave(serialized) {
 
 function restoreGameState(game) {
   finishClear(false);
-  if (game.bodies.some(body => body.render?.machineUnits === true)) setMachineViewport({width:720,height:400});
+  const imported = game.bodies.filter(body => body.render?.machineUnits === true);
+  if (imported.length) {
+    setMachineViewport({width:720,height:400});
+    for (const body of imported) registerMachineCollision(body, game.state.phaseBodies?.get(body));
+  }
   Composite.clear(world, false, true);
   Engine.clear(engine);
   // The same decoded objects populate both the world and the tool registries.
@@ -22301,7 +22314,7 @@ console.log('⚡ CHAOS ENGINE initialized');
 <script type="module">
 import {installBench} from './one-part-missing/sandbox.js';
 installBench({
-  M: Matter, engine, world, setMachineViewport,
+  M: Matter, engine, world, setMachineViewport, registerMachineCollision,
   setRenderer(renderer, rigRenderer) { machinePartRenderer = renderer; machineRigRenderer = rigRenderer; },
   pause() { if (!paused) pauseBtn.click(); },
   chime(hz) { playSound(hz, 0.45, 'sine', 0.08); },

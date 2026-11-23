@@ -199,9 +199,44 @@ export async function verifyGrandRelays(home, { url, record, shot, outDir }) {
       !external.length,
     { offline, external },
   );
+  await p.bringToFront();
+  const openingSandbox=new Promise(resolve=>p.once('popup',resolve));
+  await p.click('#open-sandbox');
+  const sandbox=await openingSandbox;watch(sandbox);await sandbox.bringToFront();
+  await sandbox.waitForFunction(()=>document.querySelector('#btn-pause')?.textContent.includes('PLAY'));
+  await sandbox.click('#btn-save');
+  if(await sandbox.$eval('#save-confirm',e=>e.open))await sandbox.click('#save-accept');
+  await sandbox.waitForFunction(()=>document.querySelector('#save-feedback').textContent.includes('SAVED TO SLOT'));
+  await sandbox.reload();await sandbox.click('#btn-load');await sandbox.click('#save-accept');
+  await sandbox.waitForFunction(()=>document.querySelector('#save-feedback').textContent.includes('LOADED SLOT'));
+  if((await read(sandbox,'btn-pause')).includes('PLAY'))await sandbox.click('#btn-pause');
+  await sandbox.waitForFunction(()=>Composite.allBodies(world).some(b=>b.render.machineShape?.window&&b.render.struckAt>0),{timeout:18000});
+  await sandbox.click('#btn-pause');
+  const transfer=await sandbox.evaluate(()=>{
+    const bodies=Composite.allBodies(world);
+    return {tools:bodies.filter(b=>b.render.poweredAt>0).map(b=>b.label),
+      times:bodies.filter(b=>b.render.machineShape?.sensor).map(b=>b.render.struckAt),
+      fitted:bodies.filter(b=>b.render.machineShape?.fitted).map(b=>b.label)};
+  });
+  record('restored-twelve-tool-sandbox-delivery',new Set(transfer.tools).size===12&&transfer.fitted.length===3&&transfer.times.length===3&&transfer.times.every((t,i,ts)=>t>0&&(!i||t>ts[i-1])),transfer);
+  await shot(sandbox,'restored-relay-sandbox.png');
+  await sandbox.click('[data-tool="block"]');
+  const stage=await sandbox.$('#game'),box=await stage.boundingBox();
+  await sandbox.mouse.click(box.x+0.95*box.width,box.y+.35*box.height);
+  await sandbox.waitForFunction(()=>Composite.allBodies(world).some(b=>b.render.type==='block'));
+  const wallHit=sandbox.evaluate(()=>new Promise(resolve=>{
+    const off=()=>Matter.Events.off(engine,'collisionStart',listener);
+    const listener=({pairs})=>{
+      if(pairs.some(({bodyA:a,bodyB:b})=>(a.render.type==='block'&&b.label==='wall')||(b.render.type==='block'&&a.label==='wall'))){off();clearTimeout(timer);resolve(true);}
+    };
+    const timer=setTimeout(()=>{off();resolve(false);},9000);
+    Matter.Events.on(engine,'collisionStart',listener);
+  }));
+  await sandbox.click('#btn-pause');record('native-block-hits-sandbox-wall',await wallHit);
+  await sandbox.close();
   fs.writeFileSync(
     path.join(outDir, "dispatch-records.json"),
-    JSON.stringify({ records, href, offline }, null, 2),
+    JSON.stringify({ records, href, offline, transfer }, null, 2),
   );
   await protocol.detach();
   await ctx.close();

@@ -58,6 +58,8 @@ One-shot:
 ./scripts/verify-chaos-engine drive save-load
 ```
 
+On an imported puzzle, drive `grand-relays` to preserve the open physical bench across a save and reload. Native pieces added in the same sandbox still meet its walls.
+
 ## Gotchas
 
 - `ChaosEngine.loadLesson` clears the world. Saving after a lesson restores the lesson scene, not the pre-lesson balls. Do not drop the lesson step to make object counts easier.
