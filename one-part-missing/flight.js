@@ -1,3 +1,4 @@
+import {fieldGear,fieldParts} from './fields.js';
 // A passing body collects equipment at a service ring. Forces follow that body
 // after it leaves the ring, including when the sandbox world is saved and loaded.
 export const flightParts = {
@@ -10,11 +11,11 @@ export const flightParts = {
   unload: { name: 'Release hoop', description: 'Shed the equipment carried by the load' },
 };
 for (const [kind, p] of Object.entries(flightParts)) p.shape = { kind, r: 18, field: true };
-export const gearBit = { float: 1, parachute: 2, thruster: 4, keel: 8, hopper: 16 };
+export const gearBit = { float: 1, parachute: 2, thruster: 4, keel: 8, hopper: 16, ...fieldGear };
 export function flightNames(mask) {
   return Object.keys(gearBit)
     .filter((k) => mask & gearBit[k])
-    .map((k) => flightParts[k].name);
+    .map((k) => (flightParts[k] || fieldParts[k]).name);
 }
 export function installFlight(M, engine, getScene, onUse) {
   let previous,
@@ -71,6 +72,11 @@ export function installFlight(M, engine, getScene, onUse) {
       const force = { x: 0, y: 0 },
         v = b.velocity,
         steps = Math.min(3, Math.max(0, event.delta / (1000 / 60)));
+      if(mask & gearBit.lift){force.x-=2*g.x*g.scale;force.y-=2*g.y*g.scale;}
+      if(mask & gearBit.gyro){
+        const delta=(b.render.gyroHeading??0)-b.angle,error=Math.atan2(Math.sin(delta),Math.cos(delta));
+        M.Body.setAngularVelocity(b,Math.abs(error)<.006?0:Math.max(-.14,Math.min(.14,error*.18)));
+      }
       if (mask & gearBit.float) {
         force.x -= g.x * g.scale;
         force.y -= g.y * g.scale;

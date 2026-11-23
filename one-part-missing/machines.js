@@ -229,6 +229,7 @@ export function makeBody(M, shape) {
       : shape.r
         ? M.Bodies.polygon(x, y, 40, shape.r, options)
         : M.Bodies.rectangle(x, y, shape.w, shape.h, options));
+  if(shape.sign && moving)body.render.fieldCharge=shape.sign;
   if (shape.bounce) body.restitution = shape.bounce;
   if (shape.r) body.circleRadius = shape.r;
   if (shape.guide) {
@@ -286,7 +287,7 @@ export function createRun(M, machine, move = null, offset = 0) {
     tick: 0,
     state: 'running',
   };
-  const tools = items.filter(({ shape }) => instruments[shape.kind] || shape.kind === 'outlet');
+  const tools = items.filter(({ shape }) => instruments[shape.kind] || shape.kind === 'outlet' || shape.kind === 'electrode');
   if (tools.length) {
     const scene = {
       tools,

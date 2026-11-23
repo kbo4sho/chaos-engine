@@ -1,3 +1,4 @@
+import {fieldParts,installFields} from './fields.js';
 import { flightParts, installFlight } from './flight.js';
 // Powered workshop parts. The bench, exported game and sandbox step these same rules.
 import { sortingParts, installSorting } from './sorting.js';
@@ -26,6 +27,7 @@ export function installDevices(M, engine, getScene, onUse) {
   installMechanisms(M, engine, getScene, onUse);
   installSorting(M, engine, getScene, onUse);
   installFlight(M, engine, getScene, onUse);
+  installFields(M, engine, getScene, onUse);
   const contact = new WeakMap();
   M.Events.on(engine, 'beforeUpdate', () => {
     const { tools, marbles } = getScene();
@@ -108,4 +110,4 @@ export function installDevices(M, engine, getScene, onUse) {
   });
 }
 
-export const instruments = { ...devices, ...mechanisms, ...sortingParts, ...flightParts };
+export const instruments = { ...devices, ...mechanisms, ...sortingParts, ...flightParts, ...fieldParts };

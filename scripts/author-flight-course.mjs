@@ -55,34 +55,7 @@ const hintFor = {
   bank: 'Compare the incoming and reflected paths on either side of the vane.',
   unload: 'Inspect the last frame with gear still attached, then trace the empty load.',
 };
-const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-const inside = (p) => p.x > 39 && p.x < 681 && p.y > 34 && p.y < 352;
-const of = (kind, p) => ({ ...parts[kind].shape, ...p });
-const g = (p, striker, kind = 'flag') => ({
-  kind,
-  x: Math.round(p.x),
-  y: Math.round(p.y),
-  w: 24,
-  h: 24,
-  sensor: true,
-  striker,
-});
-function trace(board, actor, end = 190) {
-  const r = createRun(M, board),
-    load = actor === 'cargo' ? r.cargo : r.ball,
-    points = [];
-  for (let t = 0; t < end; t++) {
-    points.push({ t, x: load.position.x, y: load.position.y, vx: load.velocity.x, vy: load.velocity.y });
-    r.tick++;
-    M.Engine.update(r.engine, 1000 / 60);
-    if (
-      t > 15 &&
-      (load.position.x < -30 || load.position.x > 750 || load.position.y > 430 || load.position.y < -110)
-    )
-      break;
-  }
-  return { points, uses: r.uses };
-}
+import {dist,inside,of,g,trace} from './lib/station-traces.mjs';
 function build(i, salt = 0) {
   let seed = Math.imul(i + 1, 2831089) + salt * 44261;
   const rand = () => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296;

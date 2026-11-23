@@ -43,7 +43,7 @@ export function installBench(api) {
         scene = { tools: [], marbles: [] };
         for (const body of bodies) {
           const shape = body.render.machineShape;
-          if (shape && (instruments[shape.kind] || shape.kind === 'outlet'))
+          if (shape && (instruments[shape.kind] || shape.kind === 'outlet' || shape.kind === 'electrode'))
             scene.tools.push({ body, shape });
           if (
             !body.isStatic &&
