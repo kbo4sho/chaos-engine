@@ -23,7 +23,14 @@ export function makeEditor(M) {
   }
   for (const id of ['target-x', 'target-y']) el(id).addEventListener('input', update);
   panel.addEventListener('toggle', () => {
-    if (panel.open && !draft) update();
+    if (panel.open) {
+      if (!draft) update();
+    } else if (pending) {
+      pending.abort();
+      pending = null;
+      el('prove').disabled = !draft || draft.id === current.id;
+      el('maker-result').textContent = '';
+    }
   });
   el('prove').addEventListener('click', () => {
     pending?.abort();

@@ -400,12 +400,14 @@ $('next').addEventListener('click', () => {
   location.hash = machines[i + 1].id;
 });
 $('share').addEventListener('click', async () => {
+  const sharedMachine = machine;
   const url = new URL(location.href);
   url.hash = machine.id;
   try {
     await navigator.clipboard.writeText(url.href);
-    message('Puzzle link copied. It opens the starting machine.');
+    if (machine === sharedMachine) message('Puzzle link copied. It opens the starting machine.');
   } catch {
+    if (machine !== sharedMachine) return;
     $('copy-fallback').hidden = false;
     $('share-url').value = url.href;
     $('share-url').focus();
