@@ -157,6 +157,8 @@ On small phones the spare tray and run controls precede secondary film tools. A 
 
 The match receipt keeps the earned result and next-round control beneath the machine. Economy, speed and a called arrival time share the same clock. Replay legends name both competitors. Double exposures pair numbered shutter marks with a timestamp and a named load, with a text reading for each mark.
 
+The native sandbox draws exposure marks on the physical bench. A leader points to the load’s observed position after the shutter fires. The puzzle link restores the originating study and selected controls.
+
 ## Do's and Don'ts
 
 - **Do:** Extend the existing tool-button, status, particle, audio, haptic, cleanup, and custom-rendering conventions end to end.

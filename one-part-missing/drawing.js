@@ -1,3 +1,4 @@
+import {drawSandboxShutter} from './sandbox-shutter-art.js';
 import {fieldParts} from './fields.js';
 import {fieldIcons,drawField,drawFieldState,drawChargePairs} from './field-art.js';
 import { flightParts } from './flight.js';
@@ -604,7 +605,8 @@ export function drawSandboxPart(c, render, timestamp) {
   c.save();
   const scale = render.machineScale || 1;
   c.scale(scale, scale);
-  if (s.sensor) {
+  if(s.kind==='exposure')drawSandboxShutter(c,render);
+  else if (s.sensor) {
     const age = Number.isFinite(render.struckAt)
       ? Math.max(0, (timestamp - render.struckAt) / 16.67)
       : Infinity;

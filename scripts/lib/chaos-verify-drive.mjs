@@ -701,6 +701,11 @@ async function driveBank(page) {
 }
 
 const journeys = {
+  'experiment-exchange': async page => {
+    const {verifyExperimentExchange} = await import('./verify-experiment-exchange.mjs');
+    await verifyExperimentExchange(page,{url,record,shot,outDir});
+    result.passed = result.failures.length === 0;
+  },
   'path-reader': async page => {
     const {verifyPathReader} = await import('./verify-path-reader.mjs');
     await verifyPathReader(page,{url,record,shot,outDir});

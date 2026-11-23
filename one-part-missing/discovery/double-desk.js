@@ -1,3 +1,4 @@
+import {setupAddress,readSetupAddress,sandboxAddress} from './setup-address.js';
 import { pathReader, recordedPath } from '../path-reader.js';
 import { stationFile } from '../station-file.js';
 import { sheetMaker, copySheetLink } from './sheet-maker.js';
@@ -159,6 +160,8 @@ function refresh() {
   el('refit').textContent = 'Refit best · ' + (earned?.count || 0) + ' / 2';
   el('next').hidden = viewOnly || earned?.count !== 2;
   el('return-panel').hidden = !(completed && tape.count === 2 && !document.body.dataset.double);
+  el('sandbox').hidden=Boolean(document.body.dataset.double);
+  el('sandbox').href=sandboxAddress('shutters',viewOnly?takeRoute(rig,settings):setupAddress(rig.sheet||rig.id,settings));
   el('return-copy').hidden = viewOnly;
   el('try-sheet').hidden = !viewOnly;
   el('try-sheet').href = '#' + (rig.sheet || rig.id);
@@ -310,7 +313,8 @@ function route() {
   stop();
   clips.clear();
   clearFile();
-  const address = readTake(document.body.dataset.double || location.hash.slice(1));
+  const setup=readSetupAddress(document.body.dataset.double||location.hash.slice(1));
+  const address=readTake(setup.route);
   const requested = address.route;
   const parsed = readSheet(requested);
   const proof = parsed && certifySheet(window.Matter, parsed.base, parsed.rig.shots);
@@ -391,7 +395,8 @@ function route() {
   );
   el('overlay').checked = true;
   renderBook();
-  prepare(viewOnly ? address.settings : proof?.start || [0, 0]);
+  const fit=setup.settings?.length===2&&setup.settings.every((v,i)=>v<rig.controls[i].values.length)&&!unknown?setup.settings:null;
+  prepare(viewOnly?address.settings:fit||proof?.start||[0,0]);
   if (viewOnly) finish();
   else if (address.invalid || address.settings)
     result('This take could not be reproduced. Try the puzzle from its starting setup.');

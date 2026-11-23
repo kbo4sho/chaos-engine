@@ -1,3 +1,4 @@
+import {setupAddress,readSetupAddress,sandboxAddress} from './setup-address.js';
 import { pathReader, recordedPath } from '../path-reader.js';
 import { instrumentReading, instrumentEvents } from './instruments.js';
 import {
@@ -294,6 +295,7 @@ function prepare(i, navigating = false) {
     priorSetting = lastExposure.setting;
   } else if (priorSetting === i) reference = null;
   setting = i;
+  el('sandbox').href=sandboxAddress('study',setupAddress(lesson.id+(transfer?'/test':''),[setting]));
   attempted = false;
   frame = 0;
   tape = simulate(window.Matter, lesson, transfer, setting, exposures[lesson.id][transfer ? 1 : 0]);
@@ -347,7 +349,8 @@ function inspect(t) {
 }
 function route() {
   stop();
-  const [id, stage] = location.hash.slice(1).split('/');
+  const setup=readSetupAddress(location.hash.slice(1));
+  const [id, stage] = setup.route.split('/');
   lesson = lessons.find((l) => l.id === id) || lessons[0];
   transfer = stage === 'test';
   reference = null;
@@ -386,7 +389,8 @@ function route() {
       return b;
     }),
   );
-  prepare(0, true);
+  const fit=setup.settings;
+  prepare(fit?.length===1&&fit[0]<lesson.values.length?fit[0]:0,true);
 }
 el('lens').addEventListener('click', () => {
   closeUp = !closeUp;

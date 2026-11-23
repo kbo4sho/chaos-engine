@@ -162,6 +162,7 @@ All helpers are executable. Invoke them from the repo root.
 | `./scripts/verify-chaos-engine drive double-exposures` | [Double exposures](features/double-exposures.md). Play twelve machines with two adjustable tools and two timed shutter marks. |
 | `./scripts/verify-chaos-engine drive shutter-sheets` | [Player shutter puzzles](features/shutter-sheets.md). Use a recorded run to set two marks for someone else to match. |
 | `./scripts/verify-chaos-engine drive path-reader` | [Inspect a recorded path](features/path-reader.md), mobile taps, repeated visits, keyboard landmarks and offline replay |
+| `./scripts/verify-chaos-engine drive experiment-exchange` | [Discovery setups in the sandbox](features/experiment-exchange.md), measured native exposures, slot continuation and exact return links |
 | `./scripts/verify-chaos-engine drive match-cards` | [Three-round match cards](features/match-cards.md), all 24 scored rounds, eight returns and offline card exchange |
 | `./scripts/verify-chaos-engine drive offline-races` | [Offline friend races](features/offline-races.md). Play and return a work-order race between disconnected devices. |
 | `./scripts/verify-chaos-engine drive replay-clips` | [Replay GIFs](features/replay-clips.md), cancellation, local download and offline decoding |

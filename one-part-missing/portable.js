@@ -71,6 +71,7 @@ const modules = [
   'maker',
   'press-client',
   'repairs',
+  'sandbox-shutter-art',
   'drawing',
   'path-reader',
   'attempt-film',

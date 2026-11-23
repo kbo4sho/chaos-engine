@@ -1,3 +1,4 @@
+import { installShutters } from './sandbox-shutters.js';
 import { addTransmissions, installTransmissions, acceptsReceiver } from './transmissions.js';
 import { makeLinks, installRigging } from './rigging.js';
 import { instruments, installDevices } from './devices.js';
@@ -9,7 +10,7 @@ import { driveConnection } from './drive-art.js';
 import { drawSandboxRig } from './rig-art.js';
 import { drawSandboxPart } from './drawing.js';
 
-export function installBench(api) {
+export async function installBench(api) {
   const { M, engine, world } = api;
   let priorBodies,
     priorConnections,
@@ -43,7 +44,10 @@ export function installBench(api) {
         scene = { tools: [], marbles: [] };
         for (const body of bodies) {
           const shape = body.render.machineShape;
-          if (shape && (instruments[shape.kind] || shape.kind === 'outlet' || shape.kind === 'electrode'))
+          if (
+            shape &&
+            (instruments[shape.kind] || shape.kind === 'outlet' || shape.kind === 'electrode')
+          )
             scene.tools.push({ body, shape });
           if (
             !body.isStatic &&
@@ -116,9 +120,22 @@ export function installBench(api) {
       api.chime([523.25, 659.25, 783.99, 1046.5][target.render.noteIndex || 0]);
     }
   });
+  const launcher = document.getElementById('puzzle-launcher');
+  installShutters(M, engine, world, launcher, api.status);
   const args = new URLSearchParams(location.hash.slice(1));
-  if (!args.has('machine')) return;
-  const machine = orderById.get(args.get('machine')) || resolveMachine(M, args.get('machine'));
+  let experiment, machine;
+  if (args.has('machine'))
+    machine = orderById.get(args.get('machine')) || resolveMachine(M, args.get('machine'));
+  else if (args.has('study') || args.has('shutters')) {
+    try {
+      const { sandboxStudy } = await import('./discovery/sandbox-study.js');
+      experiment = sandboxStudy(M, args);
+      machine = experiment?.machine;
+    } catch {
+      api.status('EXPERIMENT COULD NOT LOAD · RELOAD TO RETRY');
+      return;
+    }
+  } else return;
   if (!machine) {
     api.status('UNKNOWN MACHINE · CHOOSE PUZZLES TO OPEN THE SHELF');
     return;
@@ -131,9 +148,9 @@ export function installBench(api) {
       flipped: args.get('flip' + suffix) === '1',
     };
   };
-  const move = readPlacement('');
-  if (args.has('part2')) move.second = readPlacement('2');
-  if (args.has('part3')) move.third = readPlacement('3');
+  const move = experiment ? null : readPlacement('');
+  if (move && args.has('part2')) move.second = readPlacement('2');
+  if (move && args.has('part3')) move.third = readPlacement('3');
   // Keep the solver's physical units across devices. Shrinking a domino's
   // actual body changes its inertia and its ability to topple its neighbor.
   api.setMachineViewport({ width: WIDTH, height: HEIGHT });
@@ -146,6 +163,7 @@ export function installBench(api) {
     body.render.machineShape = { ...s };
     body.render.machineUnits = true;
     api.registerMachineCollision(body);
+    if (s.kind === 'exposure') body.collisionFilter.mask = 0;
     if (s.sensor) {
       if (machine.striker && !s.striker) body.render.machineShape.striker = machine.striker;
       body.render.noteIndex = machine.goals.indexOf(s);
@@ -155,7 +173,6 @@ export function installBench(api) {
   }
   makeLinks(M, world, items);
   addTransmissions(M, world, items);
-  const launcher = document.getElementById('puzzle-launcher');
-  launcher.href = 'one-part-missing/#' + machine.id;
+  if (!experiment) launcher.href = 'one-part-missing/#' + machine.id;
   api.status(machine.title.toUpperCase() + ' · PAUSED · PRESS PLAY TO EXPERIMENT');
 }

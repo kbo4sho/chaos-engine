@@ -150,3 +150,5 @@
 #discovery-motion {font:13px var(--mono);color:var(--muted)}
 #discovery-transitions {display:flex;flex-wrap:wrap;gap:4px}
 #discovery-transitions [aria-current=true] {border-color:var(--cyan)}
+
+#discovery-sandbox,#double-sandbox {display:inline-flex;align-items:center;min-height:44px;font-size:14px}
