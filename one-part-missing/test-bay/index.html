@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#080c10" />
+    <title>Test bay · One Part Missing</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="../bench.css" />
+    <link rel="stylesheet" href="desk.css" />
+    <script src="../../vendor/matter-0.20.0.min.js"></script>
+    <script type="module" src="desk.js"></script>
+  </head>
+  <body>
+    <header class="mast">
+      <div class="mast-inner">
+        <a class="brand" href="../">← One Part Missing</a>
+        <h1>Test bay</h1>
+        <a id="bay-jobs-link" href="#jobs">Job list ↓</a>
+      </div>
+    </header>
+    <main id="bay">
+      <header class="instrument-head">
+        <div>
+          <p class="eyeline" id="bay-number"></p>
+          <h2 id="bay-title"></h2>
+          <p id="bay-goal"></p>
+        </div>
+      </header>
+      <div class="bay-layout">
+        <section aria-label="Test machine">
+          <div class="bay-status">
+            <span id="bay-phase">Ready</span><output id="bay-receivers"></output
+            ><output id="bay-time">0.00 s</output>
+          </div>
+          <div class="bay-stage">
+            <canvas
+              id="bay-diagram"
+              width="720"
+              height="400"
+              aria-label="Calibrated test machine"
+            ></canvas>
+          </div>
+          <div class="bay-transport">
+            <button class="primary" id="bay-all">Test all three</button
+            ><button class="quiet" id="bay-one">Test this load</button
+            ><button class="quiet" id="bay-pause" hidden>Pause</button
+            ><button class="quiet" id="bay-stop" hidden>Stop</button
+            ><label
+              >Speed<select id="bay-rate">
+                <option value=".5">½×</option>
+                <option value="1" selected>1×</option>
+                <option value="2">2×</option>
+                <option value="4">4×</option>
+              </select></label
+            >
+          </div>
+          <div class="film" id="bay-film" hidden>
+            <label for="bay-frame">Inspect</label
+            ><input type="range" id="bay-frame" min="0" max="0" value="0" step="1" /><output
+              id="bay-film-time"
+              for="bay-frame"
+            ></output>
+          </div>
+          <p id="bay-diagnosis"></p>
+          <label class="bay-overlay" id="bay-overlay-row" hidden
+            ><input type="checkbox" id="bay-overlay" />Compare tested paths</label
+          >
+        </section>
+        <aside aria-label="Line calibration">
+          <h2>Station settings</h2>
+          <div id="bay-dials"></div>
+          <h2>Test loads</h2>
+          <p id="bay-feed"></p>
+          <div id="bay-lots" aria-label="Select a test load"></div>
+          <p id="bay-summary" role="status"></p>
+          <div class="bay-actions">
+            <button class="quiet" id="bay-recall" hidden>Load approved settings</button
+            ><button class="quiet" id="bay-share">Copy setup link</button
+            ><button class="quiet" id="bay-download">Save playable job</button
+            ><button class="quiet" id="bay-next" hidden>Next job →</button>
+          </div>
+          <label id="bay-copy" hidden>Shareable setup<input id="bay-url" readonly /></label>
+        </aside>
+      </div>
+      <section id="jobs" class="library" aria-labelledby="bay-jobs-title">
+        <div class="library-head">
+          <h2 id="bay-jobs-title">Commissioning jobs</h2>
+          <span id="bay-progress"></span>
+        </div>
+        <label>Group<select id="bay-act"></select></label>
+        <div id="bay-shelf"></div>
+      </section>
+    </main>
+  </body>
+</html>

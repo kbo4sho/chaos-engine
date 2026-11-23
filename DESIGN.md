@@ -151,6 +151,8 @@ Three-part machines show the first actual contact of each installed spare beside
 
 Field controls use octagonal service plates. A moving signed badge identifies charge; a round stationary pole carries a fixed sign. Directional arrows show the reaction on each moving body. The dotted phase halo and countdown follow the selected physics frame.
 
+The test bay pairs each adjustment with its physical unit. Matching letters mark its station on the board. Three short rows show what was tested, the input and the result; the optional comparison uses different line patterns and labeled targets.
+
 ## Do's and Don'ts
 
 - **Do:** Extend the existing tool-button, status, particle, audio, haptic, cleanup, and custom-rendering conventions end to end.

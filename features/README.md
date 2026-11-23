@@ -97,3 +97,5 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Three-part repairs](./assembly-course.md) covers forty multi-station machines, partial fitting activity, shared setups and portable triple replays.
 
 - [Field stations](./field-course.md) covers motion impulses, lift and gyro gear, charge pairs, collision filtering, recorded traces and field-tool practice.
+
+- [Commission a production line](./test-bay.md) covers mixed test loads, calibrated stations, measured output, shared settings and offline replay.
