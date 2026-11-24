@@ -399,11 +399,13 @@ export async function verifyPuzzles(home, { url, record, shot, outDir }) {
       const replayInfo = await replayPage.evaluate(() => ({
         move: JSON.parse(document.body.dataset.repair),
         status: document.querySelector('#status').textContent,
+        signal: document.querySelector('#repair-signal .repair-name')?.textContent,
       }));
       record(
         'offline-recorded-alternate-repair',
         replayInfo.move.part === 'bumper' &&
           replayInfo.move.socket === 1 &&
+          replayInfo.signal === 'Wrong-way freight' &&
           replayInfo.status.includes('Replay complete'),
         replayInfo,
       );

@@ -1,8 +1,8 @@
 {
   "format": 1,
-  "version": "02bbe1aa2326c91b",
-  "benchVersion": "5f9b9a64a0be",
-  "bytes": 2611305,
+  "version": "a59ba5df9baac94d",
+  "benchVersion": "b94fec646f07",
+  "bytes": 2616117,
   "assets": [
     {
       "path": "examples/chaos-examples.js",
@@ -56,13 +56,13 @@
     },
     {
       "path": "one-part-missing/bench-release.js",
-      "size": 536068,
-      "hash": "5f9b9a64a0bea8ee1d67227fcf106241bb7a2b157bb4d2f903c3e7e0ec83fc0b"
+      "size": 536735,
+      "hash": "b94fec646f07dee2d7687dcb5d4815b0fe53f55554c6ba8e3129afb99442d57c"
     },
     {
       "path": "one-part-missing/bench.css",
-      "size": 40994,
-      "hash": "783cdd0f05912c4c9f85e6c5e99fb40cabd79a6f51280b7f8def7934c9a724c7"
+      "size": 43742,
+      "hash": "ab8f6922f0ef97ec7273d502be1a173025e62451d738b62b174071879528460d"
     },
     {
       "path": "one-part-missing/blueprints.js",
@@ -306,8 +306,8 @@
     },
     {
       "path": "one-part-missing/fault-desk/desk.js",
-      "size": 14778,
-      "hash": "0d7e006a0d96540c00967bcd7fbbf6d9a6562dbd46015a4709600250bd8703b9"
+      "size": 14922,
+      "hash": "14f94e2e019e4c75c7614cf9faa792c5210f424e430e366bcc4dc4add19390f1"
     },
     {
       "path": "one-part-missing/fault-desk/index.html",
@@ -387,7 +387,7 @@
     {
       "path": "one-part-missing/index.html",
       "size": 39523,
-      "hash": "8af5400cdc21e4f4734ba2e6cd64811644cdbf774e26ffd798b08d07bd9c585a"
+      "hash": "8dc14d9210d0146b7b7dfc37f2f6e2955b5590a9ca355106be6d763e08fee04a"
     },
     {
       "path": "one-part-missing/learning.js",
@@ -496,13 +496,13 @@
     },
     {
       "path": "one-part-missing/play.js",
-      "size": 59410,
-      "hash": "020aeccbf97e1752c383fff7ed9ce060d601b710ae20ea849fe50649874fd00e"
+      "size": 59564,
+      "hash": "6d47af12d55609bb543a097fe20093e3405afbbd28dee2746e0668cad97138b0"
     },
     {
       "path": "one-part-missing/portable.js",
-      "size": 5327,
-      "hash": "bd7fab9415779997f40bcab06dc27ef96e7407eade08d999d33c50ef24b3b086"
+      "size": 5346,
+      "hash": "983fcdf6be77fb00ddfea5c38a5b0d2fc7ff69ee1219a9ae494f3a1b32c2586d"
     },
     {
       "path": "one-part-missing/practice-targets.js",
@@ -593,6 +593,11 @@
       "path": "one-part-missing/repair-notebook-file.js",
       "size": 7914,
       "hash": "dce513f9204cf097206da4831baab18d55a5ab380b4cbc6b370d12906b5c9b94"
+    },
+    {
+      "path": "one-part-missing/repair-signal.js",
+      "size": 1080,
+      "hash": "0c53a63a6d690f3817475ce03ff830b3e3edca4aa3690eea685e79fca7115378"
     },
     {
       "path": "one-part-missing/repairs.js",

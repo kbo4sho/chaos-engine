@@ -169,11 +169,12 @@ export async function verifyFaultDesk(home, { url, outDir, record, shot }) {
       !Object.keys(await count(q, last)).length,
   );
   await test(q, last, last.station, true);
+  const signal = await q.$eval('#repair-signal .repair-name', (el) => el.textContent);
   record(
     'offline-diagnosis-earned',
     Object.keys(await count(q, last)).some((k) => k.endsWith('.1')) &&
-      !external.length,
-    { external },
+      !external.length && signal === last.title,
+    { external, signal },
   );
   await protocol.detach();
   await context.close();

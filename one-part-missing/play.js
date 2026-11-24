@@ -24,6 +24,7 @@ import { editHistory } from './bench-edits.js';
 import { setupRace, readRace } from './friend-race.js';
 import { setupFilms } from './attempt-film.js';
 import { setupFocus } from './focus.js';
+import { repairSignal } from './repair-signal.js';
 import { styles as pressStyles, availableTools } from './tool-press.js';
 import { lessons, lessonById, lessonLink, setupLearning } from './learning.js';
 import {
@@ -73,6 +74,7 @@ phoneWidth.addEventListener('change', arrangeNotes);
 
 const M = window.Matter;
 const $ = (id) => document.getElementById(id);
+const repairLight = repairSignal();
 setupOfflineWorkshop($);
 const c = $('diagram').getContext('2d');
 const films = setupFilms($),
@@ -638,6 +640,7 @@ function controls() {
   $('open-sandbox').href = '../#' + hash;
 }
 function resetRun(keepGhost = false) {
+  repairLight.clear();
   training.clearFilm();
   path.clear();
   coach.clear();
@@ -849,6 +852,7 @@ function bookComplete() {
 function finish() {
   const win = run.state === 'won';
   phase = win ? 'won' : 'miss';
+  if (win) repairLight.show(machine.title);
   runPaused = false;
   ghost = trail.slice();
   addFrame();

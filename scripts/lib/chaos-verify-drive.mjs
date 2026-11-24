@@ -926,6 +926,11 @@ const journeys = {
     await verifyPuzzles(page,{url,record,shot,outDir});
     result.passed = result.failures.length === 0;
   },
+  'repair-celebration': async page => {
+    const {verifyRepairCelebration} = await import('./verify-repair-celebration.mjs');
+    await verifyRepairCelebration(page, {url,record,outDir});
+    result.passed = result.failures.length === 0;
+  },
   'bank': driveBank,
   'trim': driveTrim,
   'deflect': driveDeflect,

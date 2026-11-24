@@ -11,6 +11,8 @@ import { campaignById } from '../campaign.js';
 import { atFrame, draw } from '../drawing.js';
 import { WIDTH, HEIGHT } from '../machines.js';
 import { stationFile } from '../station-file.js';
+import { repairSignal } from '../repair-signal.js';
+const repairLight = repairSignal();
 const el = (id) => document.getElementById(id),
   canvas = el('case-diagram'),
   c = canvas.getContext('2d'),
@@ -286,6 +288,7 @@ function finishService() {
       checked.size +
       (checked.size === 1 ? ' service test.' : ' service tests.');
     el('case-film-label').textContent = 'Repaired run';
+    repairLight.show(job.title);
     difference = null;
     refreshShelf();
   } else {
@@ -326,6 +329,7 @@ function play() {
   raf = requestAnimationFrame(animate);
 }
 function open() {
+  repairLight.clear();
   stop();
   session++;
   const id = portable || location.hash.slice(1);

@@ -115,6 +115,8 @@ Use one legible emoji or simple Unicode glyph above a text label. The label is m
 
 ### Motion
 
+In One Part Missing, a completed repair lights a centered green CRT panel with the machine name. Two brass contacts spark once as the circuit closes. The panel lets taps through and stays still with reduced motion.
+
 Motion should reveal a physical state change: placement, impact, opening, transport, or transformation. Feedback transitions are short (roughly 120–300ms), interruptible, and secondary to the Matter.js behavior. Avoid ambient motion that competes with the simulation.
 
 ### Content and data visualization

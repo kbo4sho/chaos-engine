@@ -3,6 +3,7 @@ import { packFittings, packedParts } from './machines.js';
 // Package only the published application assets. Start from the empty HTML
 // shell, so player records, clipboard values and in-progress runs stay local.
 const modules = [
+  'repair-signal',
   'spare-study',
   'spare-study-desk',
   'dispatch-log',
