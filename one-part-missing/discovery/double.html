@@ -10,7 +10,10 @@
     <link rel="stylesheet" href="desk.css" />
     <link rel="stylesheet" href="double.css" />
     <script src="../../vendor/matter-0.20.0.min.js"></script>
-    <script type="module" src="double-desk.js"></script>
+    <script type="module">
+      import { guardPage } from '../../flags.js';
+      if (guardPage('double-exposures')) await import('./double-desk.js');
+    </script>
   </head>
   <body>
     <header class="mast">
@@ -81,7 +84,7 @@
             <button type="button" class="quiet" id="double-refit" hidden>Refit best setup</button
             ><a class="action-link" id="double-next" hidden></a>
           </div>
-          <details id="double-maker" hidden>
+          <details id="double-maker" data-flag="shutter-sheets" hidden>
             <summary>Make a shutter puzzle</summary>
             <p>
               Choose two frames of this run. The next player gets the targets and a fresh set of

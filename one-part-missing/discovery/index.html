@@ -10,6 +10,10 @@
     <link rel="stylesheet" href="desk.css" />
     <script src="../../vendor/matter-0.20.0.min.js"></script>
     <script type="module" src="desk.js"></script>
+    <script type="module">
+      import { applyFeatureFlags } from '../../flags.js';
+      applyFeatureFlags();
+    </script>
   </head>
   <body>
     <header class="mast">
@@ -103,7 +107,7 @@
         <label for="discovery-select">Discovery puzzles</label
         ><select id="discovery-select"></select
         ><output id="discovery-progress"></output>
-        <a id="double-entry" href="double.html">Double exposures · 12 two-control machines →</a>
+        <a id="double-entry" data-flag="double-exposures" data-flag-reveal href="double.html">Double exposures · 12 two-control machines →</a>
       </nav>
       <noscript>Enable JavaScript to run the machines.</noscript>
     </main>

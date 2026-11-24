@@ -5,6 +5,7 @@ export async function offlineLibrary(root, benchVersion) {
   const files = [
     'index.html',
     'one-part-missing.html',
+    'flags.js',
     'save-codec.js',
     'examples/chaos-examples.js',
     'puzzle-offline-worker.js',
