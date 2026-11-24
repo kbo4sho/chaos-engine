@@ -12,7 +12,7 @@ Levels 241–280 ask the player to restore two different tools to one apparatus.
 
 ## How to get to it (user POV)
 
-Open PUZZLES and Level map. Expand Jump to a tool course and choose Play two-part repairs. Fit one spare and run the partial repair to see what it accomplishes. Add the other spare and test again. The fitted-parts list lets you remove either tool independently. Open Inspect run to study the handoffs, or Watch replay after reloading the page.
+Open One Part Missing and Level map. Expand Jump to a tool course and choose Play two-part repairs. Fit one spare and run the partial repair to see what it accomplishes. Add the other spare and test again. The fitted-parts list lets you remove either tool independently. Open Inspect run to study the handoffs, or Watch replay after reloading the page.
 
 ## Driving it with verify-chaos-engine
 

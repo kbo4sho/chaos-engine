@@ -16,13 +16,13 @@ Players fit one spare part to a broken machine, test the repair, inspect the run
 
 ## How to get to it (user POV)
 
-Choose PUZZLES in the sandbox or open `one-part-missing/`. Older `one-part-missing.html` links forward to the same level. Press Run machine, pick a drawer part, select a lettered socket and press Test repair. The shelf, machine press and Open in sandbox link are available on the same page.
+Choose **One Part Missing** beside the Chaos Engine title to open the game in a new tab or open `one-part-missing/`. Older `one-part-missing.html` links forward to the same level. Press Run machine, pick a drawer part, select a lettered socket and press Test repair. The shelf, machine press and Open in sandbox link are available on the same page.
 
 ## Driving it with verify-chaos-engine
 
 Preconditions: isolated launch and doctor pass, fresh browser profile, system Chrome and installed dev dependencies.
 
-- **Repair and retry.** Run `./scripts/verify-chaos-engine drive one-part-missing`. Enter through the sandbox. Watch the unmodified machine miss, inspect the start frame, fit a wrong part, then use the bridge. Prove drag on desktop and two taps on a phone.
+- **Repair and retry.** Run `./scripts/verify-chaos-engine drive one-part-missing`. Check the named header link on both viewports and open it with the keyboard on desktop or a tap on mobile. Watch the unmodified machine miss, inspect the start frame, fit a wrong part, then use the bridge. Prove drag on desktop and two taps on a phone.
 - **Replay and edit.** Reload the bench and watch the stored repair. Open the assembly in the sandbox, add a block, SAVE, return to the ordinary sandbox, then LOAD and confirm. Observe the actual bodies in the restored machine. Start the repaired domino chain in the sandbox and observe contact at the signal flag on both viewport sizes.
 - **Shelf.** Solve the other five original machines on desktop with keyboard part and socket selection. Use the alternate drum solution on Wrong-way freight. Observe six completed repairs in the 500-level map.
 - **Print and share.** On desktop and mobile, generate a new machine, expand its trial record, read the link through the share action and open it. Fit a certified repair through the player controls. Observe the saved repair, screenshot and restored setup.

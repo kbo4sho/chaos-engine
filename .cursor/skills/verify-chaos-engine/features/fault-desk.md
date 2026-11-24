@@ -11,7 +11,7 @@ Eighteen diagnostic cases use complete installed machines. One station is revers
 
 ## How to get to it (user POV)
 
-Open PUZZLES, Level map, Jump to a tool course and Diagnose a faulty machine. Watch the film, inspect the first visible difference, select a lettered station and choose Service and test. The case directory opens any of the eighteen jobs.
+Open One Part Missing, Level map, Jump to a tool course and Diagnose a faulty machine. Watch the film, inspect the first visible difference, select a lettered station and choose Service and test. The case directory opens any of the eighteen jobs.
 
 ## Driving it with verify-chaos-engine
 

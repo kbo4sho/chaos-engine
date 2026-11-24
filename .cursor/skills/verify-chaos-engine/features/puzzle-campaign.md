@@ -22,13 +22,13 @@ The campaign has 520 permanent machines in 52 chapters. Each chapter contains te
 
 ## How to get to it (user POV)
 
-Choose PUZZLES in the sandbox, then Level map and Continue to enter the numbered progression. Choose Level map and select a chapter to jump ahead. Pick a part and tap a lettered socket, then choose Test repair. After a repair, Next machine advances across chapter boundaries. Reopen a level to watch its saved replay.
+Choose One Part Missing in the sandbox, then Level map and Continue to enter the numbered progression. Choose Level map and select a chapter to jump ahead. Pick a part and tap a lettered socket, then choose Test repair. After a repair, Next machine advances across chapter boundaries. Reopen a level to watch its saved replay.
 
 ## Driving it with verify-chaos-engine
 
 Preconditions: isolated launch and passing doctor.
 
-- Run `./scripts/verify-chaos-engine drive puzzle-campaign`. The journey enters through PUZZLES, fits and runs all 520 levels through visible controls, and checks the contact count, elapsed time, repair record and map progress. It checks the chapter boundary at each tenth win, uses touch in chapters seven and eight, reverses an installed rail after a miss, checks its sandbox geometry, and opens the downloaded replay offline. It reloads the completed campaign and checks that all 520 repairs survived. Screenshots and the observed actions, messages and records live in the run's evidence directory.
+- Run `./scripts/verify-chaos-engine drive puzzle-campaign`. The journey enters through One Part Missing, fits and runs all 520 levels through visible controls, and checks the contact count, elapsed time, repair record and map progress. It checks the chapter boundary at each tenth win, uses touch in chapters seven and eight, reverses an installed rail after a miss, checks its sandbox geometry, and opens the downloaded replay offline. It reloads the completed campaign and checks that all 520 repairs survived. Screenshots and the observed actions, messages and records live in the run's evidence directory.
 
 ## Gotchas
 

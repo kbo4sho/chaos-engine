@@ -14,7 +14,7 @@ Players can print a single-tool puzzle, a chain reaction, a parcel delivery, a c
 
 ## How to get to it (user POV)
 
-Open PUZZLES and scroll to Machine press. Choose a machine type, an optional featured tool and an available partner. Choose Generate a machine. Open Workshop trial record to see the fitting count and source plate. Use Copy puzzle link, Open in sandbox or Save replay file to take the print elsewhere. Practice by tool also has a Print a practice machine button.
+Open One Part Missing and scroll to Machine press. Choose a machine type, an optional featured tool and an available partner. Choose Generate a machine. Open Workshop trial record to see the fitting count and source plate. Use Copy puzzle link, Open in sandbox or Save replay file to take the print elsewhere. Practice by tool also has a Print a practice machine button.
 
 ## Driving it with verify-chaos-engine
 

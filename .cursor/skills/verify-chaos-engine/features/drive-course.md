@@ -11,7 +11,7 @@ Levels 281–320 teach players to trace power from a gold input wheel to a blue 
 
 ## How to get to it (user POV)
 
-Choose PUZZLES, Level map, expand Jump to a tool course, then choose Play the drive table. Open Tool lab to try a transmission at three speeds. Choose Timing shop in the chapter selector for marked receivers. Fit a repair, run it and tap a receiver event to inspect the clock at that instant.
+Choose One Part Missing, Level map, expand Jump to a tool course, then choose Play the drive table. Open Tool lab to try a transmission at three speeds. Choose Timing shop in the chapter selector for marked receivers. Fit a repair, run it and tap a receiver event to inspect the clock at that instant.
 
 ## Driving it with verify-chaos-engine
 

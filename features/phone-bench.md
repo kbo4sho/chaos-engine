@@ -11,7 +11,7 @@ On a narrow phone the machine, its spares and the run controls stay together. Af
 
 ## How to get to it (user POV)
 
-Choose PUZZLES on a phone. Run the first machine empty and tap the gold marker. Close the recording, choose a spare, tap a socket and test the repair. Follow Next lesson through the belt and trampoline.
+Choose One Part Missing on a phone. Run the first machine empty and tap the gold marker. Close the recording, choose a spare, tap a socket and test the repair. Follow Next lesson through the belt and trampoline.
 
 ## Driving it with verify-chaos-engine
 

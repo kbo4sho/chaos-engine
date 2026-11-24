@@ -28,9 +28,24 @@ export async function verifyPuzzles(home, { url, record, shot, outDir }) {
       : { width: 1280, height: 800 };
     await home.setViewport(view);
     await home.goto(url, { waitUntil: 'networkidle0' });
-    const page = await popup(home, () =>
-      mobile ? home.tap('#puzzle-launcher') : home.click('#puzzle-launcher'),
-    );
+    const launcher = await home.$eval('#game-heading #puzzle-launcher', (link) => {
+      const rect = link.getBoundingClientRect();
+      return {
+        label: link.innerText.replace('↗', '').trim(),
+        visible: rect.width > 0 && rect.height > 0 && rect.left >= 0 && rect.right <= innerWidth &&
+          rect.top >= 0 && rect.bottom <= innerHeight &&
+          link.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)),
+        besideTitle: Boolean(link.parentElement.querySelector('.title')),
+      };
+    });
+    record(device + '-named-game-link', launcher.label === 'One Part Missing' &&
+      launcher.visible && launcher.besideTitle, launcher);
+    await shot(home, device + '-game-link.png');
+    const page = await popup(home, async () => {
+      if (mobile) return home.tap('#puzzle-launcher');
+      await home.focus('#puzzle-launcher');
+      await home.keyboard.press('Enter');
+    });
     await page.setViewport(view);
     await page.bringToFront();
     await page.waitForSelector('.socket');

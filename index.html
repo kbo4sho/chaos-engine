@@ -52,13 +52,14 @@ body::after {
 
 /* ── TOP BAR ── */
 #topbar {
-  display:flex; align-items:center; justify-content:space-between;
+  display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between;
   padding:6px 12px; gap:8px; flex-shrink:0;
   background:#0d1117;
   border-bottom:2px solid #0abdc6;
   box-shadow:0 2px 12px rgba(10,189,198,0.3);
   z-index:10;
 }
+#game-heading { display:flex; align-items:center; gap:8px; }
 #topbar .title {
   font-size:28px; color:#00ff41; letter-spacing:4px;
   text-shadow:0 0 10px rgba(0,255,65,0.6);
@@ -1060,7 +1061,10 @@ canvas#game {
 <div id="app">
   <!-- TOP BAR -->
   <div id="topbar">
-    <div class="title">⚡ CHAOS ENGINE</div>
+    <div id="game-heading">
+      <div class="title">⚡ CHAOS ENGINE</div>
+      <a id="puzzle-launcher" href="one-part-missing/" target="_blank" rel="noopener" title="Play One Part Missing in a new tab">One Part Missing&nbsp;<span aria-hidden="true">↗</span></a>
+    </div>
     <div id="gravity-panel">
       <span style="font-size:14px;color:#0abdc6;">GRAV:</span>
       <button class="planet-btn active" data-gravity="1" data-name="Earth">🌍</button>
@@ -1068,7 +1072,6 @@ canvas#game {
       <button class="planet-btn" data-gravity="0.38" data-name="Mars">🔴</button>
       <button class="planet-btn" data-gravity="2.53" data-name="Jupiter">🟠</button>
       <button class="planet-btn" data-gravity="0" data-name="Space">🚀</button>
-      <a id="puzzle-launcher" href="one-part-missing/" target="_blank" rel="noopener" title="Play One Part Missing">PUZZLES ↗</a>
     </div>
     <div id="stats">
       <span id="planet-name">EARTH</span> |

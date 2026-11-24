@@ -11,7 +11,7 @@ Jobs 321 through 360 route a small gold marble and a larger blue parcel to separ
 
 ## How to get to it (user POV)
 
-Open PUZZLES, Level map and Jump to a tool course. Choose Play the sorting room. Inspect the gold ring and blue diamond, fit a spare, then run both loads. Choose a receipt beneath the scrubber to inspect the state at delivery. Tool lab offers each handling part under three load diameters.
+Open One Part Missing, Level map and Jump to a tool course. Choose Play the sorting room. Inspect the gold ring and blue diamond, fit a spare, then run both loads. Choose a receipt beneath the scrubber to inspect the state at delivery. Tool lab offers each handling part under three load diameters.
 
 ## Driving it with verify-chaos-engine
 

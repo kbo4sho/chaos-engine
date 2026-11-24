@@ -13,7 +13,7 @@ Four chapters introduce seven connectors across levels 201–240. The first mach
 
 ## How to get to it (user POV)
 
-Open PUZZLES, choose Level map, then Play the cable rigs. Run the first machine empty, examine the mount positions, fit a connector, and test the repair. Visit Tool lab for a side-by-side experiment. Later chapters use a gold marble and a separate blue parcel. The diamond on the parcel identifies the body that must reach the receiver.
+Open One Part Missing, choose Level map, then Play the cable rigs. Run the first machine empty, examine the mount positions, fit a connector, and test the repair. Visit Tool lab for a side-by-side experiment. Later chapters use a gold marble and a separate blue parcel. The diamond on the parcel identifies the body that must reach the receiver.
 
 ## Driving it with verify-chaos-engine
 

@@ -13,7 +13,7 @@ Twenty-four delivery jobs keep two personal records. One spare can always finish
 
 ## How to get to it (user POV)
 
-From PUZZLES choose Level map, then Work orders. Pick an order book and a job. Fit one or two spares and test the delivery. The record buttons return either setup to the bench. Choose Compare last two setups after two different trials to inspect their routes.
+From One Part Missing choose Level map, then Work orders. Pick an order book and a job. Fit one or two spares and test the delivery. The record buttons return either setup to the bench. Choose Compare last two setups after two different trials to inspect their routes.
 
 ## Driving it with verify-chaos-engine
 

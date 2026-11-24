@@ -11,7 +11,7 @@ Jobs 481–500 connect a gold signal circuit to a separate blue freight circuit.
 
 ## How to get to it (user POV)
 
-Open PUZZLES, Level map, Jump to a tool course and Play grand relays. Test the empty machine or fit a single spare. Expand Dispatch log, choose a lane and select a contact. Plot recorded paths to see that load’s route up to the selected frame.
+Open One Part Missing, Level map, Jump to a tool course and Play grand relays. Test the empty machine or fit a single spare. Expand Dispatch log, choose a lane and select a contact. Plot recorded paths to see that load’s route up to the selected frame.
 
 ## Driving it with verify-chaos-engine
 

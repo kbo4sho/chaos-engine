@@ -11,7 +11,7 @@ The online workbench loads its game code and Matter.js in two scripts. A WOFF2 c
 
 ## How to get to it (user POV)
 
-Open Puzzles from Chaos Engine. Fit a bridge at the first socket. Generate a machine from the press or export a film when you want to use those tools.
+Open One Part Missing from the Chaos Engine header. Fit a bridge at the first socket. Generate a machine from the press or export a film when you want to use those tools.
 
 ## Driving it with verify-chaos-engine
 

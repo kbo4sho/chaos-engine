@@ -11,7 +11,7 @@ Jobs 361–400 use service rings to change the motion of a passing load. The fir
 
 ## How to get to it (user POV)
 
-Open PUZZLES, Level map, Jump to a tool course and Play flight school. Fit a spare in a marked socket. Run the machine and choose the pickup or release cue to inspect the gear at that instant. Practice by tool also offers a comparison and prediction for each fitting.
+Open One Part Missing, Level map, Jump to a tool course and Play flight school. Fit a spare in a marked socket. Run the machine and choose the pickup or release cue to inspect the gear at that instant. Practice by tool also offers a comparison and prediction for each fitting.
 
 ## Driving it with verify-chaos-engine
 

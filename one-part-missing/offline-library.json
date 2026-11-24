@@ -1,8 +1,8 @@
 {
   "format": 1,
-  "version": "8afdc7c534caa69f",
+  "version": "02bbe1aa2326c91b",
   "benchVersion": "5f9b9a64a0be",
-  "bytes": 2611119,
+  "bytes": 2611305,
   "assets": [
     {
       "path": "examples/chaos-examples.js",
@@ -11,8 +11,8 @@
     },
     {
       "path": "index.html",
-      "size": 807199,
-      "hash": "edd7a2a1b08f6ec202f3b8356f904db8ce53c0b1fbc07eecdeb3dca3baabdc1a"
+      "size": 807376,
+      "hash": "9d64def58bb0c26e501f8c1fbe56a36645e3e94a2f44fb02636a070f3cff3c4d"
     },
     {
       "path": "one-part-missing.html",
@@ -636,8 +636,8 @@
     },
     {
       "path": "one-part-missing/sandbox.js",
-      "size": 6627,
-      "hash": "a88da978856eaa1b630b46e795dcf98c8046fb06b91a28c06ac4e1dfb1c05157"
+      "size": 6636,
+      "hash": "873c47854cc9125e32743813e90c7999d58ab13801ce3461ce41b53167071665"
     },
     {
       "path": "one-part-missing/sort-art.js",

@@ -137,7 +137,7 @@ export async function installBench(api) {
     }
   } else return;
   if (!machine) {
-    api.status('UNKNOWN MACHINE · CHOOSE PUZZLES TO OPEN THE SHELF');
+    api.status('UNKNOWN MACHINE · CHOOSE ONE PART MISSING TO OPEN THE SHELF');
     return;
   }
   const readPlacement = (suffix) => {

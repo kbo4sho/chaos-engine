@@ -12,7 +12,7 @@ Forty clockwork puzzles use moving platforms, eccentric cams, pinwheels, pistons
 
 ## How to get to it (user POV)
 
-Open PUZZLES, choose Level map, then Play the clockwork course. The chapter selector also opens Lift shop, Rotary works, Gatehouse and Parcel depot. Choose Tool lab to experiment with a mechanism. Fit a part, run the machine and tap a contact below Inspect run to see the handoff.
+Open One Part Missing, choose Level map, then Play the clockwork course. The chapter selector also opens Lift shop, Rotary works, Gatehouse and Parcel depot. Choose Tool lab to experiment with a mechanism. Fit a part, run the machine and tap a contact below Inspect run to see the handoff.
 
 ## Driving it with verify-chaos-engine
 

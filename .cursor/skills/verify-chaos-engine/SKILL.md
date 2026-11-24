@@ -189,7 +189,7 @@ All helpers are executable. Invoke them from the repo root.
 | `./scripts/verify-chaos-engine drive rigging-course` | [Cable rigs](features/rigging-course.md), two-body constraints, break inspection, saved rig and offline delivery |
 | `./scripts/verify-chaos-engine drive clockwork-course` | [Clockwork and cargo](features/clockwork-course.md), moving solids, seven mechanical experiments, signal delivery and saved assemblies |
 | `./scripts/verify-chaos-engine drive tool-course` | [Powered course](features/tool-course.md), all eight experiments, contact inspection, saved sandbox delivery and offline replay |
-| `./scripts/verify-chaos-engine drive one-part-missing` | [Puzzle shelf](features/one-part-missing.md), public directory and legacy level links, real repairs, replay, workshop links and sandbox save/load |
+| `./scripts/verify-chaos-engine drive one-part-missing` | [Puzzle shelf](features/one-part-missing.md), named One Part Missing header link on desktop and phone, public directory and legacy level links, real repairs, replay, workshop links and sandbox save/load |
 | `./scripts/verify-chaos-engine drive ui-layout` | Standard 390 / 1280 layout proof for [features/ui-layout.md](../../features/ui-layout.md) |
 | `./scripts/verify-chaos-engine drive deflect` | Touch and desktop quarter-turn travel proof for [features/deflect.md](features/deflect.md) |
 | `./scripts/verify-chaos-engine drive unfinished-repairs` | [Resume an unfinished repair](features/unfinished-repairs.md), durable partial fittings, undo, local privacy and multi-tab recovery |

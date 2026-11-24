@@ -16,7 +16,7 @@ Players can enlarge a working machine, zoom in on a mount and compare two differ
 
 ## How to get to it (user POV)
 
-Open PUZZLES. Choose Expand in the upper strip of the machine drawing. Zoom in, pan the diagram or use Tab to reach a socket. Close returns the same running, paused or repaired machine to the workbench. Run the opening machine empty, fit the bridge and run it again. Choose Compare last two setups. Use First separation to jump to the measured divergence or select the recorded contact to inspect the earlier interaction.
+Open One Part Missing. Choose Expand in the upper strip of the machine drawing. Zoom in, pan the diagram or use Tab to reach a socket. Close returns the same running, paused or repaired machine to the workbench. Run the opening machine empty, fit the bridge and run it again. Choose Compare last two setups. Use First separation to jump to the measured divergence or select the recorded contact to inspect the earlier interaction.
 
 ## Driving it with verify-chaos-engine
 
