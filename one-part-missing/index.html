@@ -9,6 +9,10 @@
     <link rel="stylesheet" href="bench.css" />
     <script src="../vendor/matter-0.20.0.min.js"></script>
     <script type="module" src="bench-release.js?v=b94fec646f07"></script>
+    <script type="module">
+      import { applyFeatureFlags } from '../flags.js';
+      applyFeatureFlags();
+    </script>
   </head>
   <body>
     <header class="mast">
@@ -146,7 +150,7 @@
             <p id="training-progress"></p><a id="training-next" class="action-link" hidden></a>
             <a id="training-alternate" class="action-link" hidden></a>
           </section>
-          <section id="match-panel" aria-label="Three-round match" hidden>
+          <section id="match-panel" aria-label="Three-round match" data-flag="match-cards" hidden>
             <details id="match-sheet"><summary>Three-round scorecard</summary>
               <p id="match-result" role="status"></p><nav id="match-rounds" aria-label="Card rounds"></nav>
               <button id="match-watch" type="button" class="quiet" aria-haspopup="dialog" hidden>Watch this round</button>
@@ -173,7 +177,7 @@
             </div>
             <output id="race-feedback" aria-live="polite"></output>
             <input id="race-url" aria-label="Friend challenge link" readonly hidden>
-            <details id="race-files" hidden><summary>Play and share offline</summary>
+            <details id="race-files" data-flag="offline-races" hidden><summary>Play and share offline</summary>
               <button type="button" class="quiet" id="race-pack">Prepare challenge file</button>
               <a id="race-file" hidden>Save challenge file</a>
               <output id="race-file-status" aria-live="polite"></output>
@@ -239,23 +243,23 @@
           <nav aria-label="Numbered tool courses">
             <a id="tool-entry" href="#tools-first-belt">Play the tool course →</a>
             <a id="clock-entry" href="#works-from-below">Play the clockwork course →</a>
-            <a id="rig-entry" href="#rig-first-tether">Play the cable rigs →</a>
-            <a id="pair-entry" href="#pair-carry-then-catch">Play two-part repairs →</a>
-            <a id="drive-entry" href="#drive-spin-into-slide">Play the drive table →</a>
-            <a id="qualification-entry" href="#qualification-air-off-the-cam">Play cross training →</a>
-            <a id="grand-entry" href="#grand-first-handoff">Play grand relays →</a>
-            <a id="field-entry" href="#field-out-from-the-center">Play field stations →</a>
-            <a id="assembly-entry" href="#assembly-three-at-the-bench">Play three-part repairs →</a>
-            <a id="fault-entry" href="fault-desk/">Diagnose a faulty machine →</a>
-            <a id="batch-entry" href="test-bay/">Commission a production line →</a>
-            <a id="operator-entry" href="control-room/">Operate a machine →</a>
-            <a id="flight-entry" href="#flight-neutral-buoyancy">Play flight school →</a>
-            <a id="sort-entry" href="#sort-through-the-grating">Play the sorting room →</a>
+            <a id="rig-entry" data-flag="course-rig" data-flag-reveal href="#rig-first-tether">Play the cable rigs →</a>
+            <a id="pair-entry" data-flag="course-pair" data-flag-reveal href="#pair-carry-then-catch">Play two-part repairs →</a>
+            <a id="drive-entry" data-flag="course-drive" data-flag-reveal href="#drive-spin-into-slide">Play the drive table →</a>
+            <a id="qualification-entry" data-flag="course-qualification" data-flag-reveal href="#qualification-air-off-the-cam">Play cross training →</a>
+            <a id="grand-entry" data-flag="course-grand" data-flag-reveal href="#grand-first-handoff">Play grand relays →</a>
+            <a id="field-entry" data-flag="course-field" data-flag-reveal href="#field-out-from-the-center">Play field stations →</a>
+            <a id="assembly-entry" data-flag="course-assembly" data-flag-reveal href="#assembly-three-at-the-bench">Play three-part repairs →</a>
+            <a id="fault-entry" data-flag="fault-desk" data-flag-reveal href="fault-desk/">Diagnose a faulty machine →</a>
+            <a id="batch-entry" data-flag="test-bay" data-flag-reveal href="test-bay/">Commission a production line →</a>
+            <a id="operator-entry" data-flag="control-room" data-flag-reveal href="control-room/">Operate a machine →</a>
+            <a id="flight-entry" data-flag="course-flight" data-flag-reveal href="#flight-neutral-buoyancy">Play flight school →</a>
+            <a id="sort-entry" data-flag="course-sort" data-flag-reveal href="#sort-through-the-grating">Play the sorting room →</a>
           </nav>
         </details>
         <p id="chapter-hint"></p>
         <div id="shelf"></div>
-        <a id="discovery-entry" href="discovery/">Change one thing · 24 discovery puzzles →</a>
+        <a id="discovery-entry" data-flag="course-discovery" data-flag-reveal href="discovery/">Change one thing · 24 discovery puzzles →</a>
         <details class="study" id="lesson-map">
           <summary>Tool lessons <span id="learning-progress"></span></summary>
           <label
@@ -264,7 +268,7 @@
           ></label>
           <div id="lesson-list"></div>
         </details>
-        <details class="study" id="match-map"><summary>Three-round match cards</summary>
+        <details class="study" id="match-map" data-flag="match-cards" data-flag-reveal><summary>Three-round match cards</summary>
           <p>Play the house at three deliveries, then challenge a friend with your finished card.</p>
           <a id="match-today" class="action-link"></a>
           <label>Choose a card<select id="match-select"></select></label><p id="match-program"></p>
@@ -316,7 +320,7 @@
             <p id="tool-event-status" role="status"></p>
           </section>
         </details>
-        <details class="study" id="repair-transfer" hidden>
+        <details class="study" id="repair-transfer" data-flag="repair-transfer" hidden>
           <summary>Move repairs to another device</summary>
           <p>Take your working repairs, unfinished fittings, tool marks and work-order records with you.</p>
           <button type="button" class="quiet" id="notebook-export">Download repair notebook</button>
@@ -326,7 +330,7 @@
             <button type="button" class="quiet" id="notebook-cancel" hidden>Cancel import</button></div>
           <p id="notebook-file-status" role="status"></p>
         </details>
-        <details class="study" id="offline-workshop">
+        <details class="study" id="offline-workshop" data-flag="offline-workshop" data-flag-reveal>
           <summary>Keep the workshop offline</summary>
           <p>Save the 520-level game, discovery machines, production stations and Chaos Engine sandbox on this device. Open your usual game link to play offline.</p>
           <div class="notebook-actions"><button type="button" id="offline-save">Save for offline play</button>

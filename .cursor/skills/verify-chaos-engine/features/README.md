@@ -134,3 +134,4 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Exchange working drawings](./drawing-exchange.md) covers portable unfinished designs, independent film review and reversible adoption across browsers.
 - [Inspect the design press trials](./release-trials.md) covers seven physical release positions, fourteen films and concrete counterexamples for rejected drawings.
 - [Repair celebration](./repair-celebration.md) covers the centered repair signal on the workbench and Fault Desk.
+- [Feature flags](./feature-flags.md) covers named switches that hide extra desks and courses. Defaults, URL and storage overrides, and the offline-worker kill switch. See [docs/feature-flags.md](../docs/feature-flags.md) for the full list.

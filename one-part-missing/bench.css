@@ -22,6 +22,9 @@
 [hidden] {
   display: none !important;
 }
+[data-flag-off] {
+  display: none !important;
+}
 body {
   margin: 0;
   background: var(--bg);

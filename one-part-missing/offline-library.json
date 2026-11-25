@@ -1,8 +1,8 @@
 {
   "format": 1,
-  "version": "a59ba5df9baac94d",
+  "version": "5657278a0193827e",
   "benchVersion": "b94fec646f07",
-  "bytes": 2616117,
+  "bytes": 2624482,
   "assets": [
     {
       "path": "examples/chaos-examples.js",
@@ -10,9 +10,14 @@
       "hash": "663a1adda6817376979b8cc54072f1c802099a41f3140e9ec918c97ba55225b4"
     },
     {
+      "path": "flags.js",
+      "size": 6758,
+      "hash": "5f0e07e81a009870b4fb959a0c194262b813d33eb50e6b96db960a4ede781957"
+    },
+    {
       "path": "index.html",
-      "size": 807376,
-      "hash": "9d64def58bb0c26e501f8c1fbe56a36645e3e94a2f44fb02636a070f3cff3c4d"
+      "size": 807478,
+      "hash": "0b9cfc64a2db58646674233fbc75a664b1b3932e01e725b6a10b7d18eccd7df8"
     },
     {
       "path": "one-part-missing.html",
@@ -61,8 +66,8 @@
     },
     {
       "path": "one-part-missing/bench.css",
-      "size": 43742,
-      "hash": "ab8f6922f0ef97ec7273d502be1a173025e62451d738b62b174071879528460d"
+      "size": 43790,
+      "hash": "5ee6fcb8d029912e117a49e59fdc9019e7b1ba2bc77386685b4bca60f1162902"
     },
     {
       "path": "one-part-missing/blueprints.js",
@@ -146,8 +151,8 @@
     },
     {
       "path": "one-part-missing/control-room/index.html",
-      "size": 4372,
-      "hash": "e9a97f9751b8378bfb50cfbe987c581fe39e588e18b72774e15ed4a5f2a2f1fd"
+      "size": 4477,
+      "hash": "d77a3e8446b3e194274f7b508d45a7dec614a97a4090bd3dd7164a145bbf44ea"
     },
     {
       "path": "one-part-missing/control-scores.js",
@@ -216,8 +221,8 @@
     },
     {
       "path": "one-part-missing/discovery/double.html",
-      "size": 6042,
-      "hash": "fa2836fa39d8282e057a9f056fd090ae811d379f610c6ea7eed9bc81894f85c9"
+      "size": 6178,
+      "hash": "18d641c0a16df6661009f974708923d71743d1261d0474d5a27d15edd3ec9f7f"
     },
     {
       "path": "one-part-missing/discovery/experiments.js",
@@ -226,8 +231,8 @@
     },
     {
       "path": "one-part-missing/discovery/index.html",
-      "size": 4715,
-      "hash": "a5e56052912d1b952c5ece0854bf87652178f4975e5237f44d29175474067a2b"
+      "size": 4887,
+      "hash": "5567286afb1f7eb359f83cbad9c7a457c06a9c6c231ef572d954cde1f9dd25af"
     },
     {
       "path": "one-part-missing/discovery/instruments.js",
@@ -311,8 +316,8 @@
     },
     {
       "path": "one-part-missing/fault-desk/index.html",
-      "size": 3808,
-      "hash": "0c09a66f8ffb2711dc6f33f3d75b06270e4c006dd006c80984119390cd6555b1"
+      "size": 3911,
+      "hash": "a96d274f09a3d484c2a9b43a0a66040bc64d1b9e8d79af314fe447166e18b44d"
     },
     {
       "path": "one-part-missing/fault-desk/physics.js",
@@ -386,8 +391,8 @@
     },
     {
       "path": "one-part-missing/index.html",
-      "size": 39523,
-      "hash": "8dc14d9210d0146b7b7dfc37f2f6e2955b5590a9ca355106be6d763e08fee04a"
+      "size": 40363,
+      "hash": "3da071c4a3c4e3a5e4d6e919c24299e603c7b8bc5fd3c9a78ff7743929297012"
     },
     {
       "path": "one-part-missing/learning.js",
@@ -691,8 +696,8 @@
     },
     {
       "path": "one-part-missing/test-bay/index.html",
-      "size": 3764,
-      "hash": "13aa4c763223f4bba8fce0a632d74c0baa7aeb44bc14938ff1fb0bc370a84b0d"
+      "size": 3865,
+      "hash": "a0b474f9ce57f25bd0696b0f1606cde2b66ba58a585d8028d3091a8f555cba40"
     },
     {
       "path": "one-part-missing/test-bay/station.js",

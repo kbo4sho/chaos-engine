@@ -22315,6 +22315,10 @@ refreshSaveSlots();
 console.log('⚡ CHAOS ENGINE initialized');
 </script>
 <script type="module">
+import { applyFeatureFlags } from './flags.js';
+applyFeatureFlags();
+</script>
+<script type="module">
 import {installBench} from './one-part-missing/sandbox.js';
 installBench({
   M: Matter, engine, world, setMachineViewport, registerMachineCollision,
