@@ -2013,7 +2013,7 @@ describe('Game save and load', () => {
     const api = gameHarness();
     api.run(`
       paused = true;
-      for (const tool of ['ball','block','car','ragdoll','basket','seesaw','wrecking','ramp','draw','magnet','rocket']) {
+      for (const tool of ['ball','block','car','ragdoll','basket','seesaw','wrecking','ramp','draw','magnet','rocket','dino']) {
         currentTool = tool;
         spawnObject(300, 200, 2, -3);
       }
@@ -2466,5 +2466,68 @@ describe('Imported puzzle boundaries', () => {
     expect(api.run('Matter.Detector.canCollide(phaseBodies.get(oldLoad),walls[0].collisionFilter)')).toBe(false);
     expect(api.run('Matter.Detector.canCollide(block.collisionFilter,walls[0].collisionFilter)')).toBe(true);
     expect(api.run('Matter.Detector.canCollide(block.collisionFilter,phaseBodies.get(oldLoad))')).toBe(true);
+  });
+});
+
+describe('Dino type switch', () => {
+  it('spawns T. rex by default and cycles triceratops then sauropod from the same button', () => {
+    const api = gameHarness();
+    api.run('paused = true;');
+    const button = api.window.document.querySelector('[data-tool="dino"]');
+    button.click();
+    expect(api.run('[currentTool, dinoKind]')).toEqual(['dino', 'trex']);
+    expect(button.querySelector('.dino-label').textContent).toBe('REX');
+    api.run('window.rex = spawnObject(200, 220);');
+    expect(api.run('rex.render.type')).toBe('dino');
+    expect(api.run('rex.render.dinoKind')).toBe('trex');
+    expect(api.run('rex.restitution')).toBe(0.4);
+    expect(api.run('rex.friction')).toBe(0.5);
+    button.click();
+    expect(api.run('dinoKind')).toBe('triceratops');
+    expect(button.querySelector('.dino-label').textContent).toBe('TRI');
+    api.run('window.tri = spawnObject(320, 220);');
+    expect(api.run('tri.render.dinoKind')).toBe('triceratops');
+    button.click();
+    expect(api.run('dinoKind')).toBe('sauropod');
+    expect(button.querySelector('.dino-label').textContent).toBe('LONG');
+    api.run('window.long = spawnObject(440, 220);');
+    expect(api.run('long.render.dinoKind')).toBe('sauropod');
+    button.click();
+    expect(api.run('dinoKind')).toBe('trex');
+    expect(api.run('Composite.allBodies(world).filter(b => b.render?.type === "dino").map(b => b.render.dinoKind)')).toEqual(['trex', 'triceratops', 'sauropod']);
+  });
+
+  it('round-trips dinosaur kinds through save/load and defaults missing kinds to T. rex', () => {
+    const api = gameHarness();
+    api.run('paused = true;');
+    const button = api.window.document.querySelector('[data-tool="dino"]');
+    button.click();
+    api.run('spawnObject(200, 220);');
+    button.click();
+    api.run('spawnObject(320, 220);');
+    button.click();
+    api.run('spawnObject(440, 220);');
+    api.run(`
+      window.saved = serializeGameState();
+      window.beforeKinds = captureGameState().bodies.filter(b => b.render?.type === 'dino').map(b => b.render.dinoKind);
+    `);
+    expect(api.window.beforeKinds).toEqual(['trex', 'triceratops', 'sauropod']);
+    api.run('restoreGameState(readGameSave(window.saved));');
+    expect(api.run('dinoKind')).toBe('sauropod');
+    expect(api.window.document.querySelector('.dino-label').textContent).toBe('LONG');
+    expect(api.run("captureGameState().bodies.filter(b => b.render?.type === 'dino').map(b => b.render.dinoKind)")).toEqual(['trex', 'triceratops', 'sauropod']);
+
+    api.run(`
+      const game = captureGameState();
+      delete game.state.dinoKind;
+      game.bodies.filter(b => b.render?.type === 'dino').forEach(b => { delete b.render.dinoKind; delete b.render.dinoScale; });
+      const graph = ChaosSaveCodec.encode(game);
+      window.oldSave = JSON.stringify({version:1, savedAt:new Date().toISOString(), graph, checksum:ChaosSaveCodec.checksum(graph)});
+      restoreGameState(readGameSave(window.oldSave));
+    `);
+    expect(api.run('dinoKind')).toBe('trex');
+    expect(api.run("captureGameState().bodies.filter(b => b.render?.type === 'dino').every(b => normalizeDinoKind(b.render.dinoKind) === 'trex')")).toBe(true);
+    expect(() => api.run('Engine.update(engine, 1000 / 60)')).not.toThrow();
+    expect(api.errors).toEqual([]);
   });
 });

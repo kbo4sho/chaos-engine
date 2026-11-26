@@ -700,6 +700,145 @@ async function driveBank(page) {
   result.passed=result.failures.length===0;
 }
 
+async function driveDino(page) {
+  for (const viewport of [
+    { name: 'desktop', width: 1280, height: 800 },
+    { name: 'mobile', width: 390, height: 664, isMobile: true, hasTouch: true }
+  ]) {
+    await page.setViewport(viewport);
+    await page.goto(url, { waitUntil: 'networkidle0', timeout: 30000 });
+    await page.waitForSelector('#game', { timeout: 15000 });
+    await page.waitForFunction(() => Boolean(window.ChaosEngine) && Boolean(document.querySelector('[data-tool="dino"]')), { timeout: 15000 });
+
+    const tap = async selector => {
+      await page.$eval(selector, element => element.scrollIntoView({ block: 'nearest', inline: 'center' }));
+      if (viewport.hasTouch) await page.tap(selector); else await page.click(selector);
+    };
+    const point = async (x, y) => viewport.hasTouch ? page.touchscreen.tap(x, y) : page.mouse.click(x, y);
+    const dinoButton = () => page.$eval('[data-tool="dino"]', el => {
+      const box = el.getBoundingClientRect();
+      return {
+        active: el.classList.contains('active'),
+        label: el.querySelector('.dino-label')?.textContent || '',
+        icon: el.querySelector('.dino-icon')?.textContent || '',
+        aria: el.getAttribute('aria-label') || '',
+        visible: box.width > 0 && box.height > 0 && box.left >= 0 && box.right <= innerWidth + 1
+      };
+    });
+    const kinds = () => page.evaluate(() => Composite.allBodies(world)
+      .filter(body => body.render?.type === 'dino')
+      .map(body => body.render.dinoKind));
+
+    await tap('#btn-pause');
+    await tap('[data-tool="dino"]');
+    let button = await dinoButton();
+    record(`${viewport.name}-select-rex`, button.active && button.label === 'REX' && button.visible && /T\. rex/i.test(button.aria), button);
+
+    const rect = await page.$eval('#game', canvas => {
+      const box = canvas.getBoundingClientRect();
+      return { x: box.x, y: box.y, w: box.width, h: box.height };
+    });
+    const mid = { x: rect.x + rect.w * 0.5, y: rect.y + rect.h * 0.30 };
+    const portraits = [
+      { kind: 'trex', label: 'REX', file: '01-trex.png', clicks: 0 },
+      { kind: 'triceratops', label: 'TRI', file: '02-triceratops.png', clicks: 1 },
+      { kind: 'sauropod', label: 'LONG', file: '03-sauropod.png', clicks: 2 }
+    ];
+
+    for (const portrait of portraits) {
+      for (let n = 0; n < portrait.clicks; n++) await tap('[data-tool="dino"]');
+      button = await dinoButton();
+      record(`${viewport.name}-cycle-${portrait.kind}`, button.active && button.label === portrait.label, button);
+      await point(mid.x, mid.y);
+      await page.waitForFunction(() => Number(document.getElementById('obj-count')?.textContent) >= 1, { timeout: 8000 });
+      await new Promise(resolve => setTimeout(resolve, 220));
+      const only = await kinds();
+      record(`${viewport.name}-spawn-${portrait.kind}`, only.length === 1 && only[0] === portrait.kind, { only });
+      await shot(page, `${viewport.name}-${portrait.file}`);
+      await tap('#btn-clear');
+      await page.waitForFunction(() => !clearAnimating, { timeout: 8000 });
+    }
+
+    const spots = [
+      { kind: 'trex', label: 'REX', x: rect.x + rect.w * 0.28, y: rect.y + rect.h * 0.30 },
+      { kind: 'triceratops', label: 'TRI', x: rect.x + rect.w * 0.50, y: rect.y + rect.h * 0.30 },
+      { kind: 'sauropod', label: 'LONG', x: rect.x + rect.w * 0.72, y: rect.y + rect.h * 0.30 }
+    ];
+    for (let index = 0; index < spots.length; index++) {
+      const spot = spots[index];
+      if (index > 0) await tap('[data-tool="dino"]');
+      button = await dinoButton();
+      record(`${viewport.name}-scene-cycle-${spot.kind}`, button.active && button.label === spot.label, button);
+      await point(spot.x, spot.y);
+      await page.waitForFunction(count => Number(document.getElementById('obj-count')?.textContent) >= count, { timeout: 8000 }, index + 1);
+    }
+
+    const placed = await kinds();
+    const ui = await readUi(page);
+    record(`${viewport.name}-three-kinds`, placed.length === 3 && placed[0] === 'trex' && placed[1] === 'triceratops' && placed[2] === 'sauropod' && Number(ui.objCount) >= 3, { placed, objCount: ui.objCount });
+
+    if (viewport.name === 'desktop') {
+      await page.select('#save-slot', '1');
+      await tap('#btn-save');
+      await new Promise(resolve => setTimeout(resolve, 200));
+      let saveUi = await readUi(page);
+      if (saveUi.dialogOpen) {
+        await tap('#save-accept');
+        await new Promise(resolve => setTimeout(resolve, 250));
+        saveUi = await readUi(page);
+      }
+      const saved = parseSave(saveUi.storage['chaos-engine-save-1']);
+      record('desktop-save', saveUi.feedback.includes('SAVED TO SLOT') && Boolean(saved?.graph) && saved?.version === 1 && !misleadingStorageError(saveUi.feedback), {
+        feedback: saveUi.feedback,
+        version: saved?.version || null
+      });
+
+      await page.reload({ waitUntil: 'networkidle0', timeout: 30000 });
+      await page.waitForSelector('#btn-load', { timeout: 15000 });
+      const persistOk = Boolean(parseSave((await readUi(page)).storage['chaos-engine-save-1'])?.graph);
+      record('desktop-reload-persist', persistOk, { persistOk });
+
+      await tap('#btn-load');
+      await new Promise(resolve => setTimeout(resolve, 200));
+      let loadUi = await readUi(page);
+      if (loadUi.dialogOpen) {
+        await tap('#save-accept');
+        await new Promise(resolve => setTimeout(resolve, 300));
+        loadUi = await readUi(page);
+      }
+      const loadedKinds = await kinds();
+      await shot(page, 'desktop-04-after-load.png');
+      record('desktop-load-kinds', loadUi.feedback.includes('LOADED SLOT') && Number(loadUi.objCount) >= 3 &&
+        loadedKinds[0] === 'trex' && loadedKinds[1] === 'triceratops' && loadedKinds[2] === 'sauropod', {
+        feedback: loadUi.feedback,
+        objCount: loadUi.objCount,
+        loadedKinds
+      });
+      fs.writeFileSync(path.join(outDir, 'localStorage.json'), JSON.stringify({
+        keys: loadUi.storageKeys,
+        slot1Chars: (loadUi.storage['chaos-engine-save-1'] || '').length
+      }, null, 2));
+      fs.writeFileSync(path.join(outDir, 'page-state.json'), JSON.stringify({ ...loadUi, loadedKinds }, null, 2));
+    } else {
+      await shot(page, 'mobile-01-cycle.png');
+    }
+
+    await tap('#btn-clear');
+    await page.waitForFunction(() => !clearAnimating, { timeout: 8000 });
+    const cleanup = await page.evaluate(() => ({
+      count: document.getElementById('obj-count')?.textContent,
+      label: document.querySelector('[data-tool="dino"] .dino-label')?.textContent,
+      bodies: Composite.allBodies(world).filter(body => body.label !== 'wall').length,
+      dinoKind
+    }));
+    record(`${viewport.name}-clear`, cleanup.bodies === 0 && cleanup.label === 'REX' && cleanup.dinoKind === 'trex', cleanup);
+    await shot(page, `${viewport.name}-05-clear.png`);
+    record(`${viewport.name}-no-runtime-errors`, !consoleLines.some(line => /^\[(error|pageerror)\]/.test(line)), consoleLines.slice(-8));
+  }
+  result.passed = result.failures.length === 0 && result.steps.every(step => step.ok);
+  result.expected = 'three dinosaur types spawn, persist through save/load, and clear on desktop and phone';
+}
+
 const journeys = {
   'offline-workshop': async page => {
     const {verifyOfflineWorkshop} = await import('./verify-offline-workshop.mjs');
@@ -934,6 +1073,7 @@ const journeys = {
   'bank': driveBank,
   'trim': driveTrim,
   'deflect': driveDeflect,
+  'dino': driveDino,
   'save-load': driveSaveLoad,
   'example-scenes': driveExampleScenes,
   'example-scenes-mobile': driveExampleScenesMobile,

@@ -1,8 +1,8 @@
 {
   "format": 1,
-  "version": "5657278a0193827e",
+  "version": "7c6fa761fcc70047",
   "benchVersion": "b94fec646f07",
-  "bytes": 2624482,
+  "bytes": 2632346,
   "assets": [
     {
       "path": "examples/chaos-examples.js",
@@ -16,8 +16,8 @@
     },
     {
       "path": "index.html",
-      "size": 807478,
-      "hash": "0b9cfc64a2db58646674233fbc75a664b1b3932e01e725b6a10b7d18eccd7df8"
+      "size": 815342,
+      "hash": "4a9c850196896967e4dfe3afa5796013029f81cbc2a59818effd6ae09fe551f3"
     },
     {
       "path": "one-part-missing.html",
