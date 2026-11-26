@@ -2,6 +2,10 @@
 
 Improvement history for this project. Each entry logs one cycle's work.
 
+## 2026-11-26 — Dino types
+
+The Dino tool now reads as a real dinosaur (head, legs, tail, shading) and the same toolbar button cycles T. rex, triceratops, and a long-neck sauropod. Default remains the original T. rex hull so old scenes and version-1 saves load unchanged. Chosen type is stored on the body through the existing save graph.
+
 Future cycles still add or improve one feature without redesigning the shell. They must also pass `.cursor/skills/verify-chaos-engine` (launch, doctor, drive the affected journeys, capture evidence, cleanup), pass `npm test` and `npm run build`, add a `features/*.md` entry for new user-facing work, update the skill with `/maintain-verification-skill` when the UI changes, and record journeys plus evidence paths in the PR Verification section.
 
 ---

@@ -1165,7 +1165,7 @@ canvas#game {
     <button class="tool-btn" data-tool="block"><span class="icon">📦</span>Block</button>
     <button class="tool-btn" data-tool="rocket"><span class="icon">🚀</span>Rocket</button>
     <button class="tool-btn" data-tool="car"><span class="icon">🚗</span>Car</button>
-    <button class="tool-btn" data-tool="dino"><span class="icon">🦕</span>Dino</button>
+    <button class="tool-btn" data-tool="dino" title="Tap to place a T. rex; tap this button again to switch dinosaur type" aria-label="Place a T. rex. Tap again to switch dinosaur type"><span class="icon dino-icon">🦖</span><span class="dino-label">REX</span></button>
     <button class="tool-btn" data-tool="bomb"><span class="icon">💣</span>Bomb</button>
     <button class="tool-btn" data-tool="star"><span class="icon">⭐</span>Star</button>
     <button class="tool-btn" data-tool="balloon"><span class="icon">🎈</span>Balloon</button>
@@ -1518,6 +1518,7 @@ let grabOffsetY = 0;
 let grabHistory = []; // [{x, y, t}] for velocity tracking
 let anchoredBodies = new Set(); // bodies locked in place by the Anchor tool
 let resizeMode = 'grow'; // reselect the Resize tool to toggle grow/shrink
+let dinoKind = 'trex'; // reselect the Dino tool to cycle T. rex / triceratops / sauropod
 let resizeFeedbackTimer = 0;
 let cloneFeedbackTimer = 0;
 let motorizedBodies = new Map(); // body -> direction: 1 clockwise, -1 counter-clockwise
@@ -2284,6 +2285,33 @@ function updateResizeButton() {
   btn.setAttribute('aria-label', `Resize objects: ${resizeMode} mode`);
 }
 
+const DINO_KIND_ORDER = ['trex', 'triceratops', 'sauropod'];
+const DINO_KIND_UI = {
+  trex: { icon:'🦖', label:'REX', name:'T. rex' },
+  triceratops: { icon:'🛡️', label:'TRI', name:'Triceratops' },
+  sauropod: { icon:'🦕', label:'LONG', name:'Long-neck' }
+};
+
+function normalizeDinoKind(kind) {
+  return DINO_KIND_ORDER.includes(kind) ? kind : 'trex';
+}
+
+function getNextDinoKind(kind) {
+  const index = DINO_KIND_ORDER.indexOf(normalizeDinoKind(kind));
+  return DINO_KIND_ORDER[(index + 1) % DINO_KIND_ORDER.length];
+}
+
+function updateDinoButton() {
+  const btn = document.querySelector('[data-tool="dino"]');
+  if (!btn) return;
+  const kind = normalizeDinoKind(dinoKind);
+  const info = DINO_KIND_UI[kind];
+  btn.querySelector('.dino-icon').textContent = info.icon;
+  btn.querySelector('.dino-label').textContent = info.label;
+  btn.title = `Tap to place a ${info.name}; tap this button again to switch dinosaur type`;
+  btn.setAttribute('aria-label', `Place a ${info.name}. Tap again to switch dinosaur type`);
+}
+
 function updateRotateButton() {
   const btn = document.querySelector('[data-tool="rotate"]');
   if (!btn) return;
@@ -2721,6 +2749,13 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       haptic([6]);
       return;
     }
+    if (tool === 'dino' && currentTool === 'dino' && btn.classList.contains('active')) {
+      dinoKind = getNextDinoKind(dinoKind);
+      updateDinoButton();
+      playSound(dinoKind === 'trex' ? 220 : dinoKind === 'triceratops' ? 280 : 160, 0.08, 'square', 0.06);
+      haptic([6]);
+      return;
+    }
     if (tool === 'rotate' && currentTool === 'rotate' && btn.classList.contains('active')) {
       rotateDirection = getNextRotateDirection(rotateDirection);
       updateRotateButton();
@@ -2842,6 +2877,10 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       if (tool === 'resize') {
         resizeMode = 'grow';
         updateResizeButton();
+      }
+      if (tool === 'dino') {
+        dinoKind = 'trex';
+        updateDinoButton();
       }
       if (tool === 'rotate') {
         rotateDirection = 1;
@@ -2974,7 +3013,7 @@ function spawnObject(x, y, vx=0, vy=0) {
       break;
     }
     case 'dino': {
-      body = createDino(x, y, color);
+      body = createDino(x, y, color, dinoKind);
       break;
     }
     case 'bomb': {
@@ -3398,22 +3437,204 @@ function createCar(x, y) {
   return comp;
 }
 
-function createDino(x, y, color) {
-  // T-Rex-ish shape using vertices
-  const scale = 0.7 + Math.random() * 0.4;
-  const verts = [
-    {x:0, y:-30}, {x:15, y:-30}, {x:20, y:-20}, {x:30, y:-20},
-    {x:30, y:-10}, {x:20, y:-10}, {x:20, y:0}, {x:25, y:10},
-    {x:25, y:30}, {x:15, y:30}, {x:15, y:15}, {x:5, y:15},
-    {x:5, y:30}, {x:-5, y:30}, {x:-5, y:10}, {x:-15, y:0},
-    {x:-15, y:-15}, {x:-5, y:-20}
-  ].map(v => ({x: v.x * scale, y: v.y * scale}));
+function getDinoVertices(kind) {
+  switch (normalizeDinoKind(kind)) {
+    case 'triceratops':
+      return [
+        {x:34, y:-4}, {x:26, y:-12}, {x:18, y:-24}, {x:4, y:-22},
+        {x:-10, y:-12}, {x:-24, y:-2}, {x:-32, y:6}, {x:-18, y:12},
+        {x:-14, y:26}, {x:-6, y:26}, {x:-4, y:12}, {x:4, y:26},
+        {x:12, y:26}, {x:12, y:10}, {x:20, y:26}, {x:28, y:26},
+        {x:26, y:8}, {x:30, y:2}
+      ];
+    case 'sauropod':
+      return [
+        {x:40, y:-24}, {x:36, y:-30}, {x:24, y:-22}, {x:12, y:-12},
+        {x:2, y:-10}, {x:-16, y:-6}, {x:-42, y:2}, {x:-34, y:10},
+        {x:-16, y:8}, {x:-12, y:26}, {x:-4, y:26}, {x:-2, y:12},
+        {x:8, y:26}, {x:16, y:26}, {x:14, y:8}, {x:22, y:-8}
+      ];
+    default:
+      // Original T. rex hull so default spawns and old saves stay the same.
+      return [
+        {x:0, y:-30}, {x:15, y:-30}, {x:20, y:-20}, {x:30, y:-20},
+        {x:30, y:-10}, {x:20, y:-10}, {x:20, y:0}, {x:25, y:10},
+        {x:25, y:30}, {x:15, y:30}, {x:15, y:15}, {x:5, y:15},
+        {x:5, y:30}, {x:-5, y:30}, {x:-5, y:10}, {x:-15, y:0},
+        {x:-15, y:-15}, {x:-5, y:-20}
+      ];
+  }
+}
 
-  const body = Bodies.fromVertices(x, y, verts, {
+function createDino(x, y, color, kind = dinoKind) {
+  kind = normalizeDinoKind(kind);
+  const scale = 0.7 + Math.random() * 0.4;
+  const verts = getDinoVertices(kind).map(v => ({x: v.x * scale, y: v.y * scale}));
+  return Bodies.fromVertices(x, y, verts, {
     restitution: 0.4, friction: 0.5,
-    render: { type:'dino', color }
+    render: { type:'dino', color, dinoKind: kind, dinoScale: scale }
   });
-  return body;
+}
+
+function paintDinoPoly(ctx, points, color, fillAlpha = '88') {
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+  for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
+  ctx.closePath();
+  ctx.fillStyle = color + fillAlpha;
+  ctx.fill();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+function paintDinoBelly(ctx, x, y, rx, ry, tilt = 0.15) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(tilt);
+  ctx.beginPath();
+  ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(0,0,0,0.22)';
+  ctx.fill();
+  ctx.restore();
+}
+
+function paintDinoEye(ctx, x, y, r) {
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fillStyle = '#f4f0c8';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(x + r * 0.18, y, r * 0.45, 0, Math.PI * 2);
+  ctx.fillStyle = '#1a1208';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(x + r * 0.28, y - r * 0.3, r * 0.18, 0, Math.PI * 2);
+  ctx.fillStyle = '#fff';
+  ctx.fill();
+}
+
+function drawTrexDino(ctx, color) {
+  paintDinoPoly(ctx, [
+    {x:-8, y:2}, {x:-22, y:-6}, {x:-34, y:0}, {x:-28, y:8}, {x:-12, y:10}
+  ], color);
+  paintDinoPoly(ctx, [
+    {x:-12, y:-8}, {x:6, y:-14}, {x:14, y:-6}, {x:12, y:10}, {x:-6, y:12}, {x:-14, y:4}
+  ], color);
+  paintDinoBelly(ctx, 0, 4, 10, 6);
+  paintDinoPoly(ctx, [
+    {x:-4, y:8}, {x:6, y:12}, {x:4, y:28}, {x:-4, y:28}, {x:-8, y:16}
+  ], color);
+  paintDinoPoly(ctx, [
+    {x:4, y:8}, {x:14, y:12}, {x:12, y:28}, {x:4, y:28}, {x:2, y:16}
+  ], color);
+  paintDinoPoly(ctx, [
+    {x:10, y:-2}, {x:20, y:2}, {x:18, y:6}, {x:10, y:2}
+  ], color);
+  paintDinoPoly(ctx, [
+    {x:6, y:-12}, {x:14, y:-18}, {x:18, y:-12}, {x:10, y:-4}
+  ], color);
+  paintDinoPoly(ctx, [
+    {x:14, y:-20}, {x:24, y:-24}, {x:34, y:-18}, {x:34, y:-12}, {x:24, y:-10}, {x:14, y:-12}
+  ], color);
+  paintDinoPoly(ctx, [
+    {x:18, y:-10}, {x:32, y:-8}, {x:22, y:-4}, {x:14, y:-8}
+  ], color);
+  ctx.fillStyle = '#f4f0c8';
+  [[22, -11], [26, -10.5], [30, -10]].forEach(([tx, ty]) => {
+    ctx.beginPath();
+    ctx.moveTo(tx, ty);
+    ctx.lineTo(tx + 1.6, ty + 3.6);
+    ctx.lineTo(tx - 1.4, ty + 3.6);
+    ctx.fill();
+  });
+  paintDinoEye(ctx, 24, -18, 2.6);
+  ctx.beginPath();
+  ctx.arc(31.5, -16, 1.1, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.fill();
+}
+
+function drawTriceratopsDino(ctx, color) {
+  paintDinoPoly(ctx, [
+    {x:-16, y:0}, {x:-30, y:4}, {x:-26, y:10}, {x:-14, y:8}
+  ], color);
+  paintDinoPoly(ctx, [
+    {x:-16, y:-10}, {x:8, y:-12}, {x:16, y:-2}, {x:12, y:10}, {x:-10, y:12}, {x:-18, y:2}
+  ], color);
+  paintDinoBelly(ctx, 0, 4, 11, 6, 0.05);
+  paintDinoPoly(ctx, [{x:-12, y:8}, {x:-4, y:10}, {x:-6, y:26}, {x:-14, y:26}], color);
+  paintDinoPoly(ctx, [{x:-2, y:8}, {x:6, y:10}, {x:4, y:26}, {x:-4, y:26}], color);
+  paintDinoPoly(ctx, [{x:4, y:6}, {x:12, y:8}, {x:10, y:26}, {x:2, y:26}], color);
+  paintDinoPoly(ctx, [{x:10, y:6}, {x:18, y:8}, {x:16, y:26}, {x:8, y:26}], color);
+  paintDinoPoly(ctx, [
+    {x:6, y:-10}, {x:0, y:-22}, {x:12, y:-26}, {x:24, y:-22}, {x:18, y:-8}
+  ], color, '66');
+  ctx.strokeStyle = color + 'aa';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(6, -14); ctx.lineTo(12, -22); ctx.lineTo(20, -14);
+  ctx.stroke();
+  paintDinoPoly(ctx, [
+    {x:12, y:-10}, {x:22, y:-12}, {x:30, y:-4}, {x:24, y:2}, {x:12, y:0}
+  ], color);
+  ctx.strokeStyle = '#f4e4c0';
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(28, -4); ctx.lineTo(36, -8); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(14, -16); ctx.lineTo(10, -28); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(20, -16); ctx.lineTo(24, -28); ctx.stroke();
+  paintDinoEye(ctx, 20, -6, 2.2);
+}
+
+function drawSauropodDino(ctx, color) {
+  paintDinoPoly(ctx, [
+    {x:-8, y:2}, {x:-28, y:6}, {x:-42, y:0}, {x:-36, y:10}, {x:-16, y:10}
+  ], color);
+  paintDinoPoly(ctx, [
+    {x:-14, y:-8}, {x:10, y:-10}, {x:16, y:0}, {x:10, y:10}, {x:-10, y:12}, {x:-16, y:2}
+  ], color);
+  paintDinoBelly(ctx, 0, 4, 10, 6, 0.08);
+  paintDinoPoly(ctx, [{x:-12, y:8}, {x:-4, y:10}, {x:-6, y:26}, {x:-14, y:26}], color);
+  paintDinoPoly(ctx, [{x:-2, y:8}, {x:6, y:10}, {x:4, y:26}, {x:-4, y:26}], color);
+  paintDinoPoly(ctx, [{x:4, y:6}, {x:12, y:8}, {x:10, y:26}, {x:2, y:26}], color);
+  paintDinoPoly(ctx, [{x:10, y:6}, {x:18, y:8}, {x:16, y:26}, {x:8, y:26}], color);
+  paintDinoPoly(ctx, [
+    {x:8, y:-8}, {x:18, y:-16}, {x:28, y:-24}, {x:32, y:-22}, {x:22, y:-12}, {x:12, y:-2}
+  ], color);
+  paintDinoPoly(ctx, [
+    {x:28, y:-26}, {x:38, y:-28}, {x:40, y:-22}, {x:32, y:-20}, {x:26, y:-22}
+  ], color);
+  paintDinoEye(ctx, 34, -25.5, 1.8);
+}
+
+function getDinoDrawScale(b) {
+  const stored = b.render?.dinoScale;
+  if (Number.isFinite(stored) && stored > 0) return stored;
+  const sy = (b.spawnScale || 1) * (b.render?.clearScale || 1) * (b.resizeScale || 1) *
+    (b.squashScaleY || 1) * (b.pressScaleY || 1);
+  const cos = Math.cos(-b.angle), sin = Math.sin(-b.angle);
+  let minY = Infinity, maxY = -Infinity;
+  const verts = b.vertices || [];
+  for (let i = 0; i < verts.length; i++) {
+    const dx = verts[i].x - b.position.x, dy = verts[i].y - b.position.y;
+    const ly = (dx * sin + dy * cos) / (sy || 1);
+    if (ly < minY) minY = ly;
+    if (ly > maxY) maxY = ly;
+  }
+  const height = maxY - minY;
+  return height > 1 ? height / 60 : 1;
+}
+
+function drawDinoSprite(ctx, b, color) {
+  const kind = normalizeDinoKind(b.render?.dinoKind);
+  const scale = getDinoDrawScale(b);
+  ctx.save();
+  ctx.scale(scale, scale);
+  if (kind === 'triceratops') drawTriceratopsDino(ctx, color);
+  else if (kind === 'sauropod') drawSauropodDino(ctx, color);
+  else drawTrexDino(ctx, color);
+  ctx.restore();
 }
 
 function createRagdoll(x, y) {
@@ -4320,6 +4541,8 @@ function finishClear(playFeedback = true) {
   anchoredBodies.clear();
   resizeMode = 'grow';
   updateResizeButton();
+  dinoKind = 'trex';
+  updateDinoButton();
   clearTimeout(resizeFeedbackTimer);
   document.getElementById('resize-feedback').classList.remove('active');
   document.getElementById('resize-feedback').textContent = '';
@@ -16687,29 +16910,8 @@ function drawBody(b) {
       return;
     }
     case 'dino': {
-      // Draw vertices as polygon
-      ctx.restore();
-      ctx.save();
-      const verts = b.vertices;
-      ctx.beginPath();
-      ctx.moveTo(verts[0].x, verts[0].y);
-      for (let i = 1; i < verts.length; i++) {
-        ctx.lineTo(verts[i].x, verts[i].y);
-      }
-      ctx.closePath();
-      ctx.fillStyle = color + '44';
-      ctx.fill();
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      // Eye
-      ctx.fillStyle = '#ff0000';
-      const cx = b.position.x + 5, cy = b.position.y - 10;
-      ctx.beginPath();
-      ctx.arc(cx, cy, 3, 0, Math.PI*2);
-      ctx.fill();
-      ctx.restore();
-      return;
+      drawDinoSprite(ctx, b, color);
+      break;
     }
     case 'magnet': {
       const mw = r.width || 40;
@@ -21895,7 +22097,7 @@ function captureGameState() {
       destructionMeter, lastDestructionLevel, comboCount, comboTimer, comboBest, wreckingBalls,
       discoMode, discoTimer, targetMode, targetTimer, targetScore, targetBodies,
       targetCleared, targetClearedTimer, magnets, ropes, chainLinks, sloMoActive,
-      anchoredBodies, resizeMode, motorizedBodies, flippers, nextFlipperSide, struts,
+      anchoredBodies, resizeMode, dinoKind, motorizedBodies, flippers, nextFlipperSide, struts,
       rotateDirection, hinges, springs, pivots, curveDirection, swirlDirection,
       thrusterBodies, phaseBodies, gyroBodies, twistDirection, liftedBodies, orbitingBodies,
       welds, tethers, webTraps, ramps, pinwheels, baskets,
@@ -21958,6 +22160,7 @@ function readGameSave(serialized) {
   if (!Object.hasOwn(game.state, 'latchArmed')) game.state.latchArmed = new Set();
   if (!Object.hasOwn(game.state, 'latches')) game.state.latches = [];
   if (!Object.hasOwn(game.state, 'clutches')) game.state.clutches = [];
+  if (!Object.hasOwn(game.state, 'dinoKind') || !DINO_KIND_ORDER.includes(game.state.dinoKind)) game.state.dinoKind = 'trex';
   const expected = captureGameState().state;
   for (const [key, value] of Object.entries(expected)) {
     const actual = game.state[key];
@@ -22084,7 +22287,7 @@ function restoreGameState(game) {
     destructionMeter, lastDestructionLevel, comboCount, comboTimer, comboBest, wreckingBalls,
     discoMode, discoTimer, targetMode, targetTimer, targetScore, targetBodies,
     targetCleared, targetClearedTimer, magnets, ropes, chainLinks, sloMoActive,
-    anchoredBodies, resizeMode, motorizedBodies, flippers, nextFlipperSide, struts,
+    anchoredBodies, resizeMode, dinoKind, motorizedBodies, flippers, nextFlipperSide, struts,
     rotateDirection, hinges, springs, pivots, curveDirection, swirlDirection,
     thrusterBodies, phaseBodies, gyroBodies, twistDirection, liftedBodies, orbitingBodies,
     welds, tethers, webTraps, ramps, pinwheels, baskets,
@@ -22126,6 +22329,7 @@ function restoreGameState(game) {
     button.classList.toggle('active', button.dataset.tool === currentTool || (button.dataset.tool === 'slomo' && sloMoActive));
   });
   updateResizeButton();
+  updateDinoButton();
   pauseBtn.querySelector('.icon').textContent = paused ? '▶️' : '⏸️';
   pauseBtn.querySelector('.icon').nextSibling.textContent = paused ? 'PLAY' : 'PAUSE';
   document.getElementById('planet-name').textContent = game.planetName;

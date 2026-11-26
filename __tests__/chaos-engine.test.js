@@ -4085,6 +4085,36 @@ describe('Resize Tool', () => {
   });
 });
 
+describe('Dino Tool', () => {
+  it('should cycle three dinosaur types from the same toolbar button', () => {
+    const dinoBtn = document.querySelector('[data-tool="dino"]');
+    expect(dinoBtn).not.toBeNull();
+    expect(dinoBtn?.querySelector('.dino-label')?.textContent).toBe('REX');
+    expect(dinoBtn?.getAttribute('aria-label')).toContain('T. rex');
+    expect(scriptContent).toContain("const DINO_KIND_ORDER = ['trex', 'triceratops', 'sauropod']");
+    expect(scriptContent).toContain("currentTool === 'dino'");
+    expect(scriptContent).toContain('dinoKind = getNextDinoKind(dinoKind)');
+    expect(scriptContent).toContain('function updateDinoButton()');
+    expect(scriptContent).toContain("dinoKind = 'trex';\n        updateDinoButton();");
+  });
+
+  it('should keep the original T. rex hull as the default type', () => {
+    expect(scriptContent).toContain('Original T. rex hull so default spawns and old saves stay the same.');
+    expect(scriptContent).toContain('{x:0, y:-30}, {x:15, y:-30}, {x:20, y:-20}, {x:30, y:-20}');
+    expect(scriptContent).toContain("{x:25, y:30}, {x:15, y:30}, {x:15, y:15}, {x:5, y:15}");
+    expect(scriptContent).toContain("case 'triceratops':");
+    expect(scriptContent).toContain("case 'sauropod':");
+  });
+
+  it('should persist the chosen type on the body and restore the toolbar from saves', () => {
+    expect(scriptContent).toContain("render: { type:'dino', color, dinoKind: kind, dinoScale: scale }");
+    expect(scriptContent).toContain('anchoredBodies, resizeMode, dinoKind, motorizedBodies');
+    expect(scriptContent).toContain("game.state.dinoKind = 'trex'");
+    expect(scriptContent).toContain('drawDinoSprite(ctx, b, color)');
+    expect(scriptContent).toContain("dinoKind = 'trex';\n  updateDinoButton();");
+  });
+});
+
 // ============================================
 // ANCHOR TOOL TESTS (Code Analysis)
 // ============================================
@@ -4548,6 +4578,9 @@ describe('Chaos Functions in Code', () => {
 
   it('should have createDino function', () => {
     expect(scriptContent).toContain('function createDino(');
+    expect(scriptContent).toContain('function getDinoVertices(');
+    expect(scriptContent).toContain('function drawDinoSprite(');
+    expect(scriptContent).toContain('function updateDinoButton()');
   });
 
   it('should have createRagdoll function', () => {
