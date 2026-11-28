@@ -2,6 +2,10 @@
 
 Improvement history for this project. Each entry logs one cycle's work.
 
+## 2026-11-28 — Car and Rocket types
+
+The Car and Rocket tools now read as a real car and a real rocket (CRT fill, windows and wheels, nose cone, fins, flame) and the same toolbar buttons cycle sports / pickup / bus and finned / shuttle / firework. Defaults remain the original chassis and 18×50 hull so old scenes and version-1 saves load unchanged. Chosen types are stored on each body through the existing save graph. Toolbar emojis stay 🚗 and 🚀. CLEAR now removes nested car assemblies so a car scene can be emptied the same way as balls and rockets.
+
 ## 2026-11-26 — Dino types
 
 The Dino tool now reads as a real dinosaur (head, legs, tail, shading) and the same toolbar button cycles T. rex, triceratops, and a long-neck sauropod. Default remains the original T. rex hull so old scenes and version-1 saves load unchanged. Chosen type is stored on the body through the existing save graph.

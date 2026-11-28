@@ -49,6 +49,8 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [UI layout](./ui-layout.md) covers save-cluster overflow, hint wrapping, and control clipping at 390px and 1280px. **Standard journey — run on every change.**
 - [Spawn objects](./spawn-objects.md) covers tool pick, canvas tap, slingshot, and the object counter.
 - [Dino](./dino.md) covers the dinosaur tool, T. rex / triceratops / long-neck types, and save/load of the chosen type.
+- [Car](./car.md) covers the car tool, sports / pickup / bus types, and save/load of the chosen type.
+- [Rocket](./rocket.md) covers the rocket tool, finned / shuttle / firework types, and save/load of the chosen type.
 - [Chaos actions](./chaos-actions.md) covers EXPLODE, RAIN, PAUSE, and other chaos-bar one-shots.
 - [Gravity](./gravity.md) covers Earth / Moon / Mars / Jupiter / Space presets and the planet label.
 - [Sandbox controls](./sandbox-controls.md) covers CLEAR, SNAP, and the lesson host API that replaces the current scene.

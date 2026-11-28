@@ -1163,8 +1163,8 @@ canvas#game {
   <div id="toolbar">
     <button class="tool-btn active" data-tool="ball"><span class="icon">⚽</span>Ball</button>
     <button class="tool-btn" data-tool="block"><span class="icon">📦</span>Block</button>
-    <button class="tool-btn" data-tool="rocket"><span class="icon">🚀</span>Rocket</button>
-    <button class="tool-btn" data-tool="car"><span class="icon">🚗</span>Car</button>
+    <button class="tool-btn" data-tool="rocket" title="Tap to place a finned rocket; tap this button again to switch rocket type" aria-label="Place a finned rocket. Tap again to switch rocket type"><span class="icon">🚀</span><span class="rocket-label">FIN</span></button>
+    <button class="tool-btn" data-tool="car" title="Tap to place a sports car; tap this button again to switch car type" aria-label="Place a sports car. Tap again to switch car type"><span class="icon">🚗</span><span class="car-label">SPORT</span></button>
     <button class="tool-btn" data-tool="dino" title="Tap to place a T. rex; tap this button again to switch dinosaur type" aria-label="Place a T. rex. Tap again to switch dinosaur type"><span class="icon dino-icon">🦖</span><span class="dino-label">REX</span></button>
     <button class="tool-btn" data-tool="bomb"><span class="icon">💣</span>Bomb</button>
     <button class="tool-btn" data-tool="star"><span class="icon">⭐</span>Star</button>
@@ -1519,6 +1519,8 @@ let grabHistory = []; // [{x, y, t}] for velocity tracking
 let anchoredBodies = new Set(); // bodies locked in place by the Anchor tool
 let resizeMode = 'grow'; // reselect the Resize tool to toggle grow/shrink
 let dinoKind = 'trex'; // reselect the Dino tool to cycle T. rex / triceratops / sauropod
+let carKind = 'sports'; // reselect the Car tool to cycle sports / pickup / bus
+let rocketKind = 'classic'; // reselect the Rocket tool to cycle finned / shuttle / firework
 let resizeFeedbackTimer = 0;
 let cloneFeedbackTimer = 0;
 let motorizedBodies = new Map(); // body -> direction: 1 clockwise, -1 counter-clockwise
@@ -2312,6 +2314,58 @@ function updateDinoButton() {
   btn.setAttribute('aria-label', `Place a ${info.name}. Tap again to switch dinosaur type`);
 }
 
+const CAR_KIND_ORDER = ['sports', 'pickup', 'bus'];
+const CAR_KIND_UI = {
+  sports: { label:'SPORT', name:'sports car' },
+  pickup: { label:'TRUCK', name:'pickup truck' },
+  bus: { label:'BUS', name:'bus' }
+};
+
+function normalizeCarKind(kind) {
+  return CAR_KIND_ORDER.includes(kind) ? kind : 'sports';
+}
+
+function getNextCarKind(kind) {
+  const index = CAR_KIND_ORDER.indexOf(normalizeCarKind(kind));
+  return CAR_KIND_ORDER[(index + 1) % CAR_KIND_ORDER.length];
+}
+
+function updateCarButton() {
+  const btn = document.querySelector('[data-tool="car"]');
+  if (!btn) return;
+  const kind = normalizeCarKind(carKind);
+  const info = CAR_KIND_UI[kind];
+  btn.querySelector('.car-label').textContent = info.label;
+  btn.title = `Tap to place a ${info.name}; tap this button again to switch car type`;
+  btn.setAttribute('aria-label', `Place a ${info.name}. Tap again to switch car type`);
+}
+
+const ROCKET_KIND_ORDER = ['classic', 'shuttle', 'firework'];
+const ROCKET_KIND_UI = {
+  classic: { label:'FIN', name:'finned rocket' },
+  shuttle: { label:'SHUT', name:'space shuttle' },
+  firework: { label:'SPARK', name:'firework rocket' }
+};
+
+function normalizeRocketKind(kind) {
+  return ROCKET_KIND_ORDER.includes(kind) ? kind : 'classic';
+}
+
+function getNextRocketKind(kind) {
+  const index = ROCKET_KIND_ORDER.indexOf(normalizeRocketKind(kind));
+  return ROCKET_KIND_ORDER[(index + 1) % ROCKET_KIND_ORDER.length];
+}
+
+function updateRocketButton() {
+  const btn = document.querySelector('[data-tool="rocket"]');
+  if (!btn) return;
+  const kind = normalizeRocketKind(rocketKind);
+  const info = ROCKET_KIND_UI[kind];
+  btn.querySelector('.rocket-label').textContent = info.label;
+  btn.title = `Tap to place a ${info.name}; tap this button again to switch rocket type`;
+  btn.setAttribute('aria-label', `Place a ${info.name}. Tap again to switch rocket type`);
+}
+
 function updateRotateButton() {
   const btn = document.querySelector('[data-tool="rotate"]');
   if (!btn) return;
@@ -2756,6 +2810,20 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
       haptic([6]);
       return;
     }
+    if (tool === 'car' && currentTool === 'car' && btn.classList.contains('active')) {
+      carKind = getNextCarKind(carKind);
+      updateCarButton();
+      playSound(carKind === 'sports' ? 440 : carKind === 'pickup' ? 320 : 250, 0.08, 'square', 0.06);
+      haptic([6]);
+      return;
+    }
+    if (tool === 'rocket' && currentTool === 'rocket' && btn.classList.contains('active')) {
+      rocketKind = getNextRocketKind(rocketKind);
+      updateRocketButton();
+      playSound(rocketKind === 'classic' ? 620 : rocketKind === 'shuttle' ? 480 : 880, 0.08, 'square', 0.06);
+      haptic([6]);
+      return;
+    }
     if (tool === 'rotate' && currentTool === 'rotate' && btn.classList.contains('active')) {
       rotateDirection = getNextRotateDirection(rotateDirection);
       updateRotateButton();
@@ -2882,6 +2950,14 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
         dinoKind = 'trex';
         updateDinoButton();
       }
+      if (tool === 'car') {
+        carKind = 'sports';
+        updateCarButton();
+      }
+      if (tool === 'rocket') {
+        rocketKind = 'classic';
+        updateRocketButton();
+      }
       if (tool === 'rotate') {
         rotateDirection = 1;
         updateRotateButton();
@@ -3000,16 +3076,12 @@ function spawnObject(x, y, vx=0, vy=0) {
       break;
     }
     case 'rocket': {
-      body = Bodies.rectangle(x, y, 18, 50, {
-        restitution: 0.1, friction: 0.3, frictionAir: 0.02,
-        render: { type:'rocket', color:'#ff6600' }
-      });
-      body.material = 'metal';
+      body = createRocket(x, y, rocketKind);
       rocketBodies.push(body);
       break;
     }
     case 'car': {
-      body = createCar(x, y);
+      body = createCar(x, y, carKind);
       break;
     }
     case 'dino': {
@@ -3412,11 +3484,24 @@ function connectChainLink(link) {
   if (madeConnections > 0) playSound(900, 0.06, 'square', 0.05);
 }
 
-function createCar(x, y) {
+function createRocket(x, y, kind = rocketKind) {
+  kind = normalizeRocketKind(kind);
+  // Original 18x50 hull so default spawns and old saves stay the same.
+  const body = Bodies.rectangle(x, y, 18, 50, {
+    restitution: 0.1, friction: 0.3, frictionAir: 0.02,
+    render: { type:'rocket', color:'#ff6600', rocketKind: kind }
+  });
+  body.material = 'metal';
+  return body;
+}
+
+function createCar(x, y, kind = carKind) {
+  kind = normalizeCarKind(kind);
+  // Original sports-car chassis so default spawns and old saves stay the same.
   const chassisW = 60, chassisH = 20;
   const wheelR = 10;
   const chassis = Bodies.rectangle(x, y, chassisW, chassisH, {
-    friction: 0.5, render: { type:'car-body', color:'#0abdc6' }
+    friction: 0.5, render: { type:'car-body', color:'#0abdc6', carKind: kind }
   });
   chassis.material = 'metal';
   const wheelL = Bodies.circle(x - 20, y + 15, wheelR, {
@@ -3435,6 +3520,183 @@ function createCar(x, y) {
   const comp = Composite.create();
   Composite.add(comp, [chassis, wheelL, wheelR2, axleL, axleR]);
   return comp;
+}
+
+function paintSpritePoly(ctx, points, color, fillAlpha = '88') {
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+  for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
+  ctx.closePath();
+  ctx.fillStyle = color + fillAlpha;
+  ctx.fill();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+function paintCarWindow(ctx, points) {
+  paintSpritePoly(ctx, points, '#dffcff', '66');
+}
+
+function paintCarLight(ctx, x, y, rx, ry, fill) {
+  ctx.beginPath();
+  ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+  ctx.fillStyle = fill;
+  ctx.fill();
+}
+
+function drawSportsCar(ctx, color) {
+  paintSpritePoly(ctx, [
+    {x:-30, y:6}, {x:-28, y:-2}, {x:-10, y:-7}, {x:16, y:-7},
+    {x:30, y:0}, {x:30, y:8}, {x:22, y:10}, {x:-26, y:10}
+  ], color);
+  paintSpritePoly(ctx, [
+    {x:-8, y:-7}, {x:12, y:-7}, {x:7, y:-16}, {x:-4, y:-16}
+  ], color);
+  paintCarWindow(ctx, [
+    {x:-6, y:-8}, {x:9, y:-8}, {x:5.5, y:-14.5}, {x:-2.5, y:-14.5}
+  ]);
+  paintSpritePoly(ctx, [
+    {x:-30, y:-5}, {x:-22, y:-6}, {x:-22, y:-2}, {x:-30, y:-1}
+  ], color);
+  paintCarLight(ctx, 26, 1, 3.2, 2.1, '#f4f0c8');
+  ctx.fillStyle = '#ff3333';
+  ctx.fillRect(-29, 0, 3, 4);
+}
+
+function drawPickupCar(ctx, color) {
+  paintSpritePoly(ctx, [
+    {x:-30, y:-2}, {x:-6, y:-2}, {x:-6, y:10}, {x:-30, y:10}
+  ], color);
+  paintSpritePoly(ctx, [
+    {x:-6, y:10}, {x:28, y:10}, {x:30, y:6}, {x:30, y:-2},
+    {x:20, y:-2}, {x:14, y:-16}, {x:-6, y:-16}
+  ], color);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(-28, -1, 20, 9);
+  paintCarWindow(ctx, [
+    {x:-3, y:-5}, {x:13, y:-5}, {x:11, y:-14}, {x:-1, y:-14}
+  ]);
+  paintCarLight(ctx, 27, 2, 2.8, 2, '#f4f0c8');
+  ctx.fillStyle = '#ff3333';
+  ctx.fillRect(-29, 2, 3, 4);
+}
+
+function drawBusCar(ctx, color) {
+  paintSpritePoly(ctx, [
+    {x:-30, y:-16}, {x:22, y:-16}, {x:30, y:-8}, {x:30, y:10}, {x:-30, y:10}
+  ], color);
+  ctx.fillStyle = color + '44';
+  ctx.fillRect(-30, 2, 60, 3);
+  const windows = [-24, -12, 0, 12];
+  windows.forEach(x => {
+    paintCarWindow(ctx, [
+      {x:x, y:-14}, {x:x + 8, y:-14}, {x:x + 8, y:-6}, {x:x, y:-6}
+    ]);
+  });
+  paintCarWindow(ctx, [
+    {x:22, y:-14}, {x:28, y:-8}, {x:28, y:0}, {x:22, y:0}
+  ]);
+  paintCarLight(ctx, 27, 4, 2.4, 1.8, '#f4f0c8');
+  ctx.fillStyle = '#ff3333';
+  ctx.fillRect(-29, 4, 3, 3);
+}
+
+function drawCarSprite(ctx, b, color) {
+  const kind = normalizeCarKind(b.render?.carKind);
+  if (kind === 'pickup') drawPickupCar(ctx, color);
+  else if (kind === 'bus') drawBusCar(ctx, color);
+  else drawSportsCar(ctx, color);
+}
+
+function drawRocketFlame(ctx, y, sleeping = false) {
+  const flicker = sleeping ? 7 : 5 + Math.random() * 10;
+  const glow = sleeping ? 140 : 100 + Math.random() * 155;
+  ctx.fillStyle = `rgba(255,${glow},0,${sleeping ? 0.62 : 0.8})`;
+  ctx.beginPath();
+  ctx.moveTo(-6, y);
+  ctx.lineTo(0, y + flicker);
+  ctx.lineTo(6, y);
+  ctx.fill();
+}
+
+function drawClassicRocket(ctx, color, thrusting) {
+  paintSpritePoly(ctx, [
+    {x:0, y:-25}, {x:8, y:-12}, {x:8, y:16}, {x:5, y:20},
+    {x:-5, y:20}, {x:-8, y:16}, {x:-8, y:-12}
+  ], color);
+  ctx.beginPath();
+  ctx.arc(0, -8, 3.2, 0, Math.PI * 2);
+  ctx.fillStyle = '#dffcff66';
+  ctx.fill();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  paintSpritePoly(ctx, [{x:8, y:8}, {x:16, y:22}, {x:8, y:18}], color);
+  paintSpritePoly(ctx, [{x:-8, y:8}, {x:-16, y:22}, {x:-8, y:18}], color);
+  paintSpritePoly(ctx, [
+    {x:-5, y:20}, {x:-7, y:25}, {x:7, y:25}, {x:5, y:20}
+  ], color, 'aa');
+  drawRocketFlame(ctx, 25, !thrusting);
+}
+
+function drawShuttleRocket(ctx, color, thrusting) {
+  paintSpritePoly(ctx, [
+    {x:0, y:-24}, {x:6, y:-16}, {x:7, y:12}, {x:5, y:20},
+    {x:-5, y:20}, {x:-7, y:12}, {x:-6, y:-16}
+  ], color);
+  paintCarWindow(ctx, [
+    {x:-4, y:-14}, {x:4, y:-14}, {x:5, y:-8}, {x:-5, y:-8}
+  ]);
+  paintSpritePoly(ctx, [{x:7, y:4}, {x:22, y:20}, {x:7, y:16}], color);
+  paintSpritePoly(ctx, [{x:-7, y:4}, {x:-22, y:20}, {x:-7, y:16}], color);
+  paintSpritePoly(ctx, [
+    {x:-1.5, y:-6}, {x:1.5, y:-6}, {x:1.5, y:12}, {x:-1.5, y:12}
+  ], color);
+  paintSpritePoly(ctx, [
+    {x:-6, y:20}, {x:-8, y:25}, {x:-2, y:25}, {x:-1, y:20}
+  ], color, 'aa');
+  paintSpritePoly(ctx, [
+    {x:1, y:20}, {x:2, y:25}, {x:8, y:25}, {x:6, y:20}
+  ], color, 'aa');
+  drawRocketFlame(ctx, 25, !thrusting);
+}
+
+function drawFireworkRocket(ctx, color, thrusting) {
+  paintSpritePoly(ctx, [
+    {x:0, y:-25}, {x:7, y:-18}, {x:6, y:-8}, {x:0, y:-4},
+    {x:-6, y:-8}, {x:-7, y:-18}
+  ], color);
+  ctx.beginPath();
+  ctx.arc(0, -14, 2.4, 0, Math.PI * 2);
+  ctx.fillStyle = '#f4f0c888';
+  ctx.fill();
+  paintSpritePoly(ctx, [
+    {x:-2.5, y:-4}, {x:2.5, y:-4}, {x:2.5, y:22}, {x:-2.5, y:22}
+  ], color);
+  paintSpritePoly(ctx, [{x:2.5, y:12}, {x:10, y:22}, {x:2.5, y:20}], color);
+  paintSpritePoly(ctx, [{x:-2.5, y:12}, {x:-10, y:22}, {x:-2.5, y:20}], color);
+  paintSpritePoly(ctx, [
+    {x:-3, y:22}, {x:-5, y:25}, {x:5, y:25}, {x:3, y:22}
+  ], color, 'aa');
+  drawRocketFlame(ctx, 25, !thrusting);
+  ctx.fillStyle = thrusting
+    ? `rgba(255,220,80,${0.45 + Math.random() * 0.35})`
+    : 'rgba(255,200,80,0.45)';
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath();
+    ctx.arc((Math.random() - 0.5) * 8, 26 + Math.random() * 8, 1.2 + Math.random(), 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawRocketSprite(ctx, b, color) {
+  const kind = normalizeRocketKind(b.render?.rocketKind);
+  const thrusting = !b.isSleeping;
+  if (kind === 'shuttle') drawShuttleRocket(ctx, color, thrusting);
+  else if (kind === 'firework') drawFireworkRocket(ctx, color, thrusting);
+  else drawClassicRocket(ctx, color, thrusting);
 }
 
 function getDinoVertices(kind) {
@@ -4426,9 +4688,10 @@ function finishClear(playFeedback = true) {
   clearVortex = null;
   pendingPhysicsActions = [];
 
-  // Remove ALL constraints first
+  // Remove ALL constraints first. Deep search is required so nested
+  // assemblies (cars, ragdolls) are not left behind in child composites.
   const allConstraints = Composite.allConstraints(world);
-  allConstraints.forEach(c => Composite.remove(world, c));
+  allConstraints.forEach(c => Composite.remove(world, c, true));
   // Remove ALL bodies except boundary walls
   const allBodies = Composite.allBodies(world);
   const bodiesToClear = allBodies.filter(b => b.label !== 'wall');
@@ -4439,7 +4702,8 @@ function finishClear(playFeedback = true) {
     });
     if (playFeedback) haptic([10, 10, 10, 10, 10]);
   }
-  bodiesToClear.forEach(b => Composite.remove(world, b));
+  bodiesToClear.forEach(b => Composite.remove(world, b, true));
+  world.composites.slice().forEach(child => Composite.remove(world, child));
   rocketBodies = [];
   bumpers = [];
   conveyors = [];
@@ -4543,6 +4807,10 @@ function finishClear(playFeedback = true) {
   updateResizeButton();
   dinoKind = 'trex';
   updateDinoButton();
+  carKind = 'sports';
+  updateCarButton();
+  rocketKind = 'classic';
+  updateRocketButton();
   clearTimeout(resizeFeedbackTimer);
   document.getElementById('resize-feedback').classList.remove('active');
   document.getElementById('resize-feedback').textContent = '';
@@ -15499,56 +15767,38 @@ function drawBody(b) {
       break;
     }
     case 'rocket': {
-      // Body
-      ctx.fillStyle = '#ff660044';
-      ctx.strokeStyle = '#ff6600';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(0, -25);
-      ctx.lineTo(9, -10);
-      ctx.lineTo(9, 20);
-      ctx.lineTo(13, 25);
-      ctx.lineTo(-13, 25);
-      ctx.lineTo(-9, 20);
-      ctx.lineTo(-9, -10);
-      ctx.closePath();
-      ctx.fill(); ctx.stroke();
-      // Flame
-      if (!b.isSleeping) {
-        const flicker = 5 + Math.random()*10;
-        ctx.fillStyle = `rgba(255,${100+Math.random()*155},0,0.8)`;
-        ctx.beginPath();
-        ctx.moveTo(-6, 25);
-        ctx.lineTo(0, 25 + flicker);
-        ctx.lineTo(6, 25);
-        ctx.fill();
-      }
+      drawRocketSprite(ctx, b, color);
       break;
     }
     case 'car-body': {
-      ctx.fillStyle = color + '33';
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
-      ctx.strokeRect(-30, -10, 60, 20);
-      ctx.fillRect(-30, -10, 60, 20);
-      // Window
-      ctx.strokeStyle = color + 'aa';
-      ctx.strokeRect(-15, -8, 20, 10);
+      drawCarSprite(ctx, b, color);
       break;
     }
     case 'wheel': {
       const wr = r.radius || 10;
       ctx.beginPath();
       ctx.arc(0, 0, wr, 0, Math.PI*2);
+      ctx.fillStyle = color + '88';
+      ctx.fill();
       ctx.strokeStyle = color;
       ctx.lineWidth = 2;
       ctx.stroke();
-      // Spoke
       ctx.beginPath();
-      ctx.moveTo(0, -wr); ctx.lineTo(0, wr);
-      ctx.strokeStyle = color + '88';
-      ctx.lineWidth = 1;
+      ctx.arc(0, 0, wr * 0.38, 0, Math.PI*2);
+      ctx.fillStyle = '#0a1208';
+      ctx.fill();
+      ctx.strokeStyle = color + 'cc';
+      ctx.lineWidth = 1.5;
       ctx.stroke();
+      ctx.strokeStyle = color + 'aa';
+      ctx.lineWidth = 1.5;
+      for (let i = 0; i < 3; i++) {
+        const spoke = (i * Math.PI * 2) / 3;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(spoke) * wr * 0.18, Math.sin(spoke) * wr * 0.18);
+        ctx.lineTo(Math.cos(spoke) * wr * 0.82, Math.sin(spoke) * wr * 0.82);
+        ctx.stroke();
+      }
       break;
     }
     case 'bomb': {
@@ -22097,7 +22347,7 @@ function captureGameState() {
       destructionMeter, lastDestructionLevel, comboCount, comboTimer, comboBest, wreckingBalls,
       discoMode, discoTimer, targetMode, targetTimer, targetScore, targetBodies,
       targetCleared, targetClearedTimer, magnets, ropes, chainLinks, sloMoActive,
-      anchoredBodies, resizeMode, dinoKind, motorizedBodies, flippers, nextFlipperSide, struts,
+      anchoredBodies, resizeMode, dinoKind, carKind, rocketKind, motorizedBodies, flippers, nextFlipperSide, struts,
       rotateDirection, hinges, springs, pivots, curveDirection, swirlDirection,
       thrusterBodies, phaseBodies, gyroBodies, twistDirection, liftedBodies, orbitingBodies,
       welds, tethers, webTraps, ramps, pinwheels, baskets,
@@ -22161,6 +22411,8 @@ function readGameSave(serialized) {
   if (!Object.hasOwn(game.state, 'latches')) game.state.latches = [];
   if (!Object.hasOwn(game.state, 'clutches')) game.state.clutches = [];
   if (!Object.hasOwn(game.state, 'dinoKind') || !DINO_KIND_ORDER.includes(game.state.dinoKind)) game.state.dinoKind = 'trex';
+  if (!Object.hasOwn(game.state, 'carKind') || !CAR_KIND_ORDER.includes(game.state.carKind)) game.state.carKind = 'sports';
+  if (!Object.hasOwn(game.state, 'rocketKind') || !ROCKET_KIND_ORDER.includes(game.state.rocketKind)) game.state.rocketKind = 'classic';
   const expected = captureGameState().state;
   for (const [key, value] of Object.entries(expected)) {
     const actual = game.state[key];
@@ -22287,7 +22539,7 @@ function restoreGameState(game) {
     destructionMeter, lastDestructionLevel, comboCount, comboTimer, comboBest, wreckingBalls,
     discoMode, discoTimer, targetMode, targetTimer, targetScore, targetBodies,
     targetCleared, targetClearedTimer, magnets, ropes, chainLinks, sloMoActive,
-    anchoredBodies, resizeMode, dinoKind, motorizedBodies, flippers, nextFlipperSide, struts,
+    anchoredBodies, resizeMode, dinoKind, carKind, rocketKind, motorizedBodies, flippers, nextFlipperSide, struts,
     rotateDirection, hinges, springs, pivots, curveDirection, swirlDirection,
     thrusterBodies, phaseBodies, gyroBodies, twistDirection, liftedBodies, orbitingBodies,
     welds, tethers, webTraps, ramps, pinwheels, baskets,
@@ -22330,6 +22582,8 @@ function restoreGameState(game) {
   });
   updateResizeButton();
   updateDinoButton();
+  updateCarButton();
+  updateRocketButton();
   pauseBtn.querySelector('.icon').textContent = paused ? '▶️' : '⏸️';
   pauseBtn.querySelector('.icon').nextSibling.textContent = paused ? 'PLAY' : 'PAUSE';
   document.getElementById('planet-name').textContent = game.planetName;

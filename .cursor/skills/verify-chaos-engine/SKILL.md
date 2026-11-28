@@ -192,6 +192,7 @@ All helpers are executable. Invoke them from the repo root.
 | `./scripts/verify-chaos-engine drive one-part-missing` | [Puzzle shelf](features/one-part-missing.md), named One Part Missing header link on desktop and phone, public directory and legacy level links, real repairs, replay, workshop links and sandbox save/load |
 | `./scripts/verify-chaos-engine drive ui-layout` | Standard 390 / 1280 layout proof for [features/ui-layout.md](../../features/ui-layout.md) |
 | `./scripts/verify-chaos-engine drive dino` | [Dino](features/dino.md), three types, save/load and CLEAR on desktop and 390px touch |
+| `./scripts/verify-chaos-engine drive car-rocket` | [Car](features/car.md) and [Rocket](features/rocket.md), three types each, save/load and CLEAR on desktop and 390px touch |
 | `./scripts/verify-chaos-engine drive deflect` | Touch and desktop quarter-turn travel proof for [features/deflect.md](features/deflect.md) |
 | `./scripts/verify-chaos-engine drive unfinished-repairs` | [Resume an unfinished repair](features/unfinished-repairs.md), durable partial fittings, undo, local privacy and multi-tab recovery |
 | `./scripts/verify-chaos-engine drive tool-notebook` | [Your tool notebook](features/tool-notebook.md), actual fitting activity, personalized practice and replayable contacts |
@@ -226,6 +227,8 @@ Shared paths and port rules live in `scripts/lib/chaos-verify-common.sh`. The br
 - [ui-layout](../../features/ui-layout.md) — **standard**; run on every change
 - [spawn-objects](../../features/spawn-objects.md)
 - [dino](../../features/dino.md)
+- [car](../../features/car.md)
+- [rocket](../../features/rocket.md)
 - [chaos-actions](../../features/chaos-actions.md)
 - [gravity](../../features/gravity.md)
 - [sandbox-controls](../../features/sandbox-controls.md)
