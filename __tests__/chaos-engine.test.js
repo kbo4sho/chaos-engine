@@ -4108,10 +4108,75 @@ describe('Dino Tool', () => {
 
   it('should persist the chosen type on the body and restore the toolbar from saves', () => {
     expect(scriptContent).toContain("render: { type:'dino', color, dinoKind: kind, dinoScale: scale }");
-    expect(scriptContent).toContain('anchoredBodies, resizeMode, dinoKind, motorizedBodies');
+    expect(scriptContent).toContain('anchoredBodies, resizeMode, dinoKind, carKind, rocketKind, motorizedBodies');
     expect(scriptContent).toContain("game.state.dinoKind = 'trex'");
     expect(scriptContent).toContain('drawDinoSprite(ctx, b, color)');
     expect(scriptContent).toContain("dinoKind = 'trex';\n  updateDinoButton();");
+  });
+});
+
+describe('Car Tool', () => {
+  it('should cycle three car types from the same toolbar button without changing the emoji', () => {
+    const carBtn = document.querySelector('[data-tool="car"]');
+    expect(carBtn).not.toBeNull();
+    expect(carBtn?.querySelector('.icon')?.textContent).toBe('🚗');
+    expect(carBtn?.querySelector('.car-label')?.textContent).toBe('SPORT');
+    expect(carBtn?.getAttribute('aria-label')).toContain('sports car');
+    expect(scriptContent).toContain("const CAR_KIND_ORDER = ['sports', 'pickup', 'bus']");
+    expect(scriptContent).toContain("currentTool === 'car'");
+    expect(scriptContent).toContain('carKind = getNextCarKind(carKind)');
+    expect(scriptContent).toContain('function updateCarButton()');
+    expect(scriptContent).toContain("carKind = 'sports';\n        updateCarButton();");
+    expect(scriptContent).not.toContain('car-icon');
+  });
+
+  it('should keep the original chassis and wheels as the default type', () => {
+    expect(scriptContent).toContain('Original sports-car chassis so default spawns and old saves stay the same.');
+    expect(scriptContent).toContain('const chassisW = 60, chassisH = 20');
+    expect(scriptContent).toContain('const wheelR = 10');
+    expect(scriptContent).toContain('Bodies.circle(x - 20, y + 15, wheelR');
+    expect(scriptContent).toContain('Bodies.circle(x + 20, y + 15, wheelR');
+    expect(scriptContent).toContain('function drawPickupCar(');
+    expect(scriptContent).toContain('function drawBusCar(');
+  });
+
+  it('should persist the chosen type on the chassis and restore the toolbar from saves', () => {
+    expect(scriptContent).toContain("render: { type:'car-body', color:'#0abdc6', carKind: kind }");
+    expect(scriptContent).toContain("game.state.carKind = 'sports'");
+    expect(scriptContent).toContain('drawCarSprite(ctx, b, color)');
+    expect(scriptContent).toContain("carKind = 'sports';\n  updateCarButton();");
+    expect(scriptContent).toContain('bodiesToClear.forEach(b => Composite.remove(world, b, true))');
+  });
+});
+
+describe('Rocket Tool', () => {
+  it('should cycle three rocket types from the same toolbar button without changing the emoji', () => {
+    const rocketBtn = document.querySelector('[data-tool="rocket"]');
+    expect(rocketBtn).not.toBeNull();
+    expect(rocketBtn?.querySelector('.icon')?.textContent).toBe('🚀');
+    expect(rocketBtn?.querySelector('.rocket-label')?.textContent).toBe('FIN');
+    expect(rocketBtn?.getAttribute('aria-label')).toContain('finned rocket');
+    expect(scriptContent).toContain("const ROCKET_KIND_ORDER = ['classic', 'shuttle', 'firework']");
+    expect(scriptContent).toContain("currentTool === 'rocket'");
+    expect(scriptContent).toContain('rocketKind = getNextRocketKind(rocketKind)');
+    expect(scriptContent).toContain('function updateRocketButton()');
+    expect(scriptContent).toContain("rocketKind = 'classic';\n        updateRocketButton();");
+    expect(scriptContent).not.toContain('rocket-icon');
+  });
+
+  it('should keep the original 18x50 hull as the default type', () => {
+    expect(scriptContent).toContain('Original 18x50 hull so default spawns and old saves stay the same.');
+    expect(scriptContent).toContain('Bodies.rectangle(x, y, 18, 50');
+    expect(scriptContent).toContain('function drawShuttleRocket(');
+    expect(scriptContent).toContain('function drawFireworkRocket(');
+  });
+
+  it('should persist the chosen type on the body and restore the toolbar from saves', () => {
+    expect(scriptContent).toContain("render: { type:'rocket', color:'#ff6600', rocketKind: kind }");
+    expect(scriptContent).toContain("game.state.rocketKind = 'classic'");
+    expect(scriptContent).toContain('drawRocketSprite(ctx, b, color)');
+    expect(scriptContent).toContain("rocketKind = 'classic';\n  updateRocketButton();");
+    expect(scriptContent).toContain('rocketBodies.push(body)');
   });
 });
 
@@ -4574,6 +4639,14 @@ describe('Chaos Functions in Code', () => {
 
   it('should have createCar function', () => {
     expect(scriptContent).toContain('function createCar(');
+    expect(scriptContent).toContain('function drawCarSprite(');
+    expect(scriptContent).toContain('function updateCarButton()');
+  });
+
+  it('should have createRocket function', () => {
+    expect(scriptContent).toContain('function createRocket(');
+    expect(scriptContent).toContain('function drawRocketSprite(');
+    expect(scriptContent).toContain('function updateRocketButton()');
   });
 
   it('should have createDino function', () => {

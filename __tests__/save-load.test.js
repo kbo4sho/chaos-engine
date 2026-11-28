@@ -2531,3 +2531,159 @@ describe('Dino type switch', () => {
     expect(api.errors).toEqual([]);
   });
 });
+
+describe('Car type switch', () => {
+  it('spawns a sports car by default and cycles pickup then bus from the same button', () => {
+    const api = gameHarness();
+    api.run('paused = true;');
+    const button = api.window.document.querySelector('[data-tool="car"]');
+    button.click();
+    expect(api.run('[currentTool, carKind]')).toEqual(['car', 'sports']);
+    expect(button.querySelector('.icon').textContent).toBe('🚗');
+    expect(button.querySelector('.car-label').textContent).toBe('SPORT');
+    api.run('window.sport = spawnObject(200, 220);');
+    expect(api.run('sport.bodies.find(b => b.render.type === "car-body").render.carKind')).toBe('sports');
+    expect(api.run('sport.bodies.filter(b => b.render.type === "wheel").length')).toBe(2);
+    expect(api.run('sport.bodies.filter(b => b.render.type === "wheel").every(w => w.friction === 0.8)')).toBe(true);
+    expect(api.run('sport.bodies.find(b => b.render.type === "car-body").friction')).toBe(0.5);
+    button.click();
+    expect(api.run('carKind')).toBe('pickup');
+    expect(button.querySelector('.car-label').textContent).toBe('TRUCK');
+    expect(button.querySelector('.icon').textContent).toBe('🚗');
+    api.run('window.truck = spawnObject(320, 220);');
+    expect(api.run('truck.bodies.find(b => b.render.type === "car-body").render.carKind')).toBe('pickup');
+    expect(api.run('truck.bodies.filter(b => b.render.type === "wheel").length')).toBe(2);
+    button.click();
+    expect(api.run('carKind')).toBe('bus');
+    expect(button.querySelector('.car-label').textContent).toBe('BUS');
+    api.run('window.bus = spawnObject(440, 220);');
+    expect(api.run('bus.bodies.find(b => b.render.type === "car-body").render.carKind')).toBe('bus');
+    expect(api.run('bus.bodies.filter(b => b.render.type === "wheel").length')).toBe(2);
+    button.click();
+    expect(api.run('carKind')).toBe('sports');
+    expect(api.run('Composite.allBodies(world).filter(b => b.render?.type === "car-body").map(b => b.render.carKind)')).toEqual(['sports', 'pickup', 'bus']);
+    api.click('btn-clear');
+    api.run('finishClear(false);');
+    expect(api.run('Composite.allBodies(world).filter(b => b.label !== "wall").length')).toBe(0);
+    expect(api.run('world.composites.length')).toBe(0);
+  });
+
+  it('round-trips car kinds through save/load and defaults missing kinds to sports', () => {
+    const api = gameHarness();
+    api.run('paused = true;');
+    const button = api.window.document.querySelector('[data-tool="car"]');
+    button.click();
+    api.run('spawnObject(200, 220);');
+    button.click();
+    api.run('spawnObject(320, 220);');
+    button.click();
+    api.run('spawnObject(440, 220);');
+    api.run(`
+      window.saved = serializeGameState();
+      window.beforeKinds = captureGameState().bodies.filter(b => b.render?.type === 'car-body').map(b => b.render.carKind);
+    `);
+    expect(api.window.beforeKinds).toEqual(['sports', 'pickup', 'bus']);
+    api.run('restoreGameState(readGameSave(window.saved));');
+    expect(api.run('carKind')).toBe('bus');
+    expect(api.window.document.querySelector('.car-label').textContent).toBe('BUS');
+    expect(api.window.document.querySelector('[data-tool="car"] .icon').textContent).toBe('🚗');
+    expect(api.run("captureGameState().bodies.filter(b => b.render?.type === 'car-body').map(b => b.render.carKind)")).toEqual(['sports', 'pickup', 'bus']);
+    expect(api.run("captureGameState().bodies.filter(b => b.render?.type === 'wheel').length")).toBe(6);
+
+    api.run(`
+      const game = captureGameState();
+      delete game.state.carKind;
+      game.bodies.filter(b => b.render?.type === 'car-body').forEach(b => { delete b.render.carKind; });
+      const graph = ChaosSaveCodec.encode(game);
+      window.oldSave = JSON.stringify({version:1, savedAt:new Date().toISOString(), graph, checksum:ChaosSaveCodec.checksum(graph)});
+      restoreGameState(readGameSave(window.oldSave));
+    `);
+    expect(api.run('carKind')).toBe('sports');
+    expect(api.run("captureGameState().bodies.filter(b => b.render?.type === 'car-body').every(b => normalizeCarKind(b.render.carKind) === 'sports')")).toBe(true);
+    expect(() => api.run('Engine.update(engine, 1000 / 60)')).not.toThrow();
+    expect(api.errors).toEqual([]);
+  });
+});
+
+describe('Rocket type switch', () => {
+  it('spawns a finned rocket by default and cycles shuttle then firework from the same button', () => {
+    const api = gameHarness();
+    api.run('paused = true;');
+    const button = api.window.document.querySelector('[data-tool="rocket"]');
+    button.click();
+    expect(api.run('[currentTool, rocketKind]')).toEqual(['rocket', 'classic']);
+    expect(button.querySelector('.icon').textContent).toBe('🚀');
+    expect(button.querySelector('.rocket-label').textContent).toBe('FIN');
+    api.run('window.fin = spawnObject(200, 220);');
+    expect(api.run('fin.render.type')).toBe('rocket');
+    expect(api.run('fin.render.rocketKind')).toBe('classic');
+    expect(api.run('fin.restitution')).toBe(0.1);
+    expect(api.run('fin.friction')).toBe(0.3);
+    expect(api.run('fin.frictionAir')).toBe(0.02);
+    expect(api.run('rocketBodies.includes(fin)')).toBe(true);
+    button.click();
+    expect(api.run('rocketKind')).toBe('shuttle');
+    expect(button.querySelector('.rocket-label').textContent).toBe('SHUT');
+    expect(button.querySelector('.icon').textContent).toBe('🚀');
+    api.run('window.shut = spawnObject(320, 220);');
+    expect(api.run('shut.render.rocketKind')).toBe('shuttle');
+    expect(api.run('rocketBodies.includes(shut)')).toBe(true);
+    button.click();
+    expect(api.run('rocketKind')).toBe('firework');
+    expect(button.querySelector('.rocket-label').textContent).toBe('SPARK');
+    api.run('window.spark = spawnObject(440, 220);');
+    expect(api.run('spark.render.rocketKind')).toBe('firework');
+    expect(api.run('rocketBodies.includes(spark)')).toBe(true);
+    button.click();
+    expect(api.run('rocketKind')).toBe('classic');
+    expect(api.run('Composite.allBodies(world).filter(b => b.render?.type === "rocket").map(b => b.render.rocketKind)')).toEqual(['classic', 'shuttle', 'firework']);
+  });
+
+  it('keeps thrust on every rocket type and defaults missing kinds to classic', () => {
+    const api = gameHarness();
+    api.run('paused = true; engine.gravity.y = 0; engine.gravity.scale = 0;');
+    const button = api.window.document.querySelector('[data-tool="rocket"]');
+    button.click();
+    api.run('spawnObject(200, 300);');
+    button.click();
+    api.run('spawnObject(320, 300);');
+    button.click();
+    api.run('spawnObject(440, 300);');
+    api.run(`
+      window.beforeY = Composite.allBodies(world).filter(b => b.render?.type === 'rocket').map(b => b.velocity.y);
+      rocketBodies.forEach(r => Body.applyForce(r, r.position, {
+        x: Math.sin(r.angle) * 0.002,
+        y: -Math.cos(r.angle) * 0.002
+      }));
+      Engine.update(engine, 1000 / 60);
+      window.afterY = Composite.allBodies(world).filter(b => b.render?.type === 'rocket').map(b => b.velocity.y);
+      window.kinds = Composite.allBodies(world).filter(b => b.render?.type === 'rocket').map(b => b.render.rocketKind);
+    `);
+    expect(api.window.kinds).toEqual(['classic', 'shuttle', 'firework']);
+    expect(api.window.afterY.every((y, i) => y < api.window.beforeY[i])).toBe(true);
+
+    api.run(`
+      window.saved = serializeGameState();
+      window.beforeKinds = captureGameState().bodies.filter(b => b.render?.type === 'rocket').map(b => b.render.rocketKind);
+    `);
+    expect(api.window.beforeKinds).toEqual(['classic', 'shuttle', 'firework']);
+    api.run('restoreGameState(readGameSave(window.saved));');
+    expect(api.run('rocketKind')).toBe('firework');
+    expect(api.window.document.querySelector('.rocket-label').textContent).toBe('SPARK');
+    expect(api.run("captureGameState().bodies.filter(b => b.render?.type === 'rocket').map(b => b.render.rocketKind)")).toEqual(['classic', 'shuttle', 'firework']);
+    expect(api.run("rocketBodies.map(b => b.render.rocketKind)")).toEqual(['classic', 'shuttle', 'firework']);
+
+    api.run(`
+      const game = captureGameState();
+      delete game.state.rocketKind;
+      game.bodies.filter(b => b.render?.type === 'rocket').forEach(b => { delete b.render.rocketKind; });
+      const graph = ChaosSaveCodec.encode(game);
+      window.oldSave = JSON.stringify({version:1, savedAt:new Date().toISOString(), graph, checksum:ChaosSaveCodec.checksum(graph)});
+      restoreGameState(readGameSave(window.oldSave));
+    `);
+    expect(api.run('rocketKind')).toBe('classic');
+    expect(api.run("captureGameState().bodies.filter(b => b.render?.type === 'rocket').every(b => normalizeRocketKind(b.render.rocketKind) === 'classic')")).toBe(true);
+    expect(() => api.run('Engine.update(engine, 1000 / 60)')).not.toThrow();
+    expect(api.errors).toEqual([]);
+  });
+});

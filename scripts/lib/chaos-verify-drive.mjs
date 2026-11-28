@@ -839,6 +839,195 @@ async function driveDino(page) {
   result.expected = 'three dinosaur types spawn, persist through save/load, and clear on desktop and phone';
 }
 
+async function driveCarRocket(page) {
+  for (const viewport of [
+    { name: 'desktop', width: 1280, height: 800 },
+    { name: 'mobile', width: 390, height: 664, isMobile: true, hasTouch: true }
+  ]) {
+    await page.setViewport(viewport);
+    await page.goto(url, { waitUntil: 'networkidle0', timeout: 30000 });
+    await page.waitForSelector('#game', { timeout: 15000 });
+    await page.waitForFunction(() => Boolean(window.ChaosEngine) && Boolean(document.querySelector('[data-tool="car"]')) && Boolean(document.querySelector('[data-tool="rocket"]')), { timeout: 15000 });
+
+    const tap = async selector => {
+      await page.$eval(selector, element => element.scrollIntoView({ block: 'nearest', inline: 'center' }));
+      if (viewport.hasTouch) await page.tap(selector); else await page.click(selector);
+    };
+    const point = async (x, y) => viewport.hasTouch ? page.touchscreen.tap(x, y) : page.mouse.click(x, y);
+    const toolButton = (tool, labelSel) => page.$eval(`[data-tool="${tool}"]`, (el, labelSel) => {
+      const box = el.getBoundingClientRect();
+      return {
+        active: el.classList.contains('active'),
+        label: el.querySelector(labelSel)?.textContent || '',
+        icon: el.querySelector('.icon')?.textContent || '',
+        aria: el.getAttribute('aria-label') || '',
+        visible: box.width > 0 && box.height > 0 && box.left >= 0 && box.right <= innerWidth + 1
+      };
+    }, labelSel);
+    const carKinds = () => page.evaluate(() => Composite.allBodies(world)
+      .filter(body => body.render?.type === 'car-body')
+      .map(body => body.render.carKind));
+    const rocketKinds = () => page.evaluate(() => Composite.allBodies(world)
+      .filter(body => body.render?.type === 'rocket')
+      .map(body => body.render.rocketKind));
+
+    await tap('#btn-pause');
+    await tap('[data-tool="car"]');
+    let button = await toolButton('car', '.car-label');
+    record(`${viewport.name}-select-sports`, button.active && button.label === 'SPORT' && button.icon === '🚗' && button.visible && /sports car/i.test(button.aria), button);
+
+    const rect = await page.$eval('#game', canvas => {
+      const box = canvas.getBoundingClientRect();
+      return { x: box.x, y: box.y, w: box.width, h: box.height };
+    });
+    const mid = { x: rect.x + rect.w * 0.5, y: rect.y + rect.h * 0.30 };
+    const carPortraits = [
+      { kind: 'sports', label: 'SPORT', file: '01-sports.png', clicks: 0, minCount: 3 },
+      { kind: 'pickup', label: 'TRUCK', file: '02-pickup.png', clicks: 1, minCount: 3 },
+      { kind: 'bus', label: 'BUS', file: '03-bus.png', clicks: 2, minCount: 3 }
+    ];
+
+    for (const portrait of carPortraits) {
+      for (let n = 0; n < portrait.clicks; n++) await tap('[data-tool="car"]');
+      button = await toolButton('car', '.car-label');
+      record(`${viewport.name}-cycle-${portrait.kind}`, button.active && button.label === portrait.label && button.icon === '🚗', button);
+      await point(mid.x, mid.y);
+      await page.waitForFunction(count => Number(document.getElementById('obj-count')?.textContent) >= count, { timeout: 8000 }, portrait.minCount);
+      await new Promise(resolve => setTimeout(resolve, 220));
+      const only = await carKinds();
+      record(`${viewport.name}-spawn-${portrait.kind}`, only.length === 1 && only[0] === portrait.kind, { only });
+      await shot(page, `${viewport.name}-${portrait.file}`);
+      await tap('#btn-clear');
+      await page.waitForFunction(() => !clearAnimating && Number(document.getElementById('obj-count')?.textContent) === 0, { timeout: 8000 });
+    }
+
+    await tap('[data-tool="rocket"]');
+    button = await toolButton('rocket', '.rocket-label');
+    record(`${viewport.name}-select-classic`, button.active && button.label === 'FIN' && button.icon === '🚀' && button.visible && /finned rocket/i.test(button.aria), button);
+    const rocketPortraits = [
+      { kind: 'classic', label: 'FIN', file: '04-classic.png', clicks: 0 },
+      { kind: 'shuttle', label: 'SHUT', file: '05-shuttle.png', clicks: 1 },
+      { kind: 'firework', label: 'SPARK', file: '06-firework.png', clicks: 2 }
+    ];
+    for (const portrait of rocketPortraits) {
+      for (let n = 0; n < portrait.clicks; n++) await tap('[data-tool="rocket"]');
+      button = await toolButton('rocket', '.rocket-label');
+      record(`${viewport.name}-cycle-${portrait.kind}`, button.active && button.label === portrait.label && button.icon === '🚀', button);
+      await point(mid.x, mid.y);
+      await page.waitForFunction(() => Number(document.getElementById('obj-count')?.textContent) >= 1, { timeout: 8000 });
+      await new Promise(resolve => setTimeout(resolve, 220));
+      const only = await rocketKinds();
+      record(`${viewport.name}-spawn-${portrait.kind}`, only.length === 1 && only[0] === portrait.kind, { only });
+      await shot(page, `${viewport.name}-${portrait.file}`);
+      await tap('#btn-clear');
+      await page.waitForFunction(() => !clearAnimating && Number(document.getElementById('obj-count')?.textContent) === 0, { timeout: 8000 });
+    }
+
+    const carSpots = [
+      { kind: 'sports', label: 'SPORT', x: rect.x + rect.w * 0.22, y: rect.y + rect.h * 0.20 },
+      { kind: 'pickup', label: 'TRUCK', x: rect.x + rect.w * 0.50, y: rect.y + rect.h * 0.20 },
+      { kind: 'bus', label: 'BUS', x: rect.x + rect.w * 0.78, y: rect.y + rect.h * 0.20 }
+    ];
+    await tap('[data-tool="car"]');
+    for (let index = 0; index < carSpots.length; index++) {
+      const spot = carSpots[index];
+      if (index > 0) await tap('[data-tool="car"]');
+      button = await toolButton('car', '.car-label');
+      record(`${viewport.name}-scene-cycle-${spot.kind}`, button.active && button.label === spot.label && button.icon === '🚗', button);
+      await point(spot.x, spot.y);
+      await page.waitForFunction(count => Number(document.getElementById('obj-count')?.textContent) >= count, { timeout: 8000 }, (index + 1) * 3);
+    }
+
+    const rocketSpots = [
+      { kind: 'classic', label: 'FIN', x: rect.x + rect.w * 0.28, y: rect.y + rect.h * 0.34 },
+      { kind: 'shuttle', label: 'SHUT', x: rect.x + rect.w * 0.50, y: rect.y + rect.h * 0.34 },
+      { kind: 'firework', label: 'SPARK', x: rect.x + rect.w * 0.72, y: rect.y + rect.h * 0.34 }
+    ];
+    await tap('[data-tool="rocket"]');
+    for (let index = 0; index < rocketSpots.length; index++) {
+      const spot = rocketSpots[index];
+      if (index > 0) await tap('[data-tool="rocket"]');
+      button = await toolButton('rocket', '.rocket-label');
+      record(`${viewport.name}-scene-cycle-${spot.kind}`, button.active && button.label === spot.label && button.icon === '🚀', button);
+      await point(spot.x, spot.y);
+      await page.waitForFunction(count => Number(document.getElementById('obj-count')?.textContent) >= count, { timeout: 8000 }, 9 + index + 1);
+    }
+
+    const placedCars = await carKinds();
+    const placedRockets = await rocketKinds();
+    const ui = await readUi(page);
+    record(`${viewport.name}-three-car-kinds`, placedCars.length === 3 && placedCars[0] === 'sports' && placedCars[1] === 'pickup' && placedCars[2] === 'bus' && Number(ui.objCount) >= 12, { placedCars, objCount: ui.objCount });
+    record(`${viewport.name}-three-rocket-kinds`, placedRockets.length === 3 && placedRockets[0] === 'classic' && placedRockets[1] === 'shuttle' && placedRockets[2] === 'firework', { placedRockets, objCount: ui.objCount });
+
+    if (viewport.name === 'desktop') {
+      await page.select('#save-slot', '1');
+      await tap('#btn-save');
+      await new Promise(resolve => setTimeout(resolve, 200));
+      let saveUi = await readUi(page);
+      if (saveUi.dialogOpen) {
+        await tap('#save-accept');
+        await new Promise(resolve => setTimeout(resolve, 250));
+        saveUi = await readUi(page);
+      }
+      const saved = parseSave(saveUi.storage['chaos-engine-save-1']);
+      record('desktop-save', saveUi.feedback.includes('SAVED TO SLOT') && Boolean(saved?.graph) && saved?.version === 1 && !misleadingStorageError(saveUi.feedback), {
+        feedback: saveUi.feedback,
+        version: saved?.version || null
+      });
+
+      await page.reload({ waitUntil: 'networkidle0', timeout: 30000 });
+      await page.waitForSelector('#btn-load', { timeout: 15000 });
+      const persistOk = Boolean(parseSave((await readUi(page)).storage['chaos-engine-save-1'])?.graph);
+      record('desktop-reload-persist', persistOk, { persistOk });
+
+      await tap('#btn-load');
+      await new Promise(resolve => setTimeout(resolve, 200));
+      let loadUi = await readUi(page);
+      if (loadUi.dialogOpen) {
+        await tap('#save-accept');
+        await new Promise(resolve => setTimeout(resolve, 300));
+        loadUi = await readUi(page);
+      }
+      const loadedCars = await carKinds();
+      const loadedRockets = await rocketKinds();
+      await shot(page, 'desktop-07-after-load.png');
+      record('desktop-load-kinds', loadUi.feedback.includes('LOADED SLOT') && Number(loadUi.objCount) >= 12 &&
+        loadedCars[0] === 'sports' && loadedCars[1] === 'pickup' && loadedCars[2] === 'bus' &&
+        loadedRockets[0] === 'classic' && loadedRockets[1] === 'shuttle' && loadedRockets[2] === 'firework', {
+        feedback: loadUi.feedback,
+        objCount: loadUi.objCount,
+        loadedCars,
+        loadedRockets
+      });
+      fs.writeFileSync(path.join(outDir, 'localStorage.json'), JSON.stringify({
+        keys: loadUi.storageKeys,
+        slot1Chars: (loadUi.storage['chaos-engine-save-1'] || '').length
+      }, null, 2));
+      fs.writeFileSync(path.join(outDir, 'page-state.json'), JSON.stringify({ ...loadUi, loadedCars, loadedRockets }, null, 2));
+    } else {
+      await shot(page, 'mobile-01-cycle.png');
+    }
+
+    await tap('#btn-clear');
+    await page.waitForFunction(() => !clearAnimating && Number(document.getElementById('obj-count')?.textContent) === 0, { timeout: 8000 });
+    const cleanup = await page.evaluate(() => ({
+      count: document.getElementById('obj-count')?.textContent,
+      carLabel: document.querySelector('[data-tool="car"] .car-label')?.textContent,
+      rocketLabel: document.querySelector('[data-tool="rocket"] .rocket-label')?.textContent,
+      carIcon: document.querySelector('[data-tool="car"] .icon')?.textContent,
+      rocketIcon: document.querySelector('[data-tool="rocket"] .icon')?.textContent,
+      bodies: Composite.allBodies(world).filter(body => body.label !== 'wall').length,
+      carKind,
+      rocketKind
+    }));
+    record(`${viewport.name}-clear`, cleanup.bodies === 0 && cleanup.carLabel === 'SPORT' && cleanup.rocketLabel === 'FIN' && cleanup.carKind === 'sports' && cleanup.rocketKind === 'classic' && cleanup.carIcon === '🚗' && cleanup.rocketIcon === '🚀', cleanup);
+    await shot(page, `${viewport.name}-08-clear.png`);
+    record(`${viewport.name}-no-runtime-errors`, !consoleLines.some(line => /^\[(error|pageerror)\]/.test(line)), consoleLines.slice(-8));
+  }
+  result.passed = result.failures.length === 0 && result.steps.every(step => step.ok);
+  result.expected = 'three car types and three rocket types spawn, persist through save/load, and clear on desktop and phone';
+}
+
 const journeys = {
   'offline-workshop': async page => {
     const {verifyOfflineWorkshop} = await import('./verify-offline-workshop.mjs');
@@ -1074,6 +1263,7 @@ const journeys = {
   'trim': driveTrim,
   'deflect': driveDeflect,
   'dino': driveDino,
+  'car-rocket': driveCarRocket,
   'save-load': driveSaveLoad,
   'example-scenes': driveExampleScenes,
   'example-scenes-mobile': driveExampleScenesMobile,

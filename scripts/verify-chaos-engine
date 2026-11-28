@@ -63,6 +63,7 @@ Usage: ./scripts/verify-chaos-engine <command> [options]
   drive one-part-missing          Repair, replay, print, share and open machines
   drive ui-layout                 Measure save-cluster layout at 390 and 1280
   drive dino                      Place T. rex / triceratops / sauropod, save/load, CLEAR
+  drive car-rocket                Place sports/pickup/bus and finned/shuttle/firework, save/load, CLEAR
   cleanup                         Kill only the PID this run started
 
 Environment:
@@ -279,7 +280,7 @@ cmd_doctor() {
 cmd_drive() {
   local journey="${1:-}"
   if [[ -z "$journey" ]]; then
-    echo "usage: ./scripts/verify-chaos-engine drive save-load|example-scenes|example-scenes-mobile|ui-layout|dino|one-part-missing|puzzle-campaign|tool-course|clockwork-course|tool-lessons|tool-press|rigging-course|paired-repairs|attempt-film|drive-course|work-orders|puzzle-library|sorting-course|prediction-lab|design-bench|flight-course|repair-coach|operator-room|assembly-course|field-course|test-bay|grand-relays|fault-desk|spare-study|phone-bench|friend-races|discovery|replay-clips|double-exposures|shutter-sheets|offline-races|match-cards|path-reader|experiment-exchange|unfinished-repairs|tool-notebook|qualification-course|phone-startup|repair-transfer|pair-training|machine-diagram|offline-workshop|compound-designer|drawing-exchange|release-trials|repair-celebration" >&2
+    echo "usage: ./scripts/verify-chaos-engine drive save-load|example-scenes|example-scenes-mobile|ui-layout|dino|car-rocket|one-part-missing|puzzle-campaign|tool-course|clockwork-course|tool-lessons|tool-press|rigging-course|paired-repairs|attempt-film|drive-course|work-orders|puzzle-library|sorting-course|prediction-lab|design-bench|flight-course|repair-coach|operator-room|assembly-course|field-course|test-bay|grand-relays|fault-desk|spare-study|phone-bench|friend-races|discovery|replay-clips|double-exposures|shutter-sheets|offline-races|match-cards|path-reader|experiment-exchange|unfinished-repairs|tool-notebook|qualification-course|phone-startup|repair-transfer|pair-training|machine-diagram|offline-workshop|compound-designer|drawing-exchange|release-trials|repair-celebration" >&2
     exit 2
   fi
   cmd_doctor
